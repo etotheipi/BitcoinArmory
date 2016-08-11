@@ -342,6 +342,15 @@ public:
       }
    }
 
+   /////////////////////////////////////////////////////////////////////////////
+   static pair<uint64_t, uint8_t> readVarInt(BinaryRefReader & brr)
+   {
+      uint64_t outVal;
+      uint32_t outLen;
+      outVal = readVarInt(brr.getCurrPtr(), brr.getSizeRemaining(), &outLen);
+      brr.advance(outLen);
+      return pair<uint64_t, uint8_t>(outVal, (uint8_t)outLen);
+   }
    
    /////////////////////////////////////////////////////////////////////////////
    static inline uint32_t readVarIntLength(uint8_t const * strmPtr)
@@ -816,8 +825,11 @@ public:
       }
       else
       {
-         offsetsWitness->resize(1);
-         (*offsetsWitness)[0] = brr.getPosition();
+         if (offsetsWitness != nullptr)
+         {
+            offsetsWitness->resize(1);
+            (*offsetsWitness)[0] = brr.getPosition();
+         }
       }
 
       brr.advance(4);
@@ -923,8 +935,11 @@ public:
       }
       else
       {
-         offsetsWitness->resize(1);
-         (*offsetsWitness)[0] = brr.getPosition();
+         if (offsetsWitness != nullptr)
+         {
+            offsetsWitness->resize(1);
+            (*offsetsWitness)[0] = brr.getPosition();
+         }
       }
 
       brr.advance(4);

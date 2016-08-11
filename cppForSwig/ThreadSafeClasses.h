@@ -489,7 +489,7 @@ public:
             {
                try
                {
-                  throw(IsEmpty());
+                  throw IsEmpty();
                }
                catch (...)
                {
@@ -541,6 +541,19 @@ public:
       *newMap = *map_;
 
       newMap->insert(obj);
+      map_ = newMap;
+   }
+
+   void update(map<T, U> updatemap)
+   {
+      auto newMap = make_shared<map<T, U>>();
+
+      unique_lock<mutex> lock(mu_);
+      *newMap = *map_;
+
+      for (auto& updatepair : updatemap)
+         (*newMap)[updatepair.first] = move(updatepair.second);
+
       map_ = newMap;
    }
 
@@ -730,57 +743,69 @@ public:
       //block until timeout expires or data is available
       //return data or throw IsEmpty or StackTimedOutException
 
-      waiting_.fetch_add(1, memory_order_relaxed);
       try
       {
-         auto terminate = terminate_.load(memory_order_relaxed);
-         if (terminate)
+         while (1)
          {
+            waiting_.fetch_add(1, memory_order_relaxed);
+            auto terminate = terminate_.load(memory_order_relaxed);
+            if (terminate)
+            {
+               waiting_.fetch_sub(1, memory_order_relaxed);
+               throw StopBlockingLoop();
+            }
+
+            //try to pop_front
+            try
+            {
+               auto&& retval = Stack<T>::pop_front();
+               waiting_.fetch_sub(1, memory_order_relaxed);
+               return move(retval);
+            }
+            catch (IsEmpty&)
+            {
+            }
+
+            //if there are no items, create promise, push to promise pile
+            auto tID = this_thread::get_id();
+
+            auto haveItemPromise = make_shared<promise<bool>>();
+
+            promiseMap_.insert(make_pair(tID, haveItemPromise));
+            auto haveItemFuture = haveItemPromise->get_future();
+
+
+            //try to grab data one more time before waiting on future
+            try
+            {
+               auto&& retval = Stack<T>::pop_front();
+               waiting_.fetch_sub(1, memory_order_relaxed);
+               promiseMap_.erase(tID);
+               return move(retval);
+            }
+            catch (IsEmpty&)
+            {
+            }
+
+            //TODO: figure out time left if we break before the timeout
+            //but reenter the loop
+            
+            auto status = haveItemFuture.wait_for(timeout);
+            promiseMap_.erase(this_thread::get_id());
             waiting_.fetch_sub(1, memory_order_relaxed);
-            throw IsEmpty();
+
+            if (status == future_status::timeout) //future timed out
+               throw StackTimedOutException();
+
+            try
+            {
+               auto&& retval = Stack<T>::pop_front();
+               return move(retval);
+            }
+            catch (IsEmpty&)
+            {
+            }
          }
-
-         //try to pop_front
-         try
-         {
-            auto&& retval = Stack<T>::pop_front();
-            waiting_.fetch_sub(1, memory_order_relaxed);
-            return move(retval);
-         }
-         catch (IsEmpty&)
-         {
-         }
-
-         //if there are no items, create promise, push to promise pile
-         auto tID = this_thread::get_id();
-         
-         auto haveItemPromise = make_shared<promise<bool>>();
-
-         promiseMap_.insert(make_pair(tID, haveItemPromise));
-         auto haveItemFuture = haveItemPromise->get_future();
-
-
-         //try to grab data one more time before waiting on future
-         try
-         {
-            auto&& retval = Stack<T>::pop_front();
-            waiting_.fetch_sub(1, memory_order_relaxed);
-            promiseMap_.erase(tID);
-            return retval;
-         }
-         catch (IsEmpty&)
-         {
-         }
-
-         auto status = haveItemFuture.wait_for(timeout);
-         promiseMap_.erase(this_thread::get_id());
-         waiting_.fetch_sub(1, memory_order_relaxed);
-
-         if (status == future_status::timeout) //future timed out
-            throw StackTimedOutException();
-
-         auto&& retval = Stack<T>::pop_front();
-         return retval;
       }
       catch (StopBlockingLoop&)
       {

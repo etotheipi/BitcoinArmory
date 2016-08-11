@@ -93,6 +93,9 @@
     <ClInclude Include="..\TxClasses.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\SocketObject.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\BinaryData.cpp">
@@ -183,6 +186,27 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\DataObject.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\BitcoinP2P.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\TxClasses.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\DBUtils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\BDM_Server.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SocketObject.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\BlockDataManager\fcgi\libfcgi\fcgiapp.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\BlockDataManager\fcgi\libfcgi\os_win32.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

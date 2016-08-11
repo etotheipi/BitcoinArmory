@@ -20,15 +20,11 @@
 /////////////////////////////////////////////////////////////////////////////
 BinaryData StoredDBInfo::getDBKey(uint16_t id)
 {
-   static BinaryData dbinfokey(0);
-   if(dbinfokey.getSize() == 0)
-   {
-      BinaryWriter bw(1);
-      bw.put_uint8_t((uint8_t)DB_PREFIX_DBINFO); 
-      bw.put_uint16_t(id);
-      dbinfokey = bw.getData();
-   }
-   return dbinfokey;
+   BinaryWriter bw(3);
+   bw.put_uint8_t((uint8_t)DB_PREFIX_DBINFO);
+   bw.put_uint16_t(id, BE);
+
+   return bw.getData();
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -548,7 +544,7 @@ void DBBlock::unserializeDBValue( DB_SELECT         db,
    {
       // Read the flags byte
       BitUnpacker<uint32_t> bitunpack(brr);
-      unserArmVer_      =                  bitunpack.getBits(4);
+      unserArmVer_      =                  bitunpack.getBits(16);
       unserBlkVer_      =                  bitunpack.getBits(4);
       unserDbType_      = (ARMORY_DB_TYPE) bitunpack.getBits(4);
       unserMkType_      = (MERKLE_SER_TYPE)bitunpack.getBits(2);
@@ -631,9 +627,9 @@ void DBBlock::serializeDBValue(
    
       // Create the flags byte
       BitPacker<uint32_t> bitpack;
-      bitpack.putBits((uint32_t)ARMORY_DB_VERSION,         4);
+      bitpack.putBits((uint32_t)ARMORY_DB_VERSION,         16);
       bitpack.putBits((uint32_t)version,                   4);
-      bitpack.putBits((uint32_t)dbType, 4);
+      bitpack.putBits((uint32_t)dbType,                    4);
       bitpack.putBits((uint32_t)mtype,                     2);
       bitpack.putBit(blockAppliedToDB_);
 
@@ -793,8 +789,8 @@ void DBTx::unserializeDBValue(BinaryRefReader & brr)
    //    DBVersion      4 bits
    //    TxVersion      2 bits
    //    HowTxSer       4 bits   (FullTxOut, TxNoTxOuts, numTxOutOnly)
-   BitUnpacker<uint16_t> bitunpack(brr); // flags
-   unserArmVer_  =                    bitunpack.getBits(4);
+   BitUnpacker<uint32_t> bitunpack(brr); // flags
+   unserArmVer_  =                    bitunpack.getBits(16);
    unserTxVer_   =                    bitunpack.getBits(2);
    unserTxType_  = (TX_SERIALIZE_TYPE)bitunpack.getBits(4);
 
@@ -849,10 +845,10 @@ void StoredTx::serializeDBValue(
 
    uint16_t version = (uint16_t)READ_UINT32_LE(dataCopy_.getPtr());
 
-   BitPacker<uint16_t> bitpack;
-   bitpack.putBits((uint16_t)ARMORY_DB_VERSION,  4);
-   bitpack.putBits((uint16_t)version,            2);
-   bitpack.putBits((uint16_t)serType,            4);
+   BitPacker<uint32_t> bitpack;
+   bitpack.putBits((uint32_t)ARMORY_DB_VERSION,  16);
+   bitpack.putBits((uint32_t)version,            2);
+   bitpack.putBits((uint32_t)serType,            4);
 
    
    bw.put_BitPacker(bitpack);
@@ -1363,7 +1359,8 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
    SCRIPT_UTXO_TYPE txoListType = (SCRIPT_UTXO_TYPE) bitunpack.getBits(2);
    (void)txoListType;
 
-   alreadyScannedUpToBlk_ = brr.get_uint32_t();
+   scanHeight_ = brr.get_int32_t();
+   tallyHeight_ = brr.get_int32_t();
    totalTxioCount_ = brr.get_var_int();
 
    // We shouldn't end up with empty ssh's, but should catch it just in case
@@ -1405,7 +1402,9 @@ void StoredScriptHistory::serializeDBValue(BinaryWriter & bw,
    bw.put_BitPacker(bitpack);
 
    // 
-   bw.put_uint32_t(alreadyScannedUpToBlk_); 
+   bw.put_int32_t(scanHeight_); 
+   bw.put_int32_t(tallyHeight_);
+
    bw.put_var_int(totalTxioCount_); 
    bw.put_uint64_t(totalUnspent_);
 
@@ -1484,7 +1483,7 @@ void StoredScriptHistory::pprintOneLine(uint32_t indent)
    uint32_t sz = uniqueKey_.getSize();
    cout << "SSHOBJ: " << ktype.c_str() << ": "
         << uniqueKey_.getSliceCopy(1,sz-1).toHexStr()
-        << " Sync: " << alreadyScannedUpToBlk_ 
+        << " Sync: " << scanHeight_ 
         << " #IO: " << totalTxioCount_
         << " Unspent: " << (totalUnspent_/COIN)
         << endl;
@@ -2033,8 +2032,8 @@ void StoredUndoData::unserializeDBValue(BinaryRefReader & brr,
       BinaryData hgtx   = brr.get_BinaryData(4);
       stxo.blockHeight_ = DBUtils::hgtxToHeight(hgtx);
       stxo.duplicateID_ = DBUtils::hgtxToDupID(hgtx);
-      stxo.txIndex_     = brr.get_uint16_t(BIGENDIAN);
-      stxo.txOutIndex_  = brr.get_uint16_t(BIGENDIAN);
+      stxo.txIndex_     = brr.get_uint16_t(BE);
+      stxo.txOutIndex_  = brr.get_uint16_t(BE);
 
       // This is the raw OutPoint of the removed TxOut.  May not strictly
       // be necessary for processing undo ops in this DB (but might be), 
@@ -2304,7 +2303,7 @@ BinaryData StoredHeadHgtList::getDBKey(bool withPrefix) const
    BinaryWriter bw(5);
    if(withPrefix)
       bw.put_uint8_t((uint8_t)DB_PREFIX_HEADHGT); 
-   bw.put_uint32_t(height_, BIGENDIAN);
+   bw.put_uint32_t(height_, BE);
    return bw.getData();
 
 }
@@ -2323,7 +2322,7 @@ void StoredHeadHgtList::unserializeDBKey(BinaryDataRef key)
       }
    }
 
-   height_ = brr.get_uint32_t(BIGENDIAN);
+   height_ = brr.get_uint32_t(BE);
 }
 
 // kate: indent-width 3; replace-tabs on;

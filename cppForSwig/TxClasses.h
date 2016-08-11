@@ -162,6 +162,7 @@ public:
    uint32_t         getParentHeight() const;
 
    void             setParentHash(BinaryData const & txhash) { parentHash_ = txhash; }
+   const BinaryData& getParentHash(void) const { return parentHash_; }
    void             setParentHeight(uint32_t blkheight) { parentHeight_ = blkheight; }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -270,6 +271,7 @@ public:
    uint32_t           getParentHeight() const;
 
    void               setParentHash(BinaryData const & txhash) { parentHash_ = txhash; }
+   const BinaryData& getParentHash(void) const { return parentHash_; }
    void               setParentHeight(uint32_t blkheight) { parentHeight_ = blkheight; }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -352,7 +354,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    BinaryData         serialize(void) const    { return dataCopy_; }
    BinaryData         serializeWithRBFFlag(void) const;
-   BinaryData         serializeNoWitness(void) const { return dataNoWitness_; };
+   BinaryData         serializeNoWitness(void) const;
 
    /////////////////////////////////////////////////////////////////////////////
    void unserialize(uint8_t const * ptr, size_t size);
@@ -413,13 +415,12 @@ private:
    BinaryData    dataCopy_;
    bool          isInitialized_;
    bool          usesWitness_ = false;
-   BinaryData    dataNoWitness_;
 
    uint32_t      version_;
    uint32_t      lockTime_;
 
    // Derived properties - we expect these to be set after construct/copy
-   BinaryData    thisHash_;
+   mutable BinaryData    thisHash_;
 
    // Will always create TxIns and TxOuts on-the-fly; only store the offsets
    vector<size_t> offsetsTxIn_;

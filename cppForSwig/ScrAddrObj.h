@@ -38,6 +38,12 @@
 //
 //
 ////////////////////////////////////////////////////////////////////////////////
+struct ScanAddressStruct
+{
+   set<BinaryData> invalidatedZCKeys_;
+   map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>> zcMap_;
+};
+
 class ScrAddrObj
 {
    friend class BtcWallet;
@@ -246,8 +252,7 @@ public:
 
    void updateTxIOMap(map<BinaryData, TxIOPair>& txio_map);
 
-   void scanZC(const map<HashString, TxIOPair>& zcTxIOMap,
-      function<bool(const BinaryData&)>);
+   void scanZC(const ScanAddressStruct&, function<bool(const BinaryDataRef)>);
    void purgeZC(const set<BinaryData>& invalidatedTxOutKeys);
 
    void updateAfterReorg(uint32_t lastValidBlockHeight);

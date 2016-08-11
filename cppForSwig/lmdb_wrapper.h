@@ -455,18 +455,6 @@ public:
       );
 
    /////////////////////////////////////////////////////////////////////////////
-   // When we're not in supernode mode, we're going to need to track only 
-   // specific addresses.  We will keep a list of those addresses here.
-   // UINT32_MAX for the "scannedUpToBlk" arg means that this address is totally
-   // new and does not require a rescan.  If you don't know when the scraddress
-   // was created, use 0.  Or if you know something, you can supply it.  Though
-   // in many cases, we will just do a full rescan if it's not totally new.
-   void addRegisteredScript(BinaryDataRef rawScript,
-      uint32_t      scannedUpToBlk = UINT32_MAX);
-
-
-
-   /////////////////////////////////////////////////////////////////////////////
    bool startBlkDataIteration(LDBIter & iter, DB_PREFIX prefix);
 
 

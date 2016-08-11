@@ -112,7 +112,7 @@ public:
 
    struct ScrAddrSideScanData
    {
-      uint32_t startScanFrom_=0;
+      int32_t startScanFrom_= -1;
       vector<shared_ptr<WalletInfo>> wltInfoVec_;
       bool doScan_ = true;
       unsigned uniqueID_ = UINT32_MAX;
@@ -143,7 +143,7 @@ private:
    static atomic<unsigned> keyCounter_;
    static atomic<bool> run_;
 
-   shared_ptr<map<BinaryData, uint32_t>>   scrAddrMap_;
+   shared_ptr<map<BinaryData, int32_t>>   scrAddrMap_;
 
    LMDBBlockDatabase *const       lmdb_;
 
@@ -163,7 +163,7 @@ private:
 
 private:
 
-   void setScrAddrLastScanned(const BinaryData& scrAddr, uint32_t blkHgt)
+   void setScrAddrLastScanned(const BinaryData& scrAddr, int32_t blkHgt)
    {
       auto scrAddrIter = scrAddrMap_->find(scrAddr);
       if (scrAddrIter != scrAddrMap_->end())
@@ -194,7 +194,7 @@ public:
       if (uniqueKey_ == 0) 
          cleanUpPreviousChildren(lmdb);
 
-      scrAddrMap_ = make_shared<map<BinaryData, uint32_t>>();
+      scrAddrMap_ = make_shared<map<BinaryData, int32_t>>();
       scanThreadProgressCallback_ = 
          [](const vector<string>&, double, unsigned)->void {};
    }
@@ -208,16 +208,17 @@ public:
    
    LMDBBlockDatabase* lmdb() { return lmdb_; }
 
-   const shared_ptr<map<BinaryData, uint32_t>>& getScrAddrMap(void) const
+   const shared_ptr<map<BinaryData, int32_t>>& getScrAddrMap(void) const
    { 
       if (!run_.load(memory_order_relaxed))
          throw runtime_error("ScrAddrFilter flagged for termination");
       return scrAddrMap_; 
    }
 
-   set<TxOutScriptRef> getOutScrRefSet(void) const
+   map<TxOutScriptRef, int> getOutScrRefMap(void)
    {
-      set<TxOutScriptRef> outset;
+      getScrAddrCurrentSyncState();
+      map<TxOutScriptRef, int> outset;
 
       auto scrAddrMap = scrAddrMap_;
 
@@ -226,7 +227,7 @@ public:
          TxOutScriptRef scrRef;
          scrRef.setRef(scrAddrPair.first);
 
-         outset.insert(move(scrRef));
+         outset.insert(move(make_pair(scrRef, scrAddrPair.second)));
       }
 
       return outset;
@@ -235,7 +236,7 @@ public:
    size_t numScrAddr(void) const
    { return scrAddrMap_->size(); }
 
-   uint32_t scanFrom(void) const;
+   int32_t scanFrom(void) const;
    bool registerAddresses(const set<BinaryData>&, string, bool,
       function<void(bool)>);
    bool registerAddressBatch(
@@ -299,6 +300,7 @@ private:
       const vector<shared_ptr<WalletInfo>>& wltInfoSet, bool areNew);
 };
 
+////////////////////////////////////////////////////////////////////////////////
 class ZeroConfContainer
 {
 private:
@@ -317,9 +319,7 @@ public:
    struct BDV_Callbacks
    {
       function<void(
-         map<
-         BinaryData, shared_ptr<
-         map<BinaryData, TxIOPair >> >
+         map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>>
          )> newZcCallback_;
 
       function<bool(const BinaryData&)> addressFilter_;
@@ -329,6 +329,7 @@ public:
    {
       ZcAction action_;
       map<BinaryData, Tx> zcMap_;
+      shared_ptr<promise<bool>> finishedPromise_ = nullptr;
 
       void setData(map<BinaryData, Tx> zcmap)
       {
@@ -339,22 +340,24 @@ public:
 private:
    map<HashString, HashString>                  txHashToDBKey_; //<txHash, dbKey>
    map<HashString, Tx>                          txMap_; //<zcKey, zcTx>
-   map<HashString, map<BinaryData, TxIOPair> >  txioMap_; //<scrAddr,  <dbKeyOfOutput, TxIOPair>>
-   map<HashString, vector<HashString> >         keyToSpentScrAddr_; //<zcKey, vector<ScrAddr>>
    set<HashString>                              txOutsSpentByZC_;     //<txOutDbKeys>
    set<HashString>                              allZcTxHashes_;
    map<BinaryData, map<unsigned, BinaryData>>   outPointsSpentByKey_; //<txHash, map<opId, ZcKeys>>
 
+   //<scrAddr,  <dbKeyOfOutput, TxIOPair>>
+   TransactionalMap<HashString, map<BinaryData, TxIOPair>>  txioMap_;
+   
+   //<zcKey, vector<ScrAddr>>
+   TransactionalMap<HashString, set<HashString>> keyToSpentScrAddr_;
+   
    BinaryData lastParsedBlockHash_;
-
    std::atomic<uint32_t> topId_;
-
    LMDBBlockDatabase* db_;
 
    static map<BinaryData, TxIOPair> emptyTxioMap_;
    bool enabled_ = false;
 
-   vector<BinaryData> emptyVecBinData_;
+   set<BinaryData> emptySetBinData_;
 
    //stacks inv tx packets from node
    shared_ptr<BitcoinP2P> networkNode_;
@@ -363,8 +366,10 @@ private:
    TransactionalMap<string, BDV_Callbacks> bdvCallbacks_;
    TransactionalMap<BinaryData, shared_ptr<promise<bool>>> waitOnZcMap_;
 
+   function<shared_ptr<map<BinaryData, int32_t>>(void)> getMainAddressMap_;
+   mutex parserMutex_;
+
 private:
-   BinaryData getNewZCkey(void);   
    BulkFilterData ZCisMineBulkFilter(const Tx & tx,
       const BinaryData& ZCkey,
       uint32_t txtime);
@@ -374,6 +379,7 @@ private:
 
 public:
    //stacks new zc Tx objects from node
+   BinaryData getNewZCkey(void);   
    BlockingStack<ZcActionStruct> newZcStack_;
 
 public:
@@ -394,18 +400,20 @@ public:
    bool hasTxByHash(const BinaryData& txHash) const;
    Tx getTxByHash(const BinaryData& txHash) const;
 
-   const map<HashString, map<BinaryData, TxIOPair> >&
-      getFullTxioMap(void) const { return txioMap_; }
+   shared_ptr<map<HashString, map<BinaryData, TxIOPair>>>
+      getFullTxioMap(void) const { return txioMap_.get(); }
 
    void dropZC(const set<BinaryData>& txHashes);
    void parseNewZC(void);
+   void parseNewZC(map<BinaryData, Tx> zcMap, bool updateDB, bool notify);
    bool isTxOutSpentByZC(const BinaryData& dbKey) const;
    bool getKeyForTxHash(const BinaryData& txHash, BinaryData& zcKey) const;
 
    void clear(void);
 
    map<BinaryData, TxIOPair> getZCforScrAddr(BinaryData scrAddr) const;
-   const vector<BinaryData>& getSpentSAforZCKey(const BinaryData& zcKey) const;
+   const set<BinaryData>& getSpentSAforZCKey(const BinaryData& zcKey) const;
+   const shared_ptr<map<HashString, set<HashString>>> getKeyToSpentScrAddrMap(void) const;
 
    void updateZCinDB(
       const vector<BinaryData>& keysToWrite, const vector<BinaryData>& keysToDel);
@@ -413,7 +421,8 @@ public:
    void processInvTxVec(vector<InvEntry>);
    void processInvTxThread(void);
 
-   void init(function<bool(const BinaryData&)>, bool clearMempool);
+   void init(function<shared_ptr<map<BinaryData, int32_t>>(void)>, 
+      bool clearMempool);
    void shutdown();
 
    void insertBDVcallback(string, BDV_Callbacks);

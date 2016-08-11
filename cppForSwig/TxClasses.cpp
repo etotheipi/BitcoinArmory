@@ -373,7 +373,8 @@ bool Tx::isCoinbase(void) const
 /////////////////////////////////////////////////////////////////////////////
 void Tx::unserialize(uint8_t const * ptr, size_t size)
 {
-   uint32_t nBytes = BtcUtils::TxCalcLength(ptr, size, &offsetsTxIn_, &offsetsTxOut_, &offsetsWitness_);
+   uint32_t nBytes = BtcUtils::TxCalcLength(ptr, size, 
+      &offsetsTxIn_, &offsetsTxOut_, &offsetsWitness_);
 
    if(nBytes > size)
       throw BlockDeserializingException();
@@ -381,24 +382,16 @@ void Tx::unserialize(uint8_t const * ptr, size_t size)
    if(8 > size)
       throw BlockDeserializingException();
 
+   usesWitness_ = false;
+   auto marker = (const uint16_t*)(ptr + 4);
+   if (*marker == 0x0100)
+      usesWitness_ = true;
+
    uint32_t numWitness = offsetsWitness_.size() - 1;
    version_ = READ_UINT32_LE(ptr);
    if(4 > size - offsetsWitness_[numWitness])
       throw BlockDeserializingException();
    lockTime_ = READ_UINT32_LE(ptr + offsetsWitness_[numWitness]);
-
-   if(READ_UINT8_BE(ptr + 4) == 0 && READ_UINT8_BE(ptr + 5) == 1)
-   {
-      usesWitness_ = true;
-      dataNoWitness_.append(WRITE_UINT32_LE(version_));
-      BinaryDataRef txBody(ptr + 6,offsetsTxOut_.back() - 6);
-      dataNoWitness_.append(txBody);
-      dataNoWitness_.append(WRITE_UINT32_LE(lockTime_));
-   }
-   else
-      dataNoWitness_.copyFrom(ptr,nBytes);
-
-   BtcUtils::getHash256(dataNoWitness_, thisHash_);
 
 	isInitialized_ = true;
 }
@@ -426,14 +419,37 @@ void Tx::unserializeWithRBFFlag(const BinaryData& rawTx)
    isRBF_ = (bool)rawTx.getPtr();
 }
 
+/////////////////////////////////////////////////////////////////////////////
+BinaryData Tx::serializeNoWitness(void) const
+{
+   if (!isInitialized())
+      throw runtime_error("Tx uninitialized");
+
+   BinaryData dataNoWitness;
+   dataNoWitness.append(WRITE_UINT32_LE(version_));
+   BinaryDataRef txBody(dataCopy_.getPtr() + 6, offsetsTxOut_.back() - 6);
+   dataNoWitness.append(txBody);
+   dataNoWitness.append(WRITE_UINT32_LE(lockTime_));
+
+}
 
 /////////////////////////////////////////////////////////////////////////////
 BinaryData Tx::getThisHash(void) const
 {
-   if(thisHash_.getSize() == 32)
-      return thisHash_;
+   if (thisHash_.getSize() == 0)
+   {
+      if (usesWitness_)
+      {
+         auto&& dataNoWitness = serializeNoWitness();
+         thisHash_ = move(BtcUtils::getHash256(dataNoWitness));
+      }
+      else
+      {
+         thisHash_ = move(BtcUtils::getHash256(dataCopy_));
+      }
+   }
 
-   return BtcUtils::getHash256(dataNoWitness_.getPtr(), dataNoWitness_.getSize());
+   return thisHash_;
 }
 
 /////////////////////////////////////////////////////////////////////////////

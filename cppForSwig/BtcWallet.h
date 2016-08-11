@@ -17,9 +17,21 @@
 #include "BlockObj.h"
 #include "ScrAddrObj.h"
 #include "StoredBlockObj.h"
+#include "bdmenums.h"
 
 class BlockDataManager;
 class BlockDataViewer;
+
+struct ScanWalletStruct
+{
+   BDV_Action action_;
+   
+   unsigned startBlock_;
+   unsigned endBlock_ = UINT32_MAX;
+   bool reorg_ = false;
+
+   ScanAddressStruct saStruct_;
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 class AddressBookEntry
@@ -207,13 +219,11 @@ public:
 private:   
    
    //returns true on bootstrap and new block, false on ZC
-   bool scanWallet(uint32_t startBlock, uint32_t endBlock, bool reorg,
-      const map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>>&);
+   bool scanWallet(const ScanWalletStruct&);
 
    //wallet side reorg processing
    void updateAfterReorg(uint32_t lastValidBlockHeight);
-   void scanWalletZeroConf(bool purge,
-      const map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>>&);
+   void scanWalletZeroConf(const ScanWalletStruct&);
 
    void setRegistered(bool isTrue = true) { isRegistered_ = isTrue; }
 
@@ -261,6 +271,8 @@ private:
    //call this lambda once a wallet is done registering and scanning 
    //for the first time
    function<void(void)> doneRegisteringCallback_ = [](void)->void{};
+
+   set<BinaryData> validZcKeys_;
 };
 
 #endif

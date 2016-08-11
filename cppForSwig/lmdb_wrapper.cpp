@@ -1144,46 +1144,6 @@ bool LMDBBlockDatabase::getFullUTXOMapForSSH(
    return true;
 }
 
-
-
-
-////////////////////////////////////////////////////////////////////////////////
-// We must guarantee that we don't overwrite data if 
-void LMDBBlockDatabase::addRegisteredScript(BinaryDataRef rawScript, 
-                                         uint32_t      blockCreated)
-{
-   BinaryData uniqKey = BtcUtils::getTxOutScrAddr(rawScript);
-   // bool       isMulti = BtcUtils::isMultisigScript(rawScript);
-
-   StoredScriptHistory ssh;
-   getStoredScriptHistory(ssh, uniqKey);
-   
-   uint32_t scannedTo;
-   if(!ssh.isInitialized())
-   {
-      // Script is not registered in the DB yet
-      ssh.uniqueKey_  = uniqKey;
-      ssh.version_    = ARMORY_DB_VERSION;
-      ssh.alreadyScannedUpToBlk_ = blockCreated;
-      //ssh.multisigDBKeys_.resize(0);
-      putStoredScriptHistory(ssh);
-   }
-   else
-   {
-      if(blockCreated!=UINT32_MAX)
-         scannedTo = max(ssh.alreadyScannedUpToBlk_, blockCreated);
-      
-      // Only overwrite if the data in the DB is incorrect
-      if(scannedTo != ssh.alreadyScannedUpToBlk_)
-      {
-         ssh.alreadyScannedUpToBlk_ = scannedTo;
-         putStoredScriptHistory(ssh);
-      }
-   }
-
-   registeredSSHs_[uniqKey] = ssh;
-}
-
 /////////////////////////////////////////////////////////////////////////////
 // TODO: We should also read the HeaderHgtList entries to get the blockchain
 //       sorting that is saved in the DB.  But right now, I'm not sure what
@@ -1303,7 +1263,7 @@ void LMDBBlockDatabase::putStoredDBInfo(
    if (!sdbi.isInitialized())
       throw runtime_error("tried to write uninitiliazed sdbi");
 
-   putValue(db, sdbi.getDBKey(id), serializeDBValue(sdbi));
+   putValue(db, StoredDBInfo::getDBKey(id), serializeDBValue(sdbi));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1313,7 +1273,8 @@ StoredDBInfo LMDBBlockDatabase::getStoredDBInfo(DB_SELECT db, uint32_t id)
    LMDBEnv::Transaction tx;
    beginDBTransaction(&tx, db, LMDB::ReadOnly);
 
-   BinaryRefReader brr = getValueRef(db, StoredDBInfo::getDBKey(id));
+   auto&& key = StoredDBInfo::getDBKey(id);
+   BinaryRefReader brr = getValueRef(db, key.getRef());
 
    if (brr.getSize() == 0)
       throw runtime_error("no sdbi at this key");
@@ -1728,7 +1689,7 @@ TxOut LMDBBlockDatabase::getTxOutCopy(
    SCOPED_TIMER("getTxOutCopy");
    BinaryWriter bw(8);
    bw.put_BinaryData(ldbKey6B);
-   bw.put_uint16_t(txOutIdx, BIGENDIAN);
+   bw.put_uint16_t(txOutIdx, BE);
    BinaryDataRef ldbKey8 = bw.getDataRef();
 
    TxOut txoOut;
@@ -1846,7 +1807,7 @@ BinaryData LMDBBlockDatabase::getTxHashForLdbKey(BinaryDataRef ldbKey6B) const
       }
 
       // We can't get here unless we found the precise Tx entry we were looking for
-      stxVal.advance(2);
+      stxVal.advance(4);
       return stxVal.get_BinaryData(32);
    }
 
@@ -2321,7 +2282,7 @@ TxRef LMDBBlockDatabase::getTxRef(BinaryData hgtx, uint16_t txIndex)
 {
    BinaryWriter bw;
    bw.put_BinaryData(hgtx);
-   bw.put_uint16_t(txIndex, BIGENDIAN);
+   bw.put_uint16_t(txIndex, BE);
    return TxRef(bw.getDataRef());
 }
 
@@ -2330,7 +2291,7 @@ TxRef LMDBBlockDatabase::getTxRef( uint32_t hgt, uint8_t  dup, uint16_t txIndex)
 {
    BinaryWriter bw;
    bw.put_BinaryData(DBUtils::heightAndDupToHgtx(hgt,dup));
-   bw.put_uint16_t(txIndex, BIGENDIAN);
+   bw.put_uint16_t(txIndex, BE);
    return TxRef(bw.getDataRef());
 }
 
@@ -2769,7 +2730,7 @@ void LMDBBlockDatabase::closeDB(DB_SELECT db)
 /////////////////////////////////////////////////////////////////////////////
 void LMDBBlockDatabase::resetSSHdb()
 {
-   set<BinaryData> sshKeys;
+   map<BinaryData, int> sshKeys;
 
    {
       //gather keys
@@ -2780,7 +2741,10 @@ void LMDBBlockDatabase::resetSSHdb()
 
       while (dbIter.advanceAndRead(DB_PREFIX_SCRIPT))
       {
-         sshKeys.insert(dbIter.getKey());
+         StoredScriptHistory ssh;
+         ssh.unserializeDBValue(dbIter.getValueRef());
+
+         sshKeys[dbIter.getKeyRef()] = ssh.scanHeight_;
       }
    }
 
@@ -2790,13 +2754,16 @@ void LMDBBlockDatabase::resetSSHdb()
       LMDBEnv::Transaction tx;
       beginDBTransaction(&tx, SSH, LMDB::ReadWrite);
 
-      StoredScriptHistory emptySSH;
-      BinaryWriter bw;
-      emptySSH.serializeDBValue(bw, ARMORY_DB_BARE);
 
       for (auto& sshkey : sshKeys)
       {
-         putValue(SSH, sshkey.getRef(), bw.getDataRef());
+         StoredScriptHistory ssh;
+         BinaryWriter bw;
+         
+         ssh.scanHeight_ = sshkey.second;
+         ssh.serializeDBValue(bw, ARMORY_DB_FULL);
+
+         putValue(SSH, sshkey.first.getRef(), bw.getDataRef());
       }
 
       auto&& sdbi = getStoredDBInfo(SSH, 0);

@@ -158,7 +158,7 @@ bool TxIOPair::setTxIn(const BinaryData& dbKey8B)
    {
       BinaryRefReader brr(dbKey8B);
       BinaryDataRef txKey6B = brr.get_BinaryDataRef(6);
-      uint16_t      txInIdx = brr.get_uint16_t(BIGENDIAN);
+      uint16_t      txInIdx = brr.get_uint16_t(BE);
       return setTxIn(TxRef(txKey6B), (uint32_t)txInIdx);
    }
    else
@@ -176,7 +176,7 @@ bool TxIOPair::setTxOut(const BinaryData& dbKey8B)
    {
       BinaryRefReader brr(dbKey8B);
       BinaryDataRef txKey6B = brr.get_BinaryDataRef(6);
-      uint16_t      txOutIdx = brr.get_uint16_t(BIGENDIAN);
+      uint16_t      txOutIdx = brr.get_uint16_t(BE);
       return setTxOut(TxRef(txKey6B), (uint32_t)txOutIdx);
    }
    else
@@ -268,7 +268,7 @@ bool TxIOPair::isMineButUnconfirmed(
       else
          return (nConf<MIN_CONFIRMATIONS);
    }
-   else if (hasTxOutZC() && (!isTxOutFromSelf() || inclAllZC))
+   else if (hasTxOutZC() && inclAllZC)
       return true;
 
 
@@ -373,6 +373,7 @@ TxIOPair& TxIOPair::operator=(TxIOPair&& toMove)
    this->txtime_ = toMove.txtime_;
 
    this->isUTXO_ = toMove.isUTXO_;
+   this->isRBF_ = toMove.isRBF_;
 
    return *this;
 }

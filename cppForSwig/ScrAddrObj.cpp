@@ -116,8 +116,8 @@ void ScrAddrObj::updateTxIOMap(map<BinaryData, TxIOPair>& txio_map)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void ScrAddrObj::scanZC(const map<HashString, TxIOPair>& zcTxIOMap,
-   function<bool(const BinaryData&)> isZcFromWallet)
+void ScrAddrObj::scanZC(const ScanAddressStruct& scanInfo,
+   function<bool(const BinaryDataRef)> isZcFromWallet)
 {
    //Dont use a reference for this loop. We check and set the isFromSelf flag
    //in this operation, which is based on the wallet this scrAddr belongs to.
@@ -138,24 +138,21 @@ void ScrAddrObj::scanZC(const map<HashString, TxIOPair>& zcTxIOMap,
       return BinaryData();
    };
 
-   //sort new ZC by zc key and txio key
-   set<BinaryData> zckeys;
-   for (auto& txiopair : zcTxIOMap)
-      zckeys.insert(getZcKeyFromTxio(txiopair.second));
-
-   //break down zcTxIOMap into valid and invalid keys
-   map<BinaryData, TxIOPair> newZC;
-   set<BinaryData> invalidZCset;
+   set<BinaryData> invalidatedZCSet;
 
    //look for invalidated keys, delete from validZcKeys_ as we go
+   bool purge = false;
    auto keyIter = validZCKeys_.begin();
    while (keyIter != validZCKeys_.end())
    {
-      auto zcIter = zckeys.find(keyIter->first);
-      if (zcIter == zckeys.end())
+      auto zcIter = scanInfo.invalidatedZCKeys_.find(
+         keyIter->first.getSliceRef(0, 6));
+      if (zcIter != scanInfo.invalidatedZCKeys_.end())
       {
+         purge = true;
+
          for (auto& txiokey : keyIter->second)
-            invalidZCset.insert(txiokey);
+            invalidatedZCSet.insert(txiokey);
 
          validZCKeys_.erase(keyIter++);
          continue;
@@ -165,19 +162,29 @@ void ScrAddrObj::scanZC(const map<HashString, TxIOPair>& zcTxIOMap,
    }
 
    //purge if necessary
-   if (invalidZCset.size() > 0)
-      purgeZC(invalidZCset);
+   if (purge)
+      purgeZC(invalidatedZCSet);
+
+   auto haveIter = scanInfo.zcMap_.find(scrAddr_);
+   if (haveIter == scanInfo.zcMap_.end())
+      return;
+
+   auto& zcTxIOMap = *haveIter->second;
 
    //look for new keys
+   map<BinaryData, TxIOPair> newZC;
+
    for (auto& txiopair : zcTxIOMap)
    {
+      auto& newtxio = txiopair.second;
       auto keyIter = relevantTxIO_.find(txiopair.first);
       if (keyIter != relevantTxIO_.end())
       {
-         //make sure the ZC txio wasn't spent by another ZC
-         auto& newtxio = txiopair.second;
-         if (!newtxio.hasTxIn())
-            continue;
+         
+         //dont replace a zc that is spent with a zc that is unspent. zc revocation
+         //is handled in the purge segment
+         /*if (!newtxio.hasTxIn())
+            continue;*/
          
          auto& txio = keyIter->second;
          if (txio.hasTxIn())
@@ -187,7 +194,7 @@ void ScrAddrObj::scanZC(const map<HashString, TxIOPair>& zcTxIOMap,
          }
       }
 
-      newZC.insert(txiopair);
+      newZC[txiopair.first] = newtxio;
       auto& zckeyset = validZCKeys_[getZcKeyFromTxio(txiopair.second)];
       zckeyset.insert(txiopair.first);
    }
@@ -199,13 +206,13 @@ void ScrAddrObj::scanZC(const map<HashString, TxIOPair>& zcTxIOMap,
    for (auto& txioPair : newZC)
    {
       if (txioPair.second.hasTxOutZC() &&
-         isZcFromWallet(txioPair.second.getDBKeyOfOutput().getSliceCopy(0, 6)))
+          isZcFromWallet(move(txioPair.second.getDBKeyOfOutput().getSliceRef(0, 6))))
          txioPair.second.setTxOutFromSelf(true);
 
       txioPair.second.setScrAddrLambda(
          [this](void)->const BinaryData&{ return this->getScrAddr(); });
 
-      relevantTxIO_[txioPair.first] = txioPair.second;
+      relevantTxIO_[txioPair.first] = move(txioPair.second);
    }
    
    updateLedgers(*ledger_, zcTxIOMap, 0, UINT32_MAX, false);

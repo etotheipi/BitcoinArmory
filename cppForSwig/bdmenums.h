@@ -56,4 +56,18 @@ enum SocketType
    SocketFcgi
 };
 
+enum NodeType
+{
+   Node_BTC,
+   Node_UnitTest
+};
+
+enum BDV_Action
+{
+   BDV_Init,
+   BDV_NewBlock,
+   BDV_RefreshWallets,
+   BDV_ZC
+};
+
 #endif

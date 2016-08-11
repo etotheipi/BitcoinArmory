@@ -196,12 +196,20 @@ try
       auto reorgState = bdm->readBlkFileUpdate();
       if (reorgState.hasNewTop)
       {
-         bdm->newBlocksStack_.push_back(move(reorgState));
-         
+         //purge zc container
          ZeroConfContainer::ZcActionStruct zcaction;
          zcaction.action_ = Zc_Purge;
+         zcaction.finishedPromise_ = make_shared<promise<bool>>();
+         auto purgeFuture = zcaction.finishedPromise_->get_future();
 
          bdm->zeroConfCont_->newZcStack_.push_back(move(zcaction));
+         
+         //wait on purge
+         purgeFuture.get();
+
+         //notify bdvs
+         bdm->newBlocksStack_.push_back(move(reorgState));
+
          return true;
       }
 

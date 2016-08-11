@@ -87,7 +87,7 @@ void DatabaseBuilder::init()
    {
       //we have newly registered addresses this run, force a full rescan
       resetHistory();
-      scanFrom = 0;
+      scanFrom = -1;
       reset = true;
    }
 
@@ -97,7 +97,7 @@ void DatabaseBuilder::init()
       undoHistory(reorgState);
 
       scanFrom = min(
-         scanFrom, reorgState.reorgBranchPoint->getBlockHeight() + 1);
+         scanFrom, (int)reorgState.reorgBranchPoint->getBlockHeight() + 1);
    }
    
    LOGINFO << "scanning new blocks from #" << scanFrom << " to #" <<
@@ -332,7 +332,6 @@ bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl,
    parseBlockFile(ptr, blockfilemappointer.size(),
       startOffset, tallyBlocks);
 
-
    //done parsing, add the headers to the blockchain object
    //convert BlockData vector to BlockHeader map first
    map<HashString, BlockHeader> bhmap;
@@ -442,7 +441,7 @@ void DatabaseBuilder::parseBlockFile(
 
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryData DatabaseBuilder::updateTransactionHistory(uint32_t startHeight)
+BinaryData DatabaseBuilder::updateTransactionHistory(int32_t startHeight)
 {
    //Scan history
    auto topScannedBlockHash = scanHistory(startHeight, true);
@@ -452,7 +451,7 @@ BinaryData DatabaseBuilder::updateTransactionHistory(uint32_t startHeight)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryData DatabaseBuilder::scanHistory(uint32_t startHeight,
+BinaryData DatabaseBuilder::scanHistory(int32_t startHeight,
    bool reportprogress)
 {
    BlockchainScanner bcs(blockchain_, db_, scrAddrFilter_.get(),

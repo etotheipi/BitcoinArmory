@@ -465,7 +465,7 @@ PythonCallback::~PythonCallback(void)
 void PythonCallback::shutdown()
 {
    run_ = false;
-   closesocket(sockfd_);
+   BinarySocket::closeSocket(sockfd_);
    if (thr_.joinable())
       thr_.join();
 }

@@ -250,9 +250,6 @@ BlockFileMapPointer BlockDataLoader::get(uint32_t fileid, bool prefetch)
    shared_ptr<BlockDataFileMap> fMap;
    
    //if the prefetch flag is set, get the next file
-   auto prefetchLambda = [&](unsigned fileID)
-      ->BlockFileMapPointer
-   { return get(fileID, false); };
 
 
    //lock map, look for fileid entry
@@ -261,6 +258,10 @@ BlockFileMapPointer BlockDataLoader::get(uint32_t fileid, bool prefetch)
 
       if (prefetch)
       {
+         auto prefetchLambda = [this](unsigned fileID)
+            ->BlockFileMapPointer
+         { return get(fileID, false); };
+
          thread tid(prefetchLambda, fileid + 1);
          tid.detach();
       }
@@ -342,6 +343,14 @@ BlockDataFileMap::BlockDataFileMap(const string& filename, bool preload)
       return;
 
    size_ = _lseek(fd, 0, SEEK_END);
+
+   if(size_ == 0)
+   {
+      stringstream ss;
+      ss << "empty block file under path: " << filename;
+      throw ss.str();
+   }
+
    _lseek(fd, 0, SEEK_SET);
 #else
    fd = open(filename.c_str(), O_RDONLY);

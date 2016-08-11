@@ -1174,7 +1174,40 @@ protected:
       };
    
       WalletIdProgressReporter progress(wltIDs, scanThreadProgressCallback_);
-      
+
+      //make sure sdbis are initialized (fresh ids wont have sdbi entries)
+      try
+      {
+         auto&& sdbi = getSshSDBI();
+      }
+      catch (runtime_error&)
+      {
+         StoredDBInfo sdbi;
+         sdbi.magic_ = config().magicBytes_;
+         sdbi.metaHash_ = BtcUtils::EmptyHash_;
+         sdbi.topBlkHgt_ = 0;
+         sdbi.armoryType_ = config().armoryDbType_;
+
+         //write sdbi
+         putSshSDBI(sdbi);
+      }
+
+      try
+      {
+         auto&& sdbi = getSubSshSDBI();
+      }
+      catch (runtime_error&)
+      {
+         StoredDBInfo sdbi;
+         sdbi.magic_ = config().magicBytes_;
+         sdbi.metaHash_ = BtcUtils::EmptyHash_;
+         sdbi.topBlkHgt_ = 0;
+         sdbi.armoryType_ = config().armoryDbType_;
+
+         //write sdbi
+         putSubSshSDBI(sdbi);
+      }
+
       //pass false to skip SDBI top block updates
       return bdm_->applyBlockRangeToDB(progress, startBlock, endBlock, *this, false);
    }
@@ -1229,8 +1262,21 @@ BlockDataManager::BlockDataManager(
    try
    {
       openDatabase();
-      networkNode_ = make_shared<BitcoinP2P>("127.0.0.1", config_.btcPort_,
-         *(uint32_t*)config_.magicBytes_.getPtr());
+      
+      if (bdmConfig.nodeType_ == Node_BTC)
+      {
+         networkNode_ = make_shared<BitcoinP2P>("127.0.0.1", config_.btcPort_,
+            *(uint32_t*)config_.magicBytes_.getPtr());
+      }
+      else if (bdmConfig.nodeType_ == Node_UnitTest)
+      {
+         networkNode_ = make_shared<NodeUnitTest>("127.0.0.1", config_.btcPort_,
+            *(uint32_t*)config_.magicBytes_.getPtr());
+      }
+      else
+      {
+         throw DbErrorMsg("invalid node type in bdmConfig");
+      }
 
       zeroConfCont_ = make_shared<ZeroConfContainer>(iface_, networkNode_);
       scrAddrData_ = make_shared<BDM_ScrAddrFilter>(this);
@@ -1549,14 +1595,10 @@ void BlockDataManager::enableZeroConf(bool clearMempool)
    LOGINFO << "Enabling zero-conf tracking ";
    zcEnabled_ = true;
 
-   auto zcFilter = [this](const BinaryData& scrAddr)->bool
+   auto zcFilter = [this](void)->shared_ptr<map<BinaryData, int32_t>>
    { 
       auto scrAddrMap = scrAddrData_->getScrAddrMap();
-      auto saIter = scrAddrMap->find(scrAddr);
-      if (saIter == scrAddrMap->end())
-         return false;
-
-      return true;
+      return scrAddrMap;
    };
 
    zeroConfCont_->init(zcFilter, clearMempool);

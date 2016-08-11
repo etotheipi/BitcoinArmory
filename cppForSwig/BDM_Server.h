@@ -146,6 +146,9 @@ private:
 
    atomic<bool> run_;
 
+   thread mainteThr_;
+   thread gcThread_;
+
 private:
    void maintenanceThread(void) const;
    void garbageCollectorThread(void);
@@ -169,13 +172,13 @@ public:
          garbageCollectorThread();
       };
 
-      thread thr(mainthread);
-      if (thr.joinable())
-         thr.detach();
+      mainteThr_ = thread(mainthread);
 
-      thread gcthr(gcThread);
-      if (gcthr.joinable())
-         gcthr.detach();
+      //no gc for unit tests
+      if (bdmT_->bdm()->config().nodeType_ == Node_UnitTest)
+         return;
+
+      gcThread_ = thread(gcThread);
    }
 
    const shared_ptr<BDV_Server_Object>& get(const string& id) const;
@@ -196,7 +199,7 @@ class FCGI_Server
    ***/
 
 private:
-   int sockfd_ = -1;
+   SOCKET sockfd_ = -1;
    mutex mu_;
    int run_ = true;
    atomic<uint32_t> liveThreads_;

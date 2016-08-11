@@ -106,15 +106,15 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;_CRTDBG_MAP_ALLOC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\leveldb_windows_port\win32_posix;..\cryptopp;..\BlockDataManager\fcgi;C:\Python27_64\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;_CRTDBG_MAP_ALLOC;_WINSOCK_DEPRECATED_NO_WARNINGS;_WINSOCKAPI_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..\leveldb_windows_port\win32_posix;..\cryptopp;..\BlockDataManager\fcgi;C:\Python27_64\include;..\BlockDataManager\fcgi\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <BasicRuntimeChecks>UninitializedLocalUsageCheck</BasicRuntimeChecks>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>cryptopp_d.lib;LMDB_Win_d.lib;python27_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>cryptopp_d.lib;LMDB_Win_d.lib;python27_d.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>C:\Python27_64\libs;$(SolutionDir)libs\$(Platform)\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -189,6 +189,7 @@
     <ClInclude Include="..\log.h" />
     <ClInclude Include="..\Progress.h" />
     <ClInclude Include="..\ScrAddrObj.h" />
+    <ClInclude Include="..\SocketObject.h" />
     <ClInclude Include="..\StoredBlockObj.h" />
     <ClInclude Include="..\TxClasses.h" />
     <ClInclude Include="..\txio.h" />
@@ -197,10 +198,14 @@
   <ItemGroup>
     <ClCompile Include="..\BDM_mainthread.cpp" />
     <ClCompile Include="..\BDM_seder.cpp" />
+    <ClCompile Include="..\BDM_Server.cpp" />
     <ClCompile Include="..\BDM_supportClasses.cpp" />
     <ClCompile Include="..\BinaryData.cpp" />
+    <ClCompile Include="..\BitcoinP2P.cpp" />
     <ClCompile Include="..\Blockchain.cpp" />
     <ClCompile Include="..\BlockchainScanner.cpp" />
+    <ClCompile Include="..\BlockDataManager\fcgi\libfcgi\fcgiapp.c" />
+    <ClCompile Include="..\BlockDataManager\fcgi\libfcgi\os_win32.c" />
     <ClCompile Include="..\BlockDataMap.cpp" />
     <ClCompile Include="..\BlockDataViewer.cpp" />
     <ClCompile Include="..\BlockObj.cpp" />
@@ -209,6 +214,7 @@
     <ClCompile Include="..\BtcWallet.cpp" />
     <ClCompile Include="..\DatabaseBuilder.cpp" />
     <ClCompile Include="..\DataObject.cpp" />
+    <ClCompile Include="..\DBUtils.cpp" />
     <ClCompile Include="..\EncryptionUtils.cpp" />
     <ClCompile Include="..\gtest\CppBlockUtilsTests.cpp" />
     <ClCompile Include="..\gtest\gtest-all.cc" />
@@ -222,7 +228,9 @@
     <ClCompile Include="..\lmdb_wrapper.cpp" />
     <ClCompile Include="..\Progress.cpp" />
     <ClCompile Include="..\ScrAddrObj.cpp" />
+    <ClCompile Include="..\SocketObject.cpp" />
     <ClCompile Include="..\StoredBlockObj.cpp" />
+    <ClCompile Include="..\TxClasses.cpp" />
     <ClCompile Include="..\txio.cpp" />
     <ClCompile Include="..\UniversalTimer.cpp" />
   </ItemGroup>

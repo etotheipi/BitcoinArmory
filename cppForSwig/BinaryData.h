@@ -88,12 +88,12 @@
 
 enum ENDIAN 
 { 
-   LITTLEENDIAN, 
-   BIGENDIAN 
+   ENDIAN_LITTLE, 
+   ENDIAN_BIG 
 };
 
-#define LE LITTLEENDIAN
-#define BE BIGENDIAN
+#define LE ENDIAN_LITTLE
+#define BE ENDIAN_BIG
 
 using namespace std;
 
@@ -1086,6 +1086,16 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
+   uint32_t get_int32_t(ENDIAN e = LE)
+   {
+      uint32_t outVal = (e == LE ? 
+         BinaryData::StrToIntLE<int32_t>(bdStr_.getPtr() + pos_) :
+         BinaryData::StrToIntBE<int32_t>(bdStr_.getPtr() + pos_));
+      pos_ += 4;
+      return outVal;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
    uint64_t get_uint64_t(ENDIAN e=LE)
    {
       uint64_t outVal = (e==LE ? READ_UINT64_LE(bdStr_.getPtr() + pos_) :
@@ -1238,6 +1248,16 @@ public:
    {
       uint32_t  outVal = (e==LE ? READ_UINT32_LE(bdRef_.getPtr() + pos_) :
                                   READ_UINT32_BE(bdRef_.getPtr() + pos_) );
+      pos_ += 4;
+      return outVal;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   uint32_t get_int32_t(ENDIAN e = LE)
+   {
+      uint32_t outVal = (e == LE ?
+         BinaryData::StrToIntLE<int32_t>(bdRef_.getPtr() + pos_) :
+         BinaryData::StrToIntBE<int32_t>(bdRef_.getPtr() + pos_));
       pos_ += 4;
       return outVal;
    }
@@ -1442,6 +1462,15 @@ public:
    { 
       BinaryData out = (e==LE ? WRITE_UINT32_LE(val) : WRITE_UINT32_BE(val));
       theString_.append( out.getPtr(), 4); 
+   }
+
+   /////
+   void put_int32_t(uint32_t val, ENDIAN e = LE)
+   {
+      BinaryData out = (e == LE ? 
+         BinaryData::IntToStrLE<int32_t>(val) : 
+         BinaryData::IntToStrBE<int32_t>(val));
+      theString_.append(out.getPtr(), 4);
    }
 
    /////

@@ -160,7 +160,7 @@ uint64_t BtcWallet::getFullBalanceFromDB() const
 
    auto addrMap = scrAddrMap_.getAddrMap();
 
-   for (const auto scrAddr : *addrMap)
+   for (auto& scrAddr : *addrMap)
       balance += scrAddr.second->getFullBalance();
 
    return balance;
@@ -171,7 +171,7 @@ map<BinaryData, uint32_t> BtcWallet::getTotalTxnCount() const
    map<BinaryData, uint32_t> countMap;
 
    auto addrMap = scrAddrMap_.getAddrMap();
-   for (auto &sa : *addrMap)
+   for (auto& sa : *addrMap)
    {
       auto count = sa.second->getTxioCountForLedgers();
       if (count == 0 || count == UINT32_MAX)
@@ -454,16 +454,13 @@ void BtcWallet::updateAfterReorg(uint32_t lastValidBlockHeight)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BtcWallet::scanWalletZeroConf(bool purge,
-   const map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>>& zcMap)
+void BtcWallet::scanWalletZeroConf(const ScanWalletStruct& scanInfo)
 {
    /***
    Scanning ZC will update the scrAddr ledger with the ZC txio. Ledgers require
    a block height, which should be the current top block.
    ***/
-   SCOPED_TIMER("rescanWalletZeroConf");
-
-   auto isZcFromWallet = [this](const BinaryData& zcKey)->bool
+   auto isZcFromWallet = [this](const BinaryDataRef zcKey)->bool
    {
       const auto& spentSAforZCKey = bdvPtr_->getSpentSAforZCKey(zcKey);
 
@@ -477,67 +474,57 @@ void BtcWallet::scanWalletZeroConf(bool purge,
    };
 
    auto addrMap = scrAddrMap_.getAddrMap();
+   validZcKeys_.clear();
 
-   if (purge)
+   for (auto& saPair : *addrMap)
    {
-      for (auto& scrAddr : *addrMap)
+      saPair.second->scanZC(scanInfo.saStruct_, isZcFromWallet);
+      for (auto& zckeypair : saPair.second->validZCKeys_)
       {
-         if (scrAddr.second->validZCKeys_.size() > 0)
-         {
-            scrAddr.second->scanZC(
-               map<BinaryData, TxIOPair>(),
-               isZcFromWallet);
-         }
+         validZcKeys_.insert(
+            move(zckeypair.first.getSliceCopy(0, 6)));
       }
-
-      return;
-   }
-
-   for (auto& scrAddrTxio : zcMap)
-   {
-      auto scrAddr = addrMap->find(scrAddrTxio.first);
-
-      if (scrAddr != addrMap->end())
-         scrAddr->second->scanZC(*scrAddrTxio.second, isZcFromWallet);
    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-bool BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock, bool reorg,
-   const map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>>& zcMap)
+bool BtcWallet::scanWallet(const ScanWalletStruct& scanInfo)
 {
-   if (zcMap.size() == 0)
+   if (scanInfo.action_ != BDV_ZC)
    {
       //new top block
-      if (reorg)
-         updateAfterReorg(startBlock);
+      if (scanInfo.reorg_)
+         updateAfterReorg(scanInfo.startBlock_);
          
       LMDBEnv::Transaction tx;
       bdvPtr_->getDB()->beginDBTransaction(&tx, SSH, LMDB::ReadOnly);
 
       auto addrMap = scrAddrMap_.getAddrMap();
       for (auto& scrAddrPair : *addrMap)
-         scrAddrPair.second->fetchDBScrAddrData(startBlock, endBlock);
+         scrAddrPair.second->fetchDBScrAddrData(
+            scanInfo.startBlock_, scanInfo.endBlock_);
 
-      scanWalletZeroConf(true, zcMap);
+      scanWalletZeroConf(scanInfo);
 
       map<BinaryData, TxIOPair> txioMap;
-      getTxioForRange(startBlock, UINT32_MAX, txioMap);
+      getTxioForRange(scanInfo.startBlock_, UINT32_MAX, txioMap);
       updateWalletLedgersFromTxio(*ledgerAllAddr_, txioMap, 
-                          startBlock, UINT32_MAX, true);
+         scanInfo.startBlock_, UINT32_MAX, true);
+
    
       balance_ = getFullBalanceFromDB();
    }
-   else
+  
+   if (scanInfo.saStruct_.zcMap_.size() > 0)
    {
       //top block didnt change, only have to check for new ZC
       if (bdvPtr_->isZcEnabled())
       {
-         scanWalletZeroConf(false, zcMap);
+         scanWalletZeroConf(scanInfo);
          map<BinaryData, TxIOPair> txioMap;
-         getTxioForRange(endBlock +1, UINT32_MAX, txioMap);
+         getTxioForRange(scanInfo.endBlock_ + 1, UINT32_MAX, txioMap);
          updateWalletLedgersFromTxio(*ledgerAllAddr_, txioMap, 
-                             endBlock +1, UINT32_MAX, true);
+            scanInfo.endBlock_ + 1, UINT32_MAX, true);
 
          balance_ = getFullBalanceFromDB();
 

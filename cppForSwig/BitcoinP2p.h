@@ -422,6 +422,9 @@ public:
 public:
    static const map<string, PayloadType> strToPayload_;
 
+protected:
+   void processInvBlock(vector<InvEntry>);
+
 private:
    void connectLoop(void);
 
@@ -437,7 +440,6 @@ private:
    void replyPong(unique_ptr<Payload>);
 
    void processInv(unique_ptr<Payload>);
-   void processInvBlock(vector<InvEntry>);
    void processInvTx(vector<InvEntry>);
    void processGetData(unique_ptr<Payload>);
    void processGetTx(unique_ptr<Payload>);
@@ -451,8 +453,8 @@ public:
    BitcoinP2P(const string& addr, const string& port, uint32_t magic_word);
    ~BitcoinP2P();
 
-   void connectToNode(bool async);
-   void shutdown(void);
+   virtual void connectToNode(bool async);
+   virtual void shutdown(void);
    void sendMessage(Payload&&);
 
    shared_ptr<Payload_Tx> getTx(const InvEntry&, uint32_t timeout = 60);
@@ -471,6 +473,39 @@ public:
          throw runtime_error("node has been shutdown");
 
       invTxLambda_ = move(func);
+   }
+};
+
+class NodeUnitTest : public BitcoinP2P
+{
+public:
+   NodeUnitTest(const string& addr, const string& port, uint32_t magic_word) :
+      BitcoinP2P(addr, port, magic_word)
+   {}
+
+   void mockNewBlock(void)
+   {
+      InvEntry ie;
+      ie.invtype_ = Inv_Msg_Block;
+
+      vector<InvEntry> vecIE;
+      vecIE.push_back(ie);
+
+      processInvBlock(move(vecIE));
+   }
+
+   void connectToNode(bool async)
+   {}
+
+   void shutdown(void)
+   {
+      //clean up remaining lambdas
+      vector<InvEntry> ieVec;
+      InvEntry entry;
+      entry.invtype_ = Inv_Terminate;
+      ieVec.push_back(entry);
+
+      processInvBlock(ieVec);
    }
 };
 

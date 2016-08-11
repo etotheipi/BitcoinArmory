@@ -45,12 +45,12 @@ private:
    void readFromSocketThread(SOCKET, ReadCallback);
 
 protected:   
-   void closeSocket(SOCKET&);
    void writeToSocket(SOCKET, void*, size_t);
    void readFromSocket(SOCKET, ReadCallback);
    void setBlocking(SOCKET, bool);
    
 public:
+   static void closeSocket(SOCKET&);
    SOCKET openSocket(bool blocking);
 
    BinarySocket(const string& addr, const string& port);

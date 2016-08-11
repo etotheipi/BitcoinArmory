@@ -927,8 +927,7 @@ void BitcoinP2P::processInvBlock(vector<InvEntry> invVec)
       }
    }
    catch (IsEmpty&)
-   {
-   }
+   {}
 
    for (auto& callback : callbacksVec)
       callback(invVec);
@@ -1107,6 +1106,4 @@ void BitcoinP2P::shutdown()
    ieVec.push_back(entry);
 
    processInvBlock(ieVec);
-   //zc container will shut down its own threads
-   //processInvTx(ieVec);
 }

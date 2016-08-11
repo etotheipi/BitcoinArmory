@@ -95,14 +95,14 @@ BLKDATA_TYPE DBUtils::readBlkDataKeyNoPrefix(
    }
    else if (brr.getSizeRemaining() == 2)
    {
-      txIdx = brr.get_uint16_t(BIGENDIAN);
+      txIdx = brr.get_uint16_t(BE);
       txOutIdx = 0xffff;
       return BLKDATA_TX;
    }
    else if (brr.getSizeRemaining() == 4)
    {
-      txIdx = brr.get_uint16_t(BIGENDIAN);
-      txOutIdx = brr.get_uint16_t(BIGENDIAN);
+      txIdx = brr.get_uint16_t(BE);
+      txOutIdx = brr.get_uint16_t(BE);
       return BLKDATA_TXOUT;
    }
    else
@@ -190,7 +190,7 @@ BinaryData DBUtils::getBlkDataKey(uint32_t height,
    BinaryWriter bw(7);
    bw.put_uint8_t(DB_PREFIX_TXDATA);
    bw.put_BinaryData(heightAndDupToHgtx(height, dup));
-   bw.put_uint16_t(txIdx, BIGENDIAN);
+   bw.put_uint16_t(txIdx, BE);
    return bw.getData();
 }
 
@@ -203,8 +203,8 @@ BinaryData DBUtils::getBlkDataKey(uint32_t height,
    BinaryWriter bw(9);
    bw.put_uint8_t(DB_PREFIX_TXDATA);
    bw.put_BinaryData(heightAndDupToHgtx(height, dup));
-   bw.put_uint16_t(txIdx, BIGENDIAN);
-   bw.put_uint16_t(txOutIdx, BIGENDIAN);
+   bw.put_uint16_t(txIdx, BE);
+   bw.put_uint16_t(txOutIdx, BE);
    return bw.getData();
 }
 
@@ -222,7 +222,7 @@ BinaryData DBUtils::getBlkDataKeyNoPrefix(uint32_t height,
 {
    BinaryWriter bw(6);
    bw.put_BinaryData(heightAndDupToHgtx(height, dup));
-   bw.put_uint16_t(txIdx, BIGENDIAN);
+   bw.put_uint16_t(txIdx, BE);
    return bw.getData();
 }
 
@@ -234,8 +234,8 @@ BinaryData DBUtils::getBlkDataKeyNoPrefix(uint32_t height,
 {
    BinaryWriter bw(8);
    bw.put_BinaryData(heightAndDupToHgtx(height, dup));
-   bw.put_uint16_t(txIdx, BIGENDIAN);
-   bw.put_uint16_t(txOutIdx, BIGENDIAN);
+   bw.put_uint16_t(txIdx, BE);
+   bw.put_uint16_t(txOutIdx, BE);
    return bw.getData();
 }
 

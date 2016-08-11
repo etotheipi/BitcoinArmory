@@ -10,17 +10,17 @@
 #include "log.h"
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockchainScanner::scan(uint32_t scanFrom)
+void BlockchainScanner::scan(int32_t scanFrom)
 {
    scanFrom = check_merkle(scanFrom);
-   if (scanFrom == UINT32_MAX)
+   if (scanFrom == INT32_MIN)
       return;
 
    scan_nocheck(scanFrom);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-uint32_t BlockchainScanner::check_merkle(uint32_t scanFrom)
+int32_t BlockchainScanner::check_merkle(int32_t scanFrom)
 {
    auto& topBlock = blockchain_->top();
 
@@ -42,15 +42,16 @@ uint32_t BlockchainScanner::check_merkle(uint32_t scanFrom)
 
    if (sdbiblock->isMainBranch())
    {
-      if (sdbiblock->getBlockHeight() > scanFrom)
+      //this will set scanFrom to 0 before an initial scan
+      if ((int)sdbiblock->getBlockHeight() > scanFrom)
          scanFrom = sdbiblock->getBlockHeight();
 
-      if (scanFrom > topBlock.getBlockHeight() || 
+      if (scanFrom > (int)topBlock.getBlockHeight() || 
           scrAddrFilter_->getScrAddrMap()->size() == 0)
       {
          LOGINFO << "no history to scan";
          topScannedBlockHash_ = topBlock.getThisHash();
-         return UINT32_MAX;
+         return INT32_MIN;
       }
    }
 
@@ -58,7 +59,7 @@ uint32_t BlockchainScanner::check_merkle(uint32_t scanFrom)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockchainScanner::scan_nocheck(uint32_t scanFrom)
+void BlockchainScanner::scan_nocheck(int32_t scanFrom)
 {
    TIMER_START("scan_nocheck");
 
@@ -66,12 +67,13 @@ void BlockchainScanner::scan_nocheck(uint32_t scanFrom)
    auto& topBlock = blockchain_->top();
 
    preloadUtxos();
+
    shared_ptr<BatchLink> batchLinkPtr;
 
    //lambdas
-   auto&& scrRefSet = scrAddrFilter_->getOutScrRefSet();
+   auto&& scrRefMap = scrAddrFilter_->getOutScrRefMap();
    auto scanBlockDataLambda = [&](shared_ptr<BlockDataBatch> batch)
-   { scanBlockData(batch, scrRefSet); };
+   { scanBlockData(batch, scrRefMap); };
 
    auto writeBlockDataLambda = [&](void)
    { writeBlockData(batchLinkPtr); };
@@ -226,7 +228,7 @@ void BlockchainScanner::scan_nocheck(uint32_t scanFrom)
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch,
-   const set<TxOutScriptRef>& scrRefSet)
+   const map<TxOutScriptRef, int>& scrRefSet)
 {
    //getBlock lambda
    auto getBlock = [&](unsigned height)->const BlockData&
@@ -306,7 +308,6 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch,
          callback(bdata.second);
    };
 
-
    //txout lambda
    auto txoutParser = [&](const BlockData& blockdata)->void
    {
@@ -334,6 +335,9 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch,
 
             auto saIter = scrRefSet.find(scrRef);
             if (saIter == scrRefSet.end())
+               continue;
+
+            if (saIter->second >= (int)blockdata.header()->getBlockHeight())
                continue;
 
             //if we got this far, this txout is ours
@@ -830,9 +834,9 @@ void BlockchainScanner::updateSSH(bool force)
       db_->beginDBTransaction(&sshTx, SUBSSH, LMDB::ReadOnly);
 
       auto sshIter = db_->getIterator(SUBSSH);
-      sshIter.seekToFirst();
+      sshIter.seekToStartsWith(DB_PREFIX_SCRIPT);
 
-      while (sshIter.advanceAndRead())
+      do
       {
          while (sshIter.isValid())
          {
@@ -867,14 +871,14 @@ void BlockchainScanner::updateSSH(bool force)
             {
                //set iterator at unscanned height
                auto hgtx = sshIter.getKeyRef().getSliceRef(-4, 4);
-               auto height = DBUtils::hgtxToHeight(hgtx);
-               if (sshPtr->alreadyScannedUpToBlk_ >= height)
+               int height = DBUtils::hgtxToHeight(hgtx);
+               if (sshPtr->tallyHeight_ >= height)
                {
                   //this ssh has already been scanned beyond the height sshIter is at,
                   //let's set the iterator to the correct height (or the next key)
                   auto&& newKey = sshIter.getKey().getSliceCopy(0, subsshkey.getSize() - 4);
                   auto&& newHgtx = DBUtils::heightAndDupToHgtx(
-                     sshPtr->alreadyScannedUpToBlk_ + 1, 0);
+                     sshPtr->tallyHeight_ + 1, 0);
 
                   newKey.append(newHgtx);
                   sshIter.seekTo(newKey);
@@ -943,6 +947,7 @@ void BlockchainScanner::updateSSH(bool force)
          //build subssh summary
          sshPtr->subsshSummary_[subssh.height_] = subssh.txioCount_;
       }
+      while (sshIter.advanceAndRead(DB_PREFIX_SCRIPT));
    }
 
 
@@ -1009,7 +1014,8 @@ void BlockchainScanner::updateSSH(bool force)
       }
 
       BinaryData&& sshKey = ssh.getDBKey();
-      ssh.alreadyScannedUpToBlk_ = topheight;
+      ssh.scanHeight_ = topheight;
+      ssh.tallyHeight_ = topheight;
 
       BinaryWriter bw;
       ssh.serializeDBValue(bw, ARMORY_DB_BARE);
@@ -1070,7 +1076,7 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
 
    while (blockPtr != reorgState.reorgBranchPoint)
    {
-      auto currentHeight = blockPtr->getBlockHeight();
+      int currentHeight = blockPtr->getBlockHeight();
       auto currentDupId  = blockPtr->getDuplicateID();
 
       //create tx to pull subssh data
@@ -1125,7 +1131,7 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
             if (!ssh.isInitialized())
                db_->getStoredScriptHistorySummary(ssh, scrAddr);
 
-            if (ssh.alreadyScannedUpToBlk_ < currentHeight)
+            if (ssh.scanHeight_ < currentHeight)
                continue;
             
             brr.resetPosition();
@@ -1172,7 +1178,7 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
             if (!ssh.isInitialized())
                db_->getStoredScriptHistorySummary(ssh, scrAddr);
 
-            if (ssh.alreadyScannedUpToBlk_ < currentHeight)
+            if (ssh.scanHeight_ < currentHeight)
                continue;
 
             ssh.totalUnspent_ += stxo.getValue();
@@ -1226,7 +1232,7 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
          db_->deleteValue(STXO, key);
    }
 
-   auto branchPointHeight = 
+   int branchPointHeight = 
       reorgState.reorgBranchPoint->getBlockHeight();
 
    //ssh
@@ -1251,8 +1257,11 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
          }
 
          //update alreadyScannedUpToBlk_ to branch point height
-         if (ssh.alreadyScannedUpToBlk_ > branchPointHeight)
-            ssh.alreadyScannedUpToBlk_ = branchPointHeight;
+         if (ssh.scanHeight_ > branchPointHeight)
+            ssh.scanHeight_ = branchPointHeight;
+
+         if (ssh.tallyHeight_ > branchPointHeight)
+            ssh.tallyHeight_ = branchPointHeight;
       }
 
       //write it all up

@@ -516,17 +516,24 @@ void Clients::exitRequestLoop()
    /*terminate request processing loop*/
    LOGINFO << "proceeding to shutdown";
 
+   //prevent all new commands from running
+   run_.store(false, memory_order_relaxed);
+   
+   //shutdown Clients gc thread
+   gcCommands_.completed();
+   
+   //cleanup all BDVs
+   unregisterAllBDVs();
+
    //shutdown node
    bdmT_->bdm()->shutdownNode();
 
-   //prevent all new commands from running
-   run_.store(false, memory_order_relaxed);
+   bdmT_->bdm()->shutdownNotifications();
 
-   //shutdown Clients gc thread
-   gcCommands_.completed();
-
-   //cleanup all BDVs
-   unregisterAllBDVs();
+   if (mainteThr_.joinable())
+      mainteThr_.join();
+   if (gcThread_.joinable())
+      gcThread_.join();
 
    //shutdown loop on FcgiServer side
    fcgiShutdownCallback_();
@@ -627,9 +634,6 @@ void Clients::maintenanceThread(void) const
       }
       catch (StopBlockingLoop&)
       {
-         //shutdown gc thread
-         gcCommands_.push_back(false);
-
          return;
       }
       catch (IsEmpty&)
@@ -756,7 +760,7 @@ void FCGI_Server::haltFcgiLoop()
    while (liveThreads_.load(memory_order_relaxed) != 0);
 
    //close the listening socket
-   closesocket(sockfd_);
+   BinarySocket::closeSocket(sockfd_);
    OS_LibShutdown();
 }
 
@@ -985,16 +989,20 @@ void BDV_Server_Object::maintenanceThread(void)
 
    //could a wallet registration event get lost in between the init loop 
    //and setting the promise?
-   isReadyPromise_.set_value(true);
 
    BDV_Action_Struct firstScanAction(BDV_Init, nullptr);
    scanWallets(move(firstScanAction));
 
+   auto&& zcstruct = createZcStruct();
+   scanWallets(move(zcstruct));
+   
    Arguments args;
    args.push_back(move(string("BDM_Ready")));
    unsigned int topblock = blockchain().top().getBlockHeight();
    args.push_back(move(topblock));
    cb_->callback(move(args));
+   
+   isReadyPromise_.set_value(true);
 
    while (1)
    {
@@ -1048,10 +1056,10 @@ void BDV_Server_Object::maintenanceThread(void)
 void BDV_Server_Object::zcCallback(
    map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>> zcMap)
 {
-   auto notificationPtr = make_unique<BDV_Notification_ZC>(
+   auto notificationPtr = make_shared<BDV_Notification_ZC>(
       move(zcMap));
 
-   BDV_Action_Struct action(BDV_ZC, move(notificationPtr));
+   BDV_Action_Struct action(BDV_ZC, notificationPtr);
 
    notificationStack_.push_back(move(action));
 }

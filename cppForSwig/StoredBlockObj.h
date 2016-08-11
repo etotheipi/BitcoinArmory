@@ -26,7 +26,7 @@
 #include "txio.h"
 #include "BlockDataManagerConfig.h"
 
-#define ARMORY_DB_VERSION   0x9501
+#define ARMORY_DB_VERSION   0x9502
 #define ARMORY_DB_DEFAULT   ARMORY_DB_FULL
 #define UTXO_STORAGE        SCRIPT_UTXO_VECTOR
 
@@ -503,7 +503,6 @@ public:
 
    StoredScriptHistory(void) : uniqueKey_(0), 
                                version_(UINT32_MAX),
-                               alreadyScannedUpToBlk_(0),
                                totalTxioCount_(0),
                                totalUnspent_(0) {}
                                
@@ -537,7 +536,8 @@ public:
 
    BinaryData     uniqueKey_;  // includes the prefix byte!
    uint32_t       version_;
-   uint32_t       alreadyScannedUpToBlk_;
+   int32_t        scanHeight_ = -1;
+   int32_t        tallyHeight_ = -1;
    uint64_t       totalTxioCount_;
    uint64_t       totalUnspent_;
    map<unsigned, unsigned> subsshSummary_;

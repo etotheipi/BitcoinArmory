@@ -23,6 +23,7 @@ using namespace std;
 #include "txio.h"
 #include "BDM_supportClasses.h"
 #include "util.h"
+#include "bdmenums.h"
 
 typedef enum
 {
@@ -45,16 +46,10 @@ typedef enum
    group_lockbox
 }LedgerGroups;
 
-enum BDV_Action
-{
-   BDV_Init,
-   BDV_NewBlock,
-   BDV_RefreshWallets,
-   BDV_ZC
-};
-
 struct BDV_Notification
 {
+   virtual ~BDV_Notification(void)
+   {}
 };
 
 struct BDV_Notification_NewBlock : public BDV_Notification
@@ -148,6 +143,9 @@ class BlockDataViewer
 private:
    virtual void pushNotification(BDV_Action_Struct) = 0;
 
+protected:
+   BDV_Action_Struct createZcStruct(void);
+
 public:
    BlockDataViewer(BlockDataManager* bdm);
    ~BlockDataViewer(void);
@@ -180,7 +178,7 @@ public:
       const map <BinaryData, vector<BinaryData> >& wltNAddrMap,
       bool areNew);
 
-   const map<BinaryData, map<BinaryData, TxIOPair> >&
+   const shared_ptr<map<BinaryData, map<BinaryData, TxIOPair>>>
       getFullZeroConfTxIOMap() const
    { return zeroConfCont_->getFullTxioMap(); }
 
@@ -258,7 +256,7 @@ public:
       const BinaryData& scrAddr) const
    { return zeroConfCont_->getZCforScrAddr(scrAddr); }
 
-   const vector<BinaryData>& getSpentSAforZCKey(const BinaryData& zcKey) const
+   const set<BinaryData>& getSpentSAforZCKey(const BinaryData& zcKey) const
    { return zeroConfCont_->getSpentSAforZCKey(zcKey); }
 
    ScrAddrFilter* getSAF(void) { return saf_; }
@@ -292,7 +290,7 @@ public:
    bool isRBF(const BinaryData& txHash) const;
    bool hasScrAddress(const BinaryData& sa) const;
 
-   shared_ptr<BtcWallet> getWalletOrLockbox(const BinaryData& hash) const;
+   shared_ptr<BtcWallet> getWalletOrLockbox(const BinaryData& id) const;
 
 protected:
    atomic<bool> rescanZC_;
@@ -355,14 +353,18 @@ public:
    vector<LedgerEntry> getHistoryPage(uint32_t pageId,
       bool rebuildLedger, bool remapWallets);
 
+   const set<BinaryData>& getValidZcSet(void) const
+   {
+      return validZcSet_;
+   }
+
 private:   
    map<uint32_t, uint32_t> computeWalletsSSHSummary(
       bool forcePaging, bool pageAnyway);
    bool pageHistory(bool forcePaging, bool pageAnyway);
    void updateLedgerFilter(const vector<BinaryData>& walletsVec);
 
-   void scanWallets(uint32_t, uint32_t, bool,
-      const BDV_Notification_ZC::zcMapType&);
+   void scanWallets(const ScanWalletStruct&);
    void updateGlobalLedgerFirstPage(uint32_t startBlock, 
       uint32_t endBlock, BDV_refresh forceRefresh);
 
@@ -391,6 +393,8 @@ private:
    //the global ledger may be modified concurently by the maintenance thread
    //and user actions, so it needs a synchronization primitive.
    std::mutex globalLedgerLock_;
+
+   set<BinaryData> validZcSet_;
 };
 
 #endif

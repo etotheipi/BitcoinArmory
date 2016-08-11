@@ -133,7 +133,7 @@ private:
 
 private:
    void scanBlockData(shared_ptr<BlockDataBatch>,
-      const set<TxOutScriptRef>&);
+      const map<TxOutScriptRef, int>&);
    
    void accumulateDataBeforeBatchWrite(vector<shared_ptr<BlockDataBatch>>&);
    void writeBlockData(shared_ptr<BatchLink>);
@@ -141,7 +141,7 @@ private:
       const vector<shared_ptr<BlockDataBatch>>& batchVec);
    void preloadUtxos(void);
 
-   uint32_t check_merkle(uint32_t startHeight);
+   int32_t check_merkle(int32_t startHeight);
 
    void getFilterHitsThread(
       const set<BinaryData>& hashSet,
@@ -169,8 +169,8 @@ public:
       nBlockFilesPerBatch_(batchSize)
    {}
 
-   void scan(uint32_t startHeight);
-   void scan_nocheck(uint32_t startHeight);
+   void scan(int32_t startHeight);
+   void scan_nocheck(int32_t startHeight);
 
    void undo(Blockchain::ReorganizationState& reorgState);
    void updateSSH(bool);

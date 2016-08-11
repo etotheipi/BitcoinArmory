@@ -213,6 +213,7 @@ public:
    }
 
    void shutdownNode(void) { networkNode_->shutdown(); }
+   void shutdownNotifications(void) { newBlocksStack_.terminate(); }
 
 public:
 
