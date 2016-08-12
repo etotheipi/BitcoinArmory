@@ -19,17 +19,34 @@ GTEST_DIR = .
 # Where to find user code.
 USER_DIR = ..
 
+CC = gcc
+
 # Flags passed to the preprocessor.
 CPPFLAGS += -I$(GTEST_DIR) \
 				-I$(USER_DIR) \
 				-I$(USER_DIR)/cryptopp \
 				-I$(USER_DIR)/leveldb/include \
+				-I$(USER_DIR)/BlockDataManager/fcgi \
+				-I$(USER_DIR)/mdb \
 				-D__STDC_LIMIT_MACROS \
 				-D_DEBUG \
 				-g \
 				-fprofile-arcs \
 				-ftest-coverage \
 				--coverage
+
+OBJS_UnitTests = UniversalTimer.o BinaryData.o lmdb_wrapper.o \
+	BtcUtils.o DBUtils.o BlockObj.o BlockUtils.o EncryptionUtils.o \
+	BtcWallet.o LedgerEntry.o ScrAddrObj.o Blockchain.o \
+	BDM_mainthread.o lmdbpp.o BDM_supportClasses.o \
+	BlockDataViewer.o HistoryPager.o Progress.o \
+	mdb.o midl.o txio.o TxClasses.o StoredBlockObj.o \
+	DatabaseBuilder.o BlockchainScanner.o BlockDataMap.o \
+	DataObject.o BitcoinP2P.o BDM_Server.o BDM_seder.o SocketObject.o \
+	fcgiapp.o os_unix.o libcryptopp.a 
+
+ALL_HEADERS_FOUND=$(wildcard $(USER_DIR)/*.h)
+FCGI_DIR= $(USER_DIR)/BlockDataManager/fcgi
 
 # OS X requires a workaround.
 ifneq ($(OS),Windows_NT)
@@ -76,6 +93,7 @@ GTEST_SRCS_ = $(GTEST_DIR)/gtest-all.cc $(GTEST_DIR)/gtest.h
 # implementation details, the dependencies specified below are
 # conservative and not optimized.  This is fine as Google Test
 # compiles fast and for ordinary users its source rarely changes.
+
 gtest-all.o : $(GTEST_SRCS_)
 	$(CXX) $(CPPFLAGS) -I$(GTEST_DIR) $(CXXFLAGS) -c \
             $(GTEST_DIR)/gtest-all.cc
@@ -109,16 +127,30 @@ else
 PYTHON_LDFLAGS=$(shell $(PYVER)-config --ldflags )
 endif
 
-CppBlockUtilsTests.o : CppBlockUtilsTests.cpp $(HEADERS) $(GTEST_HEADERS) ../../_CppBlockUtils.so
+CppBlockUtilsTests.o : CppBlockUtilsTests.cpp $(HEADERS) $(GTEST_HEADERS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c CppBlockUtilsTests.cpp
 
-getScrAddrData.o : getScrAddrData.cpp $(HEADERS) $(GTEST_HEADERS)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c getScrAddrData.cpp 
+%.o: $(USER_DIR)/%.cpp $(ALL_HEADERS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $<
 
-CppBlockUtilsTests : $(OBJECTS) CppBlockUtilsTests.o gtest.a ../libcryptopp.a
+mdb.o: $(USER_DIR)/mdb/mdb.c $(USER_DIR)/mdb/lmdb.h $(USER_DIR)/mdb/midl.h
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DNDEBUG -c $(USER_DIR)/mdb/mdb.c
+
+midl.o: $(USER_DIR)/mdb/midl.c $(USER_DIR)/mdb/lmdb.h $(USER_DIR)/mdb/midl.h
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DNDEBUG -c $(USER_DIR)/mdb/midl.c
+
+fcgiapp.o: $(FCGI_DIR)/libfcgi/fcgiapp.c 
+	$(CXX) $(CXXFLAGS) -I$(FCGI_DIR) -I$(FCGI_DIR)/include -c  $(FCGI_DIR)/libfcgi/fcgiapp.c 
+
+os_unix.o: $(FCGI_DIR)/libfcgi/os_unix.c
+	$(CXX) $(CXXFLAGS) -I$(FCGI_DIR) -I$(FCGI_DIR)/include -DHAVE_NETDB_H -DHAVE_SYS_SOCKET_H -DHAVE_UNISTD_H -DHAVE_SOCKLEN -c $(FCGI_DIR)/libfcgi/os_unix.c
+
+libcryptopp.a: Makefile
+	$(MAKE) -C $(USER_DIR)/cryptopp libcryptopp.a
+	cp $(USER_DIR)/cryptopp/libcryptopp.a .
+
+CppBlockUtilsTests : $(OBJECTS) $(OBJS_UnitTests) CppBlockUtilsTests.o gtest.a ../libcryptopp.a
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -Wl,-rpath,$(PWD)/../.. ../libcryptopp.a $^ ../../_CppBlockUtils.so -lpthread $(PYTHON_LDFLAGS) ../../_CppBlockUtils.so -o $@
 
-getScrAddrData : $(OBJECTS) getScrAddrData.o 
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -lpthread -lcryptopp -o $@
 
 
