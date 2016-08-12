@@ -20,6 +20,8 @@ if HAVE_CLANG
 SWIG_FLAGS += -D__CLANG__
 endif
 
+EXTRA_DIST = CppBlockUtils.i
+
 INCLUDE_FILES = UniversalTimer.h BinaryData.h lmdb_wrapper.h \
 	BtcUtils.h DBUtils.h BlockObj.h BlockUtils.h EncryptionUtils.h \
 	BtcWallet.h LedgerEntry.h ScrAddrObj.h Blockchain.h \
@@ -31,7 +33,11 @@ INCLUDE_FILES = UniversalTimer.h BinaryData.h lmdb_wrapper.h \
 	FcgiMessage.h BlockDataManagerConfig.h \
 	Transactions.h Script.h Signer.h nodeRPC.h JSON_codec.h \
 	ReentrantLock.h StringSockets.h log.h OS_TranslatePath.h \
-	TransactionBatch.h BlockchainScanner_Super.h SigHashEnum.h TxEvalState.h
+	TransactionBatch.h BlockchainScanner_Super.h SigHashEnum.h TxEvalState.h \
+	make_unique.h TxOutScrRef.h bdmenums.h DbHeader.h SocketIncludes.h \
+	PartialMerkle.h util.h WalletManager.h SwigClient.h Wallets.h \
+	CoinSelection.h LedgerEntryData.h ThreadSafeClasses.h \
+	Win_TranslatePath.h ScriptRecipient.h
 
 DB_SOURCE_FILES = UniversalTimer.cpp BinaryData.cpp lmdb_wrapper.cpp \
 	BtcUtils.cpp DBUtils.cpp BlockObj.cpp BlockUtils.cpp EncryptionUtils.cpp \

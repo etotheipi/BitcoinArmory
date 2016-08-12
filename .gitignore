@@ -141,3 +141,8 @@ _CppBlockUtils.*
 /cppForSwig/x64*
 /cppForSwig/LMDB_Win/x64*
 /cppForSwig/x64/*.*
+
+dist
+BitcoinArmory-*.tar.gz
+BitcoinArmory.spec
+BitcoinArmory-*.rpm

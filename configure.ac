@@ -164,7 +164,8 @@ AM_CONDITIONAL([BUILD_DARWIN], [test x$BUILD_OS = xdarwin])
 
 AC_CONFIG_FILES(Makefile
 		cppForSwig/Makefile
-		cppForSwig/lmdb/Makefile)
+		cppForSwig/lmdb/Makefile
+		BitcoinArmory.spec)
 
 AM_CONDITIONAL([BUILD_TESTS], [test "x$want_tests" = "xyes"])
 if test "x$want_tests" = "xyes"; then

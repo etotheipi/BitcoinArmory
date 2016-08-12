@@ -5,7 +5,7 @@ EXTRA_DIST = *.py *.md LICENSE LICENSE-ATI LICENSE-MIT \
 	nginx_example.conf imgList.xml autogen.sh \
 	armoryengine/*.py ui/*.py \
 	img/* lang/* dpkgfiles/* \
-	windowsbuild/* linuxbuild/* osxbuild/*
+	windowsbuild/* linuxbuild/* osxbuild/* BitcoinArmory.spec
 
 ACLOCAL_AMFLAGS = -I m4
 
@@ -84,3 +84,11 @@ clean-local:
 	rm -f CppBlockUtils.py
 	rm -f _CppBlockUtils.so
 	rm -f CppBlockUtils.pyc
+
+srpm: dist
+	mkdir -p dist
+	tmpdir=`mktemp -d` ; rpmbuild --define "_topdir $$tmpdir" -ts bitcoinarmory-$(PACKAGE_VERSION).tar.gz && { mv -f "$$tmpdir"/SRPMS/* . ; } ; rm -rf "$$tmpdir"
+
+rpm: dist
+	mkdir -p dist
+	tmpdir=`mktemp -d` ; rpmbuild --define "_topdir $$tmpdir" -ta bitcoinarmory-$(PACKAGE_VERSION).tar.gz && { mv -f "$$tmpdir"/SRPMS/* "$$tmpdir"/RPMS/*/* . ; } ; rm -rf "$$tmpdir"

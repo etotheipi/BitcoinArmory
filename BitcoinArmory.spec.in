@@ -1,0 +1,38 @@
+# disable debug package, otherwise nasty build error in fedora >= 23
+%global debug_package %{nil}
+
+%define mybuildnumber %{?build_number}%{?!build_number:1}
+
+Name:     BitcoinArmory
+Version:  @PACKAGE_VERSION@
+Release:  %{mybuildnumber}%{?dist}
+Summary:  A high-security Bitcoin wallet
+Group:    Applications/Financial
+License:  MIT
+Source0:  bitcoinarmory-%{version}.tar.gz
+
+BuildRequires: python2-twisted, python2-psutil, swig, python2-devel, gcc-c++, PyQt4-devel
+Requires:      PyQt4, python-twisted, python-psutil
+%description
+This is a local full node implementation of an advanced Bitcoin wallet.
+
+%prep
+%setup -q -n bitcoinarmory-%{version}
+
+
+%build
+%configure
+make
+
+
+%install
+mkdir -p "%{buildroot}"/usr/share/applications
+%makeinstall
+
+
+%files
+%defattr(-, root, root)
+%{_datadir}/applications/*.desktop
+%{_prefix}/lib/armory/*
+%{_datadir}/armory/*
+%attr(0755, root, root) %{_bindir}/*
