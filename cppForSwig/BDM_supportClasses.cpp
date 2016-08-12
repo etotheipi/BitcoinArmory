@@ -1590,9 +1590,7 @@ void ZeroConfContainer::init(
       parseNewZC();
    };
 
-   thread parserThread(processZcThread);
-   if (parserThread.joinable())
-      parserThread.detach();
+   parserThreads_.push_back(thread(processZcThread));
 
    //start invTx threads
    auto txthread = [this](void)->void
@@ -1602,9 +1600,7 @@ void ZeroConfContainer::init(
 
    for (int i = 0; i < GETZC_THREADCOUNT; i++)
    {
-      thread thr(txthread);
-      if (thr.joinable())
-         thr.detach();
+      parserThreads_.push_back(thread(txthread));
    }
 }
 
@@ -1793,4 +1789,10 @@ void ZeroConfContainer::shutdown()
       vecIE.push_back(terminateEntry);
 
    processInvTxVec(vecIE);
+
+   for (auto& thr : parserThreads_)
+   {
+      if (thr.joinable())
+         thr.join();
+   }
 }

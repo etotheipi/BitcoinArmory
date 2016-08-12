@@ -369,6 +369,8 @@ private:
    function<shared_ptr<map<BinaryData, int32_t>>(void)> getMainAddressMap_;
    mutex parserMutex_;
 
+   vector<thread> parserThreads_;
+
 private:
    BulkFilterData ZCisMineBulkFilter(const Tx & tx,
       const BinaryData& ZCkey,

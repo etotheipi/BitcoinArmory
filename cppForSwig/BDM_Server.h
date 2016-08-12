@@ -121,7 +121,13 @@ private:
 
 public:
    BDV_Server_Object(BlockDataManagerThread *bdmT);
-   ~BDV_Server_Object(void) { haltThreads(); }
+   ~BDV_Server_Object(void) 
+   { 
+      haltThreads(); 
+
+      //unregister from ZC container
+      bdmT_->bdm()->unregisterBDVwithZCcontainer(bdvID_);
+   }
 
    const string& getID(void) const { return bdvID_; }
    void maintenanceThread(void);

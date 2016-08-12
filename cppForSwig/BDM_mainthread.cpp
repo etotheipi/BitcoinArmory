@@ -19,7 +19,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager::registerBDVwithZCcontainer(
-   shared_ptr<BDV_Server_Object> bdvPtr)
+   BDV_Server_Object* bdvPtr)
 {
    auto filter = [bdvPtr](const BinaryData& scrAddr)->bool
    {

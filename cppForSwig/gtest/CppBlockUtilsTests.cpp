@@ -5580,9 +5580,7 @@ TEST_F(BlockDir, HeadersFirst)
    waitOnBDMReady(clients, bdvID);
    auto wlt = bdvPtr->getWalletOrLockbox(wallet1id);
    
-   // we should get the same balance as we do for test 'Load5Blocks'
    const ScrAddrObj *scrobj;
-   
    scrobj = wlt->getScrAddrObjByKey(scraddrs[0]);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
    scrobj = wlt->getScrAddrObjByKey(scraddrs[1]);

@@ -47,7 +47,9 @@ struct BlockDataManagerConfig
    BinaryData genesisTxHash_;
    BinaryData magicBytes_;
 
+   NodeType nodeType_ = Node_BTC;
    string btcPort_;
+
 
    unsigned ramUsage_ = 4;
    unsigned threadCount_ = thread::hardware_concurrency();

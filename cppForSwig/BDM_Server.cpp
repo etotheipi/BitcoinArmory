@@ -574,9 +574,6 @@ Arguments Clients::registerBDV(Arguments& arg)
    //add to BDVs map
    BDVs_.insert(move(make_pair(newID, newBDV)));
 
-   //register with ZC container
-   bdmT_->bdm()->registerBDVwithZCcontainer(newBDV);
-
    LOGINFO << "registered bdv: " << newID;
 
    Arguments args;
@@ -600,12 +597,6 @@ void Clients::unregisterBDV(const string& bdvId)
       bdvPtr = bdvIter->second;
       BDVs_.erase(bdvId);
    }
-
-   //unregister from ZC container
-   bdmT_->bdm()->unregisterBDVwithZCcontainer(bdvId);
-
-   //shut down threads
-   bdvPtr->haltThreads();
 
    //we are done
    LOGINFO << "unregistered bdv: " << bdvId;
@@ -918,6 +909,9 @@ BDV_Server_Object::BDV_Server_Object(
 
    bdvID_ = SecureBinaryData().GenerateRandom(10).toHexStr();
    buildMethodMap();
+
+   //register with ZC container
+   bdmT_->bdm()->registerBDVwithZCcontainer(this);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

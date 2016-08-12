@@ -172,7 +172,7 @@ public:
       std::function<void()> headersRead, headersUpdated, blockDataLoaded;
    };
    
-   void registerBDVwithZCcontainer(shared_ptr<BDV_Server_Object>);
+   void registerBDVwithZCcontainer(BDV_Server_Object*);
    void unregisterBDVwithZCcontainer(const string&);
 
    bool hasException(void) const { return exceptPtr_ != nullptr; }

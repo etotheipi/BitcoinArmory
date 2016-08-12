@@ -1317,14 +1317,16 @@ void BlockDataManager::openDatabase()
 /////////////////////////////////////////////////////////////////////////////
 BlockDataManager::~BlockDataManager()
 {
+   zeroConfCont_.reset();
    blockFiles_.reset();
    dbBuilder_.reset();
    networkNode_.reset();
    readBlockHeaders_.reset();
-   zeroConfCont_.reset();
    iface_->closeDatabases();
    scrAddrData_.reset();
    delete iface_;
+   
+   blockchain_.reset();
 }
 
 /////////////////////////////////////////////////////////////////////////////
