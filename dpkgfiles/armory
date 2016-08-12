@@ -2,4 +2,4 @@
 
 unset CDPATH
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-exec python "$DIR"/../lib/armory/ArmoryQt.py "$@"
+exec python2 "$DIR"/../lib/armory/ArmoryQt.py "$@"
