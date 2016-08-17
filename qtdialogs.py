@@ -1851,7 +1851,11 @@ class DlgWalletDetails(ArmoryDialog):
       if dev:   actionCopyPubKey  = menu.addAction("Copy Raw Public Key (hex)")
       if True:  actionCopyComment = menu.addAction("Copy Comment")
       if True:  actionCopyBalance = menu.addAction("Copy Balance")
-      idx = self.wltAddrView.selectedIndexes()[0]
+      try:
+         idx = self.wltAddrView.selectedIndexes()[0]
+      except IndexError:
+         # Nothing was selected for a context menu to act upon.  Return.
+         return
       action = menu.exec_(QCursor.pos())
 
 
