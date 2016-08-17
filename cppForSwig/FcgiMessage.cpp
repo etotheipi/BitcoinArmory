@@ -9,6 +9,9 @@
 #include "FcgiMessage.h"
 #include <cstring>
 #include <stdexcept>
+#if defined(__APPLE__)
+#include <cstdlib>
+#endif
 
 ///////////////////////////////////////////////////////////////////////////////
 //
