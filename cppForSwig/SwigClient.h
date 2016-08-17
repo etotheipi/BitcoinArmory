@@ -46,12 +46,16 @@ struct BDVAlreadyRegistered : public runtime_error
 class ScrAddrObj
 {
 private:
+   const string bdvID_;
    const string walletID_;
    const BinaryData scrAddr_;
    const shared_ptr<BinarySocket> sock_;
 
 public:
-   ScrAddrObj(const BlockDataViewer&, const string&, const BinaryData&);
+   ScrAddrObj(shared_ptr<BinarySocket>, const string&, const string&, const BinaryData&);
+
+   uint64_t getFullBalance(void) const;
+   uint64_t getTxioCount(void) const;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -72,6 +76,8 @@ public:
    vector<LedgerEntryData> getHistoryPage(uint32_t id);
    LedgerEntryData getLedgerEntryForTxHash(
       const BinaryData& txhash);
+
+   ScrAddrObj getScrAddrObjByKey(const BinaryData&);
 };
 
 ///////////////////////////////////////////////////////////////////////////////

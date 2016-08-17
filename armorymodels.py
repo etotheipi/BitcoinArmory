@@ -1111,7 +1111,7 @@ class WalletAddrDispModel(QAbstractTableModel):
             if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
                return QVariant('n/a')
             cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
-            return QVariant( cppAddr.getTxioCountFromSSH())
+            return QVariant( cppAddr.getTxioCount())
          if col==COL.ChainIdx:
             if self.wlt.addrMap[addr160].chainIndex==-2:
                return QVariant('Imported')

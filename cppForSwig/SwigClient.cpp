@@ -389,16 +389,62 @@ LedgerEntryData BtcWallet::getLedgerEntryForTxHash(
    return levData[0];
 }
 
+///////////////////////////////////////////////////////////////////////////////
+ScrAddrObj BtcWallet::getScrAddrObjByKey(const BinaryData& scrAddr)
+{
+   return ScrAddrObj(sock_, bdvID_, walletID_, scrAddr);
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////
 //
 // ScrAddrObj
 //
 ///////////////////////////////////////////////////////////////////////////////
-ScrAddrObj::ScrAddrObj(const BlockDataViewer& bdv, const string& walletID,
-   const BinaryData& scrAddr) :
-   sock_(bdv.sock_), walletID_(walletID), scrAddr_(scrAddr)
+ScrAddrObj::ScrAddrObj(shared_ptr<BinarySocket> sock, const string& bdvId,
+   const string& walletID, const BinaryData& scrAddr) :
+   sock_(sock), bdvID_(bdvId), walletID_(walletID), scrAddr_(scrAddr)
 {}
+
+///////////////////////////////////////////////////////////////////////////////
+uint64_t ScrAddrObj::getFullBalance() const
+{
+   Command cmd;
+   cmd.method_ = "getAddressFullBalance";
+   cmd.ids_.push_back(bdvID_);
+   cmd.ids_.push_back(walletID_);
+   
+   BinaryDataObject bdo(scrAddr_);
+   cmd.args_.push_back(move(bdo));
+
+   cmd.serialize();
+
+   auto&& retval = sock_->writeAndRead(cmd.command_);
+   Arguments arg(retval);
+   auto&& val = arg.get<uint64_t>();
+
+   return val;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+uint64_t ScrAddrObj::getTxioCount() const
+{
+   Command cmd;
+   cmd.method_ = "getAddressTxioCount";
+   cmd.ids_.push_back(bdvID_);
+   cmd.ids_.push_back(walletID_);
+
+   BinaryDataObject bdo(scrAddr_);
+   cmd.args_.push_back(move(bdo));
+
+   cmd.serialize();
+
+   auto&& retval = sock_->writeAndRead(cmd.command_);
+   Arguments arg(retval);
+   auto&& val = arg.get<uint64_t>();
+
+   return val;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -427,6 +473,7 @@ bool Blockchain::hasHeaderWithHash(const BinaryData& hash)
 
    return hasHash;
 }
+
 
 ///////////////////////////////////////////////////////////////////////////////
 //

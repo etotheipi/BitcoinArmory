@@ -234,6 +234,8 @@ public:
 
    shared_ptr<BtcWallet> getWalletOrLockbox(const BinaryData& id) const;
 
+   tuple<uint64_t, uint64_t> getAddrFullBalance(const BinaryData&);
+
 protected:
    atomic<bool> rescanZC_;
 

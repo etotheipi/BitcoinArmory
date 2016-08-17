@@ -743,6 +743,17 @@ unique_ptr<BDV_Notification_ZC> BlockDataViewer::createZcStruct()
    return move(notif);
 }
 
+///////////////////////////////////////////////////////////////////////////////
+tuple<uint64_t, uint64_t> BlockDataViewer::getAddrFullBalance(
+   const BinaryData& scrAddr)
+{
+   StoredScriptHistory ssh;
+   db_->getStoredScriptHistorySummary(ssh, scrAddr);
+
+
+   return move(make_tuple(ssh.totalUnspent_, ssh.totalTxioCount_));
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 //// WalletGroup
 ////////////////////////////////////////////////////////////////////////////////

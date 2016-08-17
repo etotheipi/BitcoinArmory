@@ -410,6 +410,41 @@ void BDV_Server_Object::buildMethodMap()
    };
 
    methodMap_["getTxByHash"] = getTxByHash;
+
+   //getAddressFullBalance
+   auto getAddressFullBalance = [this]
+      (const vector<string>& ids, Arguments& args)->Arguments
+   {
+      if (ids.size() != 2)
+         throw runtime_error("unexpected id count");
+
+      auto&& scrAddr = args.get<BinaryDataObject>();
+      auto&& retval = this->getAddrFullBalance(scrAddr.get());
+
+      Arguments retarg;
+      retarg.push_back(move(get<0>(retval)));
+      return move(retarg);
+   };
+
+   methodMap_["getAddressFullBalance"] = getAddressFullBalance;
+
+   //getAddressTxioCount
+   auto getAddressTxioCount = [this]
+      (const vector<string>& ids, Arguments& args)->Arguments
+   {
+      if (ids.size() != 2)
+         throw runtime_error("unexpected id count");
+
+      auto&& scrAddr = args.get<BinaryDataObject>();
+      auto&& retval = this->getAddrFullBalance(scrAddr.get());
+
+      Arguments retarg;
+      retarg.push_back(move(get<1>(retval)));
+      return move(retarg);
+   };
+
+   methodMap_["getAddressTxioCount"] = getAddressTxioCount;
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////
