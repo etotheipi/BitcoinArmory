@@ -1031,13 +1031,13 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
          blkFileLocation_ = move(newPath);
       }
 
-      if (blkFileLocation_.substr(blkFileLocation_.length() - 7, 7) != "/blocks")
+      if (blkFileLocation_.substr(blkFileLocation_.length() - 6, 6) != "blocks")
       {
-         appendPath(blkFileLocation_, "/blocks");
+         appendPath(blkFileLocation_, "blocks");
       }
 
       logFilePath_ = dataDir_;
-      appendPath(logFilePath_, "/dbLog.txt");
+      appendPath(logFilePath_, "dbLog.txt");
 
       //test all paths
       auto testPath = [](const string& path, int mode)
@@ -1098,8 +1098,10 @@ void BlockDataManagerConfig::appendPath(string& base, const string& add)
       return;
 
    auto firstChar = add.c_str()[0];
+   auto lastChar = base.c_str()[base.size() - 1];
    if (firstChar != '\\' && firstChar != '/')
-      base.append("/");
+      if (lastChar != '\\' && lastChar != '/')
+         base.append("/");
 
    base.append(add);
 }
