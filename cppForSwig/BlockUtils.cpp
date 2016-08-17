@@ -1045,7 +1045,7 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
 #ifdef _WIN32
          if (_access(path.c_str(), mode) != 0)
 #else
-         nixmode = F_OK;
+         auto nixmode = F_OK;
          if (mode & 2)
             nixmode |= R_OK;
          if (mode & 4)
