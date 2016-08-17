@@ -483,11 +483,13 @@ public:
          return (INTTYPE)0;
       }
       
-      INTTYPE out = 0;
+      /*INTTYPE out = 0;
       for(uint8_t i=0; i<SZ; i++)
-         out |= ((INTTYPE)binstr[i]) << (8*i);
+         out |= ((INTTYPE)binstr[i]) << (8*i);*/
 
-      return out;
+      auto intPtr = (INTTYPE*)binstr.getPtr();
+
+      return *intPtr;
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -512,11 +514,13 @@ public:
    template<typename INTTYPE>
    static INTTYPE StrToIntLE(uint8_t const * ptr)
    {
-      INTTYPE out = 0;
+      /*INTTYPE out = 0;
       for(uint8_t i=0; i<sizeof(INTTYPE); i++)
-         out |= ((INTTYPE)ptr[i]) << (8*i);
+         out |= ((INTTYPE)ptr[i]) << (8*i);*/
 
-      return out;
+      auto intPtr = (INTTYPE*)ptr;
+
+      return *intPtr;
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -1272,6 +1276,15 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
+   double get_double()
+   {
+      auto doublePtr = (double*)(bdRef_.getPtr() + pos_);
+
+      pos_ += 8;
+      return *doublePtr;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
    BinaryDataRef get_BinaryDataRef(uint32_t nBytes)
    {
       BinaryDataRef bdrefout(bdRef_.getPtr() + pos_, nBytes);
@@ -1448,40 +1461,77 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // These write data properly regardless of the architecture
-   void put_uint8_t (uint8_t  val, ENDIAN e=LE) { theString_.append( val ); }
+   void put_uint8_t (const uint8_t&  val, ENDIAN e=LE) { theString_.append( val ); }
 
    /////
-   void put_uint16_t(uint16_t val, ENDIAN e=LE) 
+   void put_uint16_t(const uint16_t& val, ENDIAN e=LE) 
    { 
-      BinaryData out = (e==LE ? WRITE_UINT16_LE(val) : WRITE_UINT16_BE(val));
-      theString_.append( out.getPtr(), 2); 
+      if (e == LE)
+      {
+         auto valPtr = (uint8_t*)&val;
+         theString_.append(valPtr, 2);
+      }
+      else
+      {
+         auto&& out = WRITE_UINT16_BE(val);
+         theString_.append(out.getPtr(), 2);
+      }
    }
 
    /////
-   void put_uint32_t(uint32_t val, ENDIAN e=LE) 
+   void put_uint32_t(const uint32_t& val, ENDIAN e=LE) 
    { 
-      BinaryData out = (e==LE ? WRITE_UINT32_LE(val) : WRITE_UINT32_BE(val));
-      theString_.append( out.getPtr(), 4); 
+      if (e == LE)
+      {
+         auto valPtr = (uint8_t*)&val;
+         theString_.append(valPtr, 4);
+      }
+      else
+      {
+         auto&& out = WRITE_UINT32_BE(val);
+         theString_.append(out.getPtr(), 4);
+      }
    }
 
    /////
-   void put_int32_t(uint32_t val, ENDIAN e = LE)
+   void put_int32_t(const int32_t& val, ENDIAN e = LE)
    {
-      BinaryData out = (e == LE ? 
-         BinaryData::IntToStrLE<int32_t>(val) : 
-         BinaryData::IntToStrBE<int32_t>(val));
-      theString_.append(out.getPtr(), 4);
+      if (e == LE)
+      {
+         auto valPtr = (uint8_t*)&val;
+         theString_.append(valPtr, 4);
+      }
+      else
+      {
+         auto&& out = BinaryData::IntToStrBE<int32_t>(val);
+         theString_.append(out.getPtr(), 4);
+      }
    }
 
    /////
-   void put_uint64_t(uint64_t val, ENDIAN e=LE) 
+   void put_uint64_t(const uint64_t& val, ENDIAN e=LE) 
    { 
-      BinaryData out = (e==LE ? WRITE_UINT64_LE(val) : WRITE_UINT64_BE(val));
-      theString_.append( out.getPtr(), 8); 
+      if (e == LE)
+      {
+         auto valPtr = (uint8_t*)&val;
+         theString_.append(valPtr, 8);
+      }
+      else
+      {
+         auto&& out = WRITE_UINT64_BE(val);
+         theString_.append(out.getPtr(), 8);
+      }
+   }
+
+   ////
+   void put_double(const double& val)
+   {
+      auto valPtr = (uint8_t*)&val;
+      theString_.append(valPtr, 8);
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   uint8_t put_var_int(uint64_t val)
+   uint8_t put_var_int(const uint64_t& val)
    {
 
       if(val < 0xfd)

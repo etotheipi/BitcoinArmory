@@ -27,14 +27,6 @@ using namespace std;
 
 typedef enum
 {
-   BDV_dontRefresh,
-   BDV_refreshSkipRescan,
-   BDV_refreshAndRescan,
-   BDV_filterChanged
-}BDV_refresh;
-
-typedef enum
-{
    order_ascending,
    order_descending
 }HistoryOrdering;
@@ -45,56 +37,6 @@ typedef enum
    group_wallet,
    group_lockbox
 }LedgerGroups;
-
-struct BDV_Notification
-{
-   virtual ~BDV_Notification(void)
-   {}
-};
-
-struct BDV_Notification_NewBlock : public BDV_Notification
-{
-   Blockchain::ReorganizationState reorgState_;
-
-   BDV_Notification_NewBlock(
-      const Blockchain::ReorganizationState& ref) :
-      reorgState_(ref)
-   {}
-};
-
-struct BDV_Notification_ZC : public BDV_Notification
-{
-   typedef map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>> zcMapType;
-   zcMapType scrAddrZcMap_;
-
-   BDV_Notification_ZC(zcMapType&& mv) :
-      scrAddrZcMap_(move(mv))
-   {}
-};
-
-struct BDV_Notification_Refresh : public BDV_Notification
-{
-   const BDV_refresh refresh_;
-   const BinaryData refreshID_;
-
-   BDV_Notification_Refresh(
-      BDV_refresh refresh, const BinaryData& refreshID) :
-      refresh_(refresh), refreshID_(refreshID)
-   {}
-};
-
-struct BDV_Action_Struct
-{
-   BDV_Action action_;
-   shared_ptr<BDV_Notification> payload_ = nullptr;
-
-   BDV_Action_Struct(BDV_Action action, shared_ptr<BDV_Notification> notif) :
-      action_(action), payload_(notif)
-   {}
-
-   BDV_Action_Struct(void)
-   {}
-};
 
 class WalletGroup;
 
@@ -141,10 +83,10 @@ private:
 class BlockDataViewer
 {
 private:
-   virtual void pushNotification(BDV_Action_Struct) = 0;
+   virtual void pushNotification(unique_ptr<BDV_Notification>) = 0;
 
 protected:
-   BDV_Action_Struct createZcStruct(void);
+   unique_ptr<BDV_Notification_ZC> createZcStruct(void);
 
 public:
    BlockDataViewer(BlockDataManager* bdm);
@@ -167,7 +109,7 @@ public:
    void       unregisterWallet(const string& ID);
    void       unregisterLockbox(const string& ID);
 
-   void scanWallets(BDV_Action_Struct);
+   void scanWallets(shared_ptr<BDV_Notification>);
    
    bool hasWallet(const BinaryData& ID) const;
 

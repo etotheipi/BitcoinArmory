@@ -4807,13 +4807,9 @@ class ArmoryMainWindow(QMainWindow):
             self.barProgressBuild.setRange(0,100)
             self.barProgressScan.setFormat('%p%')
 
-         tleft15 = (int(tleft-1)/15 + 1)*15
-         if tleft < 2:
-            tstring = ''
-            pvalue  = pct*100
-         else:
-            tstring = secondsToHumanTime(tleft15)
-            pvalue = pct*100
+
+         tstring = secondsToHumanTime(tleft)
+         pvalue = pct*100
 
          if phase==BDMPhase_BlockHeaders or phase==BDMPhase_BlockData or phase==BDMPhase_DBHeaders:
             self.lblTimeLeftBuild.setText(tstring)

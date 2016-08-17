@@ -68,7 +68,7 @@ SOCKET BinarySocket::openSocket(bool blocking)
    
       setBlocking(sockfd, blocking);
    }
-   catch (SocketError &e)
+   catch (SocketError &)
    {
       closeSocket(sockfd);
       sockfd = SOCK_MAX;

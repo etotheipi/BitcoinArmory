@@ -189,6 +189,9 @@ BlockOffset DatabaseBuilder::loadBlockHeadersFromDB(
       if (currblock > topBlockOffet)
          topBlockOffet = currblock;
 
+      if ((counter % 10000) != 0)
+         return;
+
       calc.advance(counter++);
       progress(BDMPhase_DBHeaders, 
          calc.fractionCompleted(), calc.remainingSeconds(), counter);
@@ -226,7 +229,7 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
          {
             LOGINFO << "parsed block file #" << fileID;
             
-            calc.advance(fileID + threadcount, false);
+            calc.advance(fileID, false);
             progress(BDMPhase_BlockData,
             calc.fractionCompleted(), calc.remainingSeconds(), 
                fileID + threadcount);
@@ -234,7 +237,7 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
 
          //reset startOffset for the next file
          startOffset = 0;
-         fileID += bdmConfig_.threadCount_;
+         fileID += threadcount;
       }
    };
 

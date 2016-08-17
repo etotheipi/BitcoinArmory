@@ -26,7 +26,7 @@ istream& operator >> (istream& is, ErrorType& et)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-const vector<shared_ptr<DataMeta>> DataMeta::iTypeIDs_ = {
+vector<shared_ptr<DataMeta>> DataMeta::iTypeIDs_ = {
    make_shared<DataObject<int>>(),
    make_shared<DataObject<unsigned int>>(),
    make_shared<DataObject<uint64_t>>(),
@@ -36,6 +36,7 @@ const vector<shared_ptr<DataMeta>> DataMeta::iTypeIDs_ = {
    make_shared<DataObject<BinaryDataVector>>(),
    make_shared<DataObject<LedgerEntryVector>>(),
    make_shared<DataObject<UtxoVector>>(),
+   make_shared<DataObject<ProgressData>>(),
    make_shared<DataObject<ErrorType>>()
 };
 
@@ -330,6 +331,46 @@ istream& operator >> (istream& is, BinaryDataVector& bdvec)
 
    return is;
 }
+
+///////////////////////////////////////////////////////////////////////////////
+ostream& operator << (ostream& os, const ProgressData& pd)
+{
+   BinaryWriter bw;
+   bw.put_uint8_t((uint8_t)pd.phase_);
+   bw.put_double(pd.progress_);
+   bw.put_uint32_t(pd.time_);
+   bw.put_uint32_t(pd.numericProgress_);
+
+   os << "_" << bw.getDataRef().toHexStr();
+
+   return os;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+istream& operator >> (istream& is, ProgressData& pd)
+{
+   if (is.eof())
+      throw runtime_error("reached stream eof");
+
+   char c = 0;
+   is.get(c);
+   if (c != '_') //awkward epiphany face
+      throw runtime_error("malfored ProgressData argument");
+
+   string data;
+   is >> data;
+   auto&& bdData = READHEX(data);
+
+   BinaryRefReader brr(bdData.getRef());
+
+   pd.phase_ = (BDMPhase)brr.get_uint8_t();
+   pd.progress_ = brr.get_double();
+   pd.time_ = brr.get_uint32_t();
+   pd.numericProgress_ = brr.get_uint32_t();
+
+   return is;
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////
 //

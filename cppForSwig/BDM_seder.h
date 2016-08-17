@@ -14,6 +14,7 @@
 #include "DataObject.h"
 #include "LedgerEntryData.h"
 #include "TxClasses.h"
+#include "bdmenums.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 class LedgerEntryVector
@@ -98,11 +99,32 @@ private:
    vector<UTXO> vec_;
 
 public:
-   friend ostream& operator << (ostream&, const UtxoVector&);
-   friend istream& operator >> (istream&, UtxoVector&);
-
    void push_back(UTXO utxo) { vec_.push_back(move(utxo)); }
    vector<UTXO> toVec(void) { return move(vec_); }
+   
+   friend ostream& operator << (ostream&, const UtxoVector&);
+   friend istream& operator >> (istream&, UtxoVector&);
+};
+
+///////////////////////////////////////////////////////////////////////////////
+struct ProgressData
+{
+   BDMPhase phase_; 
+   double progress_;
+   unsigned time_;
+   unsigned numericProgress_;
+
+   ProgressData(void)
+   {}
+
+   ProgressData(BDMPhase phase, double prog, 
+      unsigned time, unsigned numProg) :
+      phase_(phase), progress_(prog), time_(time),
+      numericProgress_(numProg)
+   {}
+
+   friend ostream& operator << (ostream&, const ProgressData&);
+   friend istream& operator >> (istream&, ProgressData&);
 };
 
 #endif

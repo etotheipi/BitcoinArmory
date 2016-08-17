@@ -440,7 +440,7 @@ PythonCallback::PythonCallback(const BlockDataViewer& bdv) :
    orderMap_["NewBlock"] = CBO_NewBlock;
    orderMap_["BDV_Refresh"] = CBO_BDV_Refresh;
    orderMap_["BDM_Ready"] = CBO_BDM_Ready;
-   orderMap_["progress"] = CBO_progress;
+   orderMap_["BDV_Progress"] = CBO_progress;
    orderMap_["terminate"] = CBO_terminate;
 }
 
@@ -495,49 +495,56 @@ void PythonCallback::remoteLoop(void)
             continue;
          } 
 
-         switch(orderIter->second)
+         switch (orderIter->second)
          {
-         case CBO_continue:
-            break;
-       
-         case CBO_NewBlock:
-         {
-            unsigned int newblock = args.get<unsigned int>();
-            if (newblock != 0)
-               run(BDMAction::BDMAction_NewBlock, &newblock, newblock);
-            break;
-         }
+            case CBO_continue:
+               break;
 
-         case CBO_BDV_Refresh:
-         {
-            vector<BinaryData> bdVector;
-            run(BDMAction::BDMAction_Refresh, &bdVector, 0);
-            break;
-         }
+            case CBO_NewBlock:
+            {
+               unsigned int newblock = args.get<unsigned int>();
+               if (newblock != 0)
+                  run(BDMAction::BDMAction_NewBlock, &newblock, newblock);
 
-         case CBO_BDM_Ready:
-         {
-            isReady = true;
+               break;
+            }
 
-            sendCmd.args_.clear();
-            sendCmd.args_.push_back(move(string("getStatus")));
-            sendCmd.serialize();
+            case CBO_BDV_Refresh:
+            {
+               vector<BinaryData> bdVector;
+               run(BDMAction::BDMAction_Refresh, &bdVector, 0);
 
-            unsigned int topblock = args.get<unsigned int>();
-            run(BDMAction::BDMAction_Ready, nullptr, topblock);
-            break;
-         }
+               break;
+            }
 
-         case CBO_progress:
-         {
-            break;
-         }
+            case CBO_BDM_Ready:
+            {
+               isReady = true;
 
-         case CBO_terminate:
-         {
-            //shut down command from server
-            return false;
-         }
+               sendCmd.args_.clear();
+               sendCmd.args_.push_back(move(string("getStatus")));
+               sendCmd.serialize();
+
+               unsigned int topblock = args.get<unsigned int>();
+               run(BDMAction::BDMAction_Ready, nullptr, topblock);
+
+               break;
+            }
+
+            case CBO_progress:
+            {
+               auto&& pd = args.get<ProgressData>();
+               progress(pd.phase_, vector<string>(), pd.progress_,
+                  pd.time_, pd.numericProgress_);
+
+               break;
+            }
+
+            case CBO_terminate:
+            {
+               //shut down command from server
+               return false;
+            }
          }
       }
 

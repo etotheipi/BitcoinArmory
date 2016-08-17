@@ -99,7 +99,7 @@ private:
 
 public:
 
-   BlockingStack<BDV_Action_Struct> notificationStack_;
+   BlockingStack<shared_ptr<BDV_Notification>> notificationStack_;
 
 private:
    BDV_Server_Object(BDV_Server_Object&) = delete; //no copies
@@ -114,9 +114,9 @@ private:
    bool registerLockbox(
       vector<BinaryData> const& scrAddrVec, string IDstr, bool wltIsNew);
 
-   void pushNotification(BDV_Action_Struct action)
+   void pushNotification(unique_ptr<BDV_Notification> notifPtr)
    {
-      notificationStack_.push_back(move(action));
+      notificationStack_.push_back(move(notifPtr));
    }
 
 public:
@@ -124,19 +124,21 @@ public:
    ~BDV_Server_Object(void) 
    { 
       haltThreads(); 
-
-      //unregister from ZC container
-      bdmT_->bdm()->unregisterBDVwithZCcontainer(bdvID_);
    }
 
    const string& getID(void) const { return bdvID_; }
    void maintenanceThread(void);
+   void init(void);
+
    Arguments executeCommand(const string& method, 
                               const vector<string>& ids, 
                               Arguments& args);
   
    void zcCallback(
       map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>> zcMap);
+   void progressCallback(BDMPhase phase, double progress,
+      unsigned time, unsigned numericProgress);
+
    void haltThreads(void);
 };
 

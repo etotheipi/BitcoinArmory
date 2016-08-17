@@ -32,6 +32,7 @@ enum OrderType
    OrderRefresh,
    OrderZC,
    OrderOther,
+   OrderProgress,
    OrderTerminate
 };
 
@@ -43,7 +44,7 @@ private:
 
 public:
    static map<string, uint32_t> strTypeIDs_;
-   static const vector<shared_ptr<DataMeta>> iTypeIDs_;
+   static vector<shared_ptr<DataMeta>> iTypeIDs_;
 
 public:
    DataMeta(const type_info& type) :

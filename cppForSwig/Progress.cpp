@@ -10,7 +10,9 @@
 ProgressCalculator::ProgressCalculator(uint64_t total)
    : total_(total)
 {
-   then_ = 0;
+   auto now = std::chrono::system_clock::now();
+   auto duration = now.time_since_epoch();
+   then_ = std::chrono::duration_cast<std::chrono::milliseconds>(duration);
 }
 
 void ProgressCalculator::advance(uint64_t to, bool suppress)
@@ -18,17 +20,15 @@ void ProgressCalculator::advance(uint64_t to, bool suppress)
    static const double smoothingFactor=.10;
    
    if (to == lastSample_) return;
-   const time_t now = time(0);
-   if (then_ == 0)
-   {
-      then_ = now;
-      lastSample_ = to;
-   }
+   auto sysclock = std::chrono::system_clock::now();
+   auto duration = sysclock.time_since_epoch();
+   auto now = std::chrono::duration_cast<std::chrono::milliseconds>(duration);
+
    if (now == then_) return;
-   
-   if (now < then_+10 && suppress) return;
-   
-   double speed = (to-lastSample_)/double(now-then_);
+   auto diff = now - then_;
+   double doubleDiff = double(diff.count()) / 1000.0;
+      
+   double speed = (to-lastSample_)/doubleDiff;
    
    if (lastSample_ == 0)
       avgSpeed_ = speed;

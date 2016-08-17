@@ -1154,27 +1154,6 @@ protected:
       const vector<string>& wltIDs
    )
    {
-      class WalletIdProgressReporter : public ProgressReporter
-      {
-         const vector<string>& wIDs_;
-         const function<void(const vector<string>&, double prog,unsigned time)> &cb;
-      public:
-         WalletIdProgressReporter(
-            const vector<string>& wIDs,
-            const function<void(const vector<string>&, double prog,unsigned time)> &cb
-         )
-            : wIDs_(wIDs), cb(cb) {}
-         
-         virtual void progress(
-            double progress, unsigned secondsRemaining
-         )
-         {
-            cb(wIDs_, progress, secondsRemaining);
-         }
-      };
-   
-      WalletIdProgressReporter progress(wltIDs, scanThreadProgressCallback_);
-
       //make sure sdbis are initialized (fresh ids wont have sdbi entries)
       try
       {
@@ -1207,8 +1186,16 @@ protected:
          //write sdbi
          putSubSshSDBI(sdbi);
       }
+      
+      const auto progress
+         = [&](BDMPhase phase, double prog, unsigned time, unsigned numericProgress)
+      {
+         auto&& notifPtr = make_unique<BDV_Notification_Progress>(
+            phase, prog, time, numericProgress);
 
-      //pass false to skip SDBI top block updates
+         bdm_->notificationStack_.push_back(move(notifPtr));
+      };
+
       return bdm_->applyBlockRangeToDB(progress, startBlock, endBlock, *this, false);
    }
    
@@ -1336,7 +1323,7 @@ BlockDataManager::~BlockDataManager()
 // and processes every Tx, creating new SSHs if not there, and creating and
 // marking-spent new TxOuts.  
 BinaryData BlockDataManager::applyBlockRangeToDB(
-   ProgressReporter &prog, 
+   ProgressCallback prog, 
    uint32_t blk0, uint32_t blk1, 
    ScrAddrFilter& scrAddrData,
    bool updateSDBI)
@@ -1344,16 +1331,10 @@ BinaryData BlockDataManager::applyBlockRangeToDB(
    // compute how many bytes of raw blockdata we're going to apply
    uint64_t startingAt=0, totalBytes=0;   
 
-   auto prg = [&](BDMPhase phase, double fracCompleted,
-      unsigned secRemain, unsigned progVal)->void
-   {
-      prog.progress(fracCompleted, secRemain);
-   };
-
    // Start scanning and timer
    BlockchainScanner bcs(blockchain_, iface_, &scrAddrData, 
       *blockFiles_.get(), config_.threadCount_, config_.ramUsage_,
-      prg, true);
+      prog, true);
    bcs.scan_nocheck(blk0);
    bcs.updateSSH(true);
    bcs.resolveTxHashes();

@@ -598,7 +598,10 @@ void Clients::unregisterBDV(const string& bdvId)
       BDVs_.erase(bdvId);
    }
 
+   bdvPtr->haltThreads();
+
    //we are done
+   bdvPtr.reset();
    LOGINFO << "unregistered bdv: " << bdvId;
 }
 
@@ -611,13 +614,15 @@ void Clients::maintenanceThread(void) const
 
    while (1)
    {
-      bool hasNewTop = false;
-      Blockchain::ReorganizationState reorgState;
+      bool timedout = true;
+      shared_ptr<BDV_Notification> notifPtr;
 
       try
       {
-         reorgState = move(bdmT_->bdm()->newBlocksStack_.get(chrono::seconds(120)));
-         hasNewTop = true;
+         notifPtr = move(bdmT_->bdm()->notificationStack_.get(chrono::seconds(120)));
+         if (notifPtr == nullptr)
+            continue;
+         timedout = false;
       }
       catch (StackTimedOutException&)
       {
@@ -634,19 +639,19 @@ void Clients::maintenanceThread(void) const
       }
 
       //trigger gc thread
-      gcCommands_.push_back(true);
+      if (timedout == true || notifPtr->action_type() != BDV_Progress)
+         gcCommands_.push_back(true);
       
       //don't go any futher if there is no new top
-      if (!hasNewTop)
+      if (timedout)
          continue;
 
       auto bdvmap = BDVs_.get();
 
       for (auto& bdv : *bdvmap)
       {
-         auto bdvdata = make_unique<BDV_Notification_NewBlock>(reorgState);
-         BDV_Action_Struct action(BDV_NewBlock, move(bdvdata));
-         bdv.second->notificationStack_.push_back(move(action));
+         auto newPtr = notifPtr;
+         bdv.second->notificationStack_.push_back(move(notifPtr));
       }
    }
 }
@@ -920,6 +925,13 @@ void BDV_Server_Object::startThreads()
    auto thrLambda = [this](void)->void
    { this->maintenanceThread(); };
 
+   auto initLambda = [this](void)->void
+   { this->init(); };
+
+   thread initThread(initLambda);
+   if (initThread.joinable())
+      initThread.detach();
+   
    tID_ = thread(thrLambda);
 }
 
@@ -928,6 +940,10 @@ void BDV_Server_Object::haltThreads()
 {
    notificationStack_.terminate();
 
+
+   //unregister from ZC container
+   bdmT_->bdm()->unregisterBDVwithZCcontainer(bdvID_);
+
    if (tID_.joinable())
       tID_.join();
 
@@ -935,7 +951,7 @@ void BDV_Server_Object::haltThreads()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void BDV_Server_Object::maintenanceThread(void)
+void BDV_Server_Object::init()
 {
    bdmPtr_->blockUntilReady();
 
@@ -974,36 +990,40 @@ void BDV_Server_Object::maintenanceThread(void)
          //underlying  addresses are already registered with the BDM
          if (wlt.second.type_ == TypeWallet)
             bdvPtr->registerWallet(
-               wlt.second.scrAddrVec, wlt.second.IDstr, wlt.second.isNew);
+            wlt.second.scrAddrVec, wlt.second.IDstr, wlt.second.isNew);
          else
             bdvPtr->registerLockbox(
-               wlt.second.scrAddrVec, wlt.second.IDstr, wlt.second.isNew);
+            wlt.second.scrAddrVec, wlt.second.IDstr, wlt.second.isNew);
       }
    }
 
    //could a wallet registration event get lost in between the init loop 
    //and setting the promise?
 
-   BDV_Action_Struct firstScanAction(BDV_Init, nullptr);
-   scanWallets(move(firstScanAction));
+   auto&& notifPtr = make_unique<BDV_Notification_Init>();
+   scanWallets(move(notifPtr));
 
    auto&& zcstruct = createZcStruct();
    scanWallets(move(zcstruct));
-   
+
    Arguments args;
    args.push_back(move(string("BDM_Ready")));
    unsigned int topblock = blockchain().top().getBlockHeight();
    args.push_back(move(topblock));
    cb_->callback(move(args));
-   
-   isReadyPromise_.set_value(true);
 
+   isReadyPromise_.set_value(true);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void BDV_Server_Object::maintenanceThread(void)
+{
    while (1)
    {
-      BDV_Action_Struct action_struct;
+      shared_ptr<BDV_Notification> notifPtr;
       try
       {
-         action_struct = move(notificationStack_.get());
+         notifPtr = move(notificationStack_.get());
       }
       catch (IsEmpty&)
       {
@@ -1011,37 +1031,62 @@ void BDV_Server_Object::maintenanceThread(void)
          break;
       }
 
-      auto& action = action_struct.action_;
+      auto action = notifPtr->action_type();
 
-      scanWallets(action_struct);
+      shared_ptr<BDV_Notification> notifSPtr = move(notifPtr);
 
-      if (action == BDV_NewBlock)
+      scanWallets(notifSPtr);
+
+      switch(action)
       {
-         Arguments args2;
-         auto payload = 
-            (BDV_Notification_NewBlock*)action_struct.payload_.get();
-         uint32_t blocknum = 
-            payload->reorgState_.newTop->getBlockHeight();
+         case BDV_NewBlock:
+         {
+            Arguments args2;
+            auto&& payload =
+               dynamic_pointer_cast<BDV_Notification_NewBlock>(notifSPtr);
+            uint32_t blocknum =
+               payload->reorgState_.newTop->getBlockHeight();
 
-         args2.push_back(move(string("NewBlock")));
-         args2.push_back(move(blocknum));
-         cb_->callback(move(args2), OrderNewBlock);
-      }
-      else if (action == BDV_RefreshWallets)
-      {
-         //ignore refresh type and refreshID for now
+            args2.push_back(move(string("NewBlock")));
+            args2.push_back(move(blocknum));
+            cb_->callback(move(args2), OrderNewBlock);
+            break;
+         }
+      
+         case BDV_Refresh:
+         {
+            //ignore refresh type and refreshID for now
 
-         Arguments args2;
-         args2.push_back(move(string("BDV_Refresh")));
-         cb_->callback(move(args2), OrderRefresh);
-      }
-      else if (action == BDV_ZC)
-      {
-         //TODO: upgrade to reporting actual ZC to trigger tooltip notification
-         //in front end, instead simple refresh
-         Arguments args2;
-         args2.push_back(move(string("BDV_Refresh")));
-         cb_->callback(move(args2), OrderRefresh);
+            Arguments args2;
+            args2.push_back(move(string("BDV_Refresh")));
+            cb_->callback(move(args2), OrderRefresh);
+            break;
+         }
+
+         case BDV_ZC:
+         {
+            //TODO: upgrade to reporting actual ZC to trigger tooltip notification
+            //in front end, instead simple refresh
+            Arguments args2;
+            args2.push_back(move(string("BDV_Refresh")));
+            cb_->callback(move(args2), OrderRefresh);
+            break;
+         }
+
+         case BDV_Progress:
+         {
+            auto&& payload = 
+               dynamic_pointer_cast<BDV_Notification_Progress>(notifSPtr);
+
+            ProgressData pd(payload->phase_, payload->progress_,
+               payload->time_, payload->numericProgress_);
+
+            Arguments args2;
+            args2.push_back(move(string("BDV_Progress")));
+            args2.push_back(move(pd));
+
+            cb_->callback(move(args2), OrderProgress);
+         }
       }
    }
 }
@@ -1050,12 +1095,20 @@ void BDV_Server_Object::maintenanceThread(void)
 void BDV_Server_Object::zcCallback(
    map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>> zcMap)
 {
-   auto notificationPtr = make_shared<BDV_Notification_ZC>(
+   auto notificationPtr = make_unique<BDV_Notification_ZC>(
       move(zcMap));
 
-   BDV_Action_Struct action(BDV_ZC, notificationPtr);
+   notificationStack_.push_back(move(notificationPtr));
+}
 
-   notificationStack_.push_back(move(action));
+///////////////////////////////////////////////////////////////////////////////
+void BDV_Server_Object::progressCallback(BDMPhase phase, double progress,
+   unsigned time, unsigned numericProgress)
+{
+   auto notificationPtr = make_unique<BDV_Notification_Progress>(
+      phase, progress, time, numericProgress);
+
+   notificationStack_.push_back(move(notificationPtr));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1194,8 +1247,10 @@ Arguments SocketCallback::respond(const string& command)
          }
 
          case OrderRefresh:
+         {
             refreshNotification = true;
             break;
+         }
 
          case OrderTerminate:
          {

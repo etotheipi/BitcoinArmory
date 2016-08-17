@@ -120,77 +120,59 @@ try
 
    if (bdm->hasException())
       return;
-      
+
    promise<bool> isReadyPromise;
    bdm->isReadyFuture_ = isReadyPromise.get_future();
-   
+
+   //connect to node as async, no need to wait for a succesful connection
+   //to init the DB
+   bdm->networkNode_->connectToNode(true);
+
+   tuple<BDMPhase, double, unsigned, unsigned> lastvalues;
+   time_t lastProgressTime = 0;
+
+   class BDMStopRequest
    {
-      //connect to node as async, no need to wait for a succesful connection
-      //to init the DB
-      bdm->networkNode_->connectToNode(true);
+   public:
+      virtual ~BDMStopRequest() { }
+   };
 
-      tuple<BDMPhase, double, unsigned, unsigned> lastvalues;
-      time_t lastProgressTime=0;
-      
-      class BDMStopRequest
+   const auto loadProgress
+      = [&](BDMPhase phase, double prog, unsigned time, unsigned numericProgress)
+   {
+      //pass empty walletID for main build&scan calls
+      auto&& notifPtr = make_unique<BDV_Notification_Progress>(
+         phase, prog, time, numericProgress);
+
+      bdm->notificationStack_.push_back(move(notifPtr));
+
+      if (!pimpl->run)
       {
-      public:
-         virtual ~BDMStopRequest() { }
-      };
-     
-      const auto loadProgress
-         = [&] (BDMPhase phase, double prog,unsigned time, unsigned numericProgress)
-      {
-         const tuple<BDMPhase, double, unsigned, unsigned> currentvalues
-            { phase, prog, time, numericProgress };
-         if (currentvalues == lastvalues)
-            return; // don't go to python if nothing's changed
-         
-         // also, don't go to the python if the phase is the same and it's been
-         // less than 1 second since the last time this has been called
-         // python is a lot slower than C++, so we don't want to invoke
-         // the python interpreter to frequently
-         const time_t currentProgressTime = std::time(nullptr);
-         if (phase == get<0>(lastvalues)
-            && currentProgressTime <= lastProgressTime+1
-            && fabs(get<1>(lastvalues)-get<1>(currentvalues)) <= .01 )
-            return;
-            
-         lastProgressTime = currentProgressTime;
-         
-         lastvalues = currentvalues;
-         
-         //pass empty walletID for main build&scan calls
-         //callback->progress(phase, vector<string>(), prog, time, numericProgress);
-
-         if (!pimpl->run)
-         {
-            LOGINFO << "Stop requested detected";
-            throw BDMStopRequest();
-         }
-      };
-      
-      try
-      {
-         unsigned mode = pimpl->mode & 0x00000003;
-         bool clearZc = pimpl->mode & 0x00000004;
-
-         if (mode == 0) bdm->doInitialSyncOnLoad(loadProgress);
-         else if (mode == 1) bdm->doInitialSyncOnLoad_Rescan(loadProgress);
-         else if (mode == 2) bdm->doInitialSyncOnLoad_Rebuild(loadProgress);
-         else if (mode == 3) bdm->doInitialSyncOnLoad_RescanBalance(loadProgress);
-
-         bdm->enableZeroConf(clearZc);
+         LOGINFO << "Stop requested detected";
+         throw BDMStopRequest();
       }
-      catch (BDMStopRequest&)
-      {
-         LOGINFO << "UI asked build/scan thread to finish";
-         return;
-      }
+   };
+
+   try
+   {
+      unsigned mode = pimpl->mode & 0x00000003;
+      bool clearZc = pimpl->mode & 0x00000004;
+
+      if (mode == 0) bdm->doInitialSyncOnLoad(loadProgress);
+      else if (mode == 1) bdm->doInitialSyncOnLoad_Rescan(loadProgress);
+      else if (mode == 2) bdm->doInitialSyncOnLoad_Rebuild(loadProgress);
+      else if (mode == 3) bdm->doInitialSyncOnLoad_RescanBalance(loadProgress);
+
+      bdm->enableZeroConf(clearZc);
+   }
+   catch (BDMStopRequest&)
+   {
+      LOGINFO << "UI asked build/scan thread to finish";
+      return;
    }
 
    isReadyPromise.set_value(true);
-   
+
    auto updateChainLambda = [bdm, this]()->bool
    {
       auto reorgState = bdm->readBlkFileUpdate();
@@ -203,12 +185,14 @@ try
          auto purgeFuture = zcaction.finishedPromise_->get_future();
 
          bdm->zeroConfCont_->newZcStack_.push_back(move(zcaction));
-         
+
          //wait on purge
          purgeFuture.get();
 
          //notify bdvs
-         bdm->newBlocksStack_.push_back(move(reorgState));
+         auto&& notifPtr =
+            make_unique<BDV_Notification_NewBlock>(move(reorgState));
+         bdm->notificationStack_.push_back(move(notifPtr));
 
          return true;
       }
@@ -216,13 +200,13 @@ try
       return false;
    };
 
-   while(pimpl->run)
+   while (pimpl->run)
    {
       //register promise with p2p interface
       auto newBlocksPromise = make_shared<promise<bool>>();
       auto newBlocksFuture = newBlocksPromise->get_future();
-      
-      auto newBlocksCallback = 
+
+      auto newBlocksCallback =
          [newBlocksPromise](const vector<InvEntry>& vecIE)->void
       {
          for (auto& ie : vecIE)
@@ -259,8 +243,6 @@ try
          break;
       }
    }
-
-   //bdm->newBlocksStack_.terminate();
 }
 catch (std::exception &e)
 {

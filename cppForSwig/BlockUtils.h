@@ -132,7 +132,7 @@ public:
    shared_ptr<BitcoinP2P> networkNode_;
    shared_future<bool> isReadyFuture_;
 
-   TimedStack<Blockchain::ReorganizationState> newBlocksStack_;
+   TimedStack<unique_ptr<BDV_Notification>> notificationStack_;
    shared_ptr<ZeroConfContainer>   zeroConfCont_;
 
 public:
@@ -188,7 +188,7 @@ public:
    Blockchain::ReorganizationState readBlkFileUpdate(
       const BlkFileUpdateCallbacks &callbacks=BlkFileUpdateCallbacks());
 
-   BinaryData applyBlockRangeToDB(ProgressReporter &prog, 
+   BinaryData applyBlockRangeToDB(ProgressCallback, 
                             uint32_t blk0, uint32_t blk1,
                             ScrAddrFilter& scrAddrData,
                             bool updateSDBI = true);
@@ -213,7 +213,7 @@ public:
    }
 
    void shutdownNode(void) { networkNode_->shutdown(); }
-   void shutdownNotifications(void) { newBlocksStack_.terminate(); }
+   void shutdownNotifications(void) { notificationStack_.terminate(); }
 
 public:
 

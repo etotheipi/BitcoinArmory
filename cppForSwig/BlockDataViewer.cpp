@@ -63,7 +63,7 @@ void BlockDataViewer::unregisterLockbox(const string& IDstr)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::scanWallets(BDV_Action_Struct action)
+void BlockDataViewer::scanWallets(shared_ptr<BDV_Notification> action)
 {
    uint32_t startBlock = UINT32_MAX;
    uint32_t endBlock = UINT32_MAX;
@@ -74,7 +74,7 @@ void BlockDataViewer::scanWallets(BDV_Action_Struct action)
    BDV_Notification_ZC::zcMapType zcMap;
    ScanWalletStruct scanData;
 
-   switch (action.action_)
+   switch (action->action_type())
    {
    case BDV_Init:
    {
@@ -87,7 +87,7 @@ void BlockDataViewer::scanWallets(BDV_Action_Struct action)
    case BDV_NewBlock:
    {
       auto reorgNotif =
-         dynamic_pointer_cast<BDV_Notification_NewBlock>(action.payload_);
+         dynamic_pointer_cast<BDV_Notification_NewBlock>(action);
       auto& reorgState = reorgNotif->reorgState_;
          
       if (!reorgState.hasNewTop)
@@ -108,9 +108,7 @@ void BlockDataViewer::scanWallets(BDV_Action_Struct action)
 
       //feed current valid zc map to scanwallet as well
       auto&& actionStruct = createZcStruct();
-      auto zcAction = 
-         dynamic_pointer_cast<BDV_Notification_ZC>(actionStruct.payload_);
-      zcMap = move(zcAction->scrAddrZcMap_);
+      zcMap = move(actionStruct->scrAddrZcMap_);
 
       break;
    }
@@ -118,13 +116,13 @@ void BlockDataViewer::scanWallets(BDV_Action_Struct action)
    case BDV_ZC:
    {
       auto zcAction = 
-         dynamic_pointer_cast<BDV_Notification_ZC>(action.payload_);
+         dynamic_pointer_cast<BDV_Notification_ZC>(action);
       zcMap = move(zcAction->scrAddrZcMap_);
       startBlock = endBlock = blockchain().top().getBlockHeight();
       break;
    }
 
-   case BDV_RefreshWallets:
+   case BDV_Refresh:
    {
       refresh = true;
       break;
@@ -136,7 +134,7 @@ void BlockDataViewer::scanWallets(BDV_Action_Struct action)
    
 
    scanData.endBlock_ = endBlock;
-   scanData.action_ = action.action_;
+   scanData.action_ = action->action_type();
    scanData.saStruct_.zcMap_ = move(zcMap);
    scanData.reorg_ = reorg;
 
@@ -406,8 +404,7 @@ void BlockDataViewer::flagRefresh(BDV_refresh refresh,
 { 
    auto notif = make_unique<BDV_Notification_Refresh>(refresh, refreshID);
 
-   BDV_Action_Struct action(BDV_RefreshWallets, move(notif));
-   pushNotification(move(action));
+   pushNotification(move(notif));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -725,7 +722,7 @@ shared_ptr<BtcWallet> BlockDataViewer::getWalletOrLockbox(
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-BDV_Action_Struct BlockDataViewer::createZcStruct()
+unique_ptr<BDV_Notification_ZC> BlockDataViewer::createZcStruct()
 {
    BDV_Notification_ZC::zcMapType zcmap;
    auto txiomap = zeroConfCont_->getFullTxioMap();
@@ -741,12 +738,9 @@ BDV_Action_Struct BlockDataViewer::createZcStruct()
       zcmap[txiopair.first] = zctxios;
    }
 
-   auto notif = make_shared<BDV_Notification_ZC>(move(zcmap));
-   BDV_Action_Struct action;
-   action.action_ = BDV_ZC;
-   action.payload_ = dynamic_pointer_cast<BDV_Notification>(notif);
+   auto notif = make_unique<BDV_Notification_ZC>(move(zcmap));
 
-   return action;
+   return move(notif);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -9,7 +9,11 @@
 #define PROGRESS_H
 
 #include <cstdint>
-#include <time.h>
+#include <chrono>
+#include <functional>
+#include "bdmenums.h"
+
+typedef std::function<void(BDMPhase, double, unsigned, unsigned)> ProgressCallback;
 
 class ProgressReporter
 {
@@ -34,7 +38,7 @@ class ProgressCalculator
 {
    const uint64_t total_;
    
-   time_t then_;
+   std::chrono::milliseconds then_;
    uint64_t lastSample_=0;
    
    double avgSpeed_=0.0;
@@ -51,7 +55,7 @@ public:
    
    double unitsPerSecond() const { return avgSpeed_; }
    
-   time_t remainingSeconds() const
+   uint64_t remainingSeconds() const
    {
       return (total_-lastSample_)/unitsPerSecond();
    }

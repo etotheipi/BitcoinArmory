@@ -22,8 +22,6 @@
 #ifndef _BLOCKCHAINSCANNER_H
 #define _BLOCKCHAINSCANNER_H
 
-typedef function<void(BDMPhase, double, unsigned, unsigned)> ProgressCallback;
-
 class ScanningException : public runtime_error
 {
 private:

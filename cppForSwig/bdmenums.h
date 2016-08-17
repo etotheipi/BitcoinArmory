@@ -66,8 +66,18 @@ enum BDV_Action
 {
    BDV_Init,
    BDV_NewBlock,
-   BDV_RefreshWallets,
-   BDV_ZC
+   BDV_Refresh,
+   BDV_ZC,
+   BDV_Progress
 };
+
+enum BDV_refresh
+{
+   BDV_dontRefresh,
+   BDV_refreshSkipRescan,
+   BDV_refreshAndRescan,
+   BDV_filterChanged
+};
+
 
 #endif

@@ -433,5 +433,90 @@ public:
    void broadcastZC(const BinaryData& rawzc, uint32_t timeout_sec = 3);
 };
 
+//////
+struct BDV_Notification
+{
+   virtual ~BDV_Notification(void)
+   {}
+
+   virtual BDV_Action action_type(void) = 0;
+};
+
+struct BDV_Notification_Init : public BDV_Notification
+{
+   BDV_Notification_Init(void)
+   {}
+
+   BDV_Action action_type(void)
+   {
+      return BDV_Init;
+   }
+};
+
+struct BDV_Notification_NewBlock : public BDV_Notification
+{
+   Blockchain::ReorganizationState reorgState_;
+
+   BDV_Notification_NewBlock(
+      const Blockchain::ReorganizationState& ref) :
+      reorgState_(ref)
+   {}
+
+   BDV_Action action_type(void)
+   {
+      return BDV_NewBlock;
+   }
+};
+
+struct BDV_Notification_ZC : public BDV_Notification
+{
+   typedef map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>> zcMapType;
+   zcMapType scrAddrZcMap_;
+
+   BDV_Notification_ZC(zcMapType&& mv) :
+      scrAddrZcMap_(move(mv))
+   {}
+
+   BDV_Action action_type(void)
+   {
+      return BDV_ZC;
+   }
+};
+
+struct BDV_Notification_Refresh : public BDV_Notification
+{
+   const BDV_refresh refresh_;
+   const BinaryData refreshID_;
+
+   BDV_Notification_Refresh(
+      BDV_refresh refresh, const BinaryData& refreshID) :
+      refresh_(refresh), refreshID_(refreshID)
+   {}
+
+   BDV_Action action_type(void)
+   {
+      return BDV_Refresh;
+   }
+};
+
+struct BDV_Notification_Progress : public BDV_Notification
+{
+   BDMPhase phase_;
+   double progress_;
+   unsigned time_;
+   unsigned numericProgress_;
+
+   BDV_Notification_Progress(BDMPhase phase, double prog,
+      unsigned time, unsigned numProg) :
+      phase_(phase), progress_(prog), time_(time),
+      numericProgress_(numProg)
+   {}
+
+   BDV_Action action_type(void)
+   {
+      return BDV_Progress;
+   }
+};
+
 #endif
 // kate: indent-width 3; replace-tabs on;
