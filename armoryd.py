@@ -3201,7 +3201,8 @@ class Armory_Daemon(object):
       for wltID, wlt in self.WltMap.iteritems():
          LOGWARN('Registering wallet: %s' % wltID)
          wlt.registerWallet()
-      TheBDM.goOnline()
+      if not CLI_OPTIONS.offline:
+         TheBDM.goOnline()
       reactor.run()
 
    #############################################################################
