@@ -964,11 +964,12 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
             dataDir_ = defaultRegtestDataDir_;
       }
 
-
+      bool autoDbDir = false;
       if (dbDir_.size() == 0)
       {
          dbDir_ = dataDir_;
          appendPath(dbDir_, dbDirExtention_);
+         autoDbDir = true;
       }
 
       if (blkFileLocation_.size() == 0)
@@ -1021,16 +1022,7 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
 
          dbDir_ = move(newPath);
       }
-
-      if (access(dbDir_.c_str(), F_OK | R_OK | W_OK) != 0)
-      {
-#ifdef _WIN32
-         CreateDirectory(dbDir_.c_str());
-#else
-         mkdir(dbDir_.c_str(), 777);
-#endif
-      }
-
+      
       if (blkFileLocation_.c_str()[0] == '~')
       {
          auto newPath = userPath;
@@ -1053,7 +1045,12 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
 #ifdef _WIN32
          if (_access(path.c_str(), mode) != 0)
 #else
-         if (access(path.c_str(), mode) != 0)
+         nixmode = F_OK;
+         if (mode & 2)
+            nixmode |= R_OK;
+         if (mode & 4)
+            nixmode |= W_OK;
+         if (access(path.c_str(), nixmode) != 0)
 #endif
          {
             stringstream ss;
@@ -1065,7 +1062,27 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
       };
 
       testPath(dataDir_, 6);
+   
+      //create dbdir if was set automatically
+      if (autoDbDir)
+      {
+         try
+         {
+            testPath(dbDir_, 0);
+         }
+         catch (DbErrorMsg&)
+         {
+#ifdef _WIN32
+            CreateDirectory(dbDir_.c_str(), NULL);
+#else
+            mkdir(dbDir_.c_str(), 666);
+#endif
+         }
+      }
+
+      //now for the regular test, let it throw if it fails
       testPath(dbDir_, 6);
+
       testPath(blkFileLocation_, 4);
    }
    catch (...)
