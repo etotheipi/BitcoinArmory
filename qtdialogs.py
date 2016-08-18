@@ -3626,7 +3626,7 @@ class DlgAddressInfo(ArmoryDialog):
             'not including zero-confirmation transactions from others.'))
       lbls[-1].append(QRichLabel('<b>Current Balance</b>'))
       try:
-         balCoin = self.cppAddr.getSpendableBalance(TheBDM.getTopBlockHeight(), IGNOREZC)
+         balCoin = self.cppAddr.getSpendableBalance()
          balStr = coin2str(balCoin, maxZeros=1)
          if balCoin > 0:
             goodColor = htmlColor('MoneyPos')
@@ -3657,7 +3657,7 @@ class DlgAddressInfo(ArmoryDialog):
       lbls[-1].append(QRichLabel('<b>Transaction Count:</b>'))
       #lbls[-1].append(QLabel(str(len(txHashes))))
       try:
-         txnCount = self.cppAddr.getTxioCountFromSSH()
+         txnCount = self.cppAddr.getTxioCount()
          lbls[-1].append(QLabel(str(txnCount)))
       except:
          lbls[-1].append(QLabel("N/A"))

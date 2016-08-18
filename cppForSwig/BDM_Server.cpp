@@ -215,7 +215,8 @@ void BDV_Server_Object::buildMethodMap()
       (const vector<string>& ids, Arguments& args)->Arguments
    {
       auto&& ledgerdelegate = this->getLedgerDelegateForWallets();
-      string id = SecureBinaryData().GenerateRandom(5).toHexStr();
+      string id = ids[0];
+      id.append("_w");
 
       this->delegateMap_.insert(make_pair(id, ledgerdelegate));
 
@@ -226,12 +227,13 @@ void BDV_Server_Object::buildMethodMap()
 
    methodMap_["getLedgerDelegateForWallets"] = getLedgerDelegateForWallets;
 
-   //getLedgerDelegateForLockboxes
+   //getLedgerDelegateForLockbox
    auto getLedgerDelegateForLockboxes = [this]
       (const vector<string>& ids, Arguments& args)->Arguments
    {
       auto&& ledgerdelegate = this->getLedgerDelegateForLockboxes();
-      string id = SecureBinaryData().GenerateRandom(5).toHexStr();
+      string id = ids[0];
+      id.append("_l");
 
       this->delegateMap_.insert(make_pair(id, ledgerdelegate));
 
@@ -241,6 +243,27 @@ void BDV_Server_Object::buildMethodMap()
    };
 
    methodMap_["getLedgerDelegateForLockboxes"] = getLedgerDelegateForLockboxes;
+
+   //getLedgerDelegateForScrAddr
+   auto getLedgerDelegateForScrAddr = [this]
+      (const vector<string>& ids, Arguments& args)->Arguments
+   {
+      auto& walletId = ids[1];
+      BinaryData bdId((uint8_t*)walletId.c_str(), walletId.size());
+
+      auto&& scrAddr = args.get<BinaryDataObject>();
+      auto&& ledgerdelegate = 
+         this->getLedgerDelegateForScrAddr(bdId, scrAddr.get());
+      string id = scrAddr.get().toHexStr();
+
+      this->delegateMap_.insert(make_pair(id, ledgerdelegate));
+
+      Arguments retarg;
+      retarg.push_back(move(id));
+      return retarg;
+   };
+
+   methodMap_["getLedgerDelegateForScrAddr"] = getLedgerDelegateForScrAddr;
 
    //getBalances
    auto getBalances = [this]

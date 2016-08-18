@@ -48,38 +48,6 @@ class BDMnotReady : public exception
    }
 };
 
-class LedgerDelegate
-{
-   //keeping the lambdas and ctor private so that
-   //SWIG doesn't complain
-   friend class BlockDataViewer;
-
-public:
-   vector<LedgerEntry> getHistoryPage(uint32_t id)
-   { return getHistoryPage_(id); }
-
-   uint32_t getBlockInVicinity(uint32_t blk)
-   { return getBlockInVicinity_(blk); }
-
-   uint32_t getPageIdForBlockHeight(uint32_t blk)
-   { return getPageIdForBlockHeight_(blk); }
-
-private:
-   LedgerDelegate(
-      function<vector<LedgerEntry>(uint32_t)> getHist,
-      function<uint32_t(uint32_t)> getBlock,
-      function<uint32_t(uint32_t)> getPageId):
-      getHistoryPage_(getHist), 
-      getBlockInVicinity_(getBlock),
-      getPageIdForBlockHeight_(getPageId)
-   {}
-
-private:
-   const function<vector<LedgerEntry>(uint32_t)> getHistoryPage_;
-   const function<uint32_t(uint32_t)>            getBlockInVicinity_;
-   const function<uint32_t(uint32_t)>            getPageIdForBlockHeight_;
-};
-
 class BlockDataViewer
 {
 private:

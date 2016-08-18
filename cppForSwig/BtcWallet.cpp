@@ -843,4 +843,3 @@ uint64_t BtcWallet::getWltTotalTxnCount(void) const
 
    return ntxn;
 }
-// kate: indent-width 3; replace-tabs on;

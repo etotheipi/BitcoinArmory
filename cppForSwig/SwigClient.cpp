@@ -169,7 +169,7 @@ LedgerDelegate BlockDataViewer::getLedgerDelegateForWallets()
    Arguments retval(result);
    auto&& ldid = retval.get<string>();
    
-   LedgerDelegate ld(*this, ldid);
+   LedgerDelegate ld(sock_, bdvID_, ldid);
    return ld;
 }
 
@@ -187,7 +187,7 @@ LedgerDelegate BlockDataViewer::getLedgerDelegateForLockboxes()
    Arguments retval(result);
    auto&& ldid = retval.get<string>();
 
-   LedgerDelegate ld(*this, ldid);
+   LedgerDelegate ld(sock_, bdvID_, ldid);
    return ld;
 }
 
@@ -231,12 +231,38 @@ Tx BlockDataViewer::getTxByHash(const BinaryData& txHash)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+LedgerDelegate BlockDataViewer::getLedgerDelegateForScrAddr(
+   const string& walletID, const BinaryData& scrAddr)
+{
+   Command cmd;
+
+   cmd.method_ = "getLedgerDelegateForScrAddr";
+   cmd.ids_.push_back(bdvID_);
+   cmd.ids_.push_back(walletID);
+
+   BinaryDataObject bdo(scrAddr);
+   cmd.args_.push_back(move(bdo));
+
+   cmd.serialize();
+
+   auto&& result = sock_->writeAndRead(cmd.command_);
+
+   Arguments retval(result);
+   auto&& ldid = retval.get<string>();
+
+   LedgerDelegate ld(sock_, bdvID_, ldid);
+   return ld;
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
 //
 // LedgerDelegate
 //
 ///////////////////////////////////////////////////////////////////////////////
-LedgerDelegate::LedgerDelegate(BlockDataViewer& bdv, const string& id) :
-   sock_(bdv.sock_), delegateID_(id), bdvID_(bdv.getID())
+LedgerDelegate::LedgerDelegate(shared_ptr<BinarySocket> sock,
+   const string& bdvid, const string& ldid) :
+   sock_(sock), delegateID_(ldid), bdvID_(bdvid)
 {}
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -463,7 +489,6 @@ vector<UTXO> ScrAddrObj::getSpendableTxOutList(bool ignoreZC)
    auto&& utxovec = utxoVec.toVec();
    return utxovec;
 }
-
 
 ///////////////////////////////////////////////////////////////////////////////
 //

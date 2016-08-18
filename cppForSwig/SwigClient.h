@@ -43,6 +43,20 @@ struct BDVAlreadyRegistered : public runtime_error
 };
 
 ///////////////////////////////////////////////////////////////////////////////
+class LedgerDelegate
+{
+private:
+   const string delegateID_;
+   const string bdvID_;
+   const shared_ptr<BinarySocket> sock_;
+
+public:
+   LedgerDelegate(shared_ptr<BinarySocket>, const string&, const string&);
+
+   vector<LedgerEntryData> getHistoryPage(uint32_t id);
+};
+
+///////////////////////////////////////////////////////////////////////////////
 class ScrAddrObj
 {
 private:
@@ -93,20 +107,6 @@ public:
 
    ScrAddrObj getScrAddrObjByKey(const BinaryData&, 
       uint64_t, uint64_t, uint64_t, uint32_t);
-};
-
-///////////////////////////////////////////////////////////////////////////////
-class LedgerDelegate
-{
-private:
-   const string delegateID_;
-   const string bdvID_;
-   const shared_ptr<BinarySocket> sock_;
-
-public:
-   LedgerDelegate(BlockDataViewer&, const string&);
-
-   vector<LedgerEntryData> getHistoryPage(uint32_t id);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -196,6 +196,8 @@ public:
    
    LedgerDelegate getLedgerDelegateForWallets(void);
    LedgerDelegate getLedgerDelegateForLockboxes(void);
+   LedgerDelegate getLedgerDelegateForScrAddr(
+      const string&, const BinaryData&);
    Blockchain blockchain(void);
 
    void goOnline(void);
