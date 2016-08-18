@@ -5615,7 +5615,11 @@ def extractTxInfo(pytx, rcvTime=None):
          else:
             haveAllInput = False
             txin = PyTxIn().unserialize(cppTxin.serialize())
-            scraddr = addrStr_to_scrAddr(TxInExtractAddrStrIfAvail(txin))
+            try:
+               scraddr = addrStr_to_scrAddr(TxInExtractAddrStrIfAvail(txin))
+            except:
+               pass
+            
             txinFromList[-1].append(scraddr)
             txinFromList[-1].append('')
             txinFromList[-1].append('')
