@@ -173,7 +173,10 @@ public:
    uint64_t getUnconfirmedBalance(uint32_t currBlk,
                                   bool includeAllZeroConf=true) const;
 
-   map<BinaryData, uint32_t> getTotalTxnCount() const;
+   map<BinaryData, uint32_t> getAddrTxnCounts(uint32_t updateID) const;
+   map<BinaryData, tuple<uint64_t, uint64_t, uint64_t>> 
+      getAddrBalances(uint32_t updateID) const;
+
    uint64_t getWltTotalTxnCount(void) const;
 
    void prepareTxOutHistory(uint64_t val, bool ignoreZC);
@@ -219,11 +222,11 @@ public:
 private:   
    
    //returns true on bootstrap and new block, false on ZC
-   bool scanWallet(const ScanWalletStruct&);
+   bool scanWallet(const ScanWalletStruct&, uint32_t);
 
    //wallet side reorg processing
    void updateAfterReorg(uint32_t lastValidBlockHeight);
-   void scanWalletZeroConf(const ScanWalletStruct&);
+   void scanWalletZeroConf(const ScanWalletStruct&, uint32_t);
 
    void setRegistered(bool isTrue = true) { isRegistered_ = isTrue; }
 
@@ -273,6 +276,9 @@ private:
    function<void(void)> doneRegisteringCallback_ = [](void)->void{};
 
    set<BinaryData> validZcKeys_;
+
+   mutable unsigned lastPulledCountsID_ = 0;
+   mutable unsigned lastPulledBalancesID_ = 0;
 };
 
 #endif

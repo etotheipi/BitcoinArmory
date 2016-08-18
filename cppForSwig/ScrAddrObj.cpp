@@ -117,7 +117,7 @@ void ScrAddrObj::updateTxIOMap(map<BinaryData, TxIOPair>& txio_map)
 
 ////////////////////////////////////////////////////////////////////////////////
 void ScrAddrObj::scanZC(const ScanAddressStruct& scanInfo,
-   function<bool(const BinaryDataRef)> isZcFromWallet)
+   function<bool(const BinaryDataRef)> isZcFromWallet, uint32_t updateID)
 {
    //Dont use a reference for this loop. We check and set the isFromSelf flag
    //in this operation, which is based on the wallet this scrAddr belongs to.
@@ -163,7 +163,10 @@ void ScrAddrObj::scanZC(const ScanAddressStruct& scanInfo,
 
    //purge if necessary
    if (purge)
-      purgeZC(invalidatedZCSet);
+   {
+      if (purgeZC(invalidatedZCSet))
+         updateID_ = updateID;
+   }
 
    auto haveIter = scanInfo.zcMap_.find(scrAddr_);
    if (haveIter == scanInfo.zcMap_.end())
@@ -182,10 +185,7 @@ void ScrAddrObj::scanZC(const ScanAddressStruct& scanInfo,
       {
          
          //dont replace a zc that is spent with a zc that is unspent. zc revocation
-         //is handled in the purge segment
-         /*if (!newtxio.hasTxIn())
-            continue;*/
-         
+         //is handled in the purge segment         
          auto& txio = keyIter->second;
          if (txio.hasTxIn())
          {
@@ -203,6 +203,8 @@ void ScrAddrObj::scanZC(const ScanAddressStruct& scanInfo,
    if (newZC.size() == 0)
       return;
 
+   updateID_ = updateID;
+
    for (auto& txioPair : newZC)
    {
       if (txioPair.second.hasTxOutZC() &&
@@ -219,8 +221,9 @@ void ScrAddrObj::scanZC(const ScanAddressStruct& scanInfo,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void ScrAddrObj::purgeZC(const set<BinaryData>& invalidatedTxOutKeys)
+bool ScrAddrObj::purgeZC(const set<BinaryData>& invalidatedTxOutKeys)
 {
+   bool purged = false;
    for (auto zc : invalidatedTxOutKeys)
    {
       auto txioIter = relevantTxIO_.find(zc);
@@ -236,6 +239,7 @@ void ScrAddrObj::purgeZC(const set<BinaryData>& invalidatedTxOutKeys)
             
             txio.setTxIn(BinaryData(0));
             txio.setTxHashOfInput(BinaryData(0));
+            purged = true;
          }
 
          if (txio.hasTxOutZC())
@@ -243,9 +247,12 @@ void ScrAddrObj::purgeZC(const set<BinaryData>& invalidatedTxOutKeys)
             //purged ZC chain, remove the TxIO
             relevantTxIO_.erase(txioIter);
             ledger_->erase(zc.getSliceRef(0, 6));
+            purged = true;
          }
       }
    }
+
+   return purged;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -319,13 +326,16 @@ uint64_t ScrAddrObj::getTxioCountFromSSH(void) const
 
 ////////////////////////////////////////////////////////////////////////////////
 void ScrAddrObj::fetchDBScrAddrData(uint32_t startBlock,
-                                    uint32_t endBlock)
+   uint32_t endBlock, uint32_t updateID)
 {
    //maintains first page worth of TxIO in RAM. This call purges ZC, so you 
    //should rescan ZC right after
 
    map<BinaryData, TxIOPair> hist;
    getHistoryForScrAddr(startBlock, endBlock, hist, true);
+   
+   if (hist.size() != 0)
+      updateID_ = updateID;
    
    updateTxIOMap(hist);
    updateLedgers(*ledger_, hist, startBlock, endBlock, false);
@@ -535,7 +545,41 @@ LedgerEntry ScrAddrObj::getFirstLedger() const
 ////////////////////////////////////////////////////////////////////////////////
 bool ScrAddrObj::getMoreUTXOs(function<bool(const BinaryData&)> spentByZC)
 {
-   return utxos_.fetchMoreUTXO(spentByZC);
+   return getMoreUTXOs(utxos_, spentByZC);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool ScrAddrObj::getMoreUTXOs(pagedUTXOs& utxos,
+   function<bool(const BinaryData&)> spentByZC) const
+{
+   return utxos.fetchMoreUTXO(spentByZC);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+vector<UnspentTxOut> ScrAddrObj::getAllUTXOs(
+   function<bool(const BinaryData&)> hasTxOutInZC) const
+{
+   pagedUTXOs utxos(this);
+   while (getMoreUTXOs(utxos, hasTxOutInZC));
+
+   //start a RO txn to grab the txouts from DB
+   LMDBEnv::Transaction tx;
+   db_->beginDBTransaction(&tx, STXO, LMDB::ReadOnly);
+
+   vector<UnspentTxOut> utxoList;
+   uint32_t blk = bc_->top().getBlockHeight();
+
+   for (const auto& txioPair : utxos.utxoList_)
+   {
+      if (!txioPair.second.isSpendable(db_, blk, false))
+         continue;
+
+      TxOut txout = txioPair.second.getTxOutCopy(db_);
+      UnspentTxOut UTXO = UnspentTxOut(db_, txout, blk);
+      utxoList.push_back(UTXO);
+   }
+
+   return move(utxoList);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

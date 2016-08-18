@@ -167,5 +167,8 @@
     <ClInclude Include="..\TxOutScrRef.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\BtcWallet.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

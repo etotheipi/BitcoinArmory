@@ -300,6 +300,43 @@ namespace std
 	$result = thisDict;
 }
 
+/******************************************************************************/
+// Convert C++(map<BinaryData, vector<uint64_t>>) to Python(dict{string, list[int]})
+%typemap(out) map<BinaryData, vector<uint64_t>>
+{
+	PyObject* thisDict = PyDict_New();
+	auto bdIter = $1.begin();
+
+	while(bdIter != $1.end())
+	{
+		auto& bdobj = bdIter->first;
+		PyObject* pyStringObj = 
+		   PyString_FromStringAndSize(bdobj.getCharPtr(), bdobj.getSize());
+		
+		auto& vectorObj = bdIter->second;
+		auto vectorIter = vectorObj.begin();
+
+		PyObject* thisList = PyList_New(vectorObj.size());
+		int i=0;
+		while(vectorIter != vectorObj.end())
+		{
+			PyObject* pyIntObj =
+				PyInt_FromLong(*vectorIter);
+
+			PyList_SET_ITEM(thisList, i, pyIntObj);
+
+			++vectorIter;
+			++i;
+		}
+
+		PyDict_SetItem(thisDict, pyStringObj, thisList);
+
+		++bdIter;
+	}
+
+	$result = thisDict;
+}
+
 
 %include "BtcUtils.h"
 %include "EncryptionUtils.h"

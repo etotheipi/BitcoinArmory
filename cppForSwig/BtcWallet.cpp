@@ -165,14 +165,18 @@ uint64_t BtcWallet::getFullBalanceFromDB() const
 
    return balance;
 }
+
 ////////////////////////////////////////////////////////////////////////////////
-map<BinaryData, uint32_t> BtcWallet::getTotalTxnCount() const
+map<BinaryData, uint32_t> BtcWallet::getAddrTxnCounts(uint32_t updateID) const
 {
    map<BinaryData, uint32_t> countMap;
 
    auto addrMap = scrAddrMap_.getAddrMap();
    for (auto& sa : *addrMap)
    {
+      if (sa.second->updateID_ <= lastPulledCountsID_)
+         continue;
+
       auto count = sa.second->getTxioCountForLedgers();
       if (count == 0 || count == UINT32_MAX)
          continue;
@@ -180,7 +184,41 @@ map<BinaryData, uint32_t> BtcWallet::getTotalTxnCount() const
       countMap[sa.first] = count;
    }
 
+   lastPulledCountsID_ = updateID;
+
    return countMap;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+map<BinaryData, tuple<uint64_t, uint64_t, uint64_t>> 
+   BtcWallet::getAddrBalances(uint32_t updateID) const
+{
+   //TODO: pass ZC filtering choice from bdmConfig
+
+   map<BinaryData, tuple<uint64_t, uint64_t, uint64_t>> balanceMap;
+
+   auto addrMap = scrAddrMap_.getAddrMap();
+   for (auto& sa : *addrMap)
+   {
+      if (sa.second->updateID_ <= lastPulledBalancesID_)
+         continue;
+
+      auto full = sa.second->getFullBalance();
+      auto spendable = sa.second->getSpendableBalance();
+      auto unconf = sa.second->getUnconfirmedBalance(true);
+
+      if (lastPulledBalancesID_ == 0)
+      {
+         if (full == 0 && spendable == 0 && unconf == 0)
+            continue;
+      }
+
+      balanceMap[sa.first] = move(make_tuple(full, spendable, unconf));
+   }
+   
+   lastPulledBalancesID_ = updateID;
+
+   return balanceMap;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -329,7 +367,7 @@ vector<UnspentTxOut> BtcWallet::getSpendableTxOutListForValue(uint64_t val,
    //we dont know if any TxOut will be spent
 
    resetTxOutHistory();
-   return utxoList;
+   return move(utxoList);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -454,7 +492,8 @@ void BtcWallet::updateAfterReorg(uint32_t lastValidBlockHeight)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BtcWallet::scanWalletZeroConf(const ScanWalletStruct& scanInfo)
+void BtcWallet::scanWalletZeroConf(const ScanWalletStruct& scanInfo,
+   uint32_t updateID)
 {
    /***
    Scanning ZC will update the scrAddr ledger with the ZC txio. Ledgers require
@@ -478,7 +517,7 @@ void BtcWallet::scanWalletZeroConf(const ScanWalletStruct& scanInfo)
 
    for (auto& saPair : *addrMap)
    {
-      saPair.second->scanZC(scanInfo.saStruct_, isZcFromWallet);
+      saPair.second->scanZC(scanInfo.saStruct_, isZcFromWallet, updateID);
       for (auto& zckeypair : saPair.second->validZCKeys_)
       {
          validZcKeys_.insert(
@@ -488,7 +527,7 @@ void BtcWallet::scanWalletZeroConf(const ScanWalletStruct& scanInfo)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-bool BtcWallet::scanWallet(const ScanWalletStruct& scanInfo)
+bool BtcWallet::scanWallet(const ScanWalletStruct& scanInfo, uint32_t updateID)
 {
    if (scanInfo.action_ != BDV_ZC)
    {
@@ -502,9 +541,9 @@ bool BtcWallet::scanWallet(const ScanWalletStruct& scanInfo)
       auto addrMap = scrAddrMap_.getAddrMap();
       for (auto& scrAddrPair : *addrMap)
          scrAddrPair.second->fetchDBScrAddrData(
-            scanInfo.startBlock_, scanInfo.endBlock_);
+            scanInfo.startBlock_, scanInfo.endBlock_, updateID);
 
-      scanWalletZeroConf(scanInfo);
+      scanWalletZeroConf(scanInfo, updateID);
 
       map<BinaryData, TxIOPair> txioMap;
       getTxioForRange(scanInfo.startBlock_, UINT32_MAX, txioMap);
@@ -520,7 +559,7 @@ bool BtcWallet::scanWallet(const ScanWalletStruct& scanInfo)
       //top block didnt change, only have to check for new ZC
       if (bdvPtr_->isZcEnabled())
       {
-         scanWalletZeroConf(scanInfo);
+         scanWalletZeroConf(scanInfo, updateID);
          map<BinaryData, TxIOPair> txioMap;
          getTxioForRange(scanInfo.endBlock_ + 1, UINT32_MAX, txioMap);
          updateWalletLedgersFromTxio(*ledgerAllAddr_, txioMap, 
@@ -717,11 +756,7 @@ const ScrAddrObj* BtcWallet::getScrAddrObjByKey(const BinaryData& key) const
       return saIter->second.get();
    }
   
-   std::ostringstream ss;
-   ss << "no ScrAddr matches key " << key.toBinStr() << 
-      " in Wallet " << walletID_.toBinStr(); 
-   LOGERR << ss.str();
-   throw std::runtime_error(ss.str());
+   throw std::runtime_error("invalid address");
 }
 
 ////////////////////////////////////////////////////////////////////////////////

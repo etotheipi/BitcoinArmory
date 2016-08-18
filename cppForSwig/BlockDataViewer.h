@@ -252,6 +252,8 @@ protected:
    
    uint32_t lastScanned_ = 0;
    const shared_ptr<ZeroConfContainer> zeroConfCont_;
+
+   uint32_t updateID_ = 0;
 };
 
 
@@ -308,7 +310,7 @@ private:
    bool pageHistory(bool forcePaging, bool pageAnyway);
    void updateLedgerFilter(const vector<BinaryData>& walletsVec);
 
-   void scanWallets(const ScanWalletStruct&);
+   void scanWallets(const ScanWalletStruct&, uint32_t);
    void updateGlobalLedgerFirstPage(uint32_t startBlock, 
       uint32_t endBlock, BDV_refresh forceRefresh);
 

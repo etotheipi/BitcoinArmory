@@ -5842,7 +5842,7 @@ class ArmoryMainWindow(QMainWindow):
    def updateWalletData(self):
       for wltid in self.walletMap:
          self.walletMap[wltid].getBalanceFromDB()
-         self.walletMap[wltid].getAddrTxnCountsFromDB()
+         self.walletMap[wltid].getAddrDataFromDB()
 
    #############################################################################
    def handleCppNotification(self, action, args):

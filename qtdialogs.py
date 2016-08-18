@@ -3538,7 +3538,7 @@ class DlgAddressInfo(ArmoryDialog):
       super(DlgAddressInfo, self).__init__(parent, main)
 
       self.wlt = wlt
-      self.cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(\
+      self.cppAddr = self.wlt.getScrAddrObj(\
                                        Hash160ToScrAddr(addr160))      
       
       self.addr = self.wlt.getAddrByHash160(addr160)

@@ -267,6 +267,7 @@ class PyBtcWallet(object):
       self.balance_full = 0
       
       self.addrTxnCountDict = {}
+      self.addrBalanceDict = {}
       
    #############################################################################
    def registerWallet(self, isNew=False):
@@ -402,15 +403,22 @@ class PyBtcWallet(object):
       if not self.hasAddr(addr160):
          return -1
       else:
-         addr = self.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
+         try:
+            scraddr = Hash160ToScrAddr(addr160)
+            addrBalances = self.addrBalanceDict[scraddr]
+         except:
+            return 0
+         
          if balType.lower() in ('spendable','spend'):
-            return addr.getSpendableBalance(topBlockHeight, IGNOREZC)
+            return addrBalances[1]
          elif balType.lower() in ('unconfirmed','unconf'):
-            return addr.getUnconfirmedBalance(topBlockHeight, IGNOREZC)
+            return addrBalances[2]
          elif balType.lower() in ('ultimate','unspent','full'):
-            return addr.getFullBalance()
+            return addrBalances[0]
          else:
             raise TypeError('Unknown balance type!')
+
+
 
    #############################################################################
    @CheckWalletRegistration
@@ -3100,11 +3108,16 @@ class PyBtcWallet(object):
       
    ###############################################################################
    @CheckWalletRegistration
-   def getAddrTxnCountsFromDB(self):
+   def getAddrDataFromDB(self):
       countList = self.cppWallet.getAddrTxnCountsFromDB()
       
       for addr in countList:
          self.addrTxnCountDict[addr] = countList[addr]
+         
+      balanceList = self.cppWallet.getAddrBalancesFromDB()
+      
+      for addr in balanceList:
+         self.addrBalanceDict[addr] = balanceList[addr]
    
    ###############################################################################
    @CheckWalletRegistration
@@ -3159,8 +3172,6 @@ class PyBtcWallet(object):
       for calls in actionsList:
          calls[0](*calls[1])
          
-      
-      
    ###############################################################################
    @CheckWalletRegistration
    def sweepAfterRescan(self, addrList, main): 
@@ -3197,13 +3208,35 @@ class PyBtcWallet(object):
    ###############################################################################
    @CheckWalletRegistration
    def getCppAddr(self, scrAddr):
-      return self.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(scrAddr))
+      return self.getScrAddrObj(Hash160ToScrAddr(scrAddr))
    
    ###############################################################################
    @CheckWalletRegistration
    def getLedgerEntryForTxHash(self, txHash):
       return self.cppWallet.getLedgerEntryForTxHash(txHash)
 
+   ###############################################################################
+   @CheckWalletRegistration
+   def getScrAddrObj(self, scrAddr):
+      fullBalance = 0
+      spendableBalance = 0
+      unconfirmedBalance = 0      
+      
+      try:
+         addrBalances = self.addrBalanceDict[scrAddr]
+         
+         fullBalance = addrBalances[0]
+         spendableBalance = addrBalances[1]
+         unconfirmedBalance = addrBalances[2]
+      except:
+         pass
+
+      
+      txioCount = self.getAddrTotalTxnCount(scrAddr)
+      
+      return self.cppWallet.getScrAddrObjByKey(scrAddr, \
+         fullBalance, spendableBalance, unconfirmedBalance, txioCount)
+      
 ###############################################################################
 def getSuffixedPath(walletPath, nameSuffix):
    fpath = walletPath

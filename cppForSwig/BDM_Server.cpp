@@ -338,6 +338,53 @@ void BDV_Server_Object::buildMethodMap()
 
    methodMap_["getSpendableTxOutListForValue"] = getSpendableTxOutListForValue;
 
+   //getSpendableTxOutListForAddr
+   auto getSpendableTxOutListForAddr = [this]
+      (const vector<string>& ids, Arguments& args)->Arguments
+   {
+      if (ids.size() != 2)
+         throw runtime_error("unexpected id count");
+
+      auto& walletId = ids[1];
+      BinaryData bdId((uint8_t*)walletId.c_str(), walletId.size());
+      shared_ptr<BtcWallet> wltPtr = nullptr;
+      for (int i = 0; i < this->groups_.size(); i++)
+      {
+         auto wltIter = this->groups_[i].wallets_.find(bdId);
+         if (wltIter != this->groups_[i].wallets_.end())
+            wltPtr = wltIter->second;
+      }
+
+      if (wltPtr == nullptr)
+         throw runtime_error("unknown wallet or lockbox ID");
+
+      auto&& scrAddr = args.get<BinaryDataObject>();      
+      auto addrObj = wltPtr->getScrAddrObjByKey(scrAddr.get());
+
+      auto ignorezc = args.get<unsigned int>();
+
+      auto spentByZC = [this](const BinaryData& dbkey)->bool
+      { return this->isTxOutSpentByZC(dbkey); };
+
+      auto&& utxoVec = addrObj->getAllUTXOs(spentByZC);
+
+      UtxoVector retVec;
+      for (auto& utxo : utxoVec)
+      {
+         UTXO entry(utxo.value_, utxo.txHeight_, utxo.txOutIndex_,
+            move(utxo.txHash_), move(utxo.script_));
+
+         retVec.push_back(move(entry));
+      }
+
+      Arguments retarg;
+      retarg.push_back(move(retVec));
+      return retarg;
+   };
+
+   methodMap_["getSpendableTxOutListForAddr"] = getSpendableTxOutListForAddr;
+
+
    //broadcastZC
    auto broadcastZC = [this]
       (const vector<string>& ids, Arguments& args)->Arguments
@@ -375,7 +422,7 @@ void BDV_Server_Object::buildMethodMap()
       if (wltPtr == nullptr)
          throw runtime_error("unknown wallet or lockbox ID");
 
-      auto&& countMap = wltPtr->getTotalTxnCount();
+      auto&& countMap = wltPtr->getAddrTxnCounts(updateID_);
 
       Arguments retarg;
       auto&& mapSize = countMap.size();
@@ -392,6 +439,47 @@ void BDV_Server_Object::buildMethodMap()
    };
 
    methodMap_["getAddrTxnCounts"] = getAddrTxnCounts;
+
+   //getAddrBalances
+   auto getAddrBalances = [this]
+      (const vector<string>& ids, Arguments& args)->Arguments
+   {
+      if (ids.size() != 2)
+         throw runtime_error("unexpected id count");
+
+      auto& walletId = ids[1];
+      BinaryData bdId((uint8_t*)walletId.c_str(), walletId.size());
+      shared_ptr<BtcWallet> wltPtr = nullptr;
+      for (int i = 0; i < this->groups_.size(); i++)
+      {
+         auto wltIter = this->groups_[i].wallets_.find(bdId);
+         if (wltIter != this->groups_[i].wallets_.end())
+            wltPtr = wltIter->second;
+      }
+
+      if (wltPtr == nullptr)
+         throw runtime_error("unknown wallet or lockbox ID");
+
+      auto&& balanceMap = wltPtr->getAddrBalances(updateID_);
+
+      Arguments retarg;
+      auto&& mapSize = balanceMap.size();
+      retarg.push_back(move(mapSize));
+
+      for (auto balances : balanceMap)
+      {
+         BinaryDataObject bdo(move(balances.first));
+         retarg.push_back(move(bdo));
+         retarg.push_back(move(get<0>(balances.second)));
+         retarg.push_back(move(get<1>(balances.second)));
+         retarg.push_back(move(get<2>(balances.second)));
+      }
+
+      return retarg;
+   };
+
+   methodMap_["getAddrBalances"] = getAddrBalances;
+
 
    //getTxByHash
    auto getTxByHash = [this]

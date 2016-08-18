@@ -172,11 +172,14 @@ void BlockDataViewer::scanWallets(shared_ptr<BDV_Notification> action)
       sbIter++;
    }
 
+   //increment update id
+   ++updateID_;
+
    sbIter = startBlocks.begin();
    for (auto& group : groups_)
    {
       scanData.startBlock_ = *sbIter;
-      group.scanWallets(scanData);
+      group.scanWallets(scanData, updateID_);
       sbIter++;
    }
 
@@ -750,7 +753,6 @@ tuple<uint64_t, uint64_t> BlockDataViewer::getAddrFullBalance(
    StoredScriptHistory ssh;
    db_->getStoredScriptHistorySummary(ssh, scrAddr);
 
-
    return move(make_tuple(ssh.totalUnspent_, ssh.totalTxioCount_));
 }
 
@@ -1012,12 +1014,14 @@ void WalletGroup::updateLedgerFilter(const vector<BinaryData>& walletsList)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void WalletGroup::scanWallets(const ScanWalletStruct& scanData)
+void WalletGroup::scanWallets(const ScanWalletStruct& scanData, 
+   uint32_t updateID)
 {
    ReadWriteLock::ReadLock rl(lock_);
+
    for (auto& wlt : wallets_)
    {
-      wlt.second->scanWallet(scanData);
+      wlt.second->scanWallet(scanData, updateID);
       validZcSet_.insert(
          wlt.second->validZcKeys_.begin(), wlt.second->validZcKeys_.end());
    }

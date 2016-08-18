@@ -63,9 +63,9 @@ private:
       ***/
       uint32_t count_ = 0;
       
-      ScrAddrObj *scrAddrObj_;
+      const ScrAddrObj *scrAddrObj_;
 
-      pagedUTXOs(ScrAddrObj* scrAddrObj) : 
+      pagedUTXOs(const ScrAddrObj* scrAddrObj) : 
          scrAddrObj_(scrAddrObj)
       {}
 
@@ -252,8 +252,9 @@ public:
 
    void updateTxIOMap(map<BinaryData, TxIOPair>& txio_map);
 
-   void scanZC(const ScanAddressStruct&, function<bool(const BinaryDataRef)>);
-   void purgeZC(const set<BinaryData>& invalidatedTxOutKeys);
+   void scanZC(const ScanAddressStruct&, function<bool(const BinaryDataRef)>,
+      uint32_t);
+   bool purgeZC(const set<BinaryData>& invalidatedTxOutKeys);
 
    void updateAfterReorg(uint32_t lastValidBlockHeight);
 
@@ -277,7 +278,8 @@ public:
    { return hist_.getSSHsummary(); }
 
    void fetchDBScrAddrData(uint32_t startBlock, 
-                           uint32_t endBlock);
+                           uint32_t endBlock,
+                           uint32_t updateID);
 
    void getHistoryForScrAddr(
       uint32_t startBlock, uint32_t endBlock,
@@ -295,7 +297,11 @@ public:
    const map<BinaryData, TxIOPair>& getPreparedTxOutList(void) const
    { return utxos_.getUTXOs(); }
    
+   bool getMoreUTXOs(pagedUTXOs&, 
+      function<bool(const BinaryData&)> hasTxOutInZC) const;
    bool getMoreUTXOs(function<bool(const BinaryData&)> hasTxOutInZC);
+   vector<UnspentTxOut> getAllUTXOs(
+      function<bool(const BinaryData&)> hasTxOutInZC) const;
 
    uint64_t getLoadedTxOutsValue(void) const { return utxos_.getValue(); }
    uint32_t getLoadedTxOutsCount(void) const { return utxos_.getCount(); }
@@ -352,6 +358,8 @@ private:
    pagedUTXOs   utxos_;
 
    map<BinaryData, set<BinaryData> > validZCKeys_;
+
+   uint32_t updateID_ = 0;
 };
 
 #endif

@@ -51,11 +51,23 @@ private:
    const BinaryData scrAddr_;
    const shared_ptr<BinarySocket> sock_;
 
-public:
-   ScrAddrObj(shared_ptr<BinarySocket>, const string&, const string&, const BinaryData&);
+   const uint64_t fullBalance_;
+   const uint64_t spendableBalance_;
+   const uint64_t unconfirmedBalance_;
+   const uint32_t count_;
 
-   uint64_t getFullBalance(void) const;
-   uint64_t getTxioCount(void) const;
+public:
+   ScrAddrObj(shared_ptr<BinarySocket>, 
+      const string&, const string&, const BinaryData&,
+      uint64_t, uint64_t, uint64_t, uint32_t);
+
+   uint64_t getFullBalance(void) const { return fullBalance_; }
+   uint64_t getSpendableBalance(void) const { return spendableBalance_; }
+   uint64_t getUnconfirmedBalance(void) const { return unconfirmedBalance_; }
+
+   uint64_t getTxioCount(void) const { return count_; }
+
+   vector<UTXO> getSpendableTxOutList(bool);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -72,12 +84,15 @@ public:
 
    vector<UTXO> getSpendableTxOutListForValue(uint64_t val, bool ignoreZC);
    map<BinaryData, uint32_t> getAddrTxnCountsFromDB(void);
+   map<BinaryData, vector<uint64_t>>
+      getAddrBalancesFromDB(void);
 
    vector<LedgerEntryData> getHistoryPage(uint32_t id);
    LedgerEntryData getLedgerEntryForTxHash(
       const BinaryData& txhash);
 
-   ScrAddrObj getScrAddrObjByKey(const BinaryData&);
+   ScrAddrObj getScrAddrObjByKey(const BinaryData&, 
+      uint64_t, uint64_t, uint64_t, uint32_t);
 };
 
 ///////////////////////////////////////////////////////////////////////////////

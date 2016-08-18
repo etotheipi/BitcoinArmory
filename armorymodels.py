@@ -1110,7 +1110,7 @@ class WalletAddrDispModel(QAbstractTableModel):
          if col==COL.NumTx: 
             if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
                return QVariant('n/a')
-            cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
+            cppAddr = self.wlt.getScrAddrObj(Hash160ToScrAddr(addr160))
             return QVariant( cppAddr.getTxioCount())
          if col==COL.ChainIdx:
             if self.wlt.addrMap[addr160].chainIndex==-2:
@@ -1120,7 +1120,7 @@ class WalletAddrDispModel(QAbstractTableModel):
          if col==COL.Balance: 
             if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
                return QVariant('(...)')
-            cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
+            cppAddr = self.wlt.getScrAddrObj(Hash160ToScrAddr(addr160))
             return QVariant( coin2str(cppAddr.getFullBalance(), maxZeros=2) )
       elif role==Qt.TextAlignmentRole:
          if col in (COL.Address, COL.Comment, COL.ChainIdx):
@@ -1136,7 +1136,7 @@ class WalletAddrDispModel(QAbstractTableModel):
          if col==COL.Balance:
             if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
                return QVariant(Colors.Foreground)
-            cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
+            cppAddr = self.wlt.getScrAddrObj(Hash160ToScrAddr(addr160))
             val = cppAddr.getFullBalance()
             if   val>0: return QVariant(Colors.TextGreen)
             else:       return QVariant(Colors.Foreground)
@@ -1177,7 +1177,7 @@ class WalletAddrDispModel(QAbstractTableModel):
          if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
             return QVariant( Colors.TblWltOther )
 
-         cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
+         cppAddr = self.wlt.getScrAddrObj(Hash160ToScrAddr(addr160))
          val = cppAddr.getFullBalance()
          if val>0:
             return QVariant( Colors.SlightGreen )

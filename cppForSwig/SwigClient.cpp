@@ -347,6 +347,36 @@ map<BinaryData, uint32_t> BtcWallet::getAddrTxnCountsFromDB()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+map<BinaryData, vector<uint64_t>>
+   BtcWallet::getAddrBalancesFromDB(void)
+{
+   Command cmd;
+   cmd.method_ = "getAddrBalances";
+   cmd.ids_.push_back(bdvID_);
+   cmd.ids_.push_back(walletID_);
+   cmd.serialize();
+
+   auto&& retval = sock_->writeAndRead(cmd.command_);
+   Arguments arg(move(retval));
+
+   map<BinaryData, vector<uint64_t>> balanceMap;
+
+   auto&& count = arg.get<uint64_t>();
+   for (unsigned i = 0; i < count; i++)
+   {
+      auto&& addr = arg.get<BinaryDataObject>();
+      auto& balanceVec = balanceMap[addr.get()];
+
+      balanceVec.push_back(arg.get<uint64_t>());
+      balanceVec.push_back(arg.get<uint64_t>());
+      balanceVec.push_back(arg.get<uint64_t>());
+   }
+
+   return balanceMap;
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
 vector<LedgerEntryData> BtcWallet::getHistoryPage(uint32_t id)
 {
    Command cmd;
@@ -390,9 +420,11 @@ LedgerEntryData BtcWallet::getLedgerEntryForTxHash(
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-ScrAddrObj BtcWallet::getScrAddrObjByKey(const BinaryData& scrAddr)
+ScrAddrObj BtcWallet::getScrAddrObjByKey(const BinaryData& scrAddr,
+   uint64_t full, uint64_t spendable, uint64_t unconf, uint32_t count)
 {
-   return ScrAddrObj(sock_, bdvID_, walletID_, scrAddr);
+   return ScrAddrObj(sock_, bdvID_, walletID_, scrAddr,
+      full, spendable, unconf, count);
 }
 
 
@@ -402,49 +434,36 @@ ScrAddrObj BtcWallet::getScrAddrObjByKey(const BinaryData& scrAddr)
 //
 ///////////////////////////////////////////////////////////////////////////////
 ScrAddrObj::ScrAddrObj(shared_ptr<BinarySocket> sock, const string& bdvId,
-   const string& walletID, const BinaryData& scrAddr) :
-   sock_(sock), bdvID_(bdvId), walletID_(walletID), scrAddr_(scrAddr)
+   const string& walletID, const BinaryData& scrAddr,
+   uint64_t full, uint64_t spendabe, uint64_t unconf, uint32_t count) :
+   sock_(sock), bdvID_(bdvId), walletID_(walletID), scrAddr_(scrAddr),
+   fullBalance_(full), spendableBalance_(spendabe), 
+   unconfirmedBalance_(unconf), count_(count)
 {}
 
 ///////////////////////////////////////////////////////////////////////////////
-uint64_t ScrAddrObj::getFullBalance() const
+vector<UTXO> ScrAddrObj::getSpendableTxOutList(bool ignoreZC)
 {
    Command cmd;
-   cmd.method_ = "getAddressFullBalance";
+   cmd.method_ = "getSpendableTxOutListForAddr";
    cmd.ids_.push_back(bdvID_);
    cmd.ids_.push_back(walletID_);
-   
+
+   unsigned int ignorezc = ignoreZC;
    BinaryDataObject bdo(scrAddr_);
    cmd.args_.push_back(move(bdo));
+   cmd.args_.push_back(move(ignorezc));
 
    cmd.serialize();
 
    auto&& retval = sock_->writeAndRead(cmd.command_);
-   Arguments arg(retval);
-   auto&& val = arg.get<uint64_t>();
+   Arguments arg(move(retval));
+   auto&& utxoVec = arg.get<UtxoVector>();
 
-   return val;
+   auto&& utxovec = utxoVec.toVec();
+   return utxovec;
 }
 
-///////////////////////////////////////////////////////////////////////////////
-uint64_t ScrAddrObj::getTxioCount() const
-{
-   Command cmd;
-   cmd.method_ = "getAddressTxioCount";
-   cmd.ids_.push_back(bdvID_);
-   cmd.ids_.push_back(walletID_);
-
-   BinaryDataObject bdo(scrAddr_);
-   cmd.args_.push_back(move(bdo));
-
-   cmd.serialize();
-
-   auto&& retval = sock_->writeAndRead(cmd.command_);
-   Arguments arg(retval);
-   auto&& val = arg.get<uint64_t>();
-
-   return val;
-}
 
 ///////////////////////////////////////////////////////////////////////////////
 //
