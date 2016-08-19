@@ -249,7 +249,7 @@ class SatoshiDaemonManager(object):
                   shell = win32com.client.Dispatch('WScript.Shell')
                   targ = shell.CreateShortCut(path).Targetpath
                   targDir = os.path.dirname(targ)
-                  LOGINFO('Found Bitcoin-Core link on desktop: %s', targDir)
+                  LOGINFO('Found Bitcoin Core link on desktop: %s', targDir)
                   possBaseDir.append( targDir )
 
          # Also look in default place in ProgramFiles dirs

@@ -70,7 +70,7 @@ class WalletComparisonClass(object):
       
       #mirror missing wallets
       for wltID in mirrorList:
-         reportTextProgress("Mirroring wallet %s" % wltID)
+         reportTextProgress(self.tr("Mirroring wallet %1").arg(wltID))
          
          wlt = self.main.walletMap[wltID]
          rootEntry = wlt.addrMap['ROOT']
@@ -81,14 +81,14 @@ class WalletComparisonClass(object):
          
       #synchronize wallets
       for wltID in syncList:
-         reportTextProgress("Synchronizing wallet %s" % wltID)
+         reportTextProgress(self.tr("Synchronizing wallet %1").arg(wltID))
          
          wlt = self.main.walletMap[wltID]
          self.main.walletManager.synchronizeWallet(
             wltID, wlt.lastComputedChainIndex)
          
       for wltID in importList:
-         reportTextProgress("Checking imports for wallet %s" % wltID)
+         reportTextProgress(self.tr("Checking imports for wallet %s").arg(wltID))
          
          wlt = self.main.walletMap[wltID]
          for importId in wlt.importList:
@@ -115,7 +115,7 @@ class MirrorWalletsDialog(ArmoryDialog):
       
       self.setWindowFlags(Qt.Dialog)
       
-      infoLabel = QRichLabel('''
+      infoLabel = QRichLabel(self.tr('''
       Starting v0.96, Armory needs to mirror Python
       wallets into C++ wallets in order to operate. Mirrored C++ wallets
       are watching only (they do not hold any private keys).<br><br>
@@ -132,7 +132,7 @@ class MirrorWalletsDialog(ArmoryDialog):
       
       This process can take up to a few minutes per wallet.<br><br>
       '''
-       )
+       ))
       
       self.statusLabel = QLabel('...')     
       self.statusLabel.setAlignment(Qt.AlignCenter | Qt.AlignVCenter) 
@@ -150,7 +150,7 @@ class MirrorWalletsDialog(ArmoryDialog):
       layout.addWidget(infoLabel, 0, 0, 3, 1)
       layout.addWidget(frmProgress, 3, 0, 1, 1)
       
-      self.setWindowTitle('Mirroring Wallets')
+      self.setWindowTitle(self.tr('Mirroring Wallets'))
       self.setLayout(layout)
       
       self.setMinimumWidth(500)

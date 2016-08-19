@@ -21,8 +21,8 @@ class AddressTypeSelectDialog(ArmoryDialog):
          self.type = addrtype
       
       #p2pkh
-      self.radioP2PKH = QRadioButton("P2PKH Address")
-      p2pkhDescr = QLabel("""Legacy Armory address type. Backwards compatible.""")
+      self.radioP2PKH = QRadioButton(self.tr("P2PKH Address"))
+      p2pkhDescr = QLabel(self.tr("""Legacy Armory address type. Backwards compatible."""))
       
       frmP2PKH = QFrame()
       frmP2PKH.setFrameStyle(STYLE_RAISED)
@@ -37,9 +37,9 @@ class AddressTypeSelectDialog(ArmoryDialog):
       self.connect(self.radioP2PKH, SIGNAL('clicked()'), setP2PKH)
       
       #nested p2wpkh
-      self.radioSW = QRadioButton("P2SH-P2WPKH address")
-      swDescr = QLabel('P2WPKH (SegWit script) nested in P2SH script. Any wallet can pay to<br>'
-         'this address. Only wallets supporting SegWit can spend from it.')
+      self.radioSW = QRadioButton(self.tr("P2SH-P2WPKH address"))
+      swDescr = QLabel(self.tr('P2WPKH (SegWit script) nested in P2SH script. Any wallet can pay to '
+         'this address. Only wallets supporting SegWit can spend from it.'))
       
       frmSW = QFrame()
       frmSW.setFrameStyle(STYLE_RAISED)
@@ -58,12 +58,12 @@ class AddressTypeSelectDialog(ArmoryDialog):
       self.connect(self.radioSW, SIGNAL('clicked()'), setSW)
       
       #nested p2pk
-      self.radioNP2PK = QRadioButton("P2SH-P2PK address")
-      np2pkDescr = QLabel('Compressed P2PK script nested in P2SH output. Any wallet can pay to this<br>'
+      self.radioNP2PK = QRadioButton(self.tr("P2SH-P2PK address"))
+      np2pkDescr = QLabel(self.tr('Compressed P2PK script nested in P2SH output. Any wallet can pay to this '
          'address. Only Armory 0.96+ can spend from it.<br><br>'
          
-         'This format allow for more efficient transaction space use, resulting in <br>'
-         'smaller inputs and lower fees.')
+         'This format allow for more efficient transaction space use, resulting in '
+         'smaller inputs and lower fees.'))
       
       frmNP2PK = QFrame()
       frmNP2PK.setFrameStyle(STYLE_RAISED)
@@ -83,8 +83,8 @@ class AddressTypeSelectDialog(ArmoryDialog):
       layout.addWidget(frmNP2PK, 2, 0, 1, 4)
       layout.addWidget(frmSW, 4, 0, 1, 4)
       
-      self.btnOk = QPushButton('Apply')
-      self.btnCancel = QPushButton('Cancel')
+      self.btnOk = QPushButton(self.tr('Apply'))
+      self.btnCancel = QPushButton(self.tr('Cancel'))
       
       self.connect(self.btnOk, SIGNAL('clicked()'), self.accept)
       self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
@@ -93,7 +93,7 @@ class AddressTypeSelectDialog(ArmoryDialog):
       layout.addWidget(self.btnCancel, 5, 3, 1, 1)
 
       self.setLayout(layout)
-      self.setWindowTitle('Select Address Type')
+      self.setWindowTitle(self.tr('Select Address Type'))
       
       self.selectType(self.type)
       self.setFocus()   
@@ -125,7 +125,7 @@ class AddressLabelFrame(object):
          self.frmAddrType.setFrameStyle(STYLE_RAISED)
          frmAddrTypeLayout = QGridLayout()
          
-         addrLabel = QLabel('Address Type: ')
+         addrLabel = QLabel(self.main.tr('Address Type: '))
          addrLabel.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
          self.typeLabel = QLabelButton("")
          self.typeLabel.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
@@ -139,7 +139,7 @@ class AddressLabelFrame(object):
          
       def setType(self, _type):
          self.addrType = _type
-         self.typeLabel.setText("<u><font color='blue'>%s</font></u>" % _type)
+         self.typeLabel.setText(self.main.tr("<u><font color='blue'>%1</font></u>").arg(_type))
          
       def getType(self):
          return self.addrType

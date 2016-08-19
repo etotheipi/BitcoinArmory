@@ -7,6 +7,7 @@ UNAME_S := $(shell uname -s)
 
 all:
 	$(MAKE) -C cppForSwig
+	lrelease lang/*.ts
 
 clean :
 	$(MAKE) -C cppForSwig clean
@@ -23,6 +24,7 @@ endif
 	rm -f *.pyc bitcoinrpc_jsonrpc/*.pyc ui/*.pyc
 	rm -f armoryengine/*.pyc dialogs/*.pyc	
 	rm -f pytest/*.pyc txjsonrpc/*.pyc jsonrpc/*.pyc txjsonrpc/web/*.pyc
+	rm -f lang/*.qm
 
 install : all
 	mkdir -p $(DESTDIR)$(PREFIX)/share/armory/img
@@ -34,6 +36,7 @@ install : all
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/pytest
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/urllib3
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/urllib3
+	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/lang
 	mkdir -p $(DESTDIR)$(PREFIX)/bin
 	sed "s: /usr: $(PREFIX):g" < dpkgfiles/armory > $(DESTDIR)$(PREFIX)/bin/armory
 	chmod +x $(DESTDIR)$(PREFIX)/bin/armory
@@ -48,6 +51,7 @@ install : all
 	cp ui/*.py $(DESTDIR)$(PREFIX)/lib/armory/ui
 	cp pytest/*.py $(DESTDIR)$(PREFIX)/lib/armory/pytest
 	cp -r urllib3/* $(DESTDIR)$(PREFIX)/lib/armory/urllib3
+	cp -r lang/*.qm $(DESTDIR)$(PREFIX)/lib/armory/lang
 	mkdir -p $(DESTDIR)$(PREFIX)/share/applications
 	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armory.desktop > $(DESTDIR)$(PREFIX)/share/applications/armory.desktop
 	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armoryoffline.desktop > $(DESTDIR)$(PREFIX)/share/applications/armoryoffline.desktop

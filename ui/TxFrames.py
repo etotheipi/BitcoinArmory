@@ -54,11 +54,11 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.freeOfErrors = True
 
       feetip = self.main.createToolTipWidget(\
-            'Transaction fees go to users who contribute computing power to '
+            self.tr('Transaction fees go to users who contribute computing power to '
             'keep the Bitcoin network secure, and in return they get your transaction '
             'included in the blockchain faster.  <b>Most transactions '
             'do not require a fee</b> but it is recommended anyway '
-            'since it guarantees quick processing and helps the network.')
+            'since it guarantees quick processing and helps the network.'))
 
       self.feeDialog = FeeSelectionDialog(self, self.main)
       self.feeLblButton = self.feeDialog.getLabelButton()
@@ -66,15 +66,15 @@ class SendBitcoinsFrame(ArmoryFrame):
       def feeDlg():
          self.feeDialog.exec_()
       self.connect(self.feeLblButton, SIGNAL('clicked()'), feeDlg)
-      
+
 
       # This used to be in the later, expert-only section, but some of these
       # are actually getting referenced before being declared.  So moved them
       # up to here.
-      self.chkDefaultChangeAddr = QCheckBox('Use an existing address for change')
-      self.radioFeedback = QRadioButton('Send change to first input address')
-      self.radioSpecify = QRadioButton('Specify a change address')
-      self.lblChangeAddr = QRichLabel('Change:')
+      self.chkDefaultChangeAddr = QCheckBox(self.tr('Use an existing address for change'))
+      self.radioFeedback = QRadioButton(self.tr('Send change to first input address'))
+      self.radioSpecify = QRadioButton(self.tr('Specify a change address'))
+      self.lblChangeAddr = QRichLabel(self.tr('Change:'))
 
       addrWidgets = self.main.createAddressEntryWidgets(self, maxDetectLen=36, 
                                                       defaultWltID=self.wltID)
@@ -83,31 +83,31 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.lblAutoDetect  = addrWidgets['LBL_DETECT']
       self.getUserChangeScript = addrWidgets['CALLBACK_GETSCRIPT']
 
-      self.chkRememberChng = QCheckBox('Remember for future transactions')
+      self.chkRememberChng = QCheckBox(self.tr('Remember for future transactions'))
       self.vertLine = VLINE()
 
       self.ttipSendChange = self.main.createToolTipWidget(\
-            'Most transactions end up with oversized inputs and Armory will send '
+            self.tr('Most transactions end up with oversized inputs and Armory will send '
             'the change to the next address in this wallet.  You may change this '
-            'behavior by checking this box.')
+            'behavior by checking this box.'))
       self.ttipFeedback = self.main.createToolTipWidget(\
-            'Guarantees that no new addresses will be created to receive '
+            self.tr('Guarantees that no new addresses will be created to receive '
             'change. This reduces anonymity, but is useful if you '
             'created this wallet solely for managing imported addresses, '
-            'and want to keep all funds within existing addresses.')
+            'and want to keep all funds within existing addresses.'))
       self.ttipSpecify = self.main.createToolTipWidget(\
-            'You can specify any valid Bitcoin address for the change.  '
+            self.tr('You can specify any valid Bitcoin address for the change.  '
             '<b>NOTE:</b> If the address you specify is not in this wallet, '
             'Armory will not be able to distinguish the outputs when it shows '
             'up in your ledger.  The change will look like a second recipient, '
             'and the total debit to your wallet will be equal to the amount '
-            'you sent to the recipient <b>plus</b> the change.')
+            'you sent to the recipient <b>plus</b> the change.'))
       self.ttipUnsigned = self.main.createToolTipWidget(\
-         'Check this box to create an unsigned transaction to be signed'
-         ' and/or broadcast later.')
-      self.unsignedCheckbox = QCheckBox('Create Unsigned')
-      self.btnSend = QPushButton('Send!')
-      self.btnCancel = QPushButton('Cancel')
+         self.tr('Check this box to create an unsigned transaction to be signed'
+         ' and/or broadcast later.'))
+      self.unsignedCheckbox = QCheckBox(self.tr('Create Unsigned'))
+      self.btnSend = QPushButton(self.tr('Send!'))
+      self.btnCancel = QPushButton(self.tr('Cancel'))
       self.connect(self.btnCancel, SIGNAL(CLICKED), parent.reject)
       
       self.btnPreviewTx = QLabelButton("Preview Transaction")
@@ -149,8 +149,8 @@ class SendBitcoinsFrame(ArmoryFrame):
       txFrm = makeHorizFrame([self.feeLblButton, feetip], STYLE_RAISED, condenseMargins=True)
       metaFrm = makeHorizFrame(metaButtonList, STYLE_RAISED, condenseMargins=True)
       buttonFrame = makeHorizFrame(buttonList, condenseMargins=True)
-      btnEnterURI = QPushButton('Manually Enter "bitcoin:" Link')
-      ttipEnterURI = self.main.createToolTipWidget( tr("""
+      btnEnterURI = QPushButton(self.tr('Manually Enter "bitcoin:" Link'))
+      ttipEnterURI = self.main.createToolTipWidget( self.tr("""
          Armory does not always succeed at registering itself to handle 
          URL links from webpages and email.  
          Click this button to copy a "bitcoin:" link directly into Armory."""))
@@ -215,7 +215,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          fromFrameList.append('Stretch')
       frmBottomLeft = makeVertFrame(fromFrameList, STYLE_RAISED, condenseMargins=True)
 
-      lblSend = QRichLabel('<b>Sending from Wallet:</b>')
+      lblSend = QRichLabel(self.tr('<b>Sending from Wallet:</b>'))
       lblSend.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
 
 
@@ -230,7 +230,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.setLayout(layout)
 
       self.makeRecipFrame(1)
-      self.setWindowTitle('Send Bitcoins')
+      self.setWindowTitle(self.tr('Send Bitcoins'))
       self.setMinimumHeight(self.maxHeight * 20)
 
       if prefill:
@@ -276,11 +276,11 @@ class SendBitcoinsFrame(ArmoryFrame):
    #############################################################################
    def unsignedCheckBoxUpdate(self):
       if self.unsignedCheckbox.isChecked():
-         self.btnSend.setText('Continue')
-         self.btnSend.setToolTip('Click to create an unsigned transaction!')
+         self.btnSend.setText(self.tr('Continue'))
+         self.btnSend.setToolTip(self.tr('Click to create an unsigned transaction!'))
       else:
-         self.btnSend.setText('Send!')
-         self.btnSend.setToolTip('Click to send bitcoins!')
+         self.btnSend.setText(self.tr('Send!'))
+         self.btnSend.setToolTip(self.tr('Click to send bitcoins!'))
       
 
    #############################################################################
@@ -502,9 +502,9 @@ class SendBitcoinsFrame(ArmoryFrame):
 
       numChkFail = sum([1 if len(b)==0 else 0 for b in scripts])
       if not self.freeOfErrors:
-         QMessageBox.critical(self, tr('Invalid Address'),
-               tr("You have entered an invalid address. The error has been highlighted on the entrry screen.",
-               "You have entered %d invalid addresses. The errors have been highlighted on the entry screen", numChkFail), QMessageBox.Ok)
+         QMessageBox.critical(self, self.tr('Invalid Address'),
+               self.tr("You have entered an invalid address. The error has been highlighted on the entrry screen.",
+               "You have entered %1 invalid addresses. The errors have been highlighted on the entry screen").arg(numChkFail), QMessageBox.Ok)
 
          for row in range(len(self.widgetTable)):
             try:
@@ -513,10 +513,9 @@ class SendBitcoinsFrame(ArmoryFrame):
                   net = 'Unknown Network'
                   if NETWORKS.has_key(addrList[row][0]):
                      net = NETWORKS[addrList[row][0]]
-                  QMessageBox.warning(self, tr('Wrong Network!'), tr("""
-                     Address %d is for the wrong network!  You are on the <b>%s</b>
-                     and the address you supplied is for the the <b>%s</b>!""") % \
-                     (row+1, NETWORKS[ADDRBYTE], net), QMessageBox.Ok)
+                  QMessageBox.warning(self, self.tr('Wrong Network!'), self.tr("""
+                     Address %1 is for the wrong network!  You are on the <b>%2</b>
+                     and the address you supplied is for the the <b>%3</b>!""").arg(row+1, NETWORKS[ADDRBYTE], net), QMessageBox.Ok)
             except:
                pass
 
@@ -531,30 +530,30 @@ class SendBitcoinsFrame(ArmoryFrame):
             valueStr = str(self.widgetTable[row]['QLE_AMT'].text()).strip()
             value = str2coin(valueStr, negAllowed=False)
             if value == 0:
-               QMessageBox.critical(self, 'Zero Amount', \
-                  'You cannot send 0 BTC to any recipients.  <br>Please enter '
-                  'a positive amount for recipient %d.' % (row+1), QMessageBox.Ok)
+               QMessageBox.critical(self, self.tr('Zero Amount'), \
+                  self.tr('You cannot send 0 BTC to any recipients.  <br>Please enter '
+                  'a positive amount for recipient %1.').arg(row+1), QMessageBox.Ok)
                return False
 
          except NegativeValueError:
-            QMessageBox.critical(self, 'Negative Value', \
-               'You have specified a negative amount for recipient %d. <br>Only '
-               'positive values are allowed!.' % (row + 1), QMessageBox.Ok)
+            QMessageBox.critical(self, self.tr('Negative Value'), \
+               self.tr('You have specified a negative amount for recipient %1. <br>Only '
+               'positive values are allowed!.').arg(row + 1), QMessageBox.Ok)
             return False
          except TooMuchPrecisionError:
-            QMessageBox.critical(self, 'Too much precision', \
-               'Bitcoins can only be specified down to 8 decimal places. '
+            QMessageBox.critical(self, self.tr('Too much precision'), \
+               self.tr('Bitcoins can only be specified down to 8 decimal places. '
                'The smallest value that can be sent is  0.0000 0001 BTC. '
-               'Please enter a new amount for recipient %d.' % (row + 1), QMessageBox.Ok)
+               'Please enter a new amount for recipient %1.').arg(row + 1), QMessageBox.Ok)
             return False
          except ValueError:
-            QMessageBox.critical(self, 'Missing recipient amount', \
-               'You did not specify an amount to send!', QMessageBox.Ok)
+            QMessageBox.critical(self, self.tr('Missing recipient amount'), \
+               self.tr('You did not specify an amount to send!'), QMessageBox.Ok)
             return False
          except:
-            QMessageBox.critical(self, 'Invalid Value String', \
-               'The amount you specified '
-               'to send to address %d is invalid (%s).' % (row + 1, valueStr), QMessageBox.Ok)
+            QMessageBox.critical(self, self.tr('Invalid Value String'), \
+               self.tr('The amount you specified '
+               'to send to address %1 is invalid (%2).').arg(row + 1, valueStr), QMessageBox.Ok)
             LOGERROR('Invalid amount specified: "%s"', valueStr)
             return False
 
@@ -574,8 +573,8 @@ class SendBitcoinsFrame(ArmoryFrame):
          if isP2SHLockbox(recipStr):
             lbox = self.main.getLockboxByID(readLockboxEntryStr(recipStr))
             if isMofNNonStandardToSpend(lbox.M, lbox.N):
-               reply = QMessageBox.warning(self, tr('Non-Standard to Spend'), tr("""
-                  Due to the Lockbox size (%d-of-%d) of recipient %d, spending
+               reply = QMessageBox.warning(self, self.tr('Non-Standard to Spend'), self.tr("""
+                  Due to the Lockbox size (%1-of-%2) of recipient %3, spending
                   funds from this Lockbox is valid but non-standard for versions
                   of Bitcoin prior to 0.10.0. This means if your version of
                   Bitcoin is 0.9.x or below, and you try to broadcast a
@@ -588,14 +587,12 @@ class SendBitcoinsFrame(ArmoryFrame):
                   before those Bitcoins can be spent. Alternatively, if you
                   have enough computing power to mine your own transactions,
                   or know someone who does, you can arrange to have any valid
-                  but non-standard transaction included in the block chain.""") % \
-                  (lbox.M, lbox.N, row+1), QMessageBox.Ok | QMessageBox.Cancel)
+                  but non-standard transaction included in the block chain.""").arg(lbox.M, lbox.N, row+1), QMessageBox.Ok | QMessageBox.Cancel)
                if not reply==QMessageBox.Ok:
                   return
 
          scriptValPairs.append([script, value])
          self.comments.append((str(self.widgetTable[row]['QLE_COMM'].text()), value))
-
 
       utxoSelect = self.getUsableTxOutList()
       fee = self.coinSelection.getFlatFee()
@@ -603,21 +600,21 @@ class SendBitcoinsFrame(ArmoryFrame):
 
       # Warn user of excessive fee specified
       if fee_byte > 10 * MIN_FEE_BYTE:
-         reply = QMessageBox.warning(self, tr('Excessive Fee'), tr("""
-            Your specified fee results in a rate of <b>%d satoshis per byte/b>. 
-            This is much higher than the median satoshi/byte rate of <b>%s BTC</b>.
+         reply = QMessageBox.warning(self, self.tr('Excessive Fee'), self.tr("""
+            Your specified fee results in a rate of <b>%1 satoshis per byte/b>. 
+            This is much higher than the median satoshi/byte rate of <b>%2 BTC</b>.
             Are you <i>absolutely sure</i> that you want to send with this
             fee?  
             <br><br>
             If you do not want this fee, click "No" and then change the fee
             at the bottom of the "Send Bitcoins" window before trying 
-            again.""") % (fee_byte, MIN_FEE_BYTE), QMessageBox.Yes | QMessageBox.No)
+            again.""").arg(fee_byte, MIN_FEE_BYTE), QMessageBox.Yes | QMessageBox.No)
 
          if not reply==QMessageBox.Yes:
             return False
          
       elif fee_byte < MIN_FEE_BYTE / 10:
-         reply = QMessageBox.warning(self, tr('Insufficient Fee'), tr("""
+         reply = QMessageBox.warning(self, self.tr('Insufficient Fee'), self.tr("""
             Your specified fee results in a rate of <b>%d satoshis per byte/b>. 
             This is much lower than the median satoshi/byte rate of <b>%s BTC</b>.
             Are you <i>absolutely sure</i> that you want to send with this
@@ -625,14 +622,14 @@ class SendBitcoinsFrame(ArmoryFrame):
             <br><br>
             If you do not want this fee, click "No" and then change the fee
             at the bottom of the "Send Bitcoins" window before trying 
-            again.""") % (fee_byte, MIN_FEE_BYTE), QMessageBox.Yes | QMessageBox.No)
+            again.""").arg(fee_byte, MIN_FEE_BYTE), QMessageBox.Yes | QMessageBox.No)
 
          if not reply==QMessageBox.Yes:
             return False         
 
 
       if len(utxoSelect) == 0:
-         QMessageBox.critical(self, tr('Coin Selection Error'), tr("""
+         QMessageBox.critical(self, self.tr('Coin Selection Error'), self.tr("""
             There was an error constructing your transaction, due to a 
             quirk in the way Bitcoin transactions work.  If you see this
             error more than once, try sending your BTC in two or more 
@@ -752,8 +749,8 @@ class SendBitcoinsFrame(ArmoryFrame):
                   unlockdlg.securePassphrase.destroy()
                      
             if Passphrase is None or self.wlt.kdf is None:
-               QMessageBox.critical(self.parent(), 'Wallet is Locked', \
-                  'Cannot sign transaction while your wallet is locked. ', \
+               QMessageBox.critical(self.parent(), self.tr('Wallet is Locked'), \
+                  self.tr('Cannot sign transaction while your wallet is locked. '), \
                   QMessageBox.Ok)
                return
             else:
@@ -892,7 +889,7 @@ class SendBitcoinsFrame(ArmoryFrame):
                selectedBehavior = 'Specify'
                changeScript = self.getUserChangeScript()['Script']
                if changeScript is None:
-                  QMessageBox.warning(self, tr('Invalid Address'), tr("""
+                  QMessageBox.warning(self, self.tr('Invalid Address'), self.tr("""
                      You specified an invalid change address for this 
                      transcation."""), QMessageBox.Ok)
                   return None
@@ -935,19 +932,19 @@ class SendBitcoinsFrame(ArmoryFrame):
             txFee = self.coinSelection.getFeeForMaxVal(fee_byte)
 
       except:
-         QMessageBox.warning(self, 'Invalid Input', \
-               'Cannot compute the maximum amount '
+         QMessageBox.warning(self, self.tr('Invalid Input'), \
+               self.tr('Cannot compute the maximum amount '
                'because there is an error in the amount '
-               'for recipient %d.' % (r + 1,), QMessageBox.Ok)
+               'for recipient %1.').arg(r + 1,), QMessageBox.Ok)
          return
 
 
       maxStr = coin2str((bal - (txFee + totalOther)), maxZeros=0)
       if bal < txFee + totalOther:
-         QMessageBox.warning(self, 'Insufficient funds', \
-               'You have specified more than your spendable balance to '
+         QMessageBox.warning(self, self.tr('Insufficient funds'), \
+               self.tr('You have specified more than your spendable balance to '
                'the other recipients and the transaction fee.  Therefore, the '
-               'maximum amount for this recipient would actually be negative.', \
+               'maximum amount for this recipient would actually be negative.'), \
                QMessageBox.Ok)
          return
 
@@ -959,9 +956,9 @@ class SendBitcoinsFrame(ArmoryFrame):
    def createSetMaxButton(self, targWidget):
       newBtn = QPushButton('MAX')
       newBtn.setMaximumWidth(relaxedSizeStr(self, 'MAX')[0])
-      newBtn.setToolTip('<u></u>Fills in the maximum spendable amount minus '
+      newBtn.setToolTip(self.tr('<u></u>Fills in the maximum spendable amount minus '
                          'the amounts specified for other recipients '
-                         'and the transaction fee ')
+                         'and the transaction fee '))
       funcSetMax = lambda:  self.setMaximum(targWidget)
       self.connect(newBtn, SIGNAL(CLICKED), funcSetMax)
       return newBtn
@@ -1068,9 +1065,9 @@ class SendBitcoinsFrame(ArmoryFrame):
       btnFrm = QFrame()
       btnFrm.setFrameStyle(QFrame.NoFrame)
       btnLayout = QHBoxLayout()
-      lbtnAddRecip = QLabelButton('+ Recipient')
+      lbtnAddRecip = QLabelButton(self.tr('+ Recipient'))
       lbtnAddRecip.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-      lbtnRmRecip = QLabelButton('- Recipient')
+      lbtnRmRecip = QLabelButton(self.tr('- Recipient'))
       lbtnRmRecip.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       self.connect(lbtnAddRecip, SIGNAL(CLICKED), lambda: self.makeRecipFrame(nRecip + 1))
       self.connect(lbtnRmRecip, SIGNAL(CLICKED), lambda: self.makeRecipFrame(nRecip - 1))
@@ -1168,26 +1165,26 @@ class ReviewOfflineTxFrame(ArmoryDialog):
       self.lblDescr = QRichLabel('')
 
       ttipDataIsSafe = self.main.createToolTipWidget(\
-         'There is no security-sensitive information in this data below, so '
+         self.tr('There is no security-sensitive information in this data below, so '
          'it is perfectly safe to copy-and-paste it into an '
-         'email message, or save it to a borrowed USB key.')
+         'email message, or save it to a borrowed USB key.'))
 
-      btnSave = QPushButton('Save as file...')
+      btnSave = QPushButton(self.tr('Save as file...'))
       self.connect(btnSave, SIGNAL(CLICKED), self.doSaveFile)
       ttipSave = self.main.createToolTipWidget(\
-         'Save this data to a USB key or other device, to be transferred to '
-         'a computer that contains the private keys for this wallet.')
+         self.tr('Save this data to a USB key or other device, to be transferred to '
+         'a computer that contains the private keys for this wallet.'))
 
-      btnCopy = QPushButton('Copy to clipboard')
+      btnCopy = QPushButton(self.tr('Copy to clipboard'))
       self.connect(btnCopy, SIGNAL(CLICKED), self.copyAsciiUSTX)
       self.lblCopied = QRichLabel('  ')
       self.lblCopied.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
       ttipCopy = self.main.createToolTipWidget(\
-         'Copy the transaction data to the clipboard, so that it can be '
-         'pasted into an email or a text document.')
+         self.tr('Copy the transaction data to the clipboard, so that it can be '
+         'pasted into an email or a text document.'))
 
-      lblInstruct = QRichLabel('<b>Instructions for completing this transaction:</b>')
+      lblInstruct = QRichLabel(self.tr('<b>Instructions for completing this transaction:</b>'))
       self.lblUTX = QRichLabel('')
 
       frmUTX = makeLayoutFrame(HORIZONTAL, [ttipDataIsSafe, self.lblUTX])
@@ -1245,14 +1242,14 @@ class ReviewOfflineTxFrame(ArmoryDialog):
    
    def setUSTX(self, ustx):
       self.ustx = ustx
-      self.lblUTX.setText('<b>Transaction Data</b> \t (Unsigned ID: %s)' % ustx.uniqueIDB58)
+      self.lblUTX.setText(self.tr('<b>Transaction Data</b> \t (Unsigned ID: %1)').arg(ustx.uniqueIDB58))
       self.txtUSTX.setText(ustx.serializeAscii())
    
    def setWallet(self, wlt):
       self.wlt = wlt
       if determineWalletType(wlt, self.main)[0] in \
                                  [ WLTTYPES.Offline, WLTTYPES.WatchOnly ]:
-         self.lblDescr.setText(tr("""
+         self.lblDescr.setText(self.tr("""
             The block of data shown below is the complete transaction you 
             just requested, but is invalid because it does not contain any
             signatures.  You must take this data to the computer with the 
@@ -1271,7 +1268,7 @@ class ReviewOfflineTxFrame(ArmoryDialog):
             considered privacy-sensitive, but does <u>not</u> compromise
             the security of your wallet."""))
       else:
-         self.lblDescr.setText(tr("""
+         self.lblDescr.setText(self.tr("""
             You have chosen to create the previous transaction but not sign 
             it or broadcast it, yet.  You can save the unsigned 
             transaction to file, or copy&paste from the text box.  
@@ -1317,12 +1314,12 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       self.sentToSelfWarn = False
       self.fileLoaded = None
 
-      lblDescr = QRichLabel(\
+      lblDescr = QRichLabel(tr(
          'Copy or load a transaction from file into the text box below.  '
          'If the transaction is unsigned and you have the correct wallet, '
          'you will have the opportunity to sign it.  If it is already signed '
          'you will have the opportunity to broadcast it to '
-         'the Bitcoin network to make it final.')
+         'the Bitcoin network to make it final.'))
 
       self.txtUSTX = QTextEdit()
       self.txtUSTX.setFont(GETFONT('Fixed', 8))
@@ -1332,12 +1329,12 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       self.txtUSTX.setMinimumHeight(8*h)
       self.txtUSTX.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
-      self.btnSign = QPushButton('Sign')
-      self.btnBroadcast = QPushButton('Broadcast')
-      self.btnSave = QPushButton('Save file...')
-      self.btnLoad = QPushButton('Load file...')
-      self.btnCopy = QPushButton('Copy Text')
-      self.btnCopyHex = QPushButton('Copy Raw Tx (Hex)')
+      self.btnSign = QPushButton(self.tr('Sign'))
+      self.btnBroadcast = QPushButton(self.tr('Broadcast'))
+      self.btnSave = QPushButton(self.tr('Save file...'))
+      self.btnLoad = QPushButton(self.tr('Load file...'))
+      self.btnCopy = QPushButton(self.tr('Copy Text'))
+      self.btnCopyHex = QPushButton(self.tr('Copy Raw Tx (Hex)'))
       self.lblCopied = QRichLabel('')
       self.lblCopied.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
@@ -1356,7 +1353,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
       self.lblStatus = QRichLabel('')
       self.lblStatus.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-      wStat, hStat = relaxedSizeStr(self.lblStatus, 'Signature is Invalid!')
+      wStat, hStat = relaxedSizeStr(self.lblStatus, self.tr('Signature is Invalid!'))
       self.lblStatus.setMinimumWidth(int(wStat * 1.2))
       self.lblStatus.setMinimumHeight(int(hStat * 1.2))
 
@@ -1368,34 +1365,34 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       # ##
       self.infoLbls.append([])
       self.infoLbls[-1].append(self.main.createToolTipWidget(\
-            'This is wallet from which the offline transaction spends bitcoins'))
+            self.tr('This is wallet from which the offline transaction spends bitcoins')))
       self.infoLbls[-1].append(QRichLabel('<b>Wallet:</b>'))
       self.infoLbls[-1].append(QRichLabel(''))
 
       # ##
       self.infoLbls.append([])
-      self.infoLbls[-1].append(self.main.createToolTipWidget('The name of the wallet'))
-      self.infoLbls[-1].append(QRichLabel('<b>Wallet Label:</b>'))
+      self.infoLbls[-1].append(self.main.createToolTipWidget(self.tr('The name of the wallet')))
+      self.infoLbls[-1].append(QRichLabel(self.tr('<b>Wallet Label:</b>')))
       self.infoLbls[-1].append(QRichLabel(''))
 
       # ##
       self.infoLbls.append([])
-      self.infoLbls[-1].append(self.main.createToolTipWidget(\
+      self.infoLbls[-1].append(self.main.createToolTipWidget(tr(
          'A unique string that identifies an <i>unsigned</i> transaction.  '
          'This is different than the ID that the transaction will have when '
          'it is finally broadcast, because the broadcast ID cannot be '
-         'calculated without all the signatures'))
-      self.infoLbls[-1].append(QRichLabel('<b>Pre-Broadcast ID:</b>'))
+         'calculated without all the signatures')))
+      self.infoLbls[-1].append(QRichLabel(self.tr('<b>Pre-Broadcast ID:</b>')))
       self.infoLbls[-1].append(QRichLabel(''))
 
       # ##
       self.infoLbls.append([])
       self.infoLbls[-1].append(self.main.createToolTipWidget(\
-                               'Net effect on this wallet\'s balance'))
-      self.infoLbls[-1].append(QRichLabel('<b>Transaction Amount:</b>'))
+                               self.tr('Net effect on this wallet\'s balance')))
+      self.infoLbls[-1].append(QRichLabel(self.tr('<b>Transaction Amount:</b>')))
       self.infoLbls[-1].append(QRichLabel(''))
 
-      self.moreInfo = QLabelButton('Click here for more<br> information about <br>this transaction')
+      self.moreInfo = QLabelButton(self.tr('Click here for more<br> information about <br>this transaction'))
       self.connect(self.moreInfo, SIGNAL(CLICKED), self.execMoreTxInfo)
       frmMoreInfo = makeLayoutFrame(HORIZONTAL, [self.moreInfo], STYLE_SUNKEN)
       frmMoreInfo.setMinimumHeight(tightSizeStr(self.moreInfo, 'Any String')[1] * 5)
@@ -1466,15 +1463,15 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
             self.sigsValid = self.ustxObj.verifySigsAllInputs()
             self.ustxReadable = True
          except BadAddressError:
-            QMessageBox.critical(self, 'Inconsistent Data!', \
-               'This transaction contains inconsistent information.  This '
-               'is probably not your fault...', QMessageBox.Ok)
+            QMessageBox.critical(self, self.tr('Inconsistent Data!'), \
+               self.tr('This transaction contains inconsistent information.  This '
+               'is probably not your fault...'), QMessageBox.Ok)
             self.ustxObj = None
             self.ustxReadable = False
          except NetworkIDError:
-            QMessageBox.critical(self, 'Wrong Network!', \
-               'This transaction is actually for a different network!  '
-               'Did you load the correct transaction?', QMessageBox.Ok)
+            QMessageBox.critical(self, self.tr('Wrong Network!'), \
+               self.tr('This transaction is actually for a different network!  '
+               'Did you load the correct transaction?'), QMessageBox.Ok)
             self.ustxObj = None
             self.ustxReadable = False
          except (UnserializeError, IndexError, ValueError):
@@ -1488,7 +1485,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
                self.btnBroadcast.setEnabled(True)
             else:
                self.btnBroadcast.setEnabled(False)
-               self.btnBroadcast.setToolTip('No connection to Bitcoin network!')
+               self.btnBroadcast.setToolTip(self.tr('No connection to Bitcoin network!'))
       else:
          self.ustxObj = None
          self.ustxReadable = False
@@ -1499,7 +1496,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       self.btnCopyHex.setEnabled(False)
       if not self.ustxReadable:
          if len(ustxStr) > 0:
-            self.lblStatus.setText('<b><font color="red">Unrecognized!</font></b>')
+            self.lblStatus.setText(self.tr('<b><font color="red">Unrecognized!</font></b>'))
          else:
             self.lblStatus.setText('')
          self.btnSign.setEnabled(False)
@@ -1509,21 +1506,21 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
          return
       elif not self.enoughSigs:
          if not self.main.getSettingOrSetDefault('DNAA_ReviewOfflineTx', False):
-            result = MsgBoxWithDNAA(self, self.main, MSGBOX.Warning, title='Offline Warning', \
-                  msg='<b>Please review your transaction carefully before '
+            result = MsgBoxWithDNAA(self, self.main, MSGBOX.Warning, title=self.tr('Offline Warning'), \
+                  msg=self.tr('<b>Please review your transaction carefully before '
                   'signing and broadcasting it!</b>  The extra security of '
                   'using offline wallets is lost if you do '
-                  'not confirm the transaction is correct!', dnaaMsg=None)
+                  'not confirm the transaction is correct!'), dnaaMsg=None)
             self.main.writeSetting('DNAA_ReviewOfflineTx', result[1])
-         self.lblStatus.setText('<b><font color="red">Unsigned</font></b>')
+         self.lblStatus.setText(self.tr('<b><font color="red">Unsigned</font></b>'))
          self.btnSign.setEnabled(True)
          self.btnBroadcast.setEnabled(False)
       elif not self.sigsValid:
-         self.lblStatus.setText('<b><font color="red">Bad Signature!</font></b>')
+         self.lblStatus.setText(self.tr('<b><font color="red">Bad Signature!</font></b>'))
          self.btnSign.setEnabled(True)
          self.btnBroadcast.setEnabled(False)
       else:
-         self.lblStatus.setText('<b><font color="green">All Signatures Valid!</font></b>')
+         self.lblStatus.setText(self.tr('<b><font color="green">All Signatures Valid!</font></b>'))
          self.btnSign.setEnabled(False)
          self.btnCopyHex.setEnabled(True)
 
@@ -1542,17 +1539,17 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
             fromWlts.add(wltID)
 
       if len(fromWlts) > 1:
-         QMessageBox.warning(self, 'Multiple Input Wallets', \
-            'Somehow, you have obtained a transaction that actually pulls from more '
+         QMessageBox.warning(self, self.tr('Multiple Input Wallets'), \
+            self.tr('Somehow, you have obtained a transaction that actually pulls from more '
             'than one wallet.  The support for handling multi-wallet signatures is '
             'not currently implemented (this also could have happened if you imported '
-            'the same private key into two different wallets).' , QMessageBox.Ok)
+            'the same private key into two different wallets).') , QMessageBox.Ok)
          self.makeReviewFrame()
          return
       elif len(fromWlts) == 0:
-         QMessageBox.warning(self, 'Unrelated Transaction', \
-            'This transaction appears to have no relationship to any of the wallets '
-            'stored on this computer.  Did you load the correct transaction?', \
+         QMessageBox.warning(self, self.tr('Unrelated Transaction'), \
+            self.tr('This transaction appears to have no relationship to any of the wallets '
+            'stored on this computer.  Did you load the correct transaction?'), \
             QMessageBox.Ok)
          self.makeReviewFrame()
          return
@@ -1609,7 +1606,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
             self.infoLbls[0][2].setText(self.wlt.uniqueIDB58)
             self.infoLbls[1][2].setText(self.wlt.labelName)
          else:
-            self.infoLbls[0][2].setText('[[ Unrelated ]]')
+            self.infoLbls[0][2].setText(self.tr('[[ Unrelated ]]'))
             self.infoLbls[1][2].setText('')
 
          ##### 2
@@ -1629,8 +1626,8 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
          self.processUSTX()
 
       if not self.ustxObj:
-         QMessageBox.warning(self, 'Invalid Transaction', \
-            'Transaction data is invalid and cannot be shown!', QMessageBox.Ok)
+         QMessageBox.warning(self, self.tr('Invalid Transaction'), \
+            self.tr('Transaction data is invalid and cannot be shown!'), QMessageBox.Ok)
          return
 
       leVal = 0 if self.leValue is None else -self.leValue
@@ -1642,27 +1639,27 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
    def signTx(self):
       if not self.ustxObj:
-         QMessageBox.critical(self, 'Cannot Sign', \
-               'This transaction is not relevant to any of your wallets.'
-               'Did you load the correct transaction?', QMessageBox.Ok)
+         QMessageBox.critical(self, self.tr('Cannot Sign'), \
+               self.tr('This transaction is not relevant to any of your wallets.'
+               'Did you load the correct transaction?'), QMessageBox.Ok)
          return
 
       if self.ustxObj == None:
-         QMessageBox.warning(self, 'Not Signable', \
-               'This is not a valid transaction, and thus it cannot '
-               'be signed. ', QMessageBox.Ok)
+         QMessageBox.warning(self, self.tr('Not Signable'), \
+               self.tr('This is not a valid transaction, and thus it cannot '
+               'be signed. '), QMessageBox.Ok)
          return
       elif self.enoughSigs and self.sigsValid:
-         QMessageBox.warning(self, 'Already Signed', \
-               'This transaction has already been signed!', QMessageBox.Ok)
+         QMessageBox.warning(self, self.tr('Already Signed'), \
+               self.tr('This transaction has already been signed!'), QMessageBox.Ok)
          return
 
 
       if self.wlt and self.wlt.watchingOnly:
-         QMessageBox.warning(self, 'No Private Keys!', \
-            'This transaction refers one of your wallets, but that wallet '
+         QMessageBox.warning(self, self.tr('No Private Keys!'), \
+            self.tr('This transaction refers one of your wallets, but that wallet '
             'is a watching-only wallet.  Therefore, private keys are '
-            'not available to sign this transaction.', \
+            'not available to sign this transaction.'), \
              QMessageBox.Ok)
          return
 
@@ -1682,8 +1679,8 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
                svpairsMine.append([script, value])
 
       if len(svpairsMine) == 0 and len(svpairs) > 1:
-         QMessageBox.warning(self, tr('Missing Change'), tr("""
-            This transaction has %d recipients, and none of them 
+         QMessageBox.warning(self, self.tr('Missing Change'), self.tr("""
+            This transaction has %1 recipients, and none of them
             are addresses in this wallet (for receiving change).  
             This can happen if you specified a custom change address 
             for this transaction, or sometimes happens solely by 
@@ -1691,8 +1688,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
             be the result of someone tampering with the transaction. 
             <br><br>The transaction is valid and ready to be signed.  
             Please verify the recipient and amounts carefully before 
-            confirming the transaction on the next screen.""") % \
-            len(svpairs), QMessageBox.Ok)
+            confirming the transaction on the next screen.""").arg(len(svpairs)), QMessageBox.Ok)
 
       dlg = DlgConfirmSend(self.wlt, svpairs, theFee, self, self.main, pytxOrUstx=ustx)
       if not dlg.exec_():
@@ -1703,15 +1699,15 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       if self.wlt.useEncryption and self.wlt.isLocked:
          Passphrase = None  
 
-         unlockdlg = DlgUnlockWallet(self.wlt, self, self.main, 'Send Transaction', returnPassphrase=True)
+         unlockdlg = DlgUnlockWallet(self.wlt, self, self.main, self.tr('Send Transaction'), returnPassphrase=True)
          if unlockdlg.exec_():
             if unlockdlg.Accepted == 1:
                Passphrase = unlockdlg.securePassphrase.copy()
                unlockdlg.securePassphrase.destroy()
                      
          if Passphrase is None or self.wlt.kdf is None:
-            QMessageBox.critical(self.parent(), 'Wallet is Locked', \
-               'Cannot sign transaction while your wallet is locked. ', \
+            QMessageBox.critical(self.parent(), self.tr('Wallet is Locked'), \
+               self.tr('Cannot sign transaction while your wallet is locked. '), \
                QMessageBox.Ok)
             return
          else:
@@ -1729,17 +1725,17 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
    def broadTx(self):
       if self.main.netMode == NETWORKMODE.Disconnected:
-         QMessageBox.warning(self, 'No Internet!', \
-            'Armory lost its connection to Bitcoin-Core, and cannot '
+         QMessageBox.warning(self, self.tr('No Internet!'), \
+            self.tr('Armory lost its connection to , and cannot '
             'broadcast any transactions until it is reconnected. '
-            'Please verify that Bitcoin-Core (or bitcoind) is open '
-            'and synchronized with the network.', QMessageBox.Ok)
+            'Please verify that  (or bitcoind) is open '
+            'and synchronized with the network.'), QMessageBox.Ok)
          return
       elif self.main.netMode == NETWORKMODE.Offline:
-         QMessageBox.warning(self, 'No Internet!', \
-            'You do not currently have a connection to the Bitcoin network. '
-            'If this does not seem correct, verify that Bitcoin-Core is open '
-            'and synchronized with the network.', QMessageBox.Ok)
+         QMessageBox.warning(self, self.tr('No Internet!'), \
+            self.tr('You do not currently have a connection to the Bitcoin network. '
+            'If this does not seem correct, verify that  is open '
+            'and synchronized with the network.'), QMessageBox.Ok)
          return
 
 
@@ -1747,11 +1743,11 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       try:
          finalTx = self.ustxObj.getSignedPyTx()
       except SignatureError:
-         QMessageBox.warning(self, 'Signature Error', tr("""
+         QMessageBox.warning(self, self.tr('Signature Error'), self.tr("""
             Not all signatures are valid.  This transaction
             cannot be broadcast."""), QMessageBox.Ok)
       except:
-         QMessageBox.warning(self, tr('Error'), tr("""
+         QMessageBox.warning(self, self.tr('Error'), self.tr("""
             There was an error processing this transaction, for reasons 
             that are probably not your fault..."""), QMessageBox.Ok)
          return
@@ -1777,10 +1773,10 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
                # newFileName = '.'.join(pcs[:-2]) + '.DONE.' + '.'.join(pcs[-2:])
                shutil.move(self.fileLoaded, self.fileLoaded.replace('signed', 'SENT'))
             except:
-               QMessageBox.critical(self, 'File Remove Error', \
-                  'The file could not be deleted.  If you want to delete '
+               QMessageBox.critical(self, self.tr('File Remove Error'), \
+                  self.tr('The file could not be deleted.  If you want to delete '
                   'it, please do so manually.  The file was loaded from: '
-                  '<br><br>%s: ' % self.fileLoaded, QMessageBox.Ok)
+                  '<br><br>%1: ').arg(self.fileLoaded), QMessageBox.Ok)
 
          try:
             self.parent().accept()
@@ -1792,9 +1788,9 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
    def saveTxAuto(self):
       if not self.ustxReadable:
-         QMessageBox.warning(self, 'Formatting Error', \
-            'The transaction data was not in a format recognized by '
-            'Armory.')
+         QMessageBox.warning(self, self.tr('Formatting Error'), \
+            self.tr('The transaction data was not in a format recognized by '
+            'Armory.'))
          return
 
 
@@ -1807,17 +1803,17 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
          if not newSaveFile == self.fileLoaded:
             os.remove(self.fileLoaded)
          self.fileLoaded = newSaveFile
-         QMessageBox.information(self, 'Transaction Saved!', \
-            'Your transaction has been saved to the following location:'
-            '\n\n%s\n\nIt can now be broadcast from any computer running '
-            'Armory in online mode.' % newSaveFile, QMessageBox.Ok)
+         QMessageBox.information(self, self.tr('Transaction Saved!'), \
+            self.tr('Your transaction has been saved to the following location:'
+            '\n\n%1\n\nIt can now be broadcast from any computer running '
+            'Armory in online mode.').arg(newSaveFile), QMessageBox.Ok)
          return
 
    def saveTx(self):
       if not self.ustxReadable:
-         QMessageBox.warning(self, 'Formatting Error', \
-            'The transaction data was not in a format recognized by '
-            'Armory.')
+         QMessageBox.warning(self, self.tr('Formatting Error'), \
+            self.tr('The transaction data was not in a format recognized by '
+            'Armory.'))
          return
 
 
@@ -1845,7 +1841,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
 
    def loadTx(self):
-      filename = self.main.getFileLoad(tr('Load Transaction'), \
+      filename = self.main.getFileLoad(self.tr('Load Transaction'), \
                     ['Transactions (*.signed.tx *.unsigned.tx *.SENT.tx)'])
 
       if len(str(filename)) > 0:
@@ -1860,14 +1856,14 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       clipb = QApplication.clipboard()
       clipb.clear()
       clipb.setText(str(self.txtUSTX.toPlainText()))
-      self.lblCopied.setText('<i>Copied!</i>')
+      self.lblCopied.setText(self.tr('<i>Copied!</i>'))
 
 
    def copyTxHex(self):
       clipb = QApplication.clipboard()
       clipb.clear()
       clipb.setText(binary_to_hex(self.ustxObj.getSignedPyTx().serialize()))
-      self.lblCopied.setText('<i>Copied!</i>')
+      self.lblCopied.setText(self.tr('<i>Copied!</i>'))
          
 
 # Need to put circular imports at the end of the script to avoid an import deadlock

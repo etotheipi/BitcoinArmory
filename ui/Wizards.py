@@ -13,7 +13,7 @@ from ui.WalletFrames import NewWalletFrame, SetPassphraseFrame, VerifyPassphrase
    WalletBackupFrame, WizardCreateWatchingOnlyWalletFrame, CardDeckFrame
 from ui.TxFrames import SendBitcoinsFrame, SignBroadcastOfflineTxFrame,\
    ReviewOfflineTxFrame
-from qtdefines import USERMODE, GETFONT, tr, AddToRunningDialogsList
+from qtdefines import USERMODE, GETFONT, AddToRunningDialogsList
 from armoryengine.PyBtcWallet import PyBtcWallet
 from CppBlockUtils import SecureBinaryData
 from armoryengine.BDM import TheBDM, BDM_OFFLINE, BDM_UNINITIALIZED
@@ -77,7 +77,7 @@ class WalletWizard(ArmoryWizard):
       super(WalletWizard,self).__init__(parent, main)
       self.newWallet = None
       self.isBackupCreated = False
-      self.setWindowTitle(tr("Wallet Creation Wizard"))
+      self.setWindowTitle(self.tr("Wallet Creation Wizard"))
       self.setOption(QWizard.HaveFinishButtonOnEarlyPages, on=True)
       self.setOption(QWizard.IgnoreSubTitles, on=True)
 
@@ -145,7 +145,7 @@ class WalletWizard(ArmoryWizard):
                                 QWizard.FinishButton])
    def done(self, event):
       if self.newWallet and not self.walletBackupPage.pageFrame.isBackupCreated:
-         reply = QMessageBox.question(self, tr('Wallet Backup Warning'), tr("""<qt>
+         reply = QMessageBox.question(self, self.tr('Wallet Backup Warning'), self.tr("""<qt>
                You have not made a backup for your new wallet.  You only have 
                to make a backup of your wallet <u>one time</u> to protect 
                all the funds held by this wallet <i>any time in the future</i>
@@ -184,7 +184,7 @@ class WalletWizard(ArmoryWizard):
                SecureBinaryData(self.setPassphrasePage.pageFrame.getPassphrase()))
       # We always want to fill the address pool, right away.  
       fillPoolProgress = DlgProgress(self, self.main, HBar=1, \
-                                     Title="Creating Wallet") 
+                                     Title=self.tr("Creating Wallet") )
       fillPoolProgress.exec_(self.newWallet.fillAddressPool, doRegister=False,
                              Progress=fillPoolProgress.UpdateHBar)
 
@@ -216,10 +216,10 @@ class WalletWizard(ArmoryWizard):
 class ManualEntropyPage(ArmoryWizardPage):
    def __init__(self, wizard):
       super(ManualEntropyPage, self).__init__(wizard,
-            CardDeckFrame(wizard, wizard.main, "Shuffle a deck of cards"))
+            CardDeckFrame(wizard, wizard.main, wizard.tr("Shuffle a deck of cards")))
       self.wizard = wizard
-      self.setTitle(tr("Step 1: Add Manual Entropy"))
-      self.setSubTitle(tr("""
+      self.setTitle(wizard.tr("Step 1: Add Manual Entropy"))
+      self.setSubTitle(wizard.tr("""
             Use a deck of cards to get a new random number for your wallet.
             """))
 
@@ -235,8 +235,8 @@ class WalletCreationPage(ArmoryWizardPage):
       super(WalletCreationPage, self).__init__(wizard,
             NewWalletFrame(wizard, wizard.main, "Primary Wallet"))
       self.wizard = wizard
-      self.setTitle(tr("Step 1: Create Wallet"))
-      self.setSubTitle(tr("""
+      self.setTitle(wizard.tr("Step 1: Create Wallet"))
+      self.setSubTitle(wizard.tr("""
             Create a new wallet for managing your funds.
             The name and description can be changed at any time."""))
       
@@ -244,12 +244,12 @@ class WalletCreationPage(ArmoryWizardPage):
    def validatePage(self):
       result = True
       if self.pageFrame.getKdfSec() == -1:
-         QMessageBox.critical(self, 'Invalid Target Compute Time', \
-            'You entered Target Compute Time incorrectly.\n\nEnter: <Number> (ms, s)', QMessageBox.Ok)
+         QMessageBox.critical(self, self.tr('Invalid Target Compute Time'), \
+            self.tr('You entered Target Compute Time incorrectly.\n\nEnter: <Number> (ms, s)'), QMessageBox.Ok)
          result = False
       elif self.pageFrame.getKdfBytes() == -1:
-         QMessageBox.critical(self, 'Invalid Max Memory Usage', \
-            'You entered Max Memory Usag incorrectly.\n\nnter: <Number> (kb, mb)', QMessageBox.Ok)
+         QMessageBox.critical(self, self.tr('Invalid Max Memory Usage'), \
+            self.tr('You entered Max Memory Usag incorrectly.\n\nnter: <Number> (kb, mb)'), QMessageBox.Ok)
          result = False
       return result
 
@@ -265,9 +265,9 @@ class WalletCreationPage(ArmoryWizardPage):
 class SetPassphrasePage(ArmoryWizardPage):
    def __init__(self, wizard):
       super(SetPassphrasePage, self).__init__(wizard, 
-               SetPassphraseFrame(wizard, wizard.main, "Set Passphrase", self.updateNextButton))
+               SetPassphraseFrame(wizard, wizard.main, wizard.tr("Set Passphrase"), self.updateNextButton))
       self.wizard = wizard
-      self.setTitle(tr("Step 2: Set Passphrase"))
+      self.setTitle(wizard.tr("Step 2: Set Passphrase"))
       self.updateNextButton()
 
    def updateNextButton(self):
@@ -283,10 +283,10 @@ class SetPassphrasePage(ArmoryWizardPage):
 class VerifyPassphrasePage(ArmoryWizardPage):
    def __init__(self, wizard):
       super(VerifyPassphrasePage, self).__init__(wizard, 
-            VerifyPassphraseFrame(wizard, wizard.main, "Verify Passphrase"))
+            VerifyPassphraseFrame(wizard, wizard.main, wizard.tr("Verify Passphrase")))
       self.wizard = wizard
       self.passphrase = None
-      self.setTitle(tr("Step 3: Verify Passphrase"))
+      self.setTitle(wizard.tr("Step 3: Verify Passphrase"))
    
    def setPassphrase(self, passphrase):
       self.passphrase = passphrase        
@@ -294,8 +294,8 @@ class VerifyPassphrasePage(ArmoryWizardPage):
    def validatePage(self):
       result = self.passphrase == str(self.pageFrame.edtPasswd3.text())
       if not result:
-         QMessageBox.critical(self, 'Invalid Passphrase', \
-            'You entered your confirmation passphrase incorrectly!', QMessageBox.Ok)
+         QMessageBox.critical(self, self.tr('Invalid Passphrase'), \
+            self.tr('You entered your confirmation passphrase incorrectly!'), QMessageBox.Ok)
       return result
 
    def nextId(self):
@@ -304,10 +304,10 @@ class VerifyPassphrasePage(ArmoryWizardPage):
 class WalletBackupPage(ArmoryWizardPage):
    def __init__(self, wizard):
       super(WalletBackupPage, self).__init__(wizard,
-                                WalletBackupFrame(wizard, wizard.main, "Backup Wallet"))
+                                WalletBackupFrame(wizard, wizard.main, wizard.tr("Backup Wallet")))
       self.wizard = wizard
       self.myWizard = wizard
-      self.setTitle(tr("Step 4: Backup Wallet"))
+      self.setTitle(wizard.tr("Step 4: Backup Wallet"))
       self.setFinalPage(True)
 
    def nextId(self):
@@ -319,9 +319,9 @@ class WalletBackupPage(ArmoryWizardPage):
 class CreateWatchingOnlyWalletPage(ArmoryWizardPage):
    def __init__(self, wizard):
       super(CreateWatchingOnlyWalletPage, self).__init__(wizard,
-                  WizardCreateWatchingOnlyWalletFrame(wizard, wizard.main, "Create Watching Only Wallet"))
+                  WizardCreateWatchingOnlyWalletFrame(wizard, wizard.main, wizard.tr("Create Watching-Only Wallet")))
       self.wizard = wizard
-      self.setTitle(tr("Step 5: Create Watching Only Wallet"))
+      self.setTitle(wizard.tr("Step 5: Create Watching-Only Wallet"))
 
    def nextId(self):
       return -1
@@ -334,7 +334,7 @@ class CreateWatchingOnlyWalletPage(ArmoryWizardPage):
 class TxWizard(ArmoryWizard):
    def __init__(self, parent, main, wlt, prefill=None, onlyOfflineWallets=False):
       super(TxWizard,self).__init__(parent, main)
-      self.setWindowTitle(tr("Offline Transaction Wizard"))
+      self.setWindowTitle(self.tr("Offline Transaction Wizard"))
       self.setOption(QWizard.IgnoreSubTitles, on=True)
       self.setOption(QWizard.HaveCustomButton1, on=True)
       self.setOption(QWizard.HaveFinishButtonOnEarlyPages, on=True)
@@ -351,8 +351,8 @@ class TxWizard(ArmoryWizard):
       self.signBroadcastOfflineTxPage = SignBroadcastOfflineTxPage(self)
       self.addPage(self.signBroadcastOfflineTxPage)
 
-      self.setButtonText(QWizard.NextButton, tr('Create Unsigned Transaction'))
-      self.setButtonText(QWizard.CustomButton1, tr('Send!'))
+      self.setButtonText(QWizard.NextButton, self.tr('Create Unsigned Transaction'))
+      self.setButtonText(QWizard.CustomButton1, self.tr('Send!'))
       self.connect(self, SIGNAL('customButtonClicked(int)'), self.sendClicked)
       self.setButtonLayout([QWizard.CancelButton,
                             QWizard.BackButton,
@@ -366,7 +366,7 @@ class TxWizard(ArmoryWizard):
       if self.currentPage() == self.createTxPage:
          self.createTxPage.pageFrame.fireWalletChange()
       elif self.currentPage() == self.reviewOfflineTxPage:
-         self.setButtonText(QWizard.NextButton, tr('Next'))
+         self.setButtonText(QWizard.NextButton, self.tr('Next'))
          self.setButtonLayout([QWizard.BackButton,
                             QWizard.Stretch,
                             QWizard.NextButton,
@@ -378,7 +378,7 @@ class TxWizard(ArmoryWizard):
    def cleanupPage(self, *args, **kwargs):
       if self.currentPage() == self.reviewOfflineTxPage:
          self.updateOnSelectWallet(self.createTxPage.pageFrame.wlt)
-         self.setButtonText(QWizard.NextButton, tr('Create Unsigned Transaction'))
+         self.setButtonText(QWizard.NextButton, self.tr('Create Unsigned Transaction'))
 
    def sendClicked(self, customButtonIndex):
       self.createTxPage.pageFrame.createTxAndBroadcast()
@@ -401,10 +401,10 @@ class CreateTxPage(ArmoryWizardPage):
    def __init__(self, wizard, wlt, prefill=None, onlyOfflineWallets=False):
       super(CreateTxPage, self).__init__(wizard,
                SendBitcoinsFrame(wizard, wizard.main,
-                                 "Create Transaction", wlt, prefill,
+                                 wizard.tr("Create Transaction"), wlt, prefill,
                                  selectWltCallback=self.updateOnSelectWallet,
                                  onlyOfflineWallets=onlyOfflineWallets))
-      self.setTitle(tr("Step 1: Create Transaction"))
+      self.setTitle(self.tr("Step 1: Create Transaction"))
       self.txdp = None
       
    def validatePage(self):
@@ -421,12 +421,12 @@ class CreateTxPage(ArmoryWizardPage):
 class ReviewOfflineTxPage(ArmoryWizardPage):
    def __init__(self, wizard):
       super(ReviewOfflineTxPage, self).__init__(wizard,
-                  ReviewOfflineTxFrame(wizard, wizard.main, "Review Offline Transaction"))
-      self.setTitle(tr("Step 2: Review Offline Transaction"))
+                  ReviewOfflineTxFrame(wizard, wizard.main, self.tr("Review Offline Transaction")))
+      self.setTitle(self.tr("Step 2: Review Offline Transaction"))
       self.setFinalPage(True)
       
 class SignBroadcastOfflineTxPage(ArmoryWizardPage):
    def __init__(self, wizard):
       super(SignBroadcastOfflineTxPage, self).__init__(wizard,
-                  SignBroadcastOfflineTxFrame(wizard, wizard.main, "Sign/Broadcast Offline Transaction"))
-      self.setTitle(tr("Step 3: Sign/Broadcast Offline Transaction"))      
+                  SignBroadcastOfflineTxFrame(wizard, wizard.main, self.tr("Sign/Broadcast Offline Transaction")))
+      self.setTitle(self.tr("Step 3: Sign/Broadcast Offline Transaction"))      

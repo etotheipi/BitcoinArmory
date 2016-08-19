@@ -24,14 +24,14 @@ class CoinControlDlg(ArmoryDialog):
 
       self.wlt = wlt
 
-      lblDescr = QRichLabel(\
+      lblDescr = QRichLabel(self.tr(
          'By default, transactions are created using any available coins from '
          'all addresses in this wallet.  You can control the source addresses '
          'used for this transaction by selecting them below, and unchecking '
-         'all other addresses.')
+         'all other addresses.'))
       
-      self.useAllCheckBox = QCheckBox("Use all selected UTXOs")
-      useAllToolTip = self.main.createToolTipWidget('''
+      self.useAllCheckBox = QCheckBox(self.tr("Use all selected UTXOs"))
+      useAllToolTip = self.main.createToolTipWidget(self.tr('''
       By default, Armory will pick a a subset of the UTXOs you pick 
       explicitly through the coin control feature to best suit the
       total spend value of the transaction you are constructing.
@@ -40,7 +40,7 @@ class CoinControlDlg(ArmoryDialog):
       Checking 'Use all selected UTXOs' forces the construction of a
       transaction that will redeem the exact list of UTXOs you picked 
       instead 
-      ''')
+      '''))
       
       frmCheckAll = makeHorizFrame([self.useAllCheckBox, useAllToolTip, 'Stretch'])
             
@@ -48,8 +48,8 @@ class CoinControlDlg(ArmoryDialog):
       self.ccView = QTreeView()
       self.ccView.setModel(self.ccTreeModel)
            
-      self.btnAccept = QPushButton("Accept")
-      self.btnCancel = QPushButton("Cancel")
+      self.btnAccept = QPushButton(self.tr("Accept"))
+      self.btnCancel = QPushButton(self.tr("Cancel"))
       self.connect(self.btnAccept, SIGNAL('clicked()'), self.accept)
       self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)            
       buttonBox = QDialogButtonBox()
@@ -72,7 +72,7 @@ class CoinControlDlg(ArmoryDialog):
       layout.addWidget(buttonBox, 5, 0)
       self.setLayout(layout)
       
-      self.setWindowTitle('Coin Control (Expert)')
+      self.setWindowTitle(self.tr('Coin Control (Expert)'))
    
     
    #############################################################################   

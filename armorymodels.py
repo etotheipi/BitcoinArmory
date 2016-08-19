@@ -111,7 +111,7 @@ class AllWalletsDispModel(QAbstractTableModel):
 
 
    def headerData(self, section, orientation, role=Qt.DisplayRole):
-      colLabels = ['', tr('ID'), tr('Wallet Name'), tr('Security'), tr('Balance')]
+      colLabels = ['', self.tr('ID'), self.tr('Wallet Name'), self.tr('Security'), self.tr('Balance')]
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
             return QVariant( colLabels[section])
@@ -251,50 +251,50 @@ class LedgerDispModelSimple(QAbstractTableModel):
             isCB  = rowData[COL.isCoinbase]
             isConfirmed = (nConf>119 if isCB else nConf>5)
             if isConfirmed:
-               return QVariant('Transaction confirmed!\n(%d confirmations)'%nConf)
+               return QVariant(self.tr('Transaction confirmed!\n(%d confirmations)')%nConf)
             else:
                tooltipStr = ''
                if isCB:
-                  tooltipStr = '%d/120 confirmations'%nConf
-                  tooltipStr += ( '\n\nThis is a "generation" transaction from\n'
+                  tooltipStr = self.tr('%d/120 confirmations')%nConf
+                  tooltipStr += ( self.tr('\n\nThis is a "generation" transaction from\n'
                                  'Bitcoin mining.  These transactions take\n'
                                  '120 confirmations (approximately one day)\n'
-                                 'before they are available to be spent.')
+                                 'before they are available to be spent.'))
                elif optInRBF:
-                  tooltipStr = ('This is a mempool replaceable transaction.'
+                  tooltipStr = self.tr('This is a mempool replaceable transaction.'
                                ' Do not consider you have been sent these coins until'
                                ' this transaction has at least 1 confirmation.')
                else:
-                  tooltipStr = '%d/6 confirmations'%rowData[COL.NumConf]
-                  tooltipStr += ( '\n\nFor small transactions, 2 or 3\n'
-                                 'confirmations is usually acceptable.\n'
-                                 'For larger transactions, you should\n'
-                                 'wait for 6 confirmations before\n'
+                  tooltipStr = self.tr('%d/6 confirmations')%rowData[COL.NumConf]
+                  tooltipStr += self.tr( '\n\nFor small transactions, 2 or 3 '
+                                 'confirmations is usually acceptable. '
+                                 'For larger transactions, you should '
+                                 'wait for 6 confirmations before '
                                  'trusting that the transaction is valid.')
                return QVariant(tooltipStr)
          if col==COL.TxDir:
             #toSelf = self.index(index.row(), COL.toSelf).data().toBool()
             toSelf = rowData[COL.toSelf]
             if toSelf:
-               return QVariant('Bitcoins sent and received by the same wallet')
+               return QVariant(self.tr('Bitcoins sent and received by the same wallet'))
             else:
                #txdir = str(index.model().data(index).toString()).strip()
                txdir = rowData[COL.TxDir]
                if rowData[COL.isCoinbase]:
-                  return QVariant('You mined these Bitcoins!')
+                  return QVariant(self.tr('You mined these Bitcoins!'))
                if float(txdir.strip())<0:
-                  return QVariant('Bitcoins sent')
+                  return QVariant(self.tr('Bitcoins sent'))
                else:
-                  return QVariant('Bitcoins received')
+                  return QVariant(self.tr('Bitcoins received'))
          if col==COL.Amount:
             if self.main.settings.get('DispRmFee'):
-               return QVariant('The net effect on the balance of this wallet '
+               return QVariant(self.tr('The net effect on the balance of this wallet '
                                '<b>not including transaction fees.</b>  '
                                'You can change this behavior in the Armory '
-                               'preferences window.')
+                               'preferences window.'))
             else:
-               return QVariant('The net effect on the balance of this wallet, '
-                               'including transaction fees.')
+               return QVariant(self.tr('The net effect on the balance of this wallet, '
+                               'including transaction fees.'))
 
       return QVariant()
 
@@ -303,14 +303,14 @@ class LedgerDispModelSimple(QAbstractTableModel):
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
             if section==COL.NumConf: return QVariant()
-            if section==COL.DateStr: return QVariant('Date')
-            if section==COL.WltName: return QVariant('Lockbox') if self.isLboxModel else QVariant('Wallet')
-            if section==COL.Comment: return QVariant('Comments')
+            if section==COL.DateStr: return QVariant(self.tr('Date'))
+            if section==COL.WltName: return QVariant(self.tr('Lockbox')) if self.isLboxModel else QVariant(self.tr('Wallet'))
+            if section==COL.Comment: return QVariant(self.tr('Comments'))
             if section==COL.TxDir:   return QVariant()
-            if section==COL.Amount:  return QVariant('Amount')
-            if section==COL.isOther: return QVariant('Other Owner')
-            if section==COL.WltID:   return QVariant('Wallet ID')
-            if section==COL.TxHash:  return QVariant('Tx Hash (LE)')
+            if section==COL.Amount:  return QVariant(self.tr('Amount'))
+            if section==COL.isOther: return QVariant(self.tr('Other Owner'))
+            if section==COL.WltID:   return QVariant(self.tr('Wallet ID'))
+            if section==COL.TxHash:  return QVariant(self.tr('Tx Hash (LE)'))
       elif role==Qt.TextAlignmentRole:
          return QVariant( int(Qt.AlignHCenter | Qt.AlignVCenter) )
 
@@ -492,19 +492,19 @@ class ArmoryBlockAndDateSelector():
       self.frmBlockAndDateLayout = QGridLayout()
       self.frmBlockAndDateLayout.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
       
-      self.lblBlock = QLabel("<a href=edtBlock>Block:</a>")
+      self.lblBlock = QLabel(self.main.tr("<a href=edtBlock>Block:</a>"))
       self.lblBlock.linkActivated.connect(self.linkClicked)
       self.lblBlock.adjustSize()
       self.lblBlockValue = QLabel("")
       self.lblBlockValue.adjustSize()
       
-      self.lblDate = QLabel("<a href=edtDate>Date:</a>")
+      self.lblDate = QLabel(self.main.tr("<a href=edtDate>Date:</a>"))
       self.lblDate.linkActivated.connect(self.linkClicked)     
       self.lblDate.adjustSize()
       self.lblDateValue = QLabel("")
       self.lblDateValue.adjustSize()
       
-      self.lblTop = QLabel("<a href=goToTop>Top</a>")
+      self.lblTop = QLabel(self.main.tr("<a href=goToTop>Top</a>"))
       self.lblTop.linkActivated.connect(self.goToTop)
       self.lblTop.adjustSize()
       
@@ -544,8 +544,7 @@ class ArmoryBlockAndDateSelector():
       self.frmBlockAndDate.enterEvent = self.resetHideBlockAndDate
                                                     
       self.dateBlockSelectButton = QPushButton('Goto')
-      self.dateBlockSelectButton.setStyleSheet(\
-            'QPushButton { font-size : 10px }')
+      self.dateBlockSelectButton.setStyleSheet('QPushButton { font-size : 10px }')
       self.dateBlockSelectButton.setMaximumSize(60, 20)  
       self.main.connect(self.dateBlockSelectButton, \
                         SIGNAL('clicked()'), self.showBlockDateController)
@@ -1028,18 +1027,18 @@ class WalletAddrDispModel(QAbstractTableModel):
          if col==COL.ChainIdx:
             cmt = str(self.index(index.row(),COL.ChainIdx).data().toString())
             if cmt.strip().lower().startswith('imp'):
-               return QVariant('<u></u>This is an imported address. Imported '
-                               'addresses are not protected by regular paper '
-                               'backups.  You must use the "Backup Individual '
-                               'Keys" option to protect it.')
+               return QVariant(self.tr('''<u></u>This is an imported address. Imported 
+                               addresses are not protected by regular paper 
+                               backups.  You must use the "Backup Individual 
+                               Keys" option to protect it.'''))
             else:
-               return QVariant('<u></u>The order that this address was '
-                               'generated in this wallet')
+               return QVariant(self.tr('''<u></u>The order that this address was 
+                               generated in this wallet'''))
          cmt = str(self.index(index.row(),COL.Comment).data().toString())
          if cmt==CHANGE_ADDR_DESCR_STRING:
-            return QVariant('This address was created by Armory to '
-                            'receive change-back-to-self from an oversized '
-                            'transaction.')
+            return QVariant(self.tr('''This address was created by Armory to 
+                            receive change-back-to-self from an oversized 
+                            transaction.'''))
       elif role==Qt.BackgroundColorRole:
          if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
             return QVariant( Colors.TblWltOther )
@@ -1058,10 +1057,10 @@ class WalletAddrDispModel(QAbstractTableModel):
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
             if section==COL.ChainIdx: return QVariant( '#'        )
-            if section==COL.Address:  return QVariant( 'Address' )
-            if section==COL.Comment:  return QVariant( 'Comment' )
-            if section==COL.NumTx:    return QVariant( '#Tx'     )
-            if section==COL.Balance:  return QVariant( 'Balance' )
+            if section==COL.Address:  return QVariant( self.tr('Address') )
+            if section==COL.Comment:  return QVariant( self.tr('Comment') )
+            if section==COL.NumTx:    return QVariant( self.tr('#Tx')     )
+            if section==COL.Balance:  return QVariant( self.tr('Balance') )
          elif role==Qt.TextAlignmentRole:
             if section in (COL.Address, COL.Comment):
                return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
@@ -1210,15 +1209,15 @@ class TxInDispModel(QAbstractTableModel):
       COLS = TXINCOLS
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
-            if section==COLS.WltID:    return QVariant('Wallet ID')
-            if section==COLS.Sender:   return QVariant('Sender')
-            if section==COLS.Btc:      return QVariant('Amount')
-            if section==COLS.OutPt:    return QVariant('Prev. Tx Hash')
-            if section==COLS.OutIdx:   return QVariant('Index')
-            if section==COLS.FromBlk:  return QVariant('From Block#')
-            if section==COLS.ScrType:  return QVariant('Script Type')
-            if section==COLS.Sequence: return QVariant('Sequence')
-            if section==COLS.Script:   return QVariant('Script')
+            if section==COLS.WltID:    return QVariant(self.tr('Wallet ID'))
+            if section==COLS.Sender:   return QVariant(self.tr('Sender'))
+            if section==COLS.Btc:      return QVariant(self.tr('Amount'))
+            if section==COLS.OutPt:    return QVariant(self.tr('Prev. Tx Hash'))
+            if section==COLS.OutIdx:   return QVariant(self.tr('Index'))
+            if section==COLS.FromBlk:  return QVariant(self.tr('From Block#'))
+            if section==COLS.ScrType:  return QVariant(self.tr('Script Type'))
+            if section==COLS.Sequence: return QVariant(self.tr('Sequence'))
+            if section==COLS.Script:   return QVariant(self.tr('Script'))
       elif role==Qt.TextAlignmentRole:
          if orientation==Qt.Horizontal:
             if section in (COLS.WltID, COLS.Sender, COLS.OutPt):
@@ -1303,10 +1302,10 @@ class TxOutDispModel(QAbstractTableModel):
       COLS = TXOUTCOLS
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
-            if section==COLS.WltID:   return QVariant('Wallet ID')
-            if section==COLS.Recip:   return QVariant('Recipient')
-            if section==COLS.Btc:     return QVariant('Amount')
-            if section==COLS.ScrType: return QVariant('Script Type')
+            if section==COLS.WltID:   return QVariant(self.tr('Wallet ID'))
+            if section==COLS.Recip:   return QVariant(self.tr('Recipient'))
+            if section==COLS.Btc:     return QVariant(self.tr('Amount'))
+            if section==COLS.ScrType: return QVariant(self.tr('Script Type'))
       elif role==Qt.TextAlignmentRole:
          if orientation==Qt.Horizontal:
             if section==COLS.WltID:   return QVariant(Qt.AlignLeft | Qt.AlignVCenter)
@@ -1399,10 +1398,10 @@ class SentToAddrBookModel(QAbstractTableModel):
       COL = ADDRBOOKCOLS
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
-            if section==COL.Address:  return QVariant( 'Address'    )
-            if section==COL.WltID:    return QVariant( 'Ownership'  )
-            if section==COL.NumSent:  return QVariant( 'Times Used' )
-            if section==COL.Comment:  return QVariant( 'Comment'    )
+            if section==COL.Address:  return QVariant( self.tr('Address'    ))
+            if section==COL.WltID:    return QVariant( self.tr('Ownership'  ))
+            if section==COL.NumSent:  return QVariant( self.tr('Times Used' ))
+            if section==COL.Comment:  return QVariant( self.tr('Comment'    ))
       elif role==Qt.TextAlignmentRole:
          if section in (COL.Address, COL.Comment, COL.WltID):
             return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
@@ -1484,7 +1483,7 @@ class PromissoryCollectModel(QAbstractTableModel):
 
 
    def headerData(self, section, orientation, role=Qt.DisplayRole):
-      colLabels = ['Note ID', 'Label', 'Funding', 'Fee']
+      colLabels = [self.tr('Note ID'), self.tr('Label'), self.tr('Funding'), self.tr('Fee')]
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
             return QVariant(colLabels[section])

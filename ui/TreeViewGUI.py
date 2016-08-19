@@ -60,8 +60,8 @@ class CoinControlUtxoItem():
    def __init__(self, parent, utxo):
       self.utxo = utxo
       self.parent = parent
-      self.name = "Block: #%d | Tx: #%d | TxOut: #%d" % \
-         (utxo.getTxHeight(), utxo.getTxIndex(), utxo.getTxOutIndex())
+      self.name = self.tr("Block: #%1 | Tx: #%2 | TxOut: #%3").arg(utxo.getTxHeight(),
+         utxo.getTxIndex(), utxo.getTxOutIndex())
          
       
       self.state = Qt.Checked
@@ -306,9 +306,10 @@ class CoinControlTreeNode(TreeNode):
 ################################################################################     
 class TreeStructure_AddressDisplay():
    
-   def __init__(self, wallet):
+   def __init__(self, wallet, parent_qobj):
       self.wallet = wallet
       self.root = None
+      self.parent_qobj = parent_qobj
       
       self.setup()
       
@@ -343,9 +344,9 @@ class TreeStructure_AddressDisplay():
          return nodeMain
       
       #create top 3 nodes
-      nodeUsed   = createChildNode("Used Addresses", "Used")
-      nodeChange = createChildNode("Change Addresses", "Change")
-      nodeUnused = createChildNode("Unused Addresses", "Unused")
+      nodeUsed   = createChildNode(self.parent_qobj.tr("Used Addresses"), "Used")
+      nodeChange = createChildNode(self.parent_qobj.tr("Change Addresses"), "Change")
+      nodeUnused = createChildNode(self.parent_qobj.tr("Unused Addresses"), "Unused")
       
       self.root.appendEntry(nodeUsed)
       self.root.appendEntry(nodeChange)
@@ -453,9 +454,9 @@ class TreeStructure_CoinControl():
          return nodeMain
       
       #create top 3 nodes
-      nodeUTXO   = createChildNode("Unspent Outputs", "Unspent")
-      nodeRBF = createChildNode("RBF Eligible", "RBF")
-      nodeCPFP = createChildNode("CPFP Outputs", "CPFP")
+      nodeUTXO   = createChildNode(self.tr("Unspent Outputs"), "Unspent")
+      nodeRBF = createChildNode(self.tr("RBF Eligible"), "RBF")
+      nodeCPFP = createChildNode(self.tr("CPFP Outputs"), "CPFP")
       
       self.root.appendEntry(nodeUTXO)
       self.root.appendEntry(nodeRBF)
@@ -556,7 +557,7 @@ class AddressTreeModel(ArmoryTreeModel):
 
       self.wlt = wlt
       
-      self.treeStruct = TreeStructure_AddressDisplay(self.wlt)
+      self.treeStruct = TreeStructure_AddressDisplay(self.wlt, self)
       self.root = NodeItem(0, None, self.treeStruct.root)
       
    def columnCount(self, index=QModelIndex()):
@@ -595,10 +596,10 @@ class AddressTreeModel(ArmoryTreeModel):
    def headerData(self, section, orientation, role=Qt.DisplayRole):
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
-            if section==COL_TREE: return QVariant('Address')
-            if section==COL_COMMENT: return QVariant('Comment')
-            if section==COL_COUNT:  return QVariant('Tx Count')
-            if section==COL_BALANCE:  return QVariant('Balance')
+            if section==COL_TREE: return QVariant(self.tr('Address'))
+            if section==COL_COMMENT: return QVariant(self.tr('Comment'))
+            if section==COL_COUNT:  return QVariant(self.tr('Tx Count'))
+            if section==COL_BALANCE:  return QVariant(self.tr('Balance'))
 
       return QVariant() 
   
@@ -664,9 +665,9 @@ class CoinControlTreeModel(ArmoryTreeModel):
    def headerData(self, section, orientation, role=Qt.DisplayRole):
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
-            if section==COL_NAME: return QVariant('Address/ID')
-            if section==COL_COMMENT:  return QVariant('Comment')
-            if section==COL_VALUE:  return QVariant('Balance')
+            if section==COL_NAME: return QVariant(self.tr('Address/ID'))
+            if section==COL_COMMENT:  return QVariant(self.tr('Comment'))
+            if section==COL_VALUE:  return QVariant(self.tr('Balance'))
 
       return QVariant() 
    

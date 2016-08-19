@@ -50,7 +50,7 @@ class FeeSelectionDialog(ArmoryDialog):
       def updateLblOnValueChange():
          self.updateLabelButton(self.lastKnownTxSize)
       
-      self.radioFlatFee = QRadioButton("Flat Fee (BTC)")
+      self.radioFlatFee = QRadioButton(self.tr("Flat Fee (BTC)"))
       self.edtFeeAmt = QLineEdit(flatFee)
       self.edtFeeAmt.setFont(GETFONT('Fixed'))
       self.edtFeeAmt.setMinimumWidth(tightSizeNChar(self.edtFeeAmt, 6)[0])
@@ -72,7 +72,7 @@ class FeeSelectionDialog(ArmoryDialog):
             return self.selectType('FeeByte')
          return callbck
       
-      self.radioFeeByte = QRadioButton("Fee/Byte (Satoshi/Byte)")
+      self.radioFeeByte = QRadioButton(self.tr("Fee/Byte (Satoshi/Byte)"))
       self.edtFeeByte = QLineEdit(fee_byte)
       self.edtFeeByte.setFont(GETFONT('Fixed'))
       self.edtFeeByte.setMinimumWidth(tightSizeNChar(self.edtFeeByte, 6)[0])
@@ -94,7 +94,7 @@ class FeeSelectionDialog(ArmoryDialog):
             return self.selectType('Auto')
          return callbck      
       
-      self.radioAutoFeeByte = QRadioButton("Auto Fee/Byte (Satoshi/Byte)")
+      self.radioAutoFeeByte = QRadioButton(self.tr("Auto Fee/Byte (Satoshi/Byte)"))
       self.lblAutoFeeByte = QLabel(autoFee_byte)
       self.lblAutoFeeByte.setFont(GETFONT('Fixed'))
       self.lblAutoFeeByte.setMinimumWidth(tightSizeNChar(self.lblAutoFeeByte, 6)[0])
@@ -102,9 +102,9 @@ class FeeSelectionDialog(ArmoryDialog):
       self.connect(self.radioAutoFeeByte, SIGNAL('clicked()'), setAutoFeeByte())
       
       if self.validAutoFee:
-         self.lblAutoFeeDescr = QLabel("Fetch fee/byte from your network node")
+         self.lblAutoFeeDescr = QLabel(self.tr("Fetch fee/byte from your network node"))
       else:
-         self.lblAutoFeeDescr = QLabel("Failed to fetch fee/byte from node")
+         self.lblAutoFeeDescr = QLabel(self.tr("Failed to fetch fee/byte from node"))
       
       frmAutoFeeByte = QFrame()
       frmAutoFeeByte.setFrameStyle(STYLE_RAISED)
@@ -118,10 +118,10 @@ class FeeSelectionDialog(ArmoryDialog):
          frmAutoFeeByte.setEnabled(False)
       
       #adjust and close
-      self.btnClose = QPushButton('Close')
+      self.btnClose = QPushButton(self.tr('Close'))
       self.connect(self.btnClose, SIGNAL('clicked()'), self.accept)
       
-      self.checkBoxAdjust = QCheckBox('Adjust fee/byte for privacy')
+      self.checkBoxAdjust = QCheckBox(self.tr('Adjust fee/byte for privacy'))
       self.checkBoxAdjust.setChecked(\
          self.main.getSettingOrSetDefault('AdjustFee', True))
       
@@ -142,7 +142,7 @@ class FeeSelectionDialog(ArmoryDialog):
       layout.addWidget(frmClose, 5, 0, 1, 4)
       
       self.setLayout(layout)      
-      self.setWindowTitle('Select Fee Type')
+      self.setWindowTitle(self.tr('Select Fee Type'))
       
       self.selectType(defaultCheckState)
 

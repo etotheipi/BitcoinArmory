@@ -8,7 +8,7 @@
 
 Multi-signature transactions are accommodated under-the-hood about 80%, and will be completed and integrated into the UI soon.
 
-**Armory has no independent networking components built in.** Instead, it relies on on the Satoshi client to securely connect to peers, validate blockchain data, and broadcast transactions for us.  Although it was initially planned to cut the umbilical cord to the Satoshi client and implement independent networking, it has turned out to be an inconvenience worth having. Reimplementing all the networking code would be fraught with bugs, security holes, and possible blockchain forking.  The reliance on Bitcoin-Core right now is actually making Armory more secure!
+**Armory has no independent networking components built in.** Instead, it relies on on the Satoshi client to securely connect to peers, validate blockchain data, and broadcast transactions for us.  Although it was initially planned to cut the umbilical cord to the Satoshi client and implement independent networking, it has turned out to be an inconvenience worth having. Reimplementing all the networking code would be fraught with bugs, security holes, and possible blockchain forking.  The reliance on Bitcoin Core right now is actually making Armory more secure!
 
 ## Donations
 
@@ -66,6 +66,13 @@ Armory contains over 25,000 lines of code, between the C++ and python libraries.
 
 * C++ -   [BlockUtilsTest.cpp](cppForSwig/BlockUtilsTest.cpp)
 * Python -   [Unit Tests](pytest/), [sample_armory_code.py](extras/sample_armory_code.py)
+
+### Translations
+
+Armory is currently accepting [translations on Transifex](https://www.transifex.com/bitcoin-armory/bitcoin-armory-software)
+In order to compile the translation resource files from all of the python files containing strings that need to be translated, run
+
+    pylupdate4 ArmoryQt.py armorymodels.py qtdefines.py qtdialogs.py ui/MultiSigDialogs.py ui/MultiSigModels.py ui/TxFrames.py ui/WalletFrames.py ui/Wizards.py ui/toolsDialogs.py ui/AddressTypeSelectDialog.py ui/CoinControlUI.py ui/FeeSelectUI.py ui/TreeViewGUI.py ui/WalletMirrorDialog.py -ts lang/armory_en.ts
 
 
 ## License
