@@ -275,6 +275,9 @@ void waitOnSignal(Clients* clients, const string& bdvId,
       for (auto arg : argVec)
       {
          auto argstr = dynamic_pointer_cast<DataObject<string>>(arg);
+         if (argstr == nullptr)
+            continue;
+
          auto&& cb = argstr->getObj();
          if (cb == signal)
             return true;
@@ -5555,7 +5558,7 @@ TEST_F(BlockDir, HeadersFirst)
    config.magicBytes_ = READHEX(MAINNET_MAGIC_BYTES);
 
    config.nodeType_ = Node_UnitTest;
-      
+   
    // Put the first 5 blocks out of order
    setBlocks({ "0", "1", "2", "4", "3", "5" }, blk0dat_);
    
