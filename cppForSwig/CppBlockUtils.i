@@ -302,7 +302,7 @@ namespace std
 
 /******************************************************************************/
 // Convert C++(map<BinaryData, vector<uint64_t>>) to Python(dict{string, list[int]})
-%typemap(out) map<BinaryData, vector<uint64_t>>
+%typemap(out) map<BinaryData, vector<uint64_t> >
 {
 	PyObject* thisDict = PyDict_New();
 	auto bdIter = $1.begin();

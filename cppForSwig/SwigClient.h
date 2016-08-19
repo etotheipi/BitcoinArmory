@@ -98,7 +98,7 @@ public:
 
    vector<UTXO> getSpendableTxOutListForValue(uint64_t val, bool ignoreZC);
    map<BinaryData, uint32_t> getAddrTxnCountsFromDB(void);
-   map<BinaryData, vector<uint64_t>>
+   map<BinaryData, vector<uint64_t> >
       getAddrBalancesFromDB(void);
 
    vector<LedgerEntryData> getHistoryPage(uint32_t id);
