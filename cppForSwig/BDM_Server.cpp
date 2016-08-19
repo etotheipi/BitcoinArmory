@@ -1126,7 +1126,7 @@ void BDV_Server_Object::init()
 
       //register address set with BDM
       auto&& waitOnFuture = bdmPtr_->registerAddressBatch(scrAddrSet, isNew);
-      waitOnFuture.get();
+      waitOnFuture.wait();
 
       //register actual wallets with BDV
       auto bdvPtr = (BlockDataViewer*)this;

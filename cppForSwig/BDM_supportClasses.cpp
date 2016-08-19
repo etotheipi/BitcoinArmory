@@ -1736,8 +1736,7 @@ void ZeroConfContainer::broadcastZC(const BinaryData& rawzc,
    }
    else
    {
-      //auto getDataFutStatus = getDataFut.wait_for(chrono::seconds(timeout_sec));
-      auto getDataFutStatus = getDataFut.wait_for(chrono::seconds(3000));
+      auto getDataFutStatus = getDataFut.wait_for(chrono::seconds(timeout_sec));
       if (getDataFutStatus == future_status::ready)
          sentTx = true;
    }

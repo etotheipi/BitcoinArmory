@@ -1023,7 +1023,7 @@ shared_ptr<Payload_Tx> BitcoinP2P::getTx(
    const InvEntry& entry, uint32_t timeout)
 {
    //blocks until data is received or timeout expires
-   if (entry.invtype_ != Inv_Msg_Tx || entry.invtype_ != Inv_Msg_Witness_Tx)
+   if (entry.invtype_ != Inv_Msg_Tx && entry.invtype_ != Inv_Msg_Witness_Tx)
       throw GetDataException("entry type isnt Inv_Msg_Tx");
 
    BinaryDataRef txHash(entry.hash, 32);
