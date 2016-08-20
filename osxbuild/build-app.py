@@ -17,7 +17,6 @@ from tempfile import mkstemp
 
 # Set some constants up front
 minOSXVer     = '10.7'
-osxName       = 'ElCapitan'
 pythonVer     = '2.7.12' # NB: ArmoryMac.pro must also be kept up to date!!!
 pyMajorVer    = '2.7'
 setToolVer    = '25.1.3'
@@ -34,8 +33,7 @@ qtVer         = '4.8.7'  # NB: ArmoryMac.pro must also be kept up to date!!!
                          # Possibly "sipFlags" below too.
 sipVer        = '4.18.1' # NB: ArmoryMac.pro must also be kept up to date!!!
 pyQtVer       = '4.11.4' # NB: When I'm upgraded, SIP usually has to be upgraded too.
-webkitRev     = '202045'
-appNopeVer    = '0.1.0'
+
 LOGFILE       = 'build-app.log.txt'
 LOGPATH       = path.abspath( path.join(os.getcwd(), LOGFILE))
 ARMORYDIR     = '..'
@@ -51,14 +49,13 @@ MAKEFLAGS     = '-j4'
 
 QTBUILTFLAG   = path.join(UNPACKDIR, 'qt/qt_install_success.txt')
 
-#pypath_txt_template=""" PYTHON_INCLUDE=%s/include/python2.7/ PYTHON_LIB=%s/lib/python2.7/config/libpython2.7.a PYVER=python2.7 """
 pypathData  =   'PYTHON_INCLUDE=%s/include/python%s/' % (PYPREFIX, pyMajorVer)
 pypathData += '\nPYTHON_LIB=%s/lib/python%s/config/libpython%s.a' % (PYPREFIX, pyMajorVer, pyMajorVer)
 pypathData += '\nPYTHON_LIB_DIR=%s/lib/python%s/config/' % (PYPREFIX, pyMajorVer)
 pypathData += '\nPYVER=python%s' % pyMajorVer
 
 # If no arguments specified, then do the minimal amount of work necessary
-# Assume that only one flag is specified.  These should be 
+# Assume that only one flag is specified.  These should be
 parser = optparse.OptionParser(usage="%prog [options]\n")
 parser.add_option('--fromscratch',  dest='fromscratch', default=False, action='store_true', help='Remove all prev-downloaded: redownload and rebuild all')
 parser.add_option('--rebuildall',   dest='rebuildall',  default=False, action='store_true', help='Remove all prev-built; no redownload, only rebuild')
@@ -66,7 +63,7 @@ parser.add_option('--compapponly',  dest='compapponly', default=False, action='s
 parser.add_option('--cleanupapp',   dest='cleanupapp',  default=False, action='store_true', help='Delete Python files in the compiled application')
 (CLIOPTS, CLIARGS) = parser.parse_args()
 
-################################################################################
+########################################################
 # Write the string to both console and log file
 def logprint(s):
    print s
@@ -94,12 +91,12 @@ logprint('All the following ENV vars are now set:')
 for var in ['PATH','DYLD_FRAMEWORK_PATH', 'QTDIR', 'QMAKESPEC']:
    logprint('   %s: \n      %s' % (var, os.environ[var]))
 
-################################################################################
+########################################################
 # Now actually start the download&build process
-   
+
 # Make sure all the dirs exist
 def main():
-   
+
    if path.exists(LOGFILE):
       os.remove(LOGFILE)
 
@@ -110,8 +107,7 @@ def main():
    makedir(DLDIR)
    makedir(UNPACKDIR)
    makedir(INSTALLDIR)
-      
-   # For git repos, the "ID" is branch name.  Otherwise, its' the md5sum 
+
    for pkgname, fname, url, ID in distfiles:
       logprint('\n\n')
       downloadPkg(pkgname, fname, url, ID)
@@ -129,8 +125,8 @@ def main():
       compile_zope()
       compile_twisted()
       compile_psutil()
-      #compile_appnope() # Disable App Nap. Done already in Mac manifest.
       make_resources()
+
    compile_armory()
    compile_objc_library()
    cleanup_app()
@@ -221,7 +217,7 @@ def check_sha(filename, sha):
 def getTarUnpackPath(tarName, inDir=None):
    """
    NOTE: THIS FUNCTION IS NOT RELIABLE.  It only works if the tar file would
-         extract a single directory with all contents in that dir.  If it 
+         extract a single directory with all contents in that dir.  If it
          unpacks more than one file or directory, the output will be incomplete.
    """
    tarPath = tarName
@@ -246,8 +242,8 @@ def getTarUnpackPath(tarName, inDir=None):
 ################################################################################
 def unpack(tarName, fromDir=DLDIR, toDir=UNPACKDIR, overwrite=False):
    """
-   This is not a versatile function.  It expects tar files with a single 
-   unpack directory.  I will expand this function as necessary if we
+   This is not a versatile function. It expects tar files with a single
+   unpack directory. I will expand this function as necessary if we
    need tar files that aren't a single bundled dir.
    """
    if fromDir is not None:
@@ -278,7 +274,7 @@ def unpack(tarName, fromDir=DLDIR, toDir=UNPACKDIR, overwrite=False):
    for objPath in os.listdir(toDir):
       if not objPath in flistBefore:
          newStuff.append(path.join(toDir, objPath))
-   
+
    logprint('Unpacked: %s' % tardl)
    for objPath in newStuff:
       logprint('  ' + objPath)
@@ -291,32 +287,18 @@ def unpack(tarName, fromDir=DLDIR, toDir=UNPACKDIR, overwrite=False):
 ################################################################################
 def downloadPkg(pkgname, fname, url, ID, toDir=DLDIR):
    myfile = path.join(toDir, fname)
-   isGitRepo = url.lower().startswith('git:')
    doDL = True
-   if isGitRepo:
-      clonename = '.'.join(url.split('/')[-1].split('.')[:-1])
-      clonedir = path.join(toDir, clonename) 
-      branch = ID[:]  # the ID value is actually the branch name
-      if path.exists(clonedir) or path.exists(path.join(DLDIR,fname)):
-         doDL=False
-   elif path.exists(myfile):
+
+   if path.exists(myfile):
       if check_sha(myfile, ID):
          logprint("File already exists: %s" % myfile)
          doDL = False
       else:
          removefile(myfile)
-         logprint("File exists but wrong hash.  Redownload %s" % myfile)
-           
+         logprint("File exists but wrong hash. Redownload %s" % myfile)
+
    # Start the download if needed
    if doDL:
-      if isGitRepo:
-         # NB: The "git checkout" line appears to be temporarily broken. As of
-         # May 2014, we're passing in "4.8" for Qt. The actual repository is
-         # "qt" but the default branch is "4.8", so we're okay. Clean up later?
-         logprint('Cloning "%s" to "%s"' % (url, clonedir))
-         execAndWait('git clone %s' % url, cwd=toDir)
-         execAndWait('git checkout %s' % ID) 
-      else:
          logprint('Downloading from %s' % url)
          execAndWait('curl -OL "%s"' % url, cwd=toDir)
 
@@ -348,7 +330,6 @@ distfiles.append( [ 'Twisted', \
                     "https://files.pythonhosted.org/packages/source/T/Twisted/Twisted-%s.tar.bz2" % twistedVer, \
                     "b9f183ae63a49c99619f7d37d1ae3a368d6cf886" ] )
 
-# Other lines rely on the given version. Patch this up later.
 distfiles.append( [ 'libpng', \
                     "libpng-%s.tar.xz" % libpngVer, \
                     "https://dl.bintray.com/homebrew/mirror/libpng-%s.tar.xz" % libpngVer, \
@@ -360,17 +341,10 @@ distfiles.append( [ 'libpng', \
 #                    "http://download.qt-project.org/official_releases/qt/5.2/5.2.1/single/qt-everywhere-opensource-src-5.2.1.tar.gz", \
 #                    "31a5cf175bb94dbde3b52780d3be802cbeb19d65" ] )
 
-# Pre-packaged source can lag a bit but provides for more consistent user
-# support. Use pre-packaged source instead of Git whenever possible.
 distfiles.append( [ "Qt", \
                     "qt-everywhere-opensource-src-%s.tar.gz" % qtVer, \
                     "http://download.qt-project.org/official_releases/qt/4.8/%s/qt-everywhere-opensource-src-%s.tar.gz" % (qtVer, qtVer), \
                     "76aef40335c0701e5be7bb3a9101df5d22fe3666" ] )
-
-distfiles.append( [ "Webkit-for-Qt", \
-                    "libWebKitSystemInterface%s.a" % osxName, \
-                    "http://trac.webkit.org/export/%s/trunk/WebKitLibraries/libWebKitSystemInterface%s.a" % (webkitRev, osxName), \
-                    "d46135e7a5bcc9b6dc4dfe2eeed62f7d35951b0d" ] )
 
 distfiles.append( [ "sip", \
                     "sip-%s.tar.gz" % sipVer, \
@@ -393,17 +367,12 @@ distfiles.append( [ "pyqt", \
                     "http://downloads.sf.net/project/pyqt/PyQt4/PyQt-%s/PyQt-mac-gpl-%s.tar.gz" % (pyQtVer, pyQtVer), \
                     'c319f273e40afe68a2e65ff2b9c01e0d43e980f7' ] )
 
-#distfiles.append( [ 'appnope', \
-#                    "appnope-%s.tar.gz" % appNopeVer, \
-#                    "https://pypi.python.org/packages/source/a/appnope/appnope-%s.tar.gz" % appNopeVer, \
-#                    "838158bf881f3e8538b7bfeff4ad289a6623cdda" ] )
-
 # Now repack the information in distfiles
 tarfilesToDL = {}
 for d in distfiles:
    tarfilesToDL[d[0]] = d[1]
 
-################################################################################
+########################################################
 def make_empty_app():
    'Make the empty .app bundle structure'
    makedir(APPDIR)
@@ -414,7 +383,7 @@ def make_empty_app():
    makedir(path.join(APPDIR,'Contents/Resources'))
    makedir(path.join(APPDIR,'Contents/Dependencies'))
 
-################################################################################
+########################################################
 def compile_python():
    logprint('Installing python.')
    bldPath = unpack(tarfilesToDL['Python'])
@@ -426,7 +395,6 @@ def compile_python():
 
    # make
    execAndWait('make %s' % MAKEFLAGS, cwd=bldPath)
-   # pyexe = path.join(APPDIR, 'Contents/MacOS/Python')
    execAndWait('make install PYTHONAPPSDIR=%s' % INSTALLDIR, cwd=bldPath)
 
    # Update $PATH var
@@ -434,7 +402,7 @@ def compile_python():
    os.environ['PATH'] = '%s:%s' % (newPath, os.environ['PATH'])
    logprint('PATH is now %s' % os.environ['PATH'])
 
-################################################################################
+########################################################
 def compile_pip():
    logprint('Installing setuptools.')
    pipexe = path.join(PYPREFIX, 'bin/pip')
@@ -452,7 +420,7 @@ def compile_pip():
       pipDir   = unpack(tarfilesToDL['Pip'])
       execAndWait(command, cwd=pipDir)
 
-################################################################################
+########################################################
 def compile_libpng():
    logprint('Installing libpng')
    dylib = 'libpng16.16.dylib'
@@ -468,73 +436,55 @@ def compile_libpng():
       src = path.join(pngDir, '.libs', dylib)
       copyfile(src, target)
 
-################################################################################
+########################################################
 def compile_qt():
    logprint('Compiling Qt')
 
-   # Already cloned to the qtDLDir, then tar it and move the dir to 
-   # qtBuildDir.   Then we will build inside the qtBuildDir, using qtInstDir 
+   # Already cloned to the qtDLDir, then tar it and move the dir to
+   # qtBuildDir. Then we will build inside the qtBuildDir, using qtInstDir
    # as the prefix.
    qtDLDir    = path.join(DLDIR, 'qt')
    qtBuildDir = path.join(UNPACKDIR, 'qt-everywhere-opensource-src-%s' % qtVer)
    qtInstDir  = path.join(INSTALLDIR, 'qt')
    qtTarFile   = path.join(DLDIR, 'qt-everywhere-opensource-src-%s.tar.gz' % qtVer)
-   #qtTarFile   = path.join(DLDIR, 'qt5_git_repo.tar.gz')
 
-   # If we did a fresh download, it's already uncompressed in DLDir.  Move it
+   # If we did a fresh download, it's already uncompressed in DLDir. Move it
    # to where it should be in the UNPACKDIR
    if path.exists(qtDLDir):
       if path.exists(qtBuildDir):
          removetree(qtBuildDir)
       movepath(qtDLDir, qtBuildDir)
 
-   # If it's not in the bld dir, unpack it from the tar file
-   # If it's not in the tar file, either, we have a problem.  
+   # If it's not in the bld dir, unpack it from the tar file.
+   # If it's not in the tar file, either, we have a problem.
    if not path.exists(qtBuildDir):
       if not path.exists(qtTarFile):
          raise RuntimeError('*** ERROR: No cloned repo and no tar file...? ***')
       logprint('Unpacking Qt from tarfile')
       qtBuildDir = unpack(tarfilesToDL['Qt'])
-   elif not path.exists(qtTarFile):
-      # Useful only if we're grabbing Qt from Git.
-      logprint('Tarring downloaded repo for future use.')
-      execAndWait('tar -zcf %s qt' % qtTarFile, cwd=UNPACKDIR)
 
-   # Webkit-for-Qt is not a tar archive. It's actually just a single .a file.
-   webkita = tarfilesToDL['Webkit-for-Qt']
-   src = path.join(DLDIR, webkita)
-   dst = path.join(qtBuildDir, 'src/3rdparty/webkit/WebKitLibraries', webkita)
-   copyfile(src, dst)
-
-   # Put Qt patches here.
+   # Qt Patches
    # Partial bug fixes for modal windows.
-   execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'QTBUG-37699.patch'), \
-               cwd=qtBuildDir)
+   execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'QTBUG-37699.patch'), cwd=qtBuildDir)
    # Completed bug fixes for modal windows.
-   execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'QTBUG-40585.patch'), \
-               cwd=qtBuildDir)
+   execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'QTBUG-40585.patch'), cwd=qtBuildDir)
    # This API is deprecated
-   execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'qpaintengine_mac.patch'), \
-               cwd=qtBuildDir)
+   execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'qpaintengine_mac.patch'), cwd=qtBuildDir)
 
    # Configure Qt. http://wiki.phisys.com/index.php/Compiling_Phi has an example
    # that can be checked for ideas.
    # NB: Qt5 apparently requires the "-c++11" flag, which isn't in Qt4.
    #     "-platform macx-clang-libc++" will also probably be required.
-   command  = './configure -prefix "%s" -system-zlib -confirm-license -opensource ' 
-   command += '-nomake demos -nomake examples -nomake docs -cocoa -fast -release '
-   command += '-no-qt3support -arch x86_64 -no-3dnow ' 
+   command  = './configure -prefix "%s" -system-zlib -confirm-license -opensource '
+   command += '-nomake demos -nomake examples -nomake docs -cocoa -fast -release -no-webkit '
+   command += '-no-javascript-jit -nomake tools -nomake tests -no-qt3support -arch x86_64 -no-3dnow '
    command += '-platform unsupported/macx-clang-libc++'
    execAndWait(command % qtInstDir, cwd=qtBuildDir)
 
-   ##### Make
+   # Make
    execAndWait('make %s' % MAKEFLAGS, cwd=qtBuildDir)
 
-   ##### Make Install
-   # This will actually happen outside this function, since the INSTALLDIR
-   # Gets wiped every build
-
-################################################################################
+########################################################
 def install_qt():
       logprint('Installing Qt')
       if not path.exists(QTBUILTFLAG):
@@ -542,7 +492,7 @@ def install_qt():
          execAndWait('touch %s' % QTBUILTFLAG)
       else:
          logprint('QT already compiled.  Skipping compile step.')
-      
+
       qtconf = path.join(qtBinDir, 'qt.conf')
       execAndWait('make install', cwd=qtBuildDir)
 
@@ -560,7 +510,7 @@ def install_qt():
       with open(qtconf, 'w') as f:
          f.write('[Paths]\nPrefix = %s' % qtInstDir)
 
-################################################################################
+########################################################
 def compile_sip():
    logprint('Installing sip')
    if path.exists(path.join(PYSITEPKGS, 'sip.so')):
@@ -580,7 +530,7 @@ def compile_sip():
    # the APPDIR and INSTALLDIR are wiped every time the script is run)
    execAndWait('make install', cwd=sipPath)
 
-################################################################################
+########################################################
 def compile_pyqt():
    logprint('Installing PyQt4')
    #logprint('Install PyQt5')
@@ -598,7 +548,7 @@ def compile_pyqt():
    pyrccPath = path.join(UNPACKDIR, 'PyQt-mac-gpl-%s/pyrcc' % pyQtVer)
    os.environ['PATH'] = '%s:%s' % (pyrccPath, os.environ['PATH'])
 
-################################################################################
+########################################################
 def compile_twisted():
    logprint('Installing python-twisted')
 
@@ -609,7 +559,7 @@ def compile_twisted():
       twpath = unpack(tarfilesToDL['Twisted'])
       execAndWait(command, cwd=twpath)
 
-################################################################################
+########################################################
 def compile_zope():
    logprint('Installing python-zope')
 
@@ -620,7 +570,7 @@ def compile_zope():
       twpath = unpack(tarfilesToDL['zope'])
       execAndWait(command, cwd=twpath)
 
-################################################################################
+########################################################
 def compile_psutil():
    logprint('Installing psutil')
 
@@ -631,22 +581,10 @@ def compile_psutil():
       psPath = unpack(tarfilesToDL['psutil'])
       execAndWait(command, cwd=psPath)
 
-################################################################################
-def compile_appnope():
-   logprint('Installing appnope')
-
-   if glob.glob(PYSITEPKGS + '/appnope*'):
-      logprint('appnope already installed')
-   else:
-      command = 'python -s setup.py --no-user-cfg install --force --verbose'
-      appnopePath = unpack(tarfilesToDL['appnope'])
-      execAndWait(command, cwd=appnopePath)
-
-################################################################################
+########################################################
 def compile_armory():
    logprint('Compiling and installing Armory')
    # Always compile - even if already in app
-   #os.chdir('..') # Leave workspace directory.
    pypathpath = path.join(ARMORYDIR, 'cppForSwig/pypaths.txt')
    logprint('Writing ' + pypathpath)
    with open(pypathpath, 'w') as f:
@@ -671,7 +609,7 @@ def compile_armory():
    execAndWait('chmod +x "%s"' % armorydAppScript)
    execAndWait('chmod +x "%s"' % armoryDB)
 
-################################################################################
+########################################################
 def compile_objc_library():
    logprint('Compiling and installing the Armory Objective-C shared library')
 
@@ -686,12 +624,11 @@ def compile_objc_library():
    # For some reason, qmake mangles LFLAGS when LFLAGS is built. The exact cause
    # is unknown but probably has to do with a conf file included in
    # mkspecs/unsupported/macx-clang-libc++/qmake.conf. Patch the output for now.
-   execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'qmake_LFLAGS.patch'), \
-               cwd=OBJCDIR)
+   execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'qmake_LFLAGS.patch'), cwd=OBJCDIR)
    execAndWait('make %s' % MAKEFLAGS, cwd=OBJCDIR)
 
 
-################################################################################
+########################################################
 def make_resources():
    "Populate the Resources folder."
    cont = path.join(APPDIR, 'Contents')
@@ -701,7 +638,7 @@ def make_resources():
    icnsRes  = path.join(cont,  'Resources/Icon.icns')
    copyfile(icnsArm, icnsRes)
 
-################################################################################
+########################################################
 def cleanup_app():
    "Try to remove as much unnecessary junk as possible."
    show_app_size()
@@ -717,12 +654,12 @@ def cleanup_app():
    remove_python_files(path.join(APPDIR, 'Contents/MacOS/py'), False)
    show_app_size()
 
-################################################################################
+########################################################
 def make_targz():
    ver = getVersionStr()
    execAndWait('tar -zcf ../armory_%s_osx.tar.gz Armory.app' % ver, cwd=WORKDIR)
 
-################################################################################
+########################################################
 def getVersionStr():
    with open('../armoryengine/ArmoryUtils.py') as f:
       for line in f.readlines():
@@ -738,17 +675,16 @@ def getVersionStr():
             return vstr
 
 
-################################################################################
+########################################################
 def show_app_size():
    "Show the size of the app."
    logprint("Size of application: ")
    sys.stdout.flush()
    execAndWait('du -hs "%s"' % APPDIR)
 
-################################################################################
+########################################################
 def remove_python_files(top, removePy=True):
-   """Remove .pyo files and, if desired, any .py files where the .pyc file
-      exists."""
+   """Remove .pyo files and, if desired, any .py files where the .pyc file exists."""
    n_pyo = 0
    n_py_rem = 0
    n_py_kept = 0
@@ -771,7 +707,7 @@ def remove_python_files(top, removePy=True):
                n_py_kept += 1
    logprint("Removes %i .py files (kept %i)." % (n_py_rem, n_py_kept))
 
-################################################################################
+########################################################
 def delete_prev_data(opts):
    # If we ran this before, we should have a qt dir here
    prevQtDir = path.join(UNPACKDIR, 'qt')
@@ -779,16 +715,16 @@ def delete_prev_data(opts):
    # Always remove previously-built application files
    removetree(APPDIR)
    removetree(INSTALLDIR)
-   
-   # When building from scratch 
+
+   # When building from scratch
    if opts.fromscratch:
-      removetree(UNPACKDIR)  # Clear all unpacked tar files
-      removetree(DLDIR)      # Clear even the downloaded files
+      removetree(UNPACKDIR) # Clear all unpacked tar files
+      removetree(DLDIR) # Clear even the downloaded files
    elif opts.rebuildall:
       removetree(UNPACKDIR)
    else:
       logprint('Using all packages previously downloaded and built')
 
-################################################################################
+########################################################
 if __name__ == "__main__":
-   main()   
+   main()
