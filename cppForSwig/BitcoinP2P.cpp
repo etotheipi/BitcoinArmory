@@ -989,17 +989,18 @@ void BitcoinP2P::processGetTx(unique_ptr<Payload> payload)
       return;
    }
 
-
-   map<BinaryData, getTxCallback> consumedCallbacks;
    auto& txHash = payloadtx->getHash256();
-   
-   auto gettxcallbackmap = getTxCallbackMap_.get();
 
-   auto callbackIter = gettxcallbackmap->find(txHash);
-   if (callbackIter == gettxcallbackmap->end())
-      return;
+   {
+      auto gettxcallbackmap = getTxCallbackMap_.get();
 
-   callbackIter->second(move(payloadtx));
+      auto callbackIter = gettxcallbackmap->find(txHash);
+      if (callbackIter == gettxcallbackmap->end())
+         return;
+      
+      callbackIter->second(move(payloadtx));
+   }
+
    getTxCallbackMap_.erase(txHash);
 }
 

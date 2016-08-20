@@ -88,13 +88,15 @@ template<typename T> class Pile
    lockless LIFO container class
    ***/
 private:
-   atomic<Entry<T>*> top_;
+   atomic<AtomicEntry<T>*> top_;
+   AtomicEntry<T>* maxptr_;
 
    atomic<size_t> count_;
 
 public:
    Pile()
    {
+      maxptr_ = (AtomicEntry<T>*)SIZE_MAX;
       top_.store(nullptr, memory_order_relaxed);
       count_.store(0, memory_order_relaxed);
    }
@@ -104,34 +106,67 @@ public:
       clear();
    }
 
+   void push_back(const T& obj)
+   {
+      AtomicEntry<T>* nextentry = new AtomicEntry<T>(obj);
+      nextentry->next_.store(maxptr_, memory_order_release);
+
+      auto topentry = top_.load(memory_order_acquire);
+      do
+      {
+         while (topentry == maxptr_)
+            topentry = top_.load(memory_order_acquire);
+      }
+      while (!top_.compare_exchange_weak(topentry, nextentry,
+         memory_order_release, memory_order_relaxed));
+
+      nextentry->next_.store(topentry, memory_order_release);
+
+      count_.fetch_add(1, memory_order_relaxed);
+   }
+  
    T pop_back(void)
    {
-      auto topentry = top_.load(memory_order_acquire);
+      AtomicEntry<T>* topentry = top_.load(memory_order_acquire);
 
-      if (topentry == nullptr)
-         throw IsEmpty();
+      do
+      {
+         //1: make sure the value we got out of top_ is not the marker 
+         //invalid value, otherwise keep load top_
+         while (topentry == maxptr_)
+            topentry = top_.load(memory_order_acquire);
 
-      //fix null topentry case
-      while (!top_.compare_exchange_weak(topentry, topentry->next_,
+         //2: with a valid topentry, try to compare_exchange top_ for
+         //the invalid value
+      } 
+      while (!top_.compare_exchange_weak(topentry, maxptr_,
          memory_order_release, memory_order_relaxed));
-      
+
+      //3: if topentry is empty, the container is emtpy, throw
+      if (topentry == nullptr)
+      {
+         //make sure the replace the marker value with nullptr in top_
+         top_.store(nullptr, memory_order_release);
+         throw IsEmpty();
+      }
+
+      /*4: if we got this far we guarantee 2 things:
+      - topentry is neither null nor the invalid marker
+      - topentry has yet to be derefenced in any thread, in other 
+        words it is safe to read and delete in this particular thread
+      - top_ is set to the invalid marker so we have to set it
+        before other threads can get this far
+      */ 
+
+      while (topentry->next_.load(memory_order_acquire) == maxptr_);
+      top_.store(topentry->next_, memory_order_release);
+
       auto&& retval = topentry->get();
-      delete topentry;
 
       count_.fetch_sub(1, memory_order_relaxed);
 
+      delete topentry;
       return move(retval);
-   }
-
-   void push_back(const T& obj)
-   {
-      Entry<T>* nextentry = new Entry<T>(obj);
-      nextentry->next_ = top_;
-
-      while (!top_.compare_exchange_weak(nextentry->next_, nextentry,
-         memory_order_release, memory_order_relaxed));
-
-      count_.fetch_add(1, memory_order_relaxed);
    }
 
    void clear(void)
@@ -163,6 +198,7 @@ template <typename T> class Stack
 private:
    atomic<AtomicEntry<T>*> top_;
    atomic<AtomicEntry<T>*> bottom_;
+   AtomicEntry<T>* maxptr_;
 
 protected:
    atomic<size_t> count_;
@@ -171,6 +207,7 @@ protected:
 public:
    Stack()
    {
+      maxptr_ = (AtomicEntry<T>*)SIZE_MAX;
       top_.store(nullptr, memory_order_relaxed);
       bottom_.store(nullptr, memory_order_relaxed);
       count_.store(0, memory_order_relaxed);
@@ -186,27 +223,32 @@ public:
       //throw if empty
       auto valptr = bottom_.load(memory_order_acquire);
 
-      if (valptr == nullptr)
-         throw IsEmpty();
-
-      auto nextptr = valptr->next_.load(memory_order_acquire);
-
-      //pop val
-      while (!bottom_.compare_exchange_weak(valptr, nextptr,
-         memory_order_release, memory_order_relaxed))
+      do
       {
+         while (valptr == maxptr_)
+            valptr = bottom_.load(memory_order_acquire);
+
          if (valptr == nullptr)
             throw IsEmpty();
+      } 
+      while (!bottom_.compare_exchange_weak(valptr, maxptr_,
+      memory_order_release, memory_order_relaxed));
 
-         nextptr = valptr->next_.load(memory_order_acquire);
-      }
-
-      //set top_ to nullptr if bottom_ is null
-      if (bottom_.load(memory_order_acquire) == nullptr)
+      auto valptrcopy = valptr;
+      if (!top_.compare_exchange_strong(valptrcopy, nullptr,
+         memory_order_release, memory_order_relaxed))
       {
-         auto prevbottom = valptr;
-         top_.compare_exchange_strong(prevbottom, nullptr,
-            memory_order_release, memory_order_relaxed);
+         AtomicEntry<T>* nextptr;
+         do
+         {
+            nextptr = valptr->next_.load(memory_order_acquire);
+         } while (nextptr == maxptr_);
+      
+         bottom_.store(nextptr, memory_order_release);
+      }
+      else
+      {
+         bottom_.store(nullptr, memory_order_release);
       }
 
       //update count
@@ -226,44 +268,27 @@ public:
    {
       //create object
       AtomicEntry<T>* newentry = new AtomicEntry<T>(move(obj));
-      AtomicEntry<T>* nullentry;
+      newentry->next_.store(maxptr_, memory_order_release);
 
+      AtomicEntry<T>* nullentry = nullptr;
+
+      auto topentry = top_.load(memory_order_acquire);
+
+      do
       {
-         atomic<AtomicEntry<T>*>* nextptr;
+         while (topentry == maxptr_)
+            topentry = top_.load(memory_order_acquire);
+      } 
+      while (!top_.compare_exchange_weak(topentry, maxptr_,
+         memory_order_release, memory_order_relaxed));
 
-         //loop as long as top_->next_ is not null, then set next_ to new entry
-         while (1)
-         {
-            nullentry = nullptr;
-            if (top_.compare_exchange_strong(nullentry, newentry,
-               memory_order_release, memory_order_relaxed))
-            {
-               //top_ was empty and we just set it
-               //set bottom_ as it has to be empty too
-               bottom_.store(newentry, memory_order_release);
-               break;
-            }
+      if (topentry != nullptr)
+         topentry->next_.store(newentry, memory_order_release);
 
-            //TODO: fix top_ getting deleted after the load and before the 
-            //compare_exchange
-            nextptr = &nullentry->next_;
-            nullentry = nullptr;
-            if (nextptr->compare_exchange_weak(nullentry, newentry,
-               memory_order_release, memory_order_relaxed))
-               break;
-         }
+      bottom_.compare_exchange_strong(nullentry, newentry,
+         memory_order_release, memory_order_relaxed);
 
-         //it's possible bottom_ was consumed before we got there, we
-         //should test and set it
-         nullentry = nullptr;
-         bottom_.compare_exchange_strong(nullentry, newentry,
-            memory_order_release, memory_order_relaxed);
-
-         //top_ had an empty next_, we set it to newentry, we can now set top_
-         //to newentry. Other threads are testing still testing next_ so only 
-         //the one thread that set top_->next_ gets to store top_
-         top_.store(newentry, memory_order_release);
-      }
+      top_.store(newentry, memory_order_release);
 
       //update count
       count_.fetch_add(1, memory_order_relaxed);

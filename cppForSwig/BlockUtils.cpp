@@ -1370,9 +1370,6 @@ BinaryData BlockDataManager::applyBlockRangeToDB(
    ScrAddrFilter& scrAddrData,
    bool updateSDBI)
 {
-   // compute how many bytes of raw blockdata we're going to apply
-   uint64_t startingAt=0, totalBytes=0;   
-
    // Start scanning and timer
    BlockchainScanner bcs(blockchain_, iface_, &scrAddrData, 
       *blockFiles_.get(), config_.threadCount_, config_.ramUsage_,
