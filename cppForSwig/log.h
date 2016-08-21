@@ -320,8 +320,8 @@ public:
 protected:
     DualStream ds_;
     NullStream ns_;
-    int logLevel_;
-    bool isInitialized_;
+    int logLevel_ = LogLvlInfo;
+    bool isInitialized_ = false;
     bool disableStdout_;
 private:
     Log(const Log&);
