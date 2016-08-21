@@ -20,16 +20,8 @@ DatabaseBuilder::DatabaseBuilder(BlockFiles& blockFiles,
    scrAddrFilter_(bdm.getScrAddrFilter()),
    progress_(progress),
    magicBytes_(db_->getMagicBytes()), topBlockOffset_(0, 0),
-   dbType_(getDbType())
+   dbType_(bdm.config().armoryDbType_)
 {}
-
-/////////////////////////////////////////////////////////////////////////////
-ARMORY_DB_TYPE DatabaseBuilder::getDbType() const
-{
-   StoredDBInfo sdbi;
-   db_->getStoredDBInfo(HEADERS, 0);
-   return sdbi.armoryType_;
-}
 
 /////////////////////////////////////////////////////////////////////////////
 void DatabaseBuilder::init()

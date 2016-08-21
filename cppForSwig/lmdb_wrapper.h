@@ -330,15 +330,14 @@ class LMDBBlockDatabase
 public:
 
    /////////////////////////////////////////////////////////////////////////////
-   LMDBBlockDatabase(shared_ptr<Blockchain>, string blkFolder);
+   LMDBBlockDatabase(shared_ptr<Blockchain>, const string&, ARMORY_DB_TYPE);
    ~LMDBBlockDatabase(void);
 
    /////////////////////////////////////////////////////////////////////////////
    void openDatabases(const string &basedir,
       BinaryData const & genesisBlkHash,
       BinaryData const & genesisTxHash,
-      BinaryData const & magic,
-      ARMORY_DB_TYPE     dbtype);
+      BinaryData const & magic);
 
    /////////////////////////////////////////////////////////////////////////////
    void nukeHeadersDB(void);

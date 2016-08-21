@@ -350,8 +350,9 @@ bool LDBIter::checkKeyStartsWith(DB_PREFIX prefix, BinaryDataRef key)
 
 ////////////////////////////////////////////////////////////////////////////////
 LMDBBlockDatabase::LMDBBlockDatabase(
-   shared_ptr<Blockchain> bcPtr, string blkFolder) :
-   blockchainPtr_(bcPtr), blkFolder_(blkFolder)
+   shared_ptr<Blockchain> bcPtr, const string& blkFolder,
+   ARMORY_DB_TYPE dbtype) :
+   blockchainPtr_(bcPtr), blkFolder_(blkFolder), armoryDbType_(dbtype)
 {
    //for some reason the WRITE_UINT16 macros create 4 byte long BinaryData 
    //instead of 2, so I'm doing this the hard way instead
@@ -379,9 +380,7 @@ void LMDBBlockDatabase::openDatabases(
    const string& basedir,
    BinaryData const & genesisBlkHash,
    BinaryData const & genesisTxHash,
-   BinaryData const & magic,
-   ARMORY_DB_TYPE     dbtype
-   )
+   BinaryData const & magic)
 {
    baseDir_ = basedir;
 
@@ -391,8 +390,6 @@ void LMDBBlockDatabase::openDatabases(
    magicBytes_ = magic;
    genesisTxHash_ = genesisTxHash;
    genesisBlkHash_ = genesisBlkHash;
-
-   armoryDbType_ = dbtype;
 
    if (genesisBlkHash_.getSize() == 0 || magicBytes_.getSize() == 0)
    {
@@ -478,7 +475,7 @@ void LMDBBlockDatabase::resetHistoryDatabases(void)
    remove(getDbPath(STXO).c_str());
 
    openDatabases(baseDir_, genesisBlkHash_, genesisTxHash_,
-      magicBytes_, armoryDbType_);
+      magicBytes_);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -498,7 +495,7 @@ void LMDBBlockDatabase::destroyAndResetDatabases(void)
    // Reopen the databases with the exact same parameters as before
    // The close & destroy operations shouldn't have changed any of that.
    openDatabases(baseDir_, genesisBlkHash_, genesisTxHash_, 
-      magicBytes_, armoryDbType_);
+      magicBytes_);
 }
 
 

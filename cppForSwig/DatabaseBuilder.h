@@ -55,8 +55,6 @@ private:
    map<BinaryData, BlockHeader> assessBlkFile(BlockDataLoader& bdl,
       unsigned fileID);
 
-   ARMORY_DB_TYPE getDbType(void) const;
-
 public:
    DatabaseBuilder(BlockFiles&, BlockDataManager&,
       const ProgressCallback&);

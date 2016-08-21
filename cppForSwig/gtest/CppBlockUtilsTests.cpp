@@ -4620,7 +4620,7 @@ protected:
       config_.genesisTxHash_ = gentx_;
       config_.magicBytes_ = magic_;
 
-      iface_ = new LMDBBlockDatabase(nullptr, string());
+      iface_ = new LMDBBlockDatabase(nullptr, string(), config_.armoryDbType_);
 
       rawHead_ = READHEX(
          "01000000"
@@ -4927,8 +4927,7 @@ protected:
          config_.dbDir_,
          config_.genesisBlockHash_,
          config_.genesisTxHash_,
-         config_.magicBytes_,
-         config_.armoryDbType_);
+         config_.magicBytes_);
 
       LMDBEnv::Transaction tx(iface_->dbEnv_[HISTORY].get(), LMDB::ReadWrite);
 
@@ -4977,8 +4976,7 @@ TEST_F(LMDBTest, OpenClose)
       config_.dbDir_,
       config_.genesisBlockHash_,
       config_.genesisTxHash_,
-      config_.magicBytes_,
-      config_.armoryDbType_);
+      config_.magicBytes_);
 
    ASSERT_TRUE(iface_->databasesAreOpen());
 
@@ -5018,8 +5016,7 @@ TEST_F(LMDBTest, OpenCloseOpenNominal)
       config_.dbDir_,
       config_.genesisBlockHash_,
       config_.genesisTxHash_,
-      config_.magicBytes_,
-      config_.armoryDbType_);
+      config_.magicBytes_);
 
    iface_->closeDatabases();
 
@@ -5027,8 +5024,7 @@ TEST_F(LMDBTest, OpenCloseOpenNominal)
       config_.dbDir_,
       config_.genesisBlockHash_,
       config_.genesisTxHash_,
-      config_.magicBytes_,
-      config_.armoryDbType_);
+      config_.magicBytes_);
 
    ASSERT_TRUE(iface_->databasesAreOpen());
 
@@ -5059,8 +5055,7 @@ TEST_F(LMDBTest, PutGetDelete)
       config_.dbDir_,
       config_.genesisBlockHash_,
       config_.genesisTxHash_,
-      config_.magicBytes_,
-      config_.armoryDbType_);
+      config_.magicBytes_);
 
    ASSERT_TRUE(iface_->databasesAreOpen());
    

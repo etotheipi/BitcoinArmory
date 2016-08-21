@@ -734,7 +734,6 @@ const string BlockDataManagerConfig::defaultRegtestBlkFileLocation_ = "~/.bitcoi
 ////////////////////////////////////////////////////////////////////////////////
 BlockDataManagerConfig::BlockDataManagerConfig()
 {
-   armoryDbType_ = ARMORY_DB_BARE;
    selectNetwork("Main");
 }
 
@@ -1282,7 +1281,9 @@ BlockDataManager::BlockDataManager(
    
    blockchain_ = make_shared<Blockchain>(config_.genesisBlockHash_);
 
-   iface_ = new LMDBBlockDatabase(blockchain_, config_.blkFileLocation_);
+   iface_ = new LMDBBlockDatabase(blockchain_, 
+      config_.blkFileLocation_, config_.armoryDbType_);
+
    readBlockHeaders_ = make_shared<BitcoinQtBlockFiles>(
       config_.blkFileLocation_,
       config_.magicBytes_
@@ -1332,8 +1333,7 @@ void BlockDataManager::openDatabase()
          config_.dbDir_,
          config_.genesisBlockHash_,
          config_.genesisTxHash_,
-         config_.magicBytes_,
-         config_.armoryDbType_);
+         config_.magicBytes_);
    }
    catch (runtime_error &e)
    {
