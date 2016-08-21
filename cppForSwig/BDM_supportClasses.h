@@ -140,7 +140,7 @@ public:
 
    public:
       const BinaryData scrAddr_;
-      unsigned syncHeight_ = 0;
+      int32_t syncHeight_ = -1;
 
    public:
       AddrSyncState(const BinaryData& addr) :

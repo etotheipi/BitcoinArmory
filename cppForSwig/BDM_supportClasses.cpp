@@ -666,7 +666,7 @@ void ScrAddrFilter::buildSideScanData(
    const vector<shared_ptr<WalletInfo>>& wltInfoVec,
    bool areNew)
 {
-   scrAddrDataForSideScan_.startScanFrom_ = UINT32_MAX;
+   scrAddrDataForSideScan_.startScanFrom_ = INT32_MAX;
    for (const auto& scrAddr : *scrAddrSet_)
       scrAddrDataForSideScan_.startScanFrom_ = 
       min(scrAddrDataForSideScan_.startScanFrom_, scrAddr.syncHeight_);
