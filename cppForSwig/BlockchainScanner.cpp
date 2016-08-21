@@ -270,13 +270,13 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch,
       {
          LOGERR << e.what();
          batch->exceptionPtr_ = current_exception();
-         return BlockData();
+         throw e;
       }
       catch (...)
       {
          LOGERR << "unknown block deser error during scan at height #" << height;
          batch->exceptionPtr_ = current_exception();
-         return BlockData();
+         rethrow_exception(current_exception());
       }
    };
 
