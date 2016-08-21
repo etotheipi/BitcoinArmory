@@ -1617,10 +1617,9 @@ void BlockDataManager::enableZeroConf(bool clearMempool)
    LOGINFO << "Enabling zero-conf tracking ";
    zcEnabled_ = true;
 
-   auto zcFilter = [this](void)->shared_ptr<map<BinaryData, int32_t>>
+   auto zcFilter = [this](void)->shared_ptr<set<ScrAddrFilter::AddrSyncState>>
    { 
-      auto scrAddrMap = scrAddrData_->getScrAddrMap();
-      return scrAddrMap;
+      return scrAddrData_->getScrAddrSet();
    };
 
    zeroConfCont_->init(zcFilter, clearMempool);

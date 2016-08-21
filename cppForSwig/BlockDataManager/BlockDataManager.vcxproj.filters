@@ -170,5 +170,11 @@
     <ClInclude Include="..\BtcWallet.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\BtcUtils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\log.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

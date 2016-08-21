@@ -132,6 +132,43 @@ public:
          return strVec;
       }
    };
+
+   struct AddrSyncState
+   {
+   private:
+      mutable BinaryData addrHash_;
+
+   public:
+      const BinaryData scrAddr_;
+      unsigned syncHeight_ = 0;
+
+   public:
+      AddrSyncState(const BinaryData& addr) :
+         scrAddr_(addr)
+      {}
+
+      AddrSyncState(const BinaryDataRef& addrref) :
+         scrAddr_(addrref)
+      {}
+
+      const BinaryData& getHash(void) const
+      {
+         if (addrHash_.getSize() == 0)
+            addrHash_ = move(BtcUtils::getHash256(scrAddr_));
+
+         return addrHash_;
+      }
+
+      bool operator<(const AddrSyncState& rhs) const
+      {
+         return this->scrAddr_ < rhs.scrAddr_;
+      }
+
+      bool operator<(const BinaryDataRef& rhs) const
+      {
+         return this->scrAddr_.getRef() < rhs;
+      }
+   };
    
 public:
    mutex mergeLock_;
@@ -143,7 +180,8 @@ private:
    static atomic<unsigned> keyCounter_;
    static atomic<bool> run_;
 
-   shared_ptr<map<BinaryData, int32_t>>   scrAddrMap_;
+   //TODO: avoid std::set, results in too many implicit copies on searches
+   shared_ptr<set<AddrSyncState>>   scrAddrSet_;
 
    LMDBBlockDatabase *const       lmdb_;
 
@@ -165,9 +203,12 @@ private:
 
    void setScrAddrLastScanned(const BinaryData& scrAddr, int32_t blkHgt)
    {
-      auto scrAddrIter = scrAddrMap_->find(scrAddr);
-      if (scrAddrIter != scrAddrMap_->end())
-         scrAddrIter->second = blkHgt;
+      auto scrAddrIter = scrAddrSet_->find(scrAddr);
+      if (scrAddrIter != scrAddrSet_->end())
+      {
+         auto& sa = (AddrSyncState&)*scrAddrIter;
+         sa.syncHeight_ = blkHgt;
+      }
    }
 
    static void cleanUpPreviousChildren(LMDBBlockDatabase* lmdb);
@@ -194,7 +235,7 @@ public:
       if (uniqueKey_ == 0) 
          cleanUpPreviousChildren(lmdb);
 
-      scrAddrMap_ = make_shared<map<BinaryData, int32_t>>();
+      scrAddrSet_ = make_shared<set<AddrSyncState>>();
       scanThreadProgressCallback_ = 
          [](const vector<string>&, double, unsigned)->void {};
    }
@@ -208,11 +249,11 @@ public:
    
    LMDBBlockDatabase* lmdb() { return lmdb_; }
 
-   const shared_ptr<map<BinaryData, int32_t>>& getScrAddrMap(void) const
+   const shared_ptr<set<AddrSyncState>>& getScrAddrSet(void) const
    { 
       if (!run_.load(memory_order_relaxed))
          throw runtime_error("ScrAddrFilter flagged for termination");
-      return scrAddrMap_; 
+      return scrAddrSet_; 
    }
 
    map<TxOutScriptRef, int> getOutScrRefMap(void)
@@ -220,21 +261,21 @@ public:
       getScrAddrCurrentSyncState();
       map<TxOutScriptRef, int> outset;
 
-      auto scrAddrMap = scrAddrMap_;
+      auto scrAddrSet = scrAddrSet_;
 
-      for (auto& scrAddrPair : *scrAddrMap_)
+      for (auto& scrAddr : *scrAddrSet_)
       {
          TxOutScriptRef scrRef;
-         scrRef.setRef(scrAddrPair.first);
+         scrRef.setRef(scrAddr.scrAddr_);
 
-         outset.insert(move(make_pair(scrRef, scrAddrPair.second)));
+         outset.insert(move(make_pair(scrRef, scrAddr.syncHeight_)));
       }
 
       return outset;
    }
 
    size_t numScrAddr(void) const
-   { return scrAddrMap_->size(); }
+   { return scrAddrSet_->size(); }
 
    int32_t scanFrom(void) const;
    bool registerAddresses(const set<BinaryData>&, string, bool,
@@ -250,7 +291,20 @@ public:
    void setSSHLastScanned(uint32_t height);
 
    void regScrAddrForScan(const BinaryData& scrAddr, uint32_t scanFrom)
-   { (*scrAddrMap_)[scrAddr] = scanFrom; }
+   { 
+      auto addrIter = scrAddrSet_->find(scrAddr);
+      if (addrIter == scrAddrSet_->end())
+      {
+         AddrSyncState acs(scrAddr);
+         acs.syncHeight_ = scanFrom;
+
+         scrAddrSet_->insert(move(acs));
+         return;
+      }
+
+      auto& acsRef = (AddrSyncState&)*addrIter;
+      acsRef.syncHeight_ = scanFrom;
+   }
 
    static void scanFilterInNewThread(shared_ptr<ScrAddrFilter> sca);
 
@@ -366,7 +420,7 @@ private:
    TransactionalMap<string, BDV_Callbacks> bdvCallbacks_;
    TransactionalMap<BinaryData, shared_ptr<promise<bool>>> waitOnZcMap_;
 
-   function<shared_ptr<map<BinaryData, int32_t>>(void)> getMainAddressMap_;
+   function<shared_ptr<set<ScrAddrFilter::AddrSyncState>>(void)> getMainAddressSet_;
    mutex parserMutex_;
 
    vector<thread> parserThreads_;
@@ -423,7 +477,7 @@ public:
    void processInvTxVec(vector<InvEntry>);
    void processInvTxThread(void);
 
-   void init(function<shared_ptr<map<BinaryData, int32_t>>(void)>, 
+   void init(function<shared_ptr<set<ScrAddrFilter::AddrSyncState>>(void)>,
       bool clearMempool);
    void shutdown();
 

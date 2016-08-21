@@ -47,7 +47,7 @@ int32_t BlockchainScanner::check_merkle(int32_t scanFrom)
          scanFrom = sdbiblock->getBlockHeight();
 
       if (scanFrom > (int)topBlock.getBlockHeight() || 
-          scrAddrFilter_->getScrAddrMap()->size() == 0)
+          scrAddrFilter_->getScrAddrSet()->size() == 0)
       {
          LOGINFO << "no history to scan";
          topScannedBlockHash_ = topBlock.getThisHash();
@@ -824,7 +824,7 @@ void BlockchainScanner::updateSSH(bool force)
 
    //process ssh, list missing hashes for hash resolver
    map<BinaryData, StoredScriptHistory> sshMap_;
-   auto scrAddrMap = scrAddrFilter_->getScrAddrMap();
+   auto scrAddrSet = scrAddrFilter_->getScrAddrSet();
 
    {
       StoredScriptHistory* sshPtr = nullptr;
@@ -855,8 +855,8 @@ void BlockchainScanner::updateSSH(bool force)
 
             auto sshKey = subsshkey.getSliceRef(1, subsshkey.getSize() - 5);
 
-            auto saIter = scrAddrMap->find(sshKey);
-            if (saIter == scrAddrMap->end())
+            auto saIter = scrAddrSet->find(sshKey);
+            if (saIter == scrAddrSet->end())
             {
                sshPtr = nullptr;
                sshIter.advanceAndRead();
@@ -1004,13 +1004,13 @@ void BlockchainScanner::updateSSH(bool force)
    LMDBEnv::Transaction putsshtx;
    db_->beginDBTransaction(&putsshtx, SSH, LMDB::ReadWrite);
 
-   for (auto& scrAddr : *scrAddrMap)
+   for (auto& scrAddr : *scrAddrSet)
    {
-      auto& ssh = sshMap_[scrAddr.first];
+      auto& ssh = sshMap_[scrAddr.scrAddr_];
 
       if (!ssh.isInitialized())
       {
-         ssh.uniqueKey_ = scrAddr.first;
+         ssh.uniqueKey_ = scrAddr.scrAddr_;
       }
 
       BinaryData&& sshKey = ssh.getDBKey();
@@ -1072,7 +1072,7 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
        reorgState.reorgBranchPoint->getBlockHeight())
       throw runtime_error("invalid reorg state");
 
-   auto scrAddrMap = scrAddrFilter_->getScrAddrMap();
+   auto scrAddrSet = scrAddrFilter_->getScrAddrSet();
 
    while (blockPtr != reorgState.reorgBranchPoint)
    {
@@ -1122,8 +1122,8 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
             auto&& scrAddr = BtcUtils::getTxOutScrAddr(
                brr.get_BinaryDataRef(scriptSize));
 
-            auto saIter = scrAddrMap->find(scrAddr);
-            if (saIter == scrAddrMap->end())
+            auto saIter = scrAddrSet->find(scrAddr);
+            if (saIter == scrAddrSet->end())
                continue;
 
             //update ssh value and txio count
@@ -1241,17 +1241,17 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
       db_->beginDBTransaction(&tx, SSH, LMDB::ReadWrite);
 
       //go thourgh all ssh in scrAddrFilter
-      for (auto& scrAddr : *scrAddrMap)
+      for (auto& scrAddr : *scrAddrSet)
       {
-         auto& ssh = sshMap[scrAddr.first];
+         auto& ssh = sshMap[scrAddr.scrAddr_];
          
          //if the ssh isn't in our map, pull it from DB
          if (!ssh.isInitialized())
          {
-            db_->getStoredScriptHistorySummary(ssh, scrAddr.first);
+            db_->getStoredScriptHistorySummary(ssh, scrAddr.scrAddr_);
             if (ssh.uniqueKey_.getSize() == 0)
             {
-               sshMap.erase(scrAddr.first);
+               sshMap.erase(scrAddr.scrAddr_);
                continue;
             }
          }
@@ -1267,8 +1267,8 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
       //write it all up
       for (auto& ssh : sshMap)
       {
-         auto saIter = scrAddrMap->find(ssh.second.uniqueKey_);
-         if (saIter == scrAddrMap->end())
+         auto saIter = scrAddrSet->find(ssh.second.uniqueKey_);
+         if (saIter == scrAddrSet->end())
          {
             LOGWARN << "invalid scrAddr during undo";
             continue;

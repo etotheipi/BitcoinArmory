@@ -174,11 +174,13 @@
     <ClInclude Include="..\bdmenums.h" />
     <ClInclude Include="..\BitcoinP2p.h" />
     <ClInclude Include="..\BlockObj.h" />
+    <ClInclude Include="..\BtcUtils.h" />
     <ClInclude Include="..\BtcWallet.h" />
     <ClInclude Include="..\DataObject.h" />
     <ClInclude Include="..\DbHeader.h" />
     <ClInclude Include="..\DBUtils.h" />
     <ClInclude Include="..\lmdbpp.h" />
+    <ClInclude Include="..\log.h" />
     <ClInclude Include="..\mdb\lmdb.h" />
     <ClInclude Include="..\SocketIncludes.h" />
     <ClInclude Include="..\SocketObject.h" />
