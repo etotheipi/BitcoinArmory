@@ -124,6 +124,11 @@ public:
    BinaryData(BinaryDataRef const & bdRef);
    size_t getSize(void) const               { return data_.size(); }
 
+   ~BinaryData(void)
+   {
+      data_.clear();
+   }
+
    bool isNull(void) { return (data_.size()==0);}
    
    BinaryData& operator=(const BinaryData &o)
@@ -848,18 +853,14 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    bool operator<(BinaryDataRef const & bd2) const
    {
-      if (nBytes_ == bd2.nBytes_)
+      auto minsize = min(nBytes_, bd2.nBytes_);
+      for (size_t i = 0; i < minsize; i++)
       {
-         for (size_t i = 0; i < nBytes_; i++)
-         {
-            if (ptr_[i] == bd2.ptr_[i])
-               continue;
-            return ptr_[i] < bd2.ptr_[i];
-         }
-
-         return false;
+         if (ptr_[i] == bd2.ptr_[i])
+            continue;
+         return ptr_[i] < bd2.ptr_[i];
       }
-
+      
       return (nBytes_ < bd2.nBytes_);
    }
 
@@ -1233,6 +1234,9 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    uint8_t get_uint8_t(ENDIAN e=LE)
    {
+      if(getSizeRemaining() < 1)
+         throw runtime_error("buffer overflow");
+
       uint8_t outVal = bdRef_[pos_];
       pos_ += 1;
       return outVal;
@@ -1241,6 +1245,9 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    uint16_t get_uint16_t(ENDIAN e=LE)
    {
+      if(getSizeRemaining() < 2)
+         throw runtime_error("buffer overflow");
+
       uint16_t  outVal = (e==LE ? READ_UINT16_LE(bdRef_.getPtr() + pos_) :
                                   READ_UINT16_BE(bdRef_.getPtr() + pos_) );
       pos_ += 2;
@@ -1250,6 +1257,9 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    uint32_t get_uint32_t(ENDIAN e=LE)
    {
+      if(getSizeRemaining() < 4)
+         throw runtime_error("buffer overflow");
+
       uint32_t  outVal = (e==LE ? READ_UINT32_LE(bdRef_.getPtr() + pos_) :
                                   READ_UINT32_BE(bdRef_.getPtr() + pos_) );
       pos_ += 4;
@@ -1257,9 +1267,12 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   uint32_t get_int32_t(ENDIAN e = LE)
+   int32_t get_int32_t(ENDIAN e = LE)
    {
-      uint32_t outVal = (e == LE ?
+      if(getSizeRemaining() < 4)
+         throw runtime_error("buffer overflow");
+
+      int32_t outVal = (e == LE ?
          BinaryData::StrToIntLE<int32_t>(bdRef_.getPtr() + pos_) :
          BinaryData::StrToIntBE<int32_t>(bdRef_.getPtr() + pos_));
       pos_ += 4;
@@ -1269,6 +1282,9 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    uint64_t get_uint64_t(ENDIAN e=LE)
    {
+      if(getSizeRemaining() < 8)
+         throw runtime_error("buffer overflow");
+
       uint64_t  outVal = (e==LE ? READ_UINT64_LE(bdRef_.getPtr() + pos_) :
                                   READ_UINT64_BE(bdRef_.getPtr() + pos_) );
       pos_ += 8;
@@ -1278,6 +1294,9 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    double get_double()
    {
+      if(getSizeRemaining() < 8)
+         throw runtime_error("buffer overflow");
+
       auto doublePtr = (double*)(bdRef_.getPtr() + pos_);
 
       pos_ += 8;
@@ -1287,6 +1306,9 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    BinaryDataRef get_BinaryDataRef(uint32_t nBytes)
    {
+      if(getSizeRemaining() < nBytes)
+         throw runtime_error("buffer overflow");
+
       BinaryDataRef bdrefout(bdRef_.getPtr() + pos_, nBytes);
       pos_ += nBytes;
       return bdrefout;
@@ -1295,6 +1317,9 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    void get_BinaryData(BinaryData & bdTarget, uint32_t nBytes)
    {
+      if(getSizeRemaining() < nBytes)
+         throw runtime_error("buffer overflow");
+
       bdTarget.copyFrom( bdRef_.getPtr() + pos_, nBytes);
       pos_ += nBytes;
    }
@@ -1302,6 +1327,9 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    BinaryData get_BinaryData(uint32_t nBytes)
    {
+      if(getSizeRemaining() < nBytes)
+         throw runtime_error("buffer overflow");
+
       BinaryData out;
       get_BinaryData(out, nBytes);
       return out;
@@ -1310,6 +1338,9 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    void get_BinaryData(uint8_t* targPtr, uint32_t nBytes)
    {
+      if(getSizeRemaining() < nBytes)
+         throw runtime_error("buffer overflow");
+
       bdRef_.copyTo(targPtr, pos_, nBytes);
       pos_ += nBytes;
    }
