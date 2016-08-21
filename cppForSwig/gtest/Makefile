@@ -29,7 +29,7 @@ CPPFLAGS += -I$(GTEST_DIR) \
 				-I$(USER_DIR)/BlockDataManager/fcgi \
 				-I$(USER_DIR)/mdb \
 				-D__STDC_LIMIT_MACROS \
-				-D_DEBUG \
+				#-DWITH_MT_TESTS \
 				-g \
 				-fprofile-arcs \
 				-ftest-coverage \
@@ -149,8 +149,8 @@ libcryptopp.a: Makefile
 	$(MAKE) -C $(USER_DIR)/cryptopp libcryptopp.a
 	cp $(USER_DIR)/cryptopp/libcryptopp.a .
 
-CppBlockUtilsTests : $(OBJECTS) $(OBJS_UnitTests) CppBlockUtilsTests.o gtest.a ../libcryptopp.a
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -Wl,-rpath,$(PWD)/../.. ../libcryptopp.a $^ ../../_CppBlockUtils.so -lpthread $(PYTHON_LDFLAGS) ../../_CppBlockUtils.so -o $@
+CppBlockUtilsTests : $(OBJS_UnitTests) CppBlockUtilsTests.o gtest.a ../libcryptopp.a
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -Wl,-rpath,$(PWD)/../.. ../libcryptopp.a $^ -lpthread $(PYTHON_LDFLAGS) -o $@
 
 
 
