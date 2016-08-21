@@ -6,7 +6,7 @@
     <LocalDebuggerCommand>../../ArmoryDB_debug.exe</LocalDebuggerCommand>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerCommandArguments>--testnet --dbdir="C:\ArmoryDB-testnet" --satoshi-datadir="C:\Bitcoin\testnet3\blocks"</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>--dbdir="C:\ArmoryDB-Headless3" --satoshi-datadir="C:\Bitcoin" --db-type=DB_BARE</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
 </Project>

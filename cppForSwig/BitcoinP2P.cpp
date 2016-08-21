@@ -186,7 +186,7 @@ vector<unique_ptr<Payload>> Payload::deserialize(
       {
          //invalid magic word, search remainder of the packet for another one
          auto sizeRemaining = totalsize - offset;
-         auto mwFirstByte = *(uint8_t*)magic_word;
+         auto mwFirstByte = *(uint8_t*)(&magic_word);
          unsigned i;
          for (i = 4; i < sizeRemaining; i++)
          {
