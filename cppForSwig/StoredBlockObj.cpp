@@ -70,7 +70,7 @@ void StoredDBInfo::serializeDBValue(BinaryWriter & bw ) const
    bw.put_uint32_t(appliedToHgt_); // top blk height
    
    if (metaHash_.getSize() == 0)
-      bw.put_BinaryData(BtcUtils::EmptyHash_);
+      bw.put_BinaryData(BtcUtils::EmptyHash());
    else
       bw.put_BinaryData(metaHash_);
 
@@ -529,6 +529,16 @@ void DBBlock::unserializeDBValue( DB_SELECT         db,
 
    if(db==HEADERS)
    {
+      if(brr.getSize() < HEADER_SIZE + 26)
+      {
+         stringstream err;
+         err << "buffer is too small: " << dataCopy_.getSize();
+         err << " bytes. expected: " << HEADER_SIZE + 26;
+
+         LOGERR << err.str();
+         throw BlockDeserializingException(err.str());
+      }
+
       brr.get_BinaryData(dataCopy_, HEADER_SIZE);
       BinaryData hgtx = brr.get_BinaryData(4);
       blockHeight_ = DBUtils::hgtxToHeight(hgtx);
@@ -542,6 +552,16 @@ void DBBlock::unserializeDBValue( DB_SELECT         db,
    }
    else if(db==BLKDATA)
    {
+      if(brr.getSize() < HEADER_SIZE + 12)
+      {
+         stringstream err;
+         err << "buffer is too small: " << dataCopy_.getSize();
+         err << " bytes. expected: " << HEADER_SIZE + 12;
+
+         LOGERR << err.str();
+         throw BlockDeserializingException(err.str());
+      }
+
       // Read the flags byte
       BitUnpacker<uint32_t> bitunpack(brr);
       unserArmVer_      =                  bitunpack.getBits(16);
