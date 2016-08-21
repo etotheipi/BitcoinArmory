@@ -537,7 +537,7 @@ template<typename T, typename U> class TransactionalMap
 {
    //locked writes, lockless reads
 private:
-   mutex mu_;
+   mutable mutex mu_;
    shared_ptr<map<T, U>> map_;
 
 public:
@@ -624,6 +624,7 @@ public:
 
    shared_ptr<map<T, U>> get(void) const
    {
+      unique_lock<mutex> lock(mu_);
       return map_;
    }
 
