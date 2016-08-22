@@ -338,16 +338,7 @@ bool ScrAddrFilter::registerAddressBatch(
 
          if (wltInfo->scrAddrSet_.size() == 0)
          {
-            auto callbackLambda = [wltInfo](void)->void
-            {
-               wltInfo->callback_(false);
-            };
-
-            //invoke callback in new thread
-            thread callbackThr(callbackLambda);
-
-            if (callbackThr.joinable())
-               callbackThr.detach();
+            wltInfo->callback_(false);
 
             //clean up from scanning addresses container            
             eraseLambda_(wltInfo);
