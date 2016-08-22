@@ -18,6 +18,7 @@
 #include "ScrAddrObj.h"
 #include "StoredBlockObj.h"
 #include "bdmenums.h"
+#include "ThreadSafeClasses.h"
 
 class BlockDataManager;
 class BlockDataViewer;
@@ -76,61 +77,6 @@ class BtcWallet
    friend class WalletGroup;
 
    static const uint32_t MIN_UTXO_PER_TXN = 100;
-
-private:
-
-   class AddressMap
-   {
-      shared_ptr<map<BinaryData, shared_ptr<ScrAddrObj>>> addrMap_;
-      mutex mergeLock_;
-
-      AddressMap& operator=(const AddressMap&) = delete;
-
-   public:
-
-      AddressMap()
-      {
-         addrMap_ = make_shared<map<BinaryData, shared_ptr<ScrAddrObj>>>();
-      }
-
-      const shared_ptr<map<BinaryData, shared_ptr<ScrAddrObj>>>
-         getAddrMap(void) const
-      {
-         return addrMap_;
-      }
-
-      void mergeScrAddrMap(
-         const map<BinaryData, shared_ptr<ScrAddrObj>>& scrAddrMap)
-      {
-         auto newAddrMap =
-            make_shared<map<BinaryData, shared_ptr<ScrAddrObj>>>();
-
-
-         {
-            unique_lock<mutex> lock(mergeLock_);
-
-            *newAddrMap = *addrMap_;
-         }
-
-         newAddrMap->insert(scrAddrMap.begin(), scrAddrMap.end());
-
-         addrMap_ = newAddrMap;
-      }
-
-      void deleteScrAddrVector(const vector<BinaryData>& saVec)
-      {
-         auto newAddrMap =
-            make_shared<map<BinaryData, shared_ptr<ScrAddrObj>>>();
-
-         unique_lock<mutex> lock(mergeLock_);
-
-         *newAddrMap = *addrMap_;
-         for (auto& sa : saVec)
-            newAddrMap->erase(sa);
-
-         addrMap_ = newAddrMap;
-      }
-   };
 
 public:
 
@@ -253,7 +199,7 @@ private:
 private:
 
    BlockDataViewer* const        bdvPtr_;
-   AddressMap                    scrAddrMap_;
+   TransactionalMap<BinaryData, shared_ptr<ScrAddrObj>> scrAddrMap_;
    
    bool                          ignoreLastScanned_=true;
    map<BinaryData, LedgerEntry>* ledgerAllAddr_ = &LedgerEntry::EmptyLedgerMap_;

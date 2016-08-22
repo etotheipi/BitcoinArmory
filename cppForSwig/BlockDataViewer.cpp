@@ -837,7 +837,7 @@ bool WalletGroup::registerAddresses(const vector<BinaryData>& saVec,
       theWallet = wltIter->second;
    }
 
-   auto addrMap = theWallet->scrAddrMap_.getAddrMap();
+   auto addrMap = theWallet->scrAddrMap_.get();
 
    set<BinaryData> saSet;
    map<BinaryData, shared_ptr<ScrAddrObj>> saMap;
@@ -855,7 +855,7 @@ bool WalletGroup::registerAddresses(const vector<BinaryData>& saVec,
 
    auto callback = [&, saMap, theWallet](bool refresh)->void
    {
-      theWallet->scrAddrMap_.mergeScrAddrMap(saMap);
+      theWallet->scrAddrMap_.update(saMap);
       theWallet->needsRefresh(refresh);
       theWallet->setRegistered();
    };

@@ -24,7 +24,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 void BtcWallet::addScrAddress(const BinaryData& scrAddr)
 {
-   auto addrMap = scrAddrMap_.getAddrMap();
+   auto addrMap = scrAddrMap_.get();
    if (addrMap->find(scrAddr) != addrMap->end())
       return;
 
@@ -39,14 +39,14 @@ void BtcWallet::addScrAddress(const BinaryData& scrAddr)
 /////////////////////////////////////////////////////////////////////////////
 void BtcWallet::removeAddressBulk(vector<BinaryData> const & scrAddrBulk)
 {
-   scrAddrMap_.deleteScrAddrVector(scrAddrBulk);
+   scrAddrMap_.erase(scrAddrBulk);
    needsRefresh(true);
 }
 
 /////////////////////////////////////////////////////////////////////////////
 bool BtcWallet::hasScrAddress(HashString const & scrAddr) const
 {
-   auto addrMap = scrAddrMap_.getAddrMap();
+   auto addrMap = scrAddrMap_.get();
    return (addrMap->find(scrAddr) != addrMap->end());
 }
 
@@ -68,7 +68,7 @@ void BtcWallet::pprintAlot(LMDBBlockDatabase *db, uint32_t topBlk, bool withAddr
       txio.second.pprintOneLine(db);
    }*/
 
-   auto addrMap = scrAddrMap_.getAddrMap();
+   auto addrMap = scrAddrMap_.get();
 
    if(withAddr)
    {
@@ -98,7 +98,7 @@ void BtcWallet::pprintAlot(LMDBBlockDatabase *db, uint32_t topBlk, bool withAddr
 
 void BtcWallet::pprintAlittle(std::ostream &os) const
 {
-   auto addrMap = scrAddrMap_.getAddrMap();
+   auto addrMap = scrAddrMap_.get();
 
    os << "\tBalance: " << getFullBalance();
    os << "\tNAddr:   " << addrMap->size();
@@ -113,7 +113,7 @@ void BtcWallet::clearBlkData(void)
 {
    ledgerAllAddr_ = &LedgerEntry::EmptyLedgerMap_;
 
-   auto addrMap = scrAddrMap_.getAddrMap();
+   auto addrMap = scrAddrMap_.get();
 
    for (auto saPair : *addrMap)
    { saPair.second->clearBlkData(); }
@@ -125,7 +125,7 @@ void BtcWallet::clearBlkData(void)
 uint64_t BtcWallet::getSpendableBalance(\
                     uint32_t currBlk, bool ignoreAllZC) const
 {
-   auto addrMap = scrAddrMap_.getAddrMap();
+   auto addrMap = scrAddrMap_.get();
 
    uint64_t balance = 0;
    for(const auto scrAddr : *addrMap)
@@ -138,7 +138,7 @@ uint64_t BtcWallet::getSpendableBalance(\
 uint64_t BtcWallet::getUnconfirmedBalance(
                     uint32_t currBlk, bool inclAllZC) const
 {
-   auto addrMap = scrAddrMap_.getAddrMap();
+   auto addrMap = scrAddrMap_.get();
 
    uint64_t balance = 0;
    for (const auto scrAddr : *addrMap)
@@ -158,7 +158,7 @@ uint64_t BtcWallet::getFullBalanceFromDB() const
 {
    uint64_t balance = 0;
 
-   auto addrMap = scrAddrMap_.getAddrMap();
+   auto addrMap = scrAddrMap_.get();
 
    for (auto& scrAddr : *addrMap)
       balance += scrAddr.second->getFullBalance();
@@ -171,7 +171,7 @@ map<BinaryData, uint32_t> BtcWallet::getAddrTxnCounts(uint32_t updateID) const
 {
    map<BinaryData, uint32_t> countMap;
 
-   auto addrMap = scrAddrMap_.getAddrMap();
+   auto addrMap = scrAddrMap_.get();
    for (auto& sa : *addrMap)
    {
       if (sa.second->updateID_ <= lastPulledCountsID_)
@@ -197,7 +197,7 @@ map<BinaryData, tuple<uint64_t, uint64_t, uint64_t>>
 
    map<BinaryData, tuple<uint64_t, uint64_t, uint64_t>> balanceMap;
 
-   auto addrMap = scrAddrMap_.getAddrMap();
+   auto addrMap = scrAddrMap_.get();
    for (auto& sa : *addrMap)
    {
       if (sa.second->updateID_ <= lastPulledBalancesID_)
@@ -227,7 +227,7 @@ void BtcWallet::prepareTxOutHistory(uint64_t val, bool ignoreZC)
    uint64_t value;
    uint32_t count;
       
-   auto addrMap = scrAddrMap_.getAddrMap();
+   auto addrMap = scrAddrMap_.get();
 
    auto spentByZC = [this](const BinaryData& dbkey)->bool
    { return this->bdvPtr_->isTxOutSpentByZC(dbkey); };
@@ -295,7 +295,7 @@ void BtcWallet::prepareFullTxOutHistory(bool ignoreZC)
    auto spentByZC = [this](BinaryData dbkey)->bool
    { return this->bdvPtr_->isTxOutSpentByZC(dbkey); };
 
-   auto addrMap = scrAddrMap_.getAddrMap();
+   auto addrMap = scrAddrMap_.get();
 
    while (1)
    {
@@ -311,7 +311,7 @@ void BtcWallet::prepareFullTxOutHistory(bool ignoreZC)
 ////////////////////////////////////////////////////////////////////////////////
 void BtcWallet::resetTxOutHistory()
 {
-   auto addrMap = scrAddrMap_.getAddrMap();
+   auto addrMap = scrAddrMap_.get();
 
    for (auto& scrAddr : *addrMap)
       scrAddr.second->resetTxOutHistory();
@@ -346,7 +346,7 @@ vector<UnspentTxOut> BtcWallet::getSpendableTxOutListForValue(uint64_t val,
    vector<UnspentTxOut> utxoList;
    uint32_t blk = bdvPtr_->getTopBlockHeight();
 
-   auto addrMap = scrAddrMap_.getAddrMap();
+   auto addrMap = scrAddrMap_.get();
 
    for (const auto& scrAddr : *addrMap)
    {
@@ -395,7 +395,7 @@ vector<AddressBookEntry> BtcWallet::createAddressBook(void) const
    set<HashString> allTxList;
    set<HashString> perTxAddrSet;
 
-   auto addrMap = scrAddrMap_.getAddrMap();
+   auto addrMap = scrAddrMap_.get();
 
    // Go through all TxIO for this wallet, collect outgoing transactions
    for (const auto scrAddr : *addrMap)
@@ -456,7 +456,7 @@ vector<LedgerEntry> BtcWallet::getTxLedger(
 {
    vector<LedgerEntry> leVec;
 
-   auto addrMap = scrAddrMap_.getAddrMap();
+   auto addrMap = scrAddrMap_.get();
 
    auto saIter = addrMap->find(scraddr);
    if (saIter != addrMap->end())
@@ -483,7 +483,7 @@ vector<LedgerEntry> BtcWallet::getTxLedger() const
 ////////////////////////////////////////////////////////////////////////////////
 void BtcWallet::updateAfterReorg(uint32_t lastValidBlockHeight)
 {
-   auto addrMap = scrAddrMap_.getAddrMap();
+   auto addrMap = scrAddrMap_.get();
 
    for (auto& scrAddr : *addrMap)
    {
@@ -512,7 +512,7 @@ void BtcWallet::scanWalletZeroConf(const ScanWalletStruct& scanInfo,
       return false;
    };
 
-   auto addrMap = scrAddrMap_.getAddrMap();
+   auto addrMap = scrAddrMap_.get();
    validZcKeys_.clear();
 
    for (auto& saPair : *addrMap)
@@ -538,7 +538,7 @@ bool BtcWallet::scanWallet(const ScanWalletStruct& scanInfo, uint32_t updateID)
       LMDBEnv::Transaction tx;
       bdvPtr_->getDB()->beginDBTransaction(&tx, SSH, LMDB::ReadOnly);
 
-      auto addrMap = scrAddrMap_.getAddrMap();
+      auto addrMap = scrAddrMap_.get();
       for (auto& scrAddrPair : *addrMap)
          scrAddrPair.second->fetchDBScrAddrData(
             scanInfo.startBlock_, scanInfo.endBlock_, updateID);
@@ -606,7 +606,7 @@ map<uint32_t, uint32_t> BtcWallet::computeScrAddrMapHistSummary()
 
    map<uint32_t, preHistory> preHistSummary;
 
-   auto addrMap = scrAddrMap_.getAddrMap();
+   auto addrMap = scrAddrMap_.get();
 
    LMDBEnv::Transaction tx;
    bdvPtr_->getDB()->beginDBTransaction(&tx, SSH, LMDB::ReadOnly);
@@ -713,7 +713,7 @@ void BtcWallet::mapPages()
 bool BtcWallet::isPaged() const
 {
    //get address map
-   auto addrMap = scrAddrMap_.getAddrMap();
+   auto addrMap = scrAddrMap_.get();
 
    for (auto& saPair : *addrMap)
    {
@@ -728,7 +728,7 @@ bool BtcWallet::isPaged() const
 void BtcWallet::getTxioForRange(uint32_t start, uint32_t end,
    map<BinaryData, TxIOPair>& outMap) const
 {
-   auto addrMap = scrAddrMap_.getAddrMap();
+   auto addrMap = scrAddrMap_.get();
 
    for (const auto& scrAddrPair : *addrMap)
       scrAddrPair.second->getHistoryForScrAddr(start, end, outMap, false);
@@ -748,7 +748,7 @@ void BtcWallet::updateWalletLedgersFromTxio(
 ////////////////////////////////////////////////////////////////////////////////
 const ScrAddrObj* BtcWallet::getScrAddrObjByKey(const BinaryData& key) const
 {
-   auto addrMap = scrAddrMap_.getAddrMap();
+   auto addrMap = scrAddrMap_.get();
 
    auto saIter = addrMap->find(key);
    if (saIter != addrMap->end())
@@ -762,7 +762,7 @@ const ScrAddrObj* BtcWallet::getScrAddrObjByKey(const BinaryData& key) const
 ////////////////////////////////////////////////////////////////////////////////
 ScrAddrObj& BtcWallet::getScrAddrObjRef(const BinaryData& key)
 {
-   auto addrMap = scrAddrMap_.getAddrMap();
+   auto addrMap = scrAddrMap_.get();
 
    auto saIter = addrMap->find(key);
    if (saIter != addrMap->end())
@@ -836,7 +836,7 @@ uint64_t BtcWallet::getWltTotalTxnCount(void) const
 {
    uint64_t ntxn = 0;
 
-   auto addrMap = scrAddrMap_.getAddrMap();
+   auto addrMap = scrAddrMap_.get();
 
    for (const auto& scrAddrPair : *addrMap)
       ntxn += scrAddrPair.second->getTxioCountFromSSH();
