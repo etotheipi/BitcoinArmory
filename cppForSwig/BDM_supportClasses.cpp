@@ -963,9 +963,9 @@ void ZeroConfContainer::parseNewZC(void)
       map<BinaryData, Tx> zcMap;
       try
       {
-         zcAction = move(newZcStack_.get());
+         zcAction = move(newZcStack_.pop_front());
       }
-      catch (IsEmpty&)
+      catch (StopBlockingLoop&)
       {
          break;
       }

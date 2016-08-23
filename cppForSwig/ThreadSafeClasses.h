@@ -186,6 +186,11 @@ public:
    {
       return count_.load(memory_order_relaxed);
    }
+
+   size_t count(void) const
+   {
+      return count_.load(memory_order_relaxed);
+   }
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -218,7 +223,7 @@ public:
       clear();
    }
 
-   T pop_front(bool rethrow = true)
+   virtual T pop_front(bool rethrow = true)
    {
       //throw if empty
       auto valptr = bottom_.load(memory_order_acquire);
@@ -235,7 +240,7 @@ public:
       memory_order_release, memory_order_relaxed));
 
       auto valptrcopy = valptr;
-      if (!top_.compare_exchange_strong(valptrcopy, nullptr,
+      if (!top_.compare_exchange_strong(valptrcopy, maxptr_,
          memory_order_release, memory_order_relaxed))
       {
          AtomicEntry<T>* nextptr;
@@ -249,6 +254,7 @@ public:
       else
       {
          bottom_.store(nullptr, memory_order_release);
+         top_.store(nullptr, memory_order_release);
       }
 
       //update count
@@ -308,6 +314,11 @@ public:
 
       exceptPtr_ = nullptr;
    }
+
+   size_t count(void) const
+   {
+      return count_.load(memory_order_relaxed);
+   }
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -333,11 +344,10 @@ private:
       auto completed = completed_.load(memory_order_relaxed);
       if (completed)
       {
-         waiting_.fetch_sub(1, memory_order_relaxed);
          if (Stack<T>::exceptPtr_ != nullptr)
             rethrow_exception(Stack<T>::exceptPtr_);
          else
-            throw IsEmpty();
+            throw StopBlockingLoop();
       }
 
       auto haveItemPromise = make_shared<promise<bool>>();
@@ -354,7 +364,7 @@ public:
       waiting_.store(0, memory_order_relaxed);
    }
 
-   T get(void)
+   T pop_front(void)
    {
       //blocks as long as there is no data available in the chain.
 
@@ -370,7 +380,7 @@ public:
             if (terminate)
             {
                waiting_.fetch_sub(1, memory_order_relaxed);
-               throw IsEmpty();
+               throw StopBlockingLoop();
             }
 
             //try to pop_front
@@ -409,7 +419,7 @@ public:
             {
                auto&& retval = Stack<T>::pop_front();
                waiting_.fetch_sub(1, memory_order_relaxed);
-               return retval;
+               return move(retval);
             }
             catch (IsEmpty&)
             {
@@ -418,11 +428,11 @@ public:
             haveItemFuture.wait();
          }
       }
-      catch (StopBlockingLoop&)
+      catch (...)
       {
-         //loop stopped unexpectedly
+         //loop stopped
          waiting_.fetch_sub(1, memory_order_relaxed);
-         throw IsEmpty();
+         rethrow_exception(current_exception());
       }
    }
 
@@ -434,19 +444,14 @@ public:
 
       Stack<T>::push_back(move(obj));
 
-      //pop promises
-      while (Stack<T>::count_.load(memory_order_relaxed) > 0)
+      //pop 1 promise
+      try
       {
-         try
-         {
-            auto&& p = promisePile_.pop_back();
-            p->set_value(true);
-         }
-         catch (IsEmpty&)
-         {
-            break;
-         }
+         auto&& p = promisePile_.pop_back();
+         p->set_value(true);
       }
+      catch (IsEmpty&)
+      {}
    }
 
    void terminate(exception_ptr exceptptr = nullptr)
@@ -482,6 +487,7 @@ public:
          }
          catch (IsEmpty&)
          {
+            break;
          }
       }
    }
@@ -514,7 +520,7 @@ public:
             {
                try
                {
-                  throw IsEmpty();
+                  throw StopBlockingLoop();
                }
                catch (...)
                {
@@ -526,10 +532,22 @@ public:
          }
          catch (IsEmpty&)
          {
+            break;
          }
       }
 
    }
+
+   size_t count(void) const
+   {
+      return Stack<T>::count_.load(memory_order_relaxed);
+   }
+
+   int waiting(void) const
+   {
+      return waiting_.load(memory_order_relaxed);
+   }
+
 };
 
 ////////////////////////////////////////////////////////////////////////////////

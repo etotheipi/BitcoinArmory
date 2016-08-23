@@ -782,7 +782,7 @@ void BitcoinP2P::processDataStackThread()
    {
       while (1)
       {
-         auto&& data = dataStack_->get();
+         auto&& data = dataStack_->pop_front();
          auto&& payload = Payload::deserialize(data, magic_word_);
 
          processPayload(move(payload));

@@ -809,11 +809,11 @@ void Clients::garbageCollectorThread(void)
    {
       try
       {
-         bool command = gcCommands_.get();
+         bool command = gcCommands_.pop_front();
          if(!command)
             return;
       }
-      catch (IsEmpty&)
+      catch (StopBlockingLoop&)
       {
          return;
       }
@@ -1169,9 +1169,9 @@ void BDV_Server_Object::maintenanceThread(void)
       shared_ptr<BDV_Notification> notifPtr;
       try
       {
-         notifPtr = move(notificationStack_.get());
+         notifPtr = move(notificationStack_.pop_front());
       }
-      catch (IsEmpty&)
+      catch (StopBlockingLoop&)
       {
          cb_->callback(Arguments(), OrderTerminate);
          break;
