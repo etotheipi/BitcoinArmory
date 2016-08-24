@@ -29,6 +29,9 @@ class IsEmpty
 class StopBlockingLoop
 {};
 
+struct StackTimedOutException
+{};
+
 ////////////////////////////////////////////////////////////////////////////////
 template <typename T> class Entry
 {
@@ -182,11 +185,6 @@ public:
       count_.store(0, memory_order_relaxed);
    }
 
-   size_t size(void) const
-   {
-      return count_.load(memory_order_relaxed);
-   }
-
    size_t count(void) const
    {
       return count_.load(memory_order_relaxed);
@@ -300,7 +298,7 @@ public:
       count_.fetch_add(1, memory_order_relaxed);
    }
 
-   void clear()
+   virtual void clear()
    {
       //pop as long as possible
       try
@@ -319,235 +317,6 @@ public:
    {
       return count_.load(memory_order_relaxed);
    }
-};
-
-////////////////////////////////////////////////////////////////////////////////
-template <typename T> class BlockingStack : public Stack<T>
-{
-   /***
-   get() blocks as long as the container is empty
-
-   terminate() halts all operations and returns on all waiting threads
-   completed() lets the container serve it's remaining entries before halting
-   ***/
-
-private:
-   typedef shared_ptr<promise<bool>> promisePtr;
-   Pile<promisePtr> promisePile_;
-   atomic<int> waiting_;
-   atomic<bool> terminated_;
-   atomic<bool> completed_;
-
-private:
-   future<bool> getFuture()
-   {
-      auto completed = completed_.load(memory_order_relaxed);
-      if (completed)
-      {
-         if (Stack<T>::exceptPtr_ != nullptr)
-            rethrow_exception(Stack<T>::exceptPtr_);
-         else
-            throw StopBlockingLoop();
-      }
-
-      auto haveItemPromise = make_shared<promise<bool>>();
-      promisePile_.push_back(haveItemPromise);
-
-      return haveItemPromise->get_future();
-   }
-
-public:
-   BlockingStack() : Stack<T>()
-   {
-      terminated_.store(false, memory_order_relaxed);
-      completed_.store(false, memory_order_relaxed);
-      waiting_.store(0, memory_order_relaxed);
-   }
-
-   T pop_front(void)
-   {
-      //blocks as long as there is no data available in the chain.
-
-      //run in loop until we get data or a throw
-
-      waiting_.fetch_add(1, memory_order_relaxed);
-
-      try
-      {
-         while (1)
-         {
-            auto terminate = terminated_.load(memory_order_relaxed);
-            if (terminate)
-            {
-               waiting_.fetch_sub(1, memory_order_relaxed);
-               throw StopBlockingLoop();
-            }
-
-            //try to pop_front
-            try
-            {
-               auto&& retval = Stack<T>::pop_front();
-               waiting_.fetch_sub(1, memory_order_relaxed);
-               return move(retval);
-            }
-            catch (IsEmpty&)
-            {}
-
-            //if there are no items, create promise, push to promise pile
-            auto&& haveItemFuture = getFuture();
-
-            /***
-            3 cases here:
-
-            a) New object was pushed back to the chain after the promise was pushed
-            to the promise pile. Future will be set.
-
-            b) New object was pushed back before the promise was pushed to the promise
-            pile. Promise won't be set.
-
-            c) Nothing was pushed after the promise, just wait on future.
-
-            a and c are covered by waiting on the future. To cover b, we need to try
-            to pop_front once more first. If it fails, wait on future.
-
-            In case of a, this approach (test a second time before waiting on future)
-            wastes the promise, but that's only a slight overhead so it's an
-            acceptable trade off.
-            ***/
-
-            try
-            {
-               auto&& retval = Stack<T>::pop_front();
-               waiting_.fetch_sub(1, memory_order_relaxed);
-               return move(retval);
-            }
-            catch (IsEmpty&)
-            {
-            }
-
-            haveItemFuture.wait();
-         }
-      }
-      catch (...)
-      {
-         //loop stopped
-         waiting_.fetch_sub(1, memory_order_relaxed);
-         rethrow_exception(current_exception());
-      }
-   }
-
-   void push_back(T&& obj)
-   {
-      auto completed = completed_.load(memory_order_relaxed);
-      if (completed)
-         return;
-
-      Stack<T>::push_back(move(obj));
-
-      //pop 1 promise
-      try
-      {
-         auto&& p = promisePile_.pop_back();
-         p->set_value(true);
-      }
-      catch (IsEmpty&)
-      {}
-   }
-
-   void terminate(exception_ptr exceptptr = nullptr)
-   {
-      Stack<T>::exceptPtr_ = exceptptr;
-      terminated_.store(true, memory_order_relaxed); 
-      completed_.store(true, memory_order_relaxed);
-
-      while (waiting_.load(memory_order_relaxed) > 0)
-      {
-         try
-         {
-            auto&& p = promisePile_.pop_back();
-            exception_ptr eptr;
-
-            if (Stack<T>::exceptPtr_ != nullptr)
-            {
-               eptr = Stack<T>::exceptPtr_;
-            }
-            else
-            {
-               try
-               {
-                  throw(StopBlockingLoop());
-               }
-               catch (...)
-               {
-                  eptr = current_exception();
-               }
-            }
-
-            p->set_exception(eptr);
-         }
-         catch (IsEmpty&)
-         {
-            break;
-         }
-      }
-   }
-
-   void reset(void)
-   {
-      Stack<T>::clear();
-
-      terminated_.store(false, memory_order_relaxed);
-      completed_.store(false, memory_order_relaxed);
-   }
-
-   void completed(exception_ptr exceptptr = nullptr)
-   {
-      Stack<T>::exceptPtr_ = exceptptr;
-      completed_.store(true, memory_order_relaxed);
-      
-      while (waiting_.load(memory_order_relaxed) > 0)
-      {
-         try
-         {
-            auto&& p = promisePile_.pop_back();
-            exception_ptr eptr;
-            
-            if (Stack<T>::exceptPtr_ != nullptr)
-            {
-               eptr = Stack<T>::exceptPtr_;
-            }
-            else
-            {
-               try
-               {
-                  throw StopBlockingLoop();
-               }
-               catch (...)
-               {
-                  eptr = current_exception();
-               }
-            }
-
-            p->set_exception(eptr);
-         }
-         catch (IsEmpty&)
-         {
-            break;
-         }
-      }
-
-   }
-
-   size_t count(void) const
-   {
-      return Stack<T>::count_.load(memory_order_relaxed);
-   }
-
-   int waiting(void) const
-   {
-      return waiting_.load(memory_order_relaxed);
-   }
-
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -655,9 +424,6 @@ public:
    }
 };
 
-struct StackTimedOutException
-{};
-
 ////////////////////////////////////////////////////////////////////////////////
 template<typename T> class TransactionalSet
 {
@@ -749,6 +515,7 @@ public:
 
    shared_ptr<set<T>> get(void) const
    {
+      unique_lock<mutex> lock(mu_);
       return set_;
    }
 
@@ -782,16 +549,16 @@ public:
       waiting_.store(0, memory_order_relaxed);
    }
 
-   T get(chrono::seconds timeout = chrono::seconds(600))
+   T pop_front(chrono::seconds timeout = chrono::seconds(600))
    {
       //block until timeout expires or data is available
       //return data or throw IsEmpty or StackTimedOutException
 
+      waiting_.fetch_add(1, memory_order_relaxed);
       try
       {
          while (1)
          {
-            waiting_.fetch_add(1, memory_order_relaxed);
             auto terminate = terminate_.load(memory_order_relaxed);
             if (terminate)
             {
@@ -836,30 +603,22 @@ public:
             
             auto status = haveItemFuture.wait_for(timeout);
             promiseMap_.erase(this_thread::get_id());
-            waiting_.fetch_sub(1, memory_order_relaxed);
 
             if (status == future_status::timeout) //future timed out
                throw StackTimedOutException();
-
-            try
-            {
-               auto&& retval = Stack<T>::pop_front();
-               return move(retval);
-            }
-            catch (IsEmpty&)
-            {
-            }
          }
       }
-      catch (StopBlockingLoop&)
+      catch (...)
       {
          //loop stopped unexpectedly
          waiting_.fetch_sub(1, memory_order_relaxed);
-         throw StopBlockingLoop();
+         rethrow_exception(current_exception());
       }
+
+      return T();
    }
 
-   vector<T> pop_all(chrono::seconds timeout = chrono::seconds(600))
+   /*vector<T> pop_all(chrono::seconds timeout = chrono::seconds(600))
    {
       vector<T> vecT;
 
@@ -876,23 +635,19 @@ public:
       promiseMap_.clear();
       waiting_.store(0, memory_order_relaxed);
       return move(vecT);
-   }
+   }*/
 
    void push_back(T&& obj)
    {
       Stack<T>::push_back(move(obj));
 
       //pop promises
-      while (waiting_.load(memory_order_relaxed) > 0)
-      {
-         //TODO: Stack::count_ can be off, fix that
-         auto promisemap = promiseMap_.pop_all();
-         if (promisemap->size() == 0)
-            break;
-         
-         for (auto& prom : *promisemap)
-            prom.second->set_value(true);
-      }
+      auto promisemap = promiseMap_.pop_all();
+      if (promisemap->size() == 0)
+         return;
+
+      for (auto& prom : *promisemap)
+         prom.second->set_value(true);
    }
 
    void terminate(void)
@@ -932,6 +687,246 @@ public:
       auto val = terminate_.load(memory_order_relaxed);
       return !val;
    }
+
+   int waiting(void) const
+   {
+      return waiting_.load(memory_order_relaxed);
+   }
 };
+
+////////////////////////////////////////////////////////////////////////////////
+template <typename T> class BlockingStack : public Stack<T>
+{
+   /***
+   get() blocks as long as the container is empty
+
+   terminate() halts all operations and returns on all waiting threads
+   completed() lets the container serve it's remaining entries before halting
+   ***/
+
+private:
+   atomic<int> waiting_;
+   atomic<bool> terminated_;
+   atomic<bool> completed_;
+   
+   atomic<void*> promPtr_;
+   atomic<void*> futPtr_;
+
+   atomic<int> replaceFut_;
+
+private:
+   shared_future<bool> get_future()
+   {
+      auto completed = completed_.load(memory_order_relaxed);
+      if (completed)
+      {
+         if (Stack<T>::exceptPtr_ != nullptr)
+            rethrow_exception(Stack<T>::exceptPtr_);
+         else
+            throw StopBlockingLoop();
+      }
+
+      int val = -1, val1;
+      
+      do
+      {
+         while (val == -1)
+            val = replaceFut_.load(memory_order_acquire);
+
+         val1 = val + 1;
+      } 
+      while (!replaceFut_.compare_exchange_weak(val, val1,
+         memory_order_release, memory_order_relaxed));
+      
+      auto futptr = futPtr_.load(memory_order_acquire);
+      auto fut = *(shared_future<bool>*)futptr;
+
+      replaceFut_.fetch_sub(1, memory_order_acq_rel);
+      return fut;
+   }
+
+   void pop_promise(void)
+   {
+      int zero = 0;
+      while (!replaceFut_.compare_exchange_strong(zero, -1,
+         memory_order_release, memory_order_relaxed))
+      {
+         if (zero == -1)
+            return;
+
+         zero = 0;
+      }
+
+      auto oldprom = (promise<bool>*)promPtr_.load(memory_order_acquire);
+      oldprom->set_value(true);
+
+      auto newprom = new promise<bool>();
+      promPtr_.store((void*)newprom, memory_order_release);
+
+      auto newfut = new shared_future<bool>();
+      shared_future<bool> fut = newprom->get_future();
+      *newfut = fut;
+
+      auto futval = 
+         (shared_future<bool>*)futPtr_.load(memory_order_acquire);
+      futPtr_.store((void*)newfut, memory_order_release);
+
+      delete futval;
+      delete oldprom;
+      
+      replaceFut_.store(0, memory_order_release);
+   }
+
+public:
+   BlockingStack() : Stack<T>()
+   {
+      terminated_.store(false, memory_order_relaxed);
+      completed_.store(false, memory_order_relaxed);
+      waiting_.store(0, memory_order_relaxed);
+
+      auto newprom = new promise<bool>();
+      promPtr_.store((void*)newprom, memory_order_release);
+
+      auto futptr = new shared_future<bool>();
+      *futptr = newprom->get_future();
+      futPtr_.store((void*)futptr, memory_order_release);
+      
+      replaceFut_.store(0, memory_order_release);
+   }
+
+   T pop_front(void)
+   {
+      //blocks as long as there is no data available in the chain.
+      //run in loop until we get data or a throw
+
+      waiting_.fetch_add(1, memory_order_relaxed);
+
+      try
+      {
+         while (1)
+         {
+            auto terminate = terminated_.load(memory_order_relaxed);
+            if (terminate)
+            {
+               waiting_.fetch_sub(1, memory_order_relaxed);
+               
+               if (Stack<T>::exceptPtr_ != nullptr)
+                  rethrow_exception(Stack<T>::exceptPtr_);
+
+               throw StopBlockingLoop();
+            }
+
+            //try to pop_front
+            try
+            {
+               auto&& retval = Stack<T>::pop_front(false);
+               waiting_.fetch_sub(1, memory_order_relaxed);
+               return move(retval);
+            }
+            catch (IsEmpty&)
+            {
+            }
+
+            //if there are no items, create promise, push to promise pile
+            auto fut = get_future();
+
+            try
+            {
+               auto&& retval = Stack<T>::pop_front(false);
+               waiting_.fetch_sub(1, memory_order_relaxed);
+               return move(retval);
+            }
+            catch (IsEmpty&)
+            {
+            }
+
+            try
+            {
+               fut.get();
+            }
+            catch (future_error&)
+            {}
+         }
+      }
+      catch (...)
+      {
+         //loop stopped
+         waiting_.fetch_sub(1, memory_order_relaxed);
+         rethrow_exception(current_exception());
+      }
+
+      //to shut up the compiler warning
+      return T();
+   }
+
+   void push_back(T&& obj)
+   {
+      auto completed = completed_.load(memory_order_relaxed);
+      if (completed)
+         return;
+
+      Stack<T>::push_back(move(obj));
+      pop_promise();
+   }
+
+   void terminate(exception_ptr exceptptr = nullptr)
+   {
+      if (exceptptr == nullptr)
+      {
+         try
+         {
+            throw StopBlockingLoop();
+         }
+         catch (...)
+         {
+            exceptptr = current_exception();
+         }
+      }
+
+      Stack<T>::exceptPtr_ = exceptptr;
+      terminated_.store(true, memory_order_relaxed);
+      completed_.store(true, memory_order_relaxed);
+
+      while (waiting_.load(memory_order_relaxed) > 0)
+         pop_promise();
+   }
+
+   void clear(void)
+   {
+      completed();
+
+      Stack<T>::clear();
+
+      terminated_.store(false, memory_order_relaxed);
+      completed_.store(false, memory_order_relaxed);
+   }
+
+   void completed(exception_ptr exceptptr = nullptr)
+   {
+      if (exceptptr == nullptr)
+      {
+         try
+         {
+            throw StopBlockingLoop();
+         }
+         catch (...)
+         {
+            exceptptr = current_exception();
+         }
+      }
+
+      Stack<T>::exceptPtr_ = exceptptr;
+      completed_.store(true, memory_order_relaxed);
+
+      pop_promise();
+   }
+
+   int waiting(void) const
+   {
+      return waiting_.load(memory_order_relaxed);
+   }
+};
+
+
 
 #endif
