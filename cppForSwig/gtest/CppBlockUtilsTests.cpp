@@ -3556,7 +3556,8 @@ TEST_F(StoredBlockObjTest, SHeaderDBUnserFull_H)
    BinaryData dbval = READHEX(
       "010000001d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5bb5d0000"
       "000000009762547903d36881a86751f3f5049e23050113f779735ef82734ebf0"
-      "b4450081d8c8c84db3936a1a334b035b00ffff01ee110000");
+      "b4450081d8c8c84db3936a1a334b035b00ffff01ee110000"
+      "0000000000000000000000000000000000000000000000000000");
 
    BinaryRefReader brr(dbval);
    sbh_.unserializeDBValue(HEADERS, brr);
@@ -8002,7 +8003,6 @@ TEST_F(BlockUtilsBare, Load4Blocks_ZC_GetUtxos)
    zcVec.push_back(move(rawLBZC), 0);
 
    pushNewZc(theBDMt_, zcVec);
-   waitOnNewZcSignal(clients_, bdvID);
    waitOnNewZcSignal(clients_, bdvID);
 
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);

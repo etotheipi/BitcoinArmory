@@ -891,8 +891,11 @@ void ZeroConfContainer::dropZC(const set<BinaryData>& txHashes)
    vector<BinaryData> keysToDelete;
 
    auto keytospendsaPtr = keyToSpentScrAddr_.get();
-
    auto txiomapPtr = txioMap_.get();
+
+   map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>> updateMap;
+   vector<BinaryData> delKeys;
+
    for (auto& hash : txHashes)
    {
       //resolve zcKey
@@ -910,6 +913,7 @@ void ZeroConfContainer::dropZC(const set<BinaryData>& txHashes)
       auto&& scrAddrVec = (*keytospendsaPtr)[zcKey];
       keyToSpentScrAddr_.erase(zcKey);
 
+      set<BinaryData> rkeys;
       //drop from txioMap_
       for (auto& sa : scrAddrVec)
       {
@@ -919,13 +923,33 @@ void ZeroConfContainer::dropZC(const set<BinaryData>& txHashes)
 
          auto& txiomap = mapIter->second;
 
-         auto txioIter = txiomap.begin();
-         while (txioIter != txiomap.end())
+         for (auto& txioPair : *txiomap)
          {
-            if (txioIter->first.startsWith(sa))
-               txiomap.erase(txioIter++);
-            else
-               ++txioIter;
+            if (txioPair.first.startsWith(zcKey))
+               rkeys.insert(txioPair.first);
+
+            continue;
+
+            if (txioPair.second.hasTxIn() &&
+               txioPair.second.getDBKeyOfInput().startsWith(zcKey))
+               rkeys.insert(txioPair.first);
+         }
+
+         if (rkeys.size() > 0)
+         {
+            if (rkeys.size() == txiomap->size())
+            {
+               delKeys.push_back(sa);
+               continue;
+            }
+
+            auto newmap = make_shared<map<BinaryData, TxIOPair>>(
+               *txiomap);
+
+            for (auto& rkey : rkeys)
+               newmap->erase(rkey);
+
+            updateMap[sa] = newmap;
          }
       }
 
@@ -942,6 +966,9 @@ void ZeroConfContainer::dropZC(const set<BinaryData>& txHashes)
       //mark for deletion
       keysToDelete.push_back(zcKey);
    }
+
+   txioMap_.erase(delKeys);
+   txioMap_.update(updateMap);
 
    //delete keys from DB
    auto deleteKeys = [&](void)->void
@@ -1031,6 +1058,8 @@ void ZeroConfContainer::parseNewZC(map<BinaryData, Tx> zcMap,
 
    auto waitonzcmap = waitOnZcMap_.get();
 
+   map<string, set<BinaryData>> flaggedBDVs;
+
    for (auto& newZCPair : zcMap)
    {
       const BinaryData&& txHash = newZCPair.second.getThisHash();
@@ -1118,17 +1147,16 @@ void ZeroConfContainer::parseNewZC(map<BinaryData, Tx> zcMap,
             txHashToDBKey_[txHash] = newZCPair.first;
             txMap_[newZCPair.first] = newZCPair.second;
 
-            map<HashString, map<BinaryData, TxIOPair>> newtxiomap;
+            map<HashString, shared_ptr<map<BinaryData, TxIOPair>>> newtxiomap;
             auto txiomapPtr = txioMap_.get();
 
             for (const auto& saTxio : bulkData.scrAddrTxioMap_)
             {
-               //again, can't use insert, have to overwrite existing data
-               auto txioPair = (*txiomapPtr)[saTxio.first];
-               for (auto txio : *saTxio.second)
-                  txioPair[txio.first] = txio.second;
+               auto& currentTxioMap = (*txiomapPtr)[saTxio.first];
+               if (currentTxioMap != nullptr)
+                  saTxio.second->insert(currentTxioMap->begin(), currentTxioMap->end());
 
-               newtxiomap.insert(move(make_pair(saTxio.first,  move(txioPair))));
+               newtxiomap.insert(move(make_pair(saTxio.first, saTxio.second)));
             }
 
             txioMap_.update(move(newtxiomap));
@@ -1138,25 +1166,10 @@ void ZeroConfContainer::parseNewZC(map<BinaryData, Tx> zcMap,
             if (!notify)
                continue;
 
-            auto bdvcallbacks = bdvCallbacks_.get();
             for (auto& bdvMap : bulkData.flaggedBDVs_)
             {
-               map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>>
-                  notificationMap;
-               for (auto& sa : bdvMap.second)
-               {
-                  auto saIter = bulkData.scrAddrTxioMap_.find(sa);
-                  if (saIter == bulkData.scrAddrTxioMap_.end())
-                     continue;
-
-                  notificationMap.insert(*saIter);
-               }
-
-               auto callbackIter = bdvcallbacks->find(bdvMap.first);
-               if (callbackIter == bdvcallbacks->end())
-                  continue;
-
-               callbackIter->second.newZcCallback_(move(notificationMap));
+               auto& addrSet = flaggedBDVs[bdvMap.first];
+               addrSet.insert(bdvMap.second.begin(), bdvMap.second.end());
             }
          }
       }
@@ -1173,6 +1186,30 @@ void ZeroConfContainer::parseNewZC(map<BinaryData, Tx> zcMap,
    }
 
    lastParsedBlockHash_ = db_->getTopBlockHash();
+
+   //notify bdvs
+   auto txiomapPtr = txioMap_.get();
+   auto bdvcallbacks = bdvCallbacks_.get();
+
+   for (auto& bdvMap : flaggedBDVs)
+   {
+      map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>>
+         notificationMap;
+      for (auto& sa : bdvMap.second)
+      {
+         auto saIter = txiomapPtr->find(sa);
+         if (saIter == txiomapPtr->end())
+            continue;
+
+         notificationMap.insert(*saIter);
+      }
+
+      auto callbackIter = bdvcallbacks->find(bdvMap.first);
+      if (callbackIter == bdvcallbacks->end())
+         continue;
+
+      callbackIter->second.newZcCallback_(move(notificationMap));
+   }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1412,7 +1449,7 @@ map<BinaryData, TxIOPair> ZeroConfContainer::getZCforScrAddr(
       auto& zcMap = saIter->second;
       map<BinaryData, TxIOPair> returnMap;
 
-      for (auto& zcPair : zcMap)
+      for (auto& zcPair : *zcMap)
       {
          if (isTxOutSpentByZC(zcPair.second.getDBKeyOfOutput()))
             continue;

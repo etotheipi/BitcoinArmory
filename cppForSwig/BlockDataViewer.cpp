@@ -735,10 +735,7 @@ unique_ptr<BDV_Notification_ZC> BlockDataViewer::createZcStruct()
       if (!hasScrAddress(txiopair.first))
          continue;
 
-      auto zctxios = make_shared<map<BinaryData, TxIOPair>>();
-      *zctxios = txiopair.second;
-
-      zcmap[txiopair.first] = zctxios;
+      zcmap[txiopair.first] = txiopair.second;
    }
 
    auto notif = make_unique<BDV_Notification_ZC>(move(zcmap));

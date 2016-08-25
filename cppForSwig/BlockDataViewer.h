@@ -88,7 +88,7 @@ public:
       const map <BinaryData, vector<BinaryData> >& wltNAddrMap,
       bool areNew);
 
-   const shared_ptr<map<BinaryData, map<BinaryData, TxIOPair>>>
+   const shared_ptr<map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>>>
       getFullZeroConfTxIOMap() const
    { return zeroConfCont_->getFullTxioMap(); }
 

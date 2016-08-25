@@ -399,7 +399,7 @@ private:
    map<BinaryData, map<unsigned, BinaryData>>   outPointsSpentByKey_; //<txHash, map<opId, ZcKeys>>
 
    //<scrAddr,  <dbKeyOfOutput, TxIOPair>>
-   TransactionalMap<HashString, map<BinaryData, TxIOPair>>  txioMap_;
+   TransactionalMap<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>>  txioMap_;
    
    //<zcKey, vector<ScrAddr>>
    TransactionalMap<HashString, set<HashString>> keyToSpentScrAddr_;
@@ -456,7 +456,7 @@ public:
    bool hasTxByHash(const BinaryData& txHash) const;
    Tx getTxByHash(const BinaryData& txHash) const;
 
-   shared_ptr<map<HashString, map<BinaryData, TxIOPair>>>
+   shared_ptr<map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>>>
       getFullTxioMap(void) const { return txioMap_.get(); }
 
    void dropZC(const set<BinaryData>& txHashes);
@@ -469,7 +469,7 @@ public:
 
    map<BinaryData, TxIOPair> getZCforScrAddr(BinaryData scrAddr) const;
    const set<BinaryData>& getSpentSAforZCKey(const BinaryData& zcKey) const;
-   const shared_ptr<map<HashString, set<HashString>>> getKeyToSpentScrAddrMap(void) const;
+   const shared_ptr<map<BinaryData, set<HashString>>> getKeyToSpentScrAddrMap(void) const;
 
    void updateZCinDB(
       const vector<BinaryData>& keysToWrite, const vector<BinaryData>& keysToDel);
