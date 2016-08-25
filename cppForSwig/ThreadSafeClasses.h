@@ -207,6 +207,64 @@ protected:
    atomic<size_t> count_;
    exception_ptr exceptPtr_ = nullptr;
 
+   atomic<void*> promPtr_;
+   atomic<void*> futPtr_;
+
+   atomic<int> replaceFut_;
+
+protected:
+   virtual shared_future<bool> get_future()
+   {
+      int val = -1, val1;
+
+      do
+      {
+         while (val == -1)
+            val = replaceFut_.load(memory_order_acquire);
+
+         val1 = val + 1;
+      } while (!replaceFut_.compare_exchange_weak(val, val1,
+         memory_order_release, memory_order_relaxed));
+
+      auto futptr = futPtr_.load(memory_order_acquire);
+      auto fut = *(shared_future<bool>*)futptr;
+
+      replaceFut_.fetch_sub(1, memory_order_acq_rel);
+      return fut;
+   }
+
+   void pop_promise(void)
+   {
+      int zero = 0;
+      while (!replaceFut_.compare_exchange_strong(zero, -1,
+         memory_order_release, memory_order_relaxed))
+      {
+         if (zero == -1)
+            return;
+
+         zero = 0;
+      }
+
+      auto oldprom = (promise<bool>*)promPtr_.load(memory_order_acquire);
+      oldprom->set_value(true);
+
+      auto newprom = new promise<bool>();
+      promPtr_.store((void*)newprom, memory_order_release);
+
+      auto newfut = new shared_future<bool>();
+      shared_future<bool> fut = newprom->get_future();
+      *newfut = fut;
+
+      auto futval =
+         (shared_future<bool>*)futPtr_.load(memory_order_acquire);
+      futPtr_.store((void*)newfut, memory_order_release);
+
+      delete futval;
+      delete oldprom;
+
+      replaceFut_.store(0, memory_order_release);
+   }
+
 public:
    Stack()
    {
@@ -214,11 +272,26 @@ public:
       top_.store(nullptr, memory_order_relaxed);
       bottom_.store(nullptr, memory_order_relaxed);
       count_.store(0, memory_order_relaxed);
+
+      auto newprom = new promise<bool>();
+      promPtr_.store((void*)newprom, memory_order_release);
+
+      auto futptr = new shared_future<bool>();
+      *futptr = newprom->get_future();
+      futPtr_.store((void*)futptr, memory_order_release);
+
+      replaceFut_.store(0, memory_order_release);
    }
 
    ~Stack()
    {
       clear();
+
+      auto futptr = (shared_future<bool>*)futPtr_.load();
+      auto promptr = (promise<bool>*)promPtr_.load();
+
+      delete futptr;
+      delete promptr;
    }
 
    virtual T pop_front(bool rethrow = true)
@@ -429,7 +502,7 @@ template<typename T> class TransactionalSet
 {
    //locked writes, lockless reads
 private:
-   mutex mu_;
+   mutable mutex mu_;
    shared_ptr<set<T>> set_;
 
 public:
@@ -537,8 +610,6 @@ template <typename T> class TimedStack : public Stack<T>
    ***/
 
 private:
-   typedef shared_ptr<promise<bool>> promisePtr;
-   TransactionalMap<thread::id, promisePtr> promiseMap_;
    atomic<int> waiting_;
    atomic<bool> terminate_;
 
@@ -549,7 +620,7 @@ public:
       waiting_.store(0, memory_order_relaxed);
    }
 
-   T pop_front(chrono::seconds timeout = chrono::seconds(600))
+   T pop_front(chrono::milliseconds timeout = chrono::milliseconds(600000))
    {
       //block until timeout expires or data is available
       //return data or throw IsEmpty or StackTimedOutException
@@ -561,10 +632,7 @@ public:
          {
             auto terminate = terminate_.load(memory_order_relaxed);
             if (terminate)
-            {
-               waiting_.fetch_sub(1, memory_order_relaxed);
                throw StopBlockingLoop();
-            }
 
             //try to pop_front
             try
@@ -578,20 +646,13 @@ public:
             }
 
             //if there are no items, create promise, push to promise pile
-            auto tID = this_thread::get_id();
-
-            auto haveItemPromise = make_shared<promise<bool>>();
-
-            promiseMap_.insert(make_pair(tID, haveItemPromise));
-            auto haveItemFuture = haveItemPromise->get_future();
-
+            auto fut = Stack<T>::get_future();
 
             //try to grab data one more time before waiting on future
             try
             {
                auto&& retval = Stack<T>::pop_front();
                waiting_.fetch_sub(1, memory_order_relaxed);
-               promiseMap_.erase(tID);
                return move(retval);
             }
             catch (IsEmpty&)
@@ -601,11 +662,18 @@ public:
             //TODO: figure out time left if we break before the timeout
             //but reenter the loop
             
-            auto status = haveItemFuture.wait_for(timeout);
-            promiseMap_.erase(this_thread::get_id());
+            auto before = chrono::high_resolution_clock::now();
+            auto status = fut.wait_for(timeout);
 
             if (status == future_status::timeout) //future timed out
                throw StackTimedOutException();
+
+            auto after = chrono::high_resolution_clock::now();
+            auto timediff = chrono::duration_cast<chrono::milliseconds>(after - before);
+            if (timediff <= timeout)
+               timeout -= timediff;
+            else
+               timeout = chrono::milliseconds(0);
          }
       }
       catch (...)
@@ -618,11 +686,11 @@ public:
       return T();
    }
 
-   /*vector<T> pop_all(chrono::seconds timeout = chrono::seconds(600))
+   vector<T> pop_all(chrono::seconds timeout = chrono::seconds(600))
    {
       vector<T> vecT;
 
-      vecT.push_back(move(get(timeout)));
+      vecT.push_back(move(pop_front(timeout)));
       
       try
       {
@@ -632,47 +700,37 @@ public:
       catch (IsEmpty&)
       {}
 
-      promiseMap_.clear();
-      waiting_.store(0, memory_order_relaxed);
       return move(vecT);
-   }*/
+   }
 
    void push_back(T&& obj)
    {
       Stack<T>::push_back(move(obj));
 
       //pop promises
-      auto promisemap = promiseMap_.pop_all();
-      if (promisemap->size() == 0)
-         return;
-
-      for (auto& prom : *promisemap)
-         prom.second->set_value(true);
+      if (waiting_.load(memory_order_relaxed) > 0)
+         Stack<T>::pop_promise();
    }
 
-   void terminate(void)
+   void terminate(exception_ptr exceptptr = nullptr)
    {
-      terminate_.store(true, memory_order_relaxed);
-
-      while (waiting_.load(memory_order_relaxed) > 0)
+      if (exceptptr == nullptr)
       {
-         auto promisemap = promiseMap_.pop_all();
-
-         for (auto& p : *promisemap)
+         try
          {
-            exception_ptr eptr;
-            try
-            {
-               throw(StopBlockingLoop());
-            }
-            catch (...)
-            {
-               eptr = current_exception();
-            }
-
-            p.second->set_exception(eptr);
+            throw(StopBlockingLoop());
+         }
+         catch (...)
+         {
+            exceptptr = current_exception();
          }
       }
+
+      Stack<T>::exceptPtr_ = exceptptr;
+
+      terminate_.store(true, memory_order_relaxed);
+      while (waiting_.load(memory_order_relaxed) > 0)
+         Stack<T>::pop_promise();
    }
 
    void reset(void)
@@ -709,11 +767,6 @@ private:
    atomic<bool> terminated_;
    atomic<bool> completed_;
    
-   atomic<void*> promPtr_;
-   atomic<void*> futPtr_;
-
-   atomic<int> replaceFut_;
-
 private:
    shared_future<bool> get_future()
    {
@@ -726,55 +779,7 @@ private:
             throw StopBlockingLoop();
       }
 
-      int val = -1, val1;
-      
-      do
-      {
-         while (val == -1)
-            val = replaceFut_.load(memory_order_acquire);
-
-         val1 = val + 1;
-      } 
-      while (!replaceFut_.compare_exchange_weak(val, val1,
-         memory_order_release, memory_order_relaxed));
-      
-      auto futptr = futPtr_.load(memory_order_acquire);
-      auto fut = *(shared_future<bool>*)futptr;
-
-      replaceFut_.fetch_sub(1, memory_order_acq_rel);
-      return fut;
-   }
-
-   void pop_promise(void)
-   {
-      int zero = 0;
-      while (!replaceFut_.compare_exchange_strong(zero, -1,
-         memory_order_release, memory_order_relaxed))
-      {
-         if (zero == -1)
-            return;
-
-         zero = 0;
-      }
-
-      auto oldprom = (promise<bool>*)promPtr_.load(memory_order_acquire);
-      oldprom->set_value(true);
-
-      auto newprom = new promise<bool>();
-      promPtr_.store((void*)newprom, memory_order_release);
-
-      auto newfut = new shared_future<bool>();
-      shared_future<bool> fut = newprom->get_future();
-      *newfut = fut;
-
-      auto futval = 
-         (shared_future<bool>*)futPtr_.load(memory_order_acquire);
-      futPtr_.store((void*)newfut, memory_order_release);
-
-      delete futval;
-      delete oldprom;
-      
-      replaceFut_.store(0, memory_order_release);
+      return move(Stack<T>::get_future());
    }
 
 public:
@@ -783,15 +788,6 @@ public:
       terminated_.store(false, memory_order_relaxed);
       completed_.store(false, memory_order_relaxed);
       waiting_.store(0, memory_order_relaxed);
-
-      auto newprom = new promise<bool>();
-      promPtr_.store((void*)newprom, memory_order_release);
-
-      auto futptr = new shared_future<bool>();
-      *futptr = newprom->get_future();
-      futPtr_.store((void*)futptr, memory_order_release);
-      
-      replaceFut_.store(0, memory_order_release);
    }
 
    T pop_front(void)
@@ -866,7 +862,7 @@ public:
          return;
 
       Stack<T>::push_back(move(obj));
-      pop_promise();
+      Stack<T>::pop_promise();
    }
 
    void terminate(exception_ptr exceptptr = nullptr)
@@ -888,7 +884,7 @@ public:
       completed_.store(true, memory_order_relaxed);
 
       while (waiting_.load(memory_order_relaxed) > 0)
-         pop_promise();
+         Stack<T>::pop_promise();
    }
 
    void clear(void)
@@ -918,7 +914,7 @@ public:
       Stack<T>::exceptPtr_ = exceptptr;
       completed_.store(true, memory_order_relaxed);
 
-      pop_promise();
+      Stack<T>::pop_promise();
    }
 
    int waiting(void) const

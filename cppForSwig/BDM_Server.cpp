@@ -765,7 +765,8 @@ void Clients::maintenanceThread(void) const
 
       try
       {
-         notifPtr = move(bdmT_->bdm()->notificationStack_.get(chrono::seconds(120)));
+         notifPtr = move(bdmT_->bdm()->notificationStack_.pop_front(
+            chrono::seconds(120)));
          if (notifPtr == nullptr)
             continue;
          timedout = false;

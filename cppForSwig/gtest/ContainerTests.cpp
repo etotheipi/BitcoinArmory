@@ -507,7 +507,7 @@ TEST_F(ContainerTests, BlockingStackTest_Concurrent)
          }
       }
       catch (StopBlockingLoop&)
-      { }
+      {}
    };
 
    vector<thread> push_threads, pop_threads;
@@ -544,7 +544,155 @@ TEST_F(ContainerTests, BlockingStackTest_Concurrent)
    EXPECT_EQ(theStack.waiting(), 0);
    EXPECT_EQ(pushtally, poptally);
    EXPECT_EQ(theStack.count(), 0);
+
+   theStack.clear();
+
+   push_threads.clear();
+   pop_threads.clear();
+
+   push_tallies.clear(); push_tallies.resize(threadCount_);
+   pop_tallies.clear(); pop_tallies.resize(threadCount_);
+
+   for (unsigned i = 0; i < threadCount_; i++)
+      push_threads.push_back(thread(push_thread, &push_tallies[0] + i));
+
+   for (unsigned y = 0; y < threadCount_; y++)
+      pop_threads.push_back(thread(pop_thread, &pop_tallies[0] + y));
+
+   for (auto& pushthr : push_threads)
+   {
+      if (pushthr.joinable())
+         pushthr.join();
+   }
+
+   theStack.terminate();
+
+   for (auto& popthr : pop_threads)
+   {
+      if (popthr.joinable())
+         popthr.join();
+   }
+
+   EXPECT_NE(theStack.count(), 0);
+   theStack.clear();
+   EXPECT_EQ(theStack.count(), 0);
 }
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(ContainerTests, TimedStackTest_Concurrent)
+{
+   TimedStack<uint64_t> theStack;
+   unsigned iterCount = 35000;
+
+   auto push_thread = [&](uint64_t* tally)
+   {
+      //create random numbers, push to pile, increment tally
+      srand(time(0));
+
+      uint64_t val;
+      for (unsigned i = 0; i < iterCount; i++)
+      {
+         val = rand();
+
+         *tally += val;
+         theStack.push_back(move(val));
+      }
+   };
+
+   auto pop_thread = [&theStack](uint64_t* tally)
+   {
+      //pop from pile, increment tally
+      auto timeout = chrono::seconds(2);
+      try
+      {
+         while (1)
+         {
+            *tally += theStack.pop_front(timeout);
+         }
+      }
+      catch (StackTimedOutException&)
+      {
+      }
+   };
+
+   vector<thread> push_threads, pop_threads;
+   vector<uint64_t> push_tallies(threadCount_), pop_tallies(threadCount_);
+
+   for (unsigned i = 0; i < threadCount_; i++)
+      push_threads.push_back(thread(push_thread, &push_tallies[0] + i));
+
+   for (unsigned y = 0; y < threadCount_; y++)
+      pop_threads.push_back(thread(pop_thread, &pop_tallies[0] + y));
+
+   for (auto& pushthr : push_threads)
+   {
+      if (pushthr.joinable())
+         pushthr.join();
+   }
+
+   push_threads.clear();
+   for (unsigned i = 0; i < threadCount_; i++)
+      push_threads.push_back(thread(push_thread, &push_tallies[0] + i));
+
+   for (auto& pushthr : push_threads)
+   {
+      if (pushthr.joinable())
+         pushthr.join();
+   }
+
+   push_threads.clear();
+   for (unsigned i = 0; i < threadCount_; i++)
+      push_threads.push_back(thread(push_thread, &push_tallies[0] + i));
+
+   for (auto& pushthr : push_threads)
+   {
+      if (pushthr.joinable())
+         pushthr.join();
+   }
+
+   for (auto& popthr : pop_threads)
+   {
+      if (popthr.joinable())
+         popthr.join();
+   }
+
+   uint64_t pushtally = 0;
+   for (auto& tally : push_tallies)
+      pushtally += tally;
+
+   uint64_t poptally = 0;
+   for (auto& tally : pop_tallies)
+      poptally += tally;
+
+   EXPECT_EQ(theStack.waiting(), 0);
+   EXPECT_EQ(pushtally, poptally);
+   EXPECT_EQ(theStack.count(), 0);
+
+   push_threads.clear();
+   push_tallies.clear(); push_tallies.resize(threadCount_);
+   for (unsigned i = 0; i < threadCount_; i++)
+      push_threads.push_back(thread(push_thread, &push_tallies[0] + i));
+
+   for (auto& pushthr : push_threads)
+   {
+      if (pushthr.joinable())
+         pushthr.join();
+   }
+   auto&& values = theStack.pop_all();
+
+   pushtally = 0;
+   for (auto& tally : push_tallies)
+      pushtally += tally;
+
+   poptally = 0;
+   for (auto& val : values)
+      poptally += val;
+
+   EXPECT_EQ(theStack.waiting(), 0);
+   EXPECT_EQ(pushtally, poptally);
+   EXPECT_EQ(theStack.count(), 0);
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 GTEST_API_ int main(int argc, char **argv)
