@@ -768,7 +768,7 @@ void BitcoinP2P::pollSocketThread()
          return false;
       }
 
-      dataStack->terminate();
+      dataStack->terminate(ePtr);
       return true;
    };
 
@@ -788,13 +788,26 @@ void BitcoinP2P::processDataStackThread()
          processPayload(move(payload));
       }
    }
+   catch (SocketError& e)
+   {
+      LOGERR << "caught SocketError exception in processDataStackThread: "
+         << e.what();
+   }
+   catch (exception& e)
+   {
+      LOGERR << "caught exception in processDataStackThread: "
+         << e.what();
+   }
    catch (...)
    {
-      if (verackPromise_ == nullptr)
+
+      LOGERR << "caught unkown exception in processDataStackThread";
+
+      /*if (verackPromise_ == nullptr)
          return;
 
       exception_ptr eptr = current_exception();
-      verackPromise_->set_exception(eptr);
+      verackPromise_->set_exception(eptr);*/
    }
 }
 
@@ -900,8 +913,16 @@ void BitcoinP2P::processInv(unique_ptr<Payload> payload)
    {
       switch (entryVec.first)
       {
+      case Inv_Msg_Witness_Block:
+         processInvBlock(move(entryVec.second));
+         break;
+
       case Inv_Msg_Block:
          processInvBlock(move(entryVec.second));
+         break;
+
+      case Inv_Msg_Witness_Tx:
+         processInvTx(move(entryVec.second));
          break;
 
       case Inv_Msg_Tx:

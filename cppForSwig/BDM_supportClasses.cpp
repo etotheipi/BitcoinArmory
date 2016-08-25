@@ -1687,7 +1687,7 @@ void ZeroConfContainer::processInvTxThread(void)
       try
       {
          auto&& entry = newtxfuture.get();
-         //thread exit condition: push a block with a inv_error type
+         //thread exit condition: push a block with a inv_terminate type
          if (entry.invtype_ == Inv_Terminate)
             break;
 
