@@ -66,7 +66,7 @@ CXXFLAGS += -g -std=c++11
 
 # All tests produced by this Makefile.  Remember to add new tests you
 # created to the list.
-TESTS = CppBlockUtilsTests
+TESTS = CppBlockUtilsTests ContainerTests
 
 # All Google Test headers.  Usually you shouldn't change this
 # definition.
@@ -116,8 +116,6 @@ gtest.a : gtest-all.o
 #sample1_unittest : sample1.o sample1_unittest.o gtest_main.a
 	#$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -lpthread -o $@
 
-../../_CppBlockUtils.so:
-	$(MAKE) make -C .. ../_CppBlockUtils.so
 
 ####
 ifndef PYVER
@@ -129,6 +127,9 @@ endif
 
 CppBlockUtilsTests.o : CppBlockUtilsTests.cpp $(HEADERS) $(GTEST_HEADERS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c CppBlockUtilsTests.cpp
+
+ContainerTests.o : ContainerTests.cpp $(GTEST_HEADERS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c ContainerTests.cpp
 
 %.o: $(USER_DIR)/%.cpp $(ALL_HEADERS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $<
@@ -152,5 +153,8 @@ libcryptopp.a: Makefile
 CppBlockUtilsTests : $(OBJS_UnitTests) CppBlockUtilsTests.o gtest.a ../libcryptopp.a
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -Wl,-rpath,$(PWD)/../.. ../libcryptopp.a $^ -lpthread $(PYTHON_LDFLAGS) -o $@
 
+
+ContainerTests : ContainerTests.o gtest.a
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -lpthread -o $@
 
 
