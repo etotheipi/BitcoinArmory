@@ -926,9 +926,10 @@ void ZeroConfContainer::dropZC(const set<BinaryData>& txHashes)
          for (auto& txioPair : *txiomap)
          {
             if (txioPair.first.startsWith(zcKey))
+            {
                rkeys.insert(txioPair.first);
-
-            continue;
+               continue;
+            }
 
             if (txioPair.second.hasTxIn() &&
                txioPair.second.getDBKeyOfInput().startsWith(zcKey))
