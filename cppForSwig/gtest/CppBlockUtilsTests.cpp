@@ -356,7 +356,7 @@ void pushNewZc(BlockDataManagerThread* bdmt, const ZcVector& zcVec)
    zcConf->newZcStack_.push_back(move(newzcstruct));
 }
 
-/*
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -5923,7 +5923,7 @@ TEST_F(BlockDir, BlockFileSplitUpdate)
 
    delete clients;
    delete BDMt;
-}*/
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -6033,7 +6033,7 @@ protected:
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsBare, DbInit1kIter)
+TEST_F(BlockUtilsBare, DISABLED_DbInit1kIter)
 {
    theBDMt_->start(config.initMode_);
    auto&& bdvID = registerBDV(clients_, magic_);
@@ -6088,11 +6088,12 @@ TEST_F(BlockUtilsBare, DbInit1kIter)
       delete theBDMt_;
    }
 
+   //one last init so that TearDown doesn't blow up
    initBDM();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-/*TEST_F(BlockUtilsBare, Load5Blocks)
+TEST_F(BlockUtilsBare, Load5Blocks)
 {
    theBDMt_->start(config.initMode_);
    auto&& bdvID = registerBDV(clients_, magic_);
@@ -8310,7 +8311,7 @@ TEST_F(TestCryptoECDSA, VerifyPubKeyValidity)
    EXPECT_TRUE(CryptoECDSA().VerifyPublicKeyValid(compPointPub2));
    EXPECT_TRUE(CryptoECDSA().VerifyPublicKeyValid(uncompPointPub1));
    EXPECT_TRUE(CryptoECDSA().VerifyPublicKeyValid(uncompPointPub2));
-}*/
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
