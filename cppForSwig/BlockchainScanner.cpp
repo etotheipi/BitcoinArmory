@@ -932,6 +932,13 @@ void BlockchainScanner::updateSSH(bool force)
                      continue;
                   }
 
+                  if (resolveHashes)
+                  {
+                     //this is to resolve output references in transaction build from
+                     //multiple wallets (i.ei coinjoin)
+                     txnsToResolve.insert(keyOfInput.getSliceRef(0, 6));
+                  }
+
                   sshPtr->totalUnspent_ -= txioPair.second.getValue();
                }
                else
@@ -977,7 +984,7 @@ void BlockchainScanner::updateSSH(bool force)
             continue;
          }
 
-         //build list of all refered hashes in txins
+         //build list of all referred hashes in txins
          auto txinCount = tx.getNumTxIn();
          auto dataPtr = tx.getPtr();
 

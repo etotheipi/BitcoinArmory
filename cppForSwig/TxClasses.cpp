@@ -373,6 +373,8 @@ bool Tx::isCoinbase(void) const
 /////////////////////////////////////////////////////////////////////////////
 void Tx::unserialize(uint8_t const * ptr, size_t size)
 {
+   isInitialized_ = false;
+
    uint32_t nBytes = BtcUtils::TxCalcLength(ptr, size, 
       &offsetsTxIn_, &offsetsTxOut_, &offsetsWitness_);
 
@@ -414,7 +416,12 @@ void Tx::unserializeWithRBFFlag(const BinaryData& rawTx)
       throw runtime_error("empty raw tx");
    
    auto ptr = rawTx.getPtr() + 1;
-   unserialize(ptr, size - 1);
+   try
+   {
+      unserialize(ptr, size - 1);
+   }
+   catch (...)
+   { }
 
    isRBF_ = (bool)rawTx.getPtr();
 }
@@ -431,6 +438,7 @@ BinaryData Tx::serializeNoWitness(void) const
    dataNoWitness.append(txBody);
    dataNoWitness.append(WRITE_UINT32_LE(lockTime_));
 
+   return dataNoWitness;
 }
 
 /////////////////////////////////////////////////////////////////////////////
