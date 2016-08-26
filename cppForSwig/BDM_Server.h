@@ -84,7 +84,7 @@ private:
    map<string, function<Arguments(
       const vector<string>&, Arguments&)>> methodMap_;
    
-   thread tID_;
+   thread tID_, initT_;
    shared_ptr<SocketCallback> cb_;
 
    string bdvID_;
@@ -103,7 +103,7 @@ private:
    mutex registerWalletMutex_;
    map<string, walletRegStruct> wltRegMap_;
 
-   promise<bool> isReadyPromise_;
+   shared_ptr<promise<bool>> isReadyPromise_;
    shared_future<bool> isReadyFuture_;
 
 public:

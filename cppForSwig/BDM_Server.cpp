@@ -1041,7 +1041,8 @@ BDV_Server_Object::BDV_Server_Object(
    BlockDataManagerThread *bdmT) :
    bdmT_(bdmT), BlockDataViewer(bdmT->bdm())
 {
-   isReadyFuture_ = isReadyPromise_.get_future();
+   isReadyPromise_ = make_shared<promise<bool>>();
+   isReadyFuture_ = isReadyPromise_->get_future();
    auto lbdFut = isReadyFuture_;
 
    //unsafe, should consider creating the blockchain object as a shared_ptr
@@ -1075,10 +1076,7 @@ void BDV_Server_Object::startThreads()
    auto initLambda = [this](void)->void
    { this->init(); };
 
-   thread initThread(initLambda);
-   if (initThread.joinable())
-      initThread.detach();
-   
+   initT_ = thread(initLambda);
    tID_ = thread(thrLambda);
 }
 
@@ -1090,6 +1088,9 @@ void BDV_Server_Object::haltThreads()
 
    //unregister from ZC container
    bdmT_->bdm()->unregisterBDVwithZCcontainer(bdvID_);
+
+   if (initT_.joinable())
+      initT_.join();
 
    if (tID_.joinable())
       tID_.join();
@@ -1159,7 +1160,7 @@ void BDV_Server_Object::init()
    args.push_back(move(topblock));
    cb_->callback(move(args));
 
-   isReadyPromise_.set_value(true);
+   isReadyPromise_->set_value(true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
