@@ -6087,6 +6087,8 @@ TEST_F(BlockUtilsBare, DbInit1kIter)
       delete clients_;
       delete theBDMt_;
    }
+
+   initBDM();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

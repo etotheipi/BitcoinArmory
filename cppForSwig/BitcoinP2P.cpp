@@ -221,34 +221,45 @@ vector<unique_ptr<Payload>> Payload::deserialize(
 
       //get and verify length
       uint32_t* length = (uint32_t*)(ptr + PAYLOAD_LENGTH_OFFSET);
-      if (*length + MESSAGE_HEADER_LEN > totalsize - offset)
-         throw BitcoinMessageDeserError("payload length mismatch");
+      auto localOffset = offset;
+      
+      //at this point we don't want to reparse this message if the the
+      //deser operation fails
+      offset += 4;
 
-      //get checksum
-      uint32_t* checksum = (uint32_t*)(ptr + CHECKSUM_OFFSET);
-
-      //grab payload
-      BinaryDataRef payloadRef(ptr + MESSAGE_HEADER_LEN, *length);
-
-      //verify checksum
-      auto&& payloadHash = BtcUtils::getHash256(payloadRef);
-      uint32_t* hashChecksum = (uint32_t*)payloadHash.getPtr();
-
-      if (*hashChecksum != *checksum)
-      {
-         offset += 4;
-         continue;
-      }
-
-      //instantiate relevant Payload child class and return it
       try
       {
+         if (*length + MESSAGE_HEADER_LEN > totalsize - localOffset)
+         {
+            //TODO: maybe we only got a partial payload from the node, we
+            //should prepend the next payload with the left over of this one
+            //for the good measure
+            throw BitcoinMessageDeserError("payload length mismatch");
+         }
+
+         //get checksum
+         uint32_t* checksum = (uint32_t*)(ptr + CHECKSUM_OFFSET);
+
+         //grab payload
+         BinaryDataRef payloadRef(ptr + MESSAGE_HEADER_LEN, *length);
+
+         //verify checksum
+         auto&& payloadHash = BtcUtils::getHash256(payloadRef);
+         uint32_t* hashChecksum = (uint32_t*)payloadHash.getPtr();
+
+         if (*hashChecksum != *checksum)
+         {
+            localOffset += 4;
+            continue;
+         }
+
+         //instantiate relevant Payload child class and return it
          auto payloadIter = BitcoinP2P::strToPayload_.find(messagetype);
          if (payloadIter != BitcoinP2P::strToPayload_.end())
          {
             uint8_t* payloadptr = nullptr;
             if (*length > 0)
-               payloadptr = &data[offset] + MESSAGE_HEADER_LEN;
+               payloadptr = &data[localOffset] + MESSAGE_HEADER_LEN;
 
             switch (payloadIter->second)
             {
@@ -290,10 +301,11 @@ vector<unique_ptr<Payload>> Payload::deserialize(
       }
       catch (BitcoinMessageDeserError&)
       {
-         //ignore deser error on full length payload
+         //ignore payloads that failed to deser properly
+         continue;
       }
-         
-      offset += MESSAGE_HEADER_LEN + *length;
+
+      offset += MESSAGE_HEADER_LEN + *length - 4;
    }
 
    return retvec;

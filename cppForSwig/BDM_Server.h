@@ -64,6 +64,15 @@ public:
 
       return true;
    }
+
+   ~SocketCallback(void)
+   {
+      Callback::shutdown();
+
+      //after signaling shutdown, grab the mutex to make sure 
+      //all responders threads have terminated
+      unique_lock<mutex> lock(mu_);
+   }
 };
 
 ///////////////////////////////////////////////////////////////////////////////
