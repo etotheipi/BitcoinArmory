@@ -6081,6 +6081,9 @@ TEST_F(BlockUtilsBare, DbInit1kIter)
       auto bdm = theBDMt_->bdm();
       bdm->doInitialSyncOnLoad_Rebuild(fakeprog);
 
+      clients_->exitRequestLoop();
+      clients_->shutdown();
+
       delete clients_;
       delete theBDMt_;
    }
