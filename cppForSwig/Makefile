@@ -51,7 +51,7 @@ endif
 
 CPPFLAGS += -Icryptopp -Imdb -IBlockDataManager/fcgi -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
 LDLIBS += -lpthread -Lmdb
-SWIG_OPTS    += -c++ -python -threads
+SWIG_OPTS    += -c++ -python -threads -D__GNUC__
 
 SWIG_INC     += 
 

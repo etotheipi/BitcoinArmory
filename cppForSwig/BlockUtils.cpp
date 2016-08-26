@@ -1083,7 +1083,7 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
 #ifdef _WIN32
             CreateDirectory(dbDir_.c_str(), NULL);
 #else
-            mkdir(dbDir_.c_str(), 666);
+            mkdir(dbDir_.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 #endif
          }
       }
