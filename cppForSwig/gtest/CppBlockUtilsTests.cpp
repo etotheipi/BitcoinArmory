@@ -37,6 +37,7 @@
 #include "../BDM_Server.h"
 #include "../TxClasses.h"
 #include "../txio.h"
+#include "../bdmenums.h"
 
 
 
@@ -355,7 +356,7 @@ void pushNewZc(BlockDataManagerThread* bdmt, const ZcVector& zcVec)
    zcConf->newZcStack_.push_back(move(newzcstruct));
 }
 
-
+/*
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -5922,7 +5923,7 @@ TEST_F(BlockDir, BlockFileSplitUpdate)
 
    delete clients;
    delete BDMt;
-}
+}*/
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -6032,7 +6033,61 @@ protected:
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsBare, Load5Blocks)
+TEST_F(BlockUtilsBare, DbInit1kIter)
+{
+   theBDMt_->start(config.initMode_);
+   auto&& bdvID = registerBDV(clients_, magic_);
+   
+   vector<BinaryData> scrAddrVec;
+   scrAddrVec.push_back(TestChain::scrAddrA);
+   scrAddrVec.push_back(TestChain::scrAddrB);
+   scrAddrVec.push_back(TestChain::scrAddrC);
+   scrAddrVec.push_back(TestChain::scrAddrD);
+   scrAddrVec.push_back(TestChain::scrAddrE);
+   scrAddrVec.push_back(TestChain::scrAddrF);
+
+   const vector<BinaryData> lb1ScrAddrs
+   {
+      TestChain::lb1ScrAddr,
+      TestChain::lb1ScrAddrP2SH
+   };
+   const vector<BinaryData> lb2ScrAddrs
+   {
+      TestChain::lb2ScrAddr,
+      TestChain::lb2ScrAddrP2SH
+   };
+
+   regWallet(clients_, bdvID, scrAddrVec, "wallet1");
+   regLockbox(clients_, bdvID, lb1ScrAddrs, TestChain::lb1B58ID);
+   regLockbox(clients_, bdvID, lb2ScrAddrs, TestChain::lb2B58ID);
+
+   //wait on signals
+   goOnline(clients_, bdvID);
+   waitOnBDMReady(clients_, bdvID);
+
+   clients_->exitRequestLoop();
+   clients_->shutdown();
+
+   delete clients_;
+   delete theBDMt_;
+
+   auto fakeprog = [](BDMPhase, double, unsigned, unsigned)->void
+   {};
+   
+   for(unsigned i=0; i<1000; i++)
+   {
+      cout << "iter: " << i << endl;
+      initBDM();
+      auto bdm = theBDMt_->bdm();
+      bdm->doInitialSyncOnLoad_Rebuild(fakeprog);
+
+      delete clients_;
+      delete theBDMt_;
+   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/*TEST_F(BlockUtilsBare, Load5Blocks)
 {
    theBDMt_->start(config.initMode_);
    auto&& bdvID = registerBDV(clients_, magic_);
@@ -8250,7 +8305,7 @@ TEST_F(TestCryptoECDSA, VerifyPubKeyValidity)
    EXPECT_TRUE(CryptoECDSA().VerifyPublicKeyValid(compPointPub2));
    EXPECT_TRUE(CryptoECDSA().VerifyPublicKeyValid(uncompPointPub1));
    EXPECT_TRUE(CryptoECDSA().VerifyPublicKeyValid(uncompPointPub2));
-}
+}*/
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
