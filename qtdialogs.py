@@ -5725,37 +5725,41 @@ class DlgDispTxInfo(ArmoryDialog):
       txdir = None
       changeIndex = None
       svPairDisp = None
+      
       if haveBDM and haveWallet and self.data[FIELDS.SumOut] and self.data[FIELDS.SumIn]:
          fee = self.data[FIELDS.SumOut] - self.data[FIELDS.SumIn]
-         le = wlt.getLedgerEntryForTxHash(txHash)
-         txAmt = le.getValue()
-
-         if le.isSentToSelf():
-            txdir = 'Sent-to-Self'
-            svPairDisp = []
-            if len(self.pytx.outputs)==1:
-               txAmt = fee
-               triplet = self.data[FIELDS.OutList][0]
-               scrAddr = script_to_scrAddr(triplet[2])
-               svPairDisp.append([scrAddr, triplet[1]])
+         try:
+            le = wlt.getLedgerEntryForTxHash(txHash)
+            txAmt = le.getValue()
+   
+            if le.isSentToSelf():
+               txdir = 'Sent-to-Self'
+               svPairDisp = []
+               if len(self.pytx.outputs)==1:
+                  txAmt = fee
+                  triplet = self.data[FIELDS.OutList][0]
+                  scrAddr = script_to_scrAddr(triplet[2])
+                  svPairDisp.append([scrAddr, triplet[1]])
+               else:
+                  txAmt, changeIndex = determineSentToSelfAmt(le, wlt)
+                  for i, triplet in enumerate(self.data[FIELDS.OutList]):
+                     if not i == changeIndex:
+                        scrAddr = script_to_scrAddr(triplet[2])
+                        svPairDisp.append([scrAddr, triplet[1]])
+                     else:
+                        indicesMakeGray.append(i)
             else:
-               txAmt, changeIndex = determineSentToSelfAmt(le, wlt)
-               for i, triplet in enumerate(self.data[FIELDS.OutList]):
-                  if not i == changeIndex:
-                     scrAddr = script_to_scrAddr(triplet[2])
-                     svPairDisp.append([scrAddr, triplet[1]])
-                  else:
-                     indicesMakeGray.append(i)
-         else:
-            if le.getValue() > 0:
-               txdir = 'Received'
-               svPairDisp = svPairSelf
-               indicesMakeGray.extend(indicesOther)
-            if le.getValue() < 0:
-               txdir = 'Sent'
-               svPairDisp = svPairOther
-               indicesMakeGray.extend(indicesSelf)
-
+               if le.getValue() > 0:
+                  txdir = 'Received'
+                  svPairDisp = svPairSelf
+                  indicesMakeGray.extend(indicesOther)
+               if le.getValue() < 0:
+                  txdir = 'Sent'
+                  svPairDisp = svPairOther
+                  indicesMakeGray.extend(indicesSelf)
+         except:
+            pass
+      
 
       # If this is a USTX, the above calculation probably didn't do its job
       # It is possible, but it's also possible that this Tx has nothing to
