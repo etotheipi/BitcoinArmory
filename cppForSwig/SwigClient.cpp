@@ -226,7 +226,7 @@ Tx BlockDataViewer::getTxByHash(const BinaryData& txHash)
    auto&& rawtx = retval.get<BinaryDataObject>();
 
    Tx tx;
-   tx.unserializeWithRBFFlag(rawtx.get());
+   tx.unserializeWithMetaData(rawtx.get());
    return tx;
 }
 
@@ -253,7 +253,6 @@ LedgerDelegate BlockDataViewer::getLedgerDelegateForScrAddr(
    LedgerDelegate ld(sock_, bdvID_, ldid);
    return ld;
 }
-
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -518,6 +517,48 @@ bool Blockchain::hasHeaderWithHash(const BinaryData& hash)
    return hasHash;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+BlockHeader Blockchain::getHeaderByHeight(unsigned height)
+{
+   Command cmd;
+
+   cmd.method_ = "getHeaderByHeight";
+   cmd.ids_.push_back(bdvID_);
+   cmd.args_.push_back(move(height));
+   cmd.serialize();
+
+   auto&& result = sock_->writeAndRead(cmd.command_);
+
+   Arguments retval(result);
+   auto&& rawheader = retval.get<BinaryDataObject>();
+
+   BlockHeader bh(rawheader.get(), height);
+   return bh;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// BlockHeader
+//
+///////////////////////////////////////////////////////////////////////////////
+BlockHeader::BlockHeader(const BinaryData& rawheader, unsigned height)
+{
+   unserialize(rawheader.getRef());
+   blockHeight_ = height;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockHeader::unserialize(uint8_t const * ptr, uint32_t size)
+{
+   if (size < HEADER_SIZE)
+      throw BlockDeserializingException();
+   dataCopy_.copyFrom(ptr, HEADER_SIZE);
+   BtcUtils::getHash256(dataCopy_.getPtr(), HEADER_SIZE, thisHash_);
+   difficultyDbl_ = BtcUtils::convertDiffBitsToDouble(
+      BinaryDataRef(dataCopy_.getPtr() + 72, 4));
+   isInitialized_ = true;
+   blockHeight_ = UINT32_MAX;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 //

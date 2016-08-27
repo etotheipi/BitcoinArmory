@@ -513,7 +513,7 @@ void BDV_Server_Object::buildMethodMap()
 
       auto&& txHash = args.get<BinaryDataObject>();
       auto&& retval = this->getTxByHash(txHash.get());
-      BinaryDataObject bdo(move(retval.serializeWithRBFFlag()));
+      BinaryDataObject bdo(move(retval.serializeWithMetaData()));
 
       Arguments retarg;
       retarg.push_back(move(bdo));
@@ -556,6 +556,24 @@ void BDV_Server_Object::buildMethodMap()
 
    methodMap_["getAddressTxioCount"] = getAddressTxioCount;
 
+   //getHeaderByHeight
+   auto getHeaderByHeight = [this]
+      (const vector<string>& ids, Arguments& args)->Arguments
+   {
+      if (ids.size() != 1)
+         throw runtime_error("unexpected id count");
+
+      auto&& height = args.get<unsigned>();
+      auto& header = blockchain().getHeaderByHeight(height);
+
+      BinaryDataObject bdo(header.serialize());
+
+      Arguments retarg;
+      retarg.push_back(move(bdo));
+      return move(retarg);
+   };
+
+   methodMap_["getHeaderByHeight"] = getHeaderByHeight;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

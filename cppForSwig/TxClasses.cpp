@@ -399,31 +399,39 @@ void Tx::unserialize(uint8_t const * ptr, size_t size)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryData Tx::serializeWithRBFFlag() const
+BinaryData Tx::serializeWithMetaData() const
 {
+   if (txRefObj_.dbKey6B_.getSize() != 6)
+      return BinaryData();
+
    BinaryWriter bw;
    bw.put_uint8_t(isRBF_);
+   bw.put_BinaryData(txRefObj_.dbKey6B_);
 
    bw.put_BinaryData(dataCopy_);
    return bw.getData();
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void Tx::unserializeWithRBFFlag(const BinaryData& rawTx)
+void Tx::unserializeWithMetaData(const BinaryData& rawTx)
 {
+   isInitialized_ = false;
+
    auto size = rawTx.getSize();
-   if (size == 0)
-      throw runtime_error("empty raw tx");
+   if (size < 7)
+      return;
    
-   auto ptr = rawTx.getPtr() + 1;
+   auto ptr = rawTx.getPtr();
+   txRefObj_.dbKey6B_ = BinaryData(ptr + 1, 6);
+
    try
    {
-      unserialize(ptr, size - 1);
+      unserialize(ptr + 7, size - 7);
    }
    catch (...)
    { }
 
-   isRBF_ = (bool)rawTx.getPtr();
+   isRBF_ = (bool)ptr[0];
 }
 
 /////////////////////////////////////////////////////////////////////////////

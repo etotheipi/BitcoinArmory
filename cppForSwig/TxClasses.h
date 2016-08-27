@@ -353,7 +353,7 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryData         serialize(void) const    { return dataCopy_; }
-   BinaryData         serializeWithRBFFlag(void) const;
+   BinaryData         serializeWithMetaData(void) const;
    BinaryData         serializeNoWitness(void) const;
 
    /////////////////////////////////////////////////////////////////////////////
@@ -364,7 +364,7 @@ public:
    //void unserialize_no_txout(BinaryRefReader & brr);
    void unserialize_swigsafe_(BinaryData const & rawTx) { unserialize(rawTx); }
 
-   void unserializeWithRBFFlag(const BinaryData& rawTx);
+   void unserializeWithMetaData(const BinaryData& rawTx);
 
 
    /////////////////////////////////////////////////////////////////////////////

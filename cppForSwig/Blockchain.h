@@ -106,6 +106,8 @@ private:
    double traceChainDown(BlockHeader & bhpStart);
 
 private:
+   //TODO: make this whole class thread safe
+
    const HashString genesisHash_;
    map<HashString, BlockHeader> headerMap_;
    vector<BlockHeader*> newlyParsedBlocks_;
