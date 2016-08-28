@@ -28,6 +28,7 @@ import threading
 import time
 import traceback
 import webbrowser
+import glob
 
 
 from PyQt4.QtCore import *
@@ -1341,14 +1342,20 @@ class ArmoryMainWindow(QMainWindow):
       rdfexternalApp = 'about=\"urn:scheme:externalApplication:bitcoin\"'
 
       #find mimeTypes.rdf file
-      home = os.getenv('HOME')
-      out,err = execAndWait('find %s -type f -name \"mimeTypes.rdf\"' % home)
-
-      for rdfs in out.split('\n'):
+      rdfs_found = glob.glob(
+          os.path.join(
+              os.path.expanduser("~"),
+              ".mozilla",
+              "firefox",
+              "*",
+              "mimeTypes.rdf"
+          )
+      )
+      for rdfs in rdfs_found:
          if rdfs:
             try:
                FFrdf = open(rdfs, 'r+')
-            except:
+            except IOError:
                continue
 
             ct = FFrdf.readlines()
