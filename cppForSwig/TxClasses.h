@@ -467,4 +467,36 @@ struct UTXO
    }
 };
 
+
+////////////////////////////////////////////////////////////////////////////////
+class AddressBookEntry
+{
+public:
+
+   /////
+   AddressBookEntry(void) : scrAddr_(BtcUtils::EmptyHash()) {}
+   AddressBookEntry(BinaryData scraddr) : scrAddr_(scraddr) {}
+   void addTxHash(const BinaryData& hash) { txHashList_.push_back(hash); }
+   const BinaryData& getScrAddr(void) { return scrAddr_; }
+
+   /////
+   vector<BinaryData> getTxHashList(void)
+   {
+      return txHashList_;
+   }
+
+   /////
+   bool operator<(AddressBookEntry const & abe2) const
+   {
+      return scrAddr_ < abe2.scrAddr_;
+   }
+
+   BinaryData serialize(void) const;
+   void unserialize(const BinaryData& data);
+
+private:
+   BinaryData scrAddr_;
+   vector<BinaryData> txHashList_;
+};
+
 #endif

@@ -265,6 +265,7 @@ class PyBtcWallet(object):
       self.balance_spendable = 0
       self.balance_unconfirmed = 0
       self.balance_full = 0
+      self.txnCount = 0
       
       self.addrTxnCountDict = {}
       self.addrBalanceDict = {}
@@ -387,15 +388,21 @@ class PyBtcWallet(object):
          return self.balance_full
       else:
          raise TypeError('Unknown balance type! "' + balType + '"')
+      
+   #############################################################################
+   def getTxnCount(self):
+      return self.txnCount
    
    #############################################################################  
-   def getBalanceFromDB(self):
+   def getBalancesAndCountFromDB(self):
       if self.cppWallet != None and TheBDM.getState() is BDM_BLOCKCHAIN_READY:
          topBlockHeight = TheBDM.getTopBlockHeight()
-         balanceVector = self.cppWallet.getBalances(topBlockHeight, IGNOREZC)
+         balanceVector = self.cppWallet.getBalancesAndCount(\
+                     topBlockHeight, IGNOREZC)
          self.balance_full = balanceVector[0]
          self.balance_spendable = balanceVector[1]
          self.balance_unconfirmed = balanceVector[2]
+         self.txnCount = balanceVector[3]
 
    #############################################################################
    @CheckWalletRegistration

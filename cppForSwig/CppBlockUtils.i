@@ -65,6 +65,7 @@ namespace std
    %template(vector_LedgerEntryData) std::vector<LedgerEntryData>;
    %template(set_BinaryData) std::set<BinaryData>;
    %template(vector_UTXO) std::vector<UTXO>;
+   %template(vector_AddressBookEntry) std::vector<AddressBookEntry>;
 }
 
 %exception

@@ -1468,7 +1468,9 @@ class SentToAddrBookModel(QAbstractTableModel):
       # Must use awkwardness to get around iterating a vector<RegisteredTx> in
       # the python code... :(
       addressBook = self.wlt.cppWallet.createAddressBook();
-      for abe in addressBook:     
+      nabe = addressBook.size()
+      for i in range(nabe):
+         abe = addressBook[i]
 
          scrAddr = abe.getScrAddr()
          try:
@@ -1476,12 +1478,8 @@ class SentToAddrBookModel(QAbstractTableModel):
             
             # Only grab addresses that are not in any of your Armory wallets
             if not self.main.getWalletForAddr160(addr160):
-               abeList = abe.getTxList()
-               ntx = len(abeList)
-               txhashlist = []
-               for i in range(ntx):
-                  txhashlist.append( abeList[i].getTxHash() )
-               self.addrBook.append( [scrAddr, txhashlist] )
+               txHashList = abe.getTxHashList()
+               self.addrBook.append( [scrAddr, txHashList] )
          except Exception as e:
             # This is not necessarily an error. It could be a lock box LOGERROR(str(e))
             pass

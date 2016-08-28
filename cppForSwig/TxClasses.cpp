@@ -672,3 +672,49 @@ void TxRef::setRef(BinaryDataRef bdr)
    dbKey6B_ = bdr.copy();
 }
 
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+//
+// AddressBookEntry methods
+//
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+BinaryData AddressBookEntry::serialize(void) const
+{
+   BinaryWriter bw;
+   bw.reserve(8 + scrAddr_.getSize() + txHashList_.size() * 32);
+
+   bw.put_var_int(scrAddr_.getSize());
+   bw.put_BinaryData(scrAddr_);
+   bw.put_var_int(txHashList_.size());
+   
+   for (auto& hash : txHashList_)
+      bw.put_BinaryData(hash);
+
+   return bw.getData();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void AddressBookEntry::unserialize(const BinaryData& data)
+{
+   if (data.getSize() < 2)
+      throw runtime_error("invalid serialized AddressBookEntry");
+
+   BinaryRefReader brr(data.getRef());
+   
+   auto addrSize = brr.get_var_int();
+
+   if (brr.getSizeRemaining() < addrSize + 1)
+      throw runtime_error("invalid serialized AddressBookEntry");
+   scrAddr_ = move(brr.get_BinaryData(addrSize));
+
+   auto hashListCount = brr.get_var_int();
+   if (brr.getSizeRemaining() != hashListCount * 32)
+      throw runtime_error("invalid serialized AddressBookEntry");
+
+   for (unsigned i = 0; i < hashListCount; i++)
+   {
+      auto&& hash = move(brr.get_BinaryData(32));
+      txHashList_.push_back(move(hash));
+   }
+}

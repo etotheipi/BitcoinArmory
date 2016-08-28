@@ -131,7 +131,7 @@ BtcWallet BlockDataViewer::registerWallet(
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-BtcWallet BlockDataViewer::registerLockbox(
+Lockbox BlockDataViewer::registerLockbox(
    const string& id, const vector<BinaryData>& addrVec, bool isNew)
 {
    Command cmd;
@@ -152,7 +152,7 @@ BtcWallet BlockDataViewer::registerLockbox(
    if (retint == 0)
       throw runtime_error("server returned false to registerLockbox query");
 
-   return BtcWallet(*this, id);
+   return Lockbox(*this, id);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -294,10 +294,10 @@ BtcWallet::BtcWallet(const BlockDataViewer& bdv, const string& id) :
 {}
 
 ///////////////////////////////////////////////////////////////////////////////
-vector<uint64_t> BtcWallet::getBalances(uint32_t blockheight, bool IGNOREZC)
+vector<uint64_t> BtcWallet::getBalancesAndCount(uint32_t blockheight, bool IGNOREZC)
 {
    Command cmd;
-   cmd.method_ = "getBalances";
+   cmd.method_ = "getBalancesAndCount";
    cmd.ids_.push_back(bdvID_);
    cmd.ids_.push_back(walletID_);
    
@@ -313,11 +313,13 @@ vector<uint64_t> BtcWallet::getBalances(uint32_t blockheight, bool IGNOREZC)
    auto&& balance_full = arg.get<uint64_t>();
    auto&& balance_spen = arg.get<uint64_t>();
    auto&& balance_unco = arg.get<uint64_t>();
+   auto&& count = arg.get<uint64_t>();
 
    vector<uint64_t> balanceVec;
    balanceVec.push_back(balance_full);
    balanceVec.push_back(balance_spen);
    balanceVec.push_back(balance_unco);
+   balanceVec.push_back(count);
 
    return balanceVec;
 }
@@ -452,6 +454,49 @@ ScrAddrObj BtcWallet::getScrAddrObjByKey(const BinaryData& scrAddr,
       full, spendable, unconf, count);
 }
 
+///////////////////////////////////////////////////////////////////////////////
+vector<AddressBookEntry> BtcWallet::createAddressBook(void) const
+{
+   Command cmd;
+   cmd.method_ = "createAddressBook";
+   cmd.ids_.push_back(bdvID_);
+   cmd.ids_.push_back(walletID_);
+
+   cmd.serialize();
+
+   auto&& retval = sock_->writeAndRead(cmd.command_);
+   Arguments arg(move(retval));
+   auto count = arg.get<unsigned>();
+
+   vector<AddressBookEntry> abVec;
+
+   for (unsigned i = 0; i < count; i++)
+   {
+      auto&& bdo = arg.get<BinaryDataObject>();
+      AddressBookEntry abe;
+      abe.unserialize(bdo.get());
+
+      abVec.push_back(move(abe));
+   }
+
+   return abVec;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Lockbox
+//
+///////////////////////////////////////////////////////////////////////////////
+void Lockbox::getBalancesAndCountFromDB(uint32_t topBlockHeight, bool IGNOREZC)
+{
+   auto&& bVec = BtcWallet::getBalancesAndCount(topBlockHeight, IGNOREZC);
+
+   fullBalance_ = bVec[0];
+   spendableBalance_ = bVec[1];
+   unconfirmedBalance_ = bVec[2];
+
+   txnCount_ = bVec[3];
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 //

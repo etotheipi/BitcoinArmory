@@ -154,7 +154,6 @@ void BDV_Server_Object::buildMethodMap()
                      return retarg;
                   }
                }
-
             }
          }
          
@@ -265,8 +264,8 @@ void BDV_Server_Object::buildMethodMap()
 
    methodMap_["getLedgerDelegateForScrAddr"] = getLedgerDelegateForScrAddr;
 
-   //getBalances
-   auto getBalances = [this]
+   //getBalancesAndCount
+   auto getBalancesAndCount = [this]
       (const vector<string>& ids, Arguments& args)->Arguments
    {
       if (ids.size() != 2)
@@ -291,15 +290,17 @@ void BDV_Server_Object::buildMethodMap()
       auto balance_full = wltPtr->getFullBalance();
       auto balance_spen = wltPtr->getSpendableBalance(height, ignorezc);
       auto balance_unco = wltPtr->getUnconfirmedBalance(height, ignorezc);
+      auto count = wltPtr->getWltTotalTxnCount();
 
       Arguments retarg;
       retarg.push_back(move(balance_full));
       retarg.push_back(move(balance_spen));
       retarg.push_back(move(balance_unco));
+      retarg.push_back(move(count));
       return retarg;
    };
 
-   methodMap_["getBalances"] = getBalances;
+   methodMap_["getBalancesAndCount"] = getBalancesAndCount;
 
    //hasHeaderWithHash
    auto hasHeaderWithHash = [this]
@@ -574,6 +575,36 @@ void BDV_Server_Object::buildMethodMap()
    };
 
    methodMap_["getHeaderByHeight"] = getHeaderByHeight;
+
+   //createAddressBook
+   auto createAddressBook = [this]
+      (const vector<string>& ids, Arguments& args)->Arguments
+   {
+      if (ids.size() != 2)
+         throw runtime_error("unexpected id count");
+
+      auto wltPtr = getWalletOrLockbox(ids[1]);
+      if (wltPtr == nullptr)
+         throw runtime_error("invalid id");
+
+      auto&& abeVec = wltPtr->createAddressBook();
+
+      Arguments retarg;
+      unsigned count = abeVec.size();
+      retarg.push_back(move(count));
+
+      for (auto& abe : abeVec)
+      {
+         auto&& serString = abe.serialize();
+         BinaryDataObject bdo(move(serString));
+         retarg.push_back(move(bdo));
+      }
+
+      return move(retarg);
+   };
+
+   methodMap_["createAddressBook"] = createAddressBook;
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////

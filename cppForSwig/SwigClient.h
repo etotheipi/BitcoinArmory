@@ -87,14 +87,15 @@ public:
 ///////////////////////////////////////////////////////////////////////////////
 class BtcWallet
 {
-private:
+protected:
    const string walletID_;
    const string bdvID_;
    const shared_ptr<BinarySocket> sock_;
 
 public:
    BtcWallet(const BlockDataViewer&, const string&);
-   vector<uint64_t> getBalances(uint32_t topBlockHeight, bool IGNOREZC);
+   vector<uint64_t> getBalancesAndCount(
+      uint32_t topBlockHeight, bool IGNOREZC);
 
    vector<UTXO> getSpendableTxOutListForValue(uint64_t val, bool ignoreZC);
    map<BinaryData, uint32_t> getAddrTxnCountsFromDB(void);
@@ -107,6 +108,32 @@ public:
 
    ScrAddrObj getScrAddrObjByKey(const BinaryData&, 
       uint64_t, uint64_t, uint64_t, uint32_t);
+
+   vector<AddressBookEntry> createAddressBook(void) const;
+};
+
+///////////////////////////////////////////////////////////////////////////////
+class Lockbox : public BtcWallet
+{
+private:
+   uint64_t fullBalance_ = 0;
+   uint64_t spendableBalance_ = 0;
+   uint64_t unconfirmedBalance_ = 0;
+
+   uint64_t txnCount_ = 0;
+
+public:
+
+   Lockbox(const BlockDataViewer& bdv, const string& id) :
+      BtcWallet(bdv, id)
+   {}
+
+   void getBalancesAndCountFromDB(uint32_t topBlockHeight, bool IGNOREZC);
+
+   uint64_t getFullBalance(void) const { return fullBalance_; }
+   uint64_t getSpendableBalance(void) const { return spendableBalance_; }
+   uint64_t getUnconfirmedBalance(void) const { return unconfirmedBalance_; }
+   uint64_t getWltTotalTxnCount(void) const { return txnCount_; }
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -244,7 +271,7 @@ public:
       const vector<BinaryData>& addrVec,
       bool isNew);
 
-   BtcWallet registerLockbox(const string& id,
+   Lockbox registerLockbox(const string& id,
       const vector<BinaryData>& addrVec,
       bool isNew);
 

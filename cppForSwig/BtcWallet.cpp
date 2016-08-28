@@ -382,67 +382,69 @@ void BtcWallet::pprintLedger() const
 // Return a list of addresses this wallet has ever sent to (w/o change addr)
 // Does not include zero-conf tx
 //
-// TODO:  should spend the time to pass out a tx list with it the addrs so
-//        that I don't have to re-search for them later...
-//
 // TODO: make this scalable!
 //
-vector<AddressBookEntry> BtcWallet::createAddressBook(void) const
+vector<AddressBookEntry> BtcWallet::createAddressBook(void)
 {
-   SCOPED_TIMER("createAddressBook");
    // Collect all data into a map -- later converted to vector and sort it
-   map<HashString, AddressBookEntry> sentToMap;
-   set<HashString> allTxList;
-   set<HashString> perTxAddrSet;
+   map<BinaryData, set<BinaryData>> sentToMap;
+   map<BinaryData, BinaryData> keyToHash;
 
-   auto addrMap = scrAddrMap_.get();
+   auto scrAddrMap = scrAddrMap_.get();
 
-   // Go through all TxIO for this wallet, collect outgoing transactions
-   for (const auto scrAddr : *addrMap)
+   for (auto& saPair : *scrAddrMap)
    {
-      const auto& scrAddrTxioMap = scrAddr.second->getTxIOMap();
+      auto& txioMap = saPair.second->relevantTxIO_;
 
-      for (const auto &tio : scrAddrTxioMap)
+      for (auto& txioPair : txioMap)
       {
-         const TxIOPair & txio = tio.second;
-
-         // It's only outgoing if it has a TxIn
-         if (!txio.hasTxIn() || txio.hasTxInZC())
+         //skip unspent and zc spends
+         if (!txioPair.second.hasTxIn() || txioPair.second.hasTxInZC())
             continue;
-         DBTxRef dbTxRef(txio.getTxRefOfInput(), bdvPtr_->getDB());
-         auto&& thisTx = dbTxRef.getTxCopy();
-         HashString txHash = thisTx.getThisHash();
 
-         if (allTxList.count(txHash) > 0)
+         //skip already processed tx
+         auto&& dbKey = txioPair.second.getDBKeyOfInput();
+         auto& txHash = keyToHash[dbKey];
+         if (txHash.getSize() == 32)
             continue;
-         else
-            allTxList.insert(txHash);
 
+         //grab tx
+         auto&& fullTx = bdvPtr_->getDB()->getFullTxCopy(dbKey.getSliceRef(0, 6));
+         txHash = fullTx.getThisHash();
 
-         // Iterate over all TxOut in this Tx for recipients
-         perTxAddrSet.clear();
-         for (uint32_t iout = 0; iout<thisTx.getNumTxOut(); iout++)
+         auto nOut = fullTx.getNumTxOut();
+         auto txPtr = fullTx.getPtr();
+
+         for (unsigned i = 0; i < nOut; i++)
          {
-            HashString scraddr = thisTx.getTxOutCopy(iout).getScrAddressStr();
+            unsigned offset = fullTx.getTxOutOffset(i);
+            unsigned outputSize = fullTx.getTxOutOffset(i + 1) - offset;
+            BinaryDataRef outputRef(txPtr + offset + 8, outputSize);
+            
+            BinaryRefReader brr(outputRef);
+            auto scriptSize = brr.get_var_int();
 
-            // Skip this address if it's in our wallet (usually change addr)
-            if (hasScrAddress(scraddr) || perTxAddrSet.count(scraddr)>0)
+            auto&& scrRef = 
+               BtcUtils::getTxOutScrAddrNoCopy(brr.get_BinaryDataRef(scriptSize));
+            auto&& scrAddr = scrRef.getScrAddr();
+
+            if (hasScrAddress(scrRef.getScrAddr()))
                continue;
 
-            // It's someone else's address for sure, add it to the map if necessary
-            if (sentToMap.count(scraddr) == 0)
-               sentToMap[scraddr] = AddressBookEntry(scraddr);
-
-            sentToMap[scraddr].addTx(thisTx);
-            perTxAddrSet.insert(scraddr);
+            auto&& hashSet = sentToMap[scrAddr];
+            hashSet.insert(txHash);
          }
       }
    }
 
    vector<AddressBookEntry> outputVect;
-   for(const auto &entry : sentToMap)
+   for (const auto &entry : sentToMap)
    {
-      outputVect.push_back(entry.second);
+      AddressBookEntry abe(entry.first);
+      for (auto& hash : entry.second)
+         abe.addTxHash(move(hash));
+
+      outputVect.push_back(move(abe));
    }
 
    sort(outputVect.begin(), outputVect.end());
@@ -786,7 +788,8 @@ const map<BinaryData, LedgerEntry>& BtcWallet::getHistoryPage(uint32_t pageId)
    if (pageId >= getHistoryPageCount())
       throw std::range_error("pageID is out of range");
 
-   auto getTxio = [this](uint32_t start, uint32_t end, map<BinaryData, TxIOPair>& txioMap)->void
+   auto getTxio = 
+      [this](uint32_t start, uint32_t end, map<BinaryData, TxIOPair>& txioMap)->void
    { this->getTxioForRange(start, end, txioMap); };
 
    auto computeLedgers = [this](map<BinaryData, LedgerEntry>& leMap,

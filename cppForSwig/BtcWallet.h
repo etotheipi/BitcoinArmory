@@ -19,6 +19,7 @@
 #include "StoredBlockObj.h"
 #include "bdmenums.h"
 #include "ThreadSafeClasses.h"
+#include "TxClasses.h"
 
 class BlockDataManager;
 class BlockDataViewer;
@@ -32,39 +33,6 @@ struct ScanWalletStruct
    bool reorg_ = false;
 
    ScanAddressStruct saStruct_;
-};
-
-////////////////////////////////////////////////////////////////////////////////
-class AddressBookEntry
-{
-public:
-
-   /////
-   AddressBookEntry(void) : scrAddr_(BtcUtils::EmptyHash()) { txList_.clear(); }
-   explicit AddressBookEntry(BinaryData scraddr) : scrAddr_(scraddr) { txList_.clear(); }
-   void addTx(Tx & tx) { txList_.push_back( tx ); }
-   BinaryData getScrAddr(void) { return scrAddr_; }
-
-   /////
-   vector<Tx> getTxList(void)
-   { 
-      //sort(txList_.begin(), txList_.end()); 
-      return txList_;
-   }
-
-   /////
-   bool operator<(AddressBookEntry const & abe2) const
-   {
-      // If one of the entries has no tx (this shouldn't happen), sort by hash
-      //if( txList_.size()==0 || abe2.txList_.size()==0)
-         return scrAddr_ < abe2.scrAddr_;
-
-      //return (txList_[0] < abe2.txList_[0]);
-   }
-
-private:
-   BinaryData scrAddr_;
-   vector<Tx> txList_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -141,7 +109,7 @@ public:
    
    void clearBlkData(void);
    
-   vector<AddressBookEntry> createAddressBook(void) const;
+   vector<AddressBookEntry> createAddressBook(void);
 
    void reset(void);
    
