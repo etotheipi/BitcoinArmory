@@ -35,7 +35,6 @@ vector<shared_ptr<DataMeta>> DataMeta::iTypeIDs_ = {
    make_shared<DataObject<BinaryDataObject>>(),
    make_shared<DataObject<BinaryDataVector>>(),
    make_shared<DataObject<LedgerEntryVector>>(),
-   make_shared<DataObject<UtxoVector>>(),
    make_shared<DataObject<ProgressData>>(),
    make_shared<DataObject<ErrorType>>()
 };
@@ -155,88 +154,6 @@ istream& operator >> (istream& is, LedgerEntryVector& lev)
 
    if (count != lev.leVec_.size())
       throw runtime_error("malformed LedgerEntryVector argument");
-
-   return is;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-ostream& operator << (ostream& os, const UtxoVector& utxovec)
-{
-   os << "*" << utxovec.vec_.size();
-
-   for (auto& utxo : utxovec.vec_)
-   {
-      os << "+";
-      os << utxo.value_;
-      os << "_" << utxo.txHeight_;
-      os << "_" << utxo.txOutIndex_;
-      os << "_" << utxo.txHash_.toHexStr();
-      os << "_" << utxo.script_.toHexStr();
-   }
-
-   return os;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-istream& operator >> (istream& is, UtxoVector& utxovec)
-{
-   //TODO: add size check on serialized objects to avoid memory attack vectors
-   utxovec.vec_.clear();
-   if (is.eof())
-      throw runtime_error("reached stream eof");
-
-   char c = 0;
-   is.get(c);
-   if (c != '*')
-      throw runtime_error("malformed UtxoVector argument");
-
-   size_t count;
-   is >> count;
-
-   string objstr;
-   while (getline(is, objstr, '+'))
-   {
-      if (objstr.size() == 0)
-         continue;
-
-      stringstream objss(move(objstr));
-
-      uint64_t value;
-      uint32_t blockNum;
-      uint32_t txOutIndex;
-      char underscore;
-
-      objss >> value;
-
-      objss.get(underscore);
-      if (underscore != '_')
-         throw runtime_error("malformed UtxoVector argument");
-      objss >> blockNum;
-
-      objss.get(underscore);
-      if (underscore != '_')
-         throw runtime_error("malformed UtxoVector argument");
-      objss >> txOutIndex;
-
-      objss.get(underscore);
-      if (underscore != '_')
-         throw runtime_error("malformed UtxoVector argument");
-      string data;
-      if (!getline(objss, data, '_'))
-         throw runtime_error("malformed UtxoVector argument");
-      auto&& txHash = READHEX(data);
-
-      data.clear();
-      getline(objss, data);
-      auto&& script = READHEX(data);
-
-      UTXO utxo(value, blockNum, txOutIndex,
-         txHash, script);
-      utxovec.vec_.push_back(move(utxo));
-   }
-
-   if (count != utxovec.vec_.size())
-      throw runtime_error("malformed UtxoVector argument");
 
    return is;
 }

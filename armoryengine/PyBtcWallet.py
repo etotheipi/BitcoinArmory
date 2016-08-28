@@ -474,7 +474,7 @@ class PyBtcWallet(object):
       if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
          #calling this with no value argument will return the full UTXO list
          from CoinSelection import PyUnspentTxOut
-         utxos = self.cppWallet.getSpendableTxOutListForValue(IGNOREZC)
+         utxos = self.cppWallet.getSpendableTxOutListForValue()
          utxoList = []
          for i in range(len(utxos)):
             utxoList.append(PyUnspentTxOut().createFromCppUtxo(utxos[i]))

@@ -853,7 +853,6 @@ bool LMDBBlockDatabase::readStoredScriptHistoryAtIter(LDBIter & ldbIter,
       
    size_t sz = sshKey.getSize();
    BinaryData scrAddr(sshKey.getSliceRef(1, sz - 1));
-   size_t scrAddrSize = scrAddr.getSize();
 
    LMDBEnv::Transaction subsshtx;
    beginDBTransaction(&subsshtx, SUBSSH, LMDB::ReadOnly);

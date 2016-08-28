@@ -10429,24 +10429,24 @@ class DlgCoinControl(ArmoryDialog):
       self.chkSelectAll.setChecked(True)
       self.connect(self.chkSelectAll, SIGNAL(CLICKED), self.clickAll)
 
-      addrToInclude = []
-      totalBal = 0
-      for addr160 in wlt.addrMap.iterkeys():
-         bal = wlt.getAddrBalance(addr160)
-         if bal > 0:
-            addrToInclude.append([addr160, bal])
-            totalBal += bal
+      self.utxoList = wlt.getFullUTXOList()
+      totalBal = wlt.getBalance('Spendable')
 
       frmTableLayout = QGridLayout()
       self.dispTable = []
       frmTableLayout.addWidget(QRichLabel('<b>Address</b>'), 0, 0)
       frmTableLayout.addWidget(VLINE(), 0, 1)
-      frmTableLayout.addWidget(QRichLabel('<b>Balance</b>'), 0, 2)
+      frmTableLayout.addWidget(QRichLabel('<b>UTXO (height|txid|id)</b>'), 0, 2)
       frmTableLayout.addWidget(VLINE(), 0, 3)
-      frmTableLayout.addWidget(QRichLabel('<b>Comment</b>'), 0, 4)
-      frmTableLayout.addWidget(HLINE(), 1, 0, 1, 5)
-      for i in range(len(addrToInclude)):
-         a160, bal = addrToInclude[i]
+      frmTableLayout.addWidget(QRichLabel('<b>Balance</b>'), 0, 4)
+      frmTableLayout.addWidget(VLINE(), 0, 5)
+      frmTableLayout.addWidget(QRichLabel('<b>Comment</b>'), 0, 6)
+      frmTableLayout.addWidget(HLINE(), 1, 0, 1, 7)
+      for i in range(len(self.utxoList)):
+         utxo = self.utxoList[i]
+         a160 = utxo.getRecipientHash160()
+         bal  = utxo.getValue()
+         
          fullcmt = self.wlt.getCommentForAddress(a160)
          shortcmt = fullcmt
          if shortcmt == CHANGE_ADDR_DESCR_STRING:
@@ -10454,22 +10454,26 @@ class DlgCoinControl(ArmoryDialog):
             fullcmt = '(This address was created only to receive change from another transaction)'
          elif len(shortcmt) > 20:
             shortcmt = fullcmt[:20] + '...'
-         self.dispTable.append([None, None, None])
+            
+         self.dispTable.append([None, None, None, None, i])
          self.dispTable[-1][0] = QCheckBox(hash160_to_addrStr(a160))
-         self.dispTable[-1][1] = QMoneyLabel(bal)
-         self.dispTable[-1][2] = QRichLabel(shortcmt, doWrap=False)
+         self.dispTable[-1][1] = QRichLabel(utxo.shortLabel(), doWrap = False)
+         self.dispTable[-1][2] = QMoneyLabel(bal)
+         self.dispTable[-1][3] = QRichLabel(shortcmt, doWrap=False)
          self.dispTable[-1][0].setChecked(currSelect == None or (a160 in currSelect))
          if len(shortcmt) > 0:
             self.dispTable[-1][0].setToolTip('<u></u>' + fullcmt)
-            self.dispTable[-1][1].setToolTip('<u></u>' + fullcmt)
             self.dispTable[-1][2].setToolTip('<u></u>' + fullcmt)
+            self.dispTable[-1][3].setToolTip('<u></u>' + fullcmt)
+         self.dispTable[-1][1].setToolTip('<u></u>' + utxo.longLabel())
          self.connect(self.dispTable[-1][0], SIGNAL(CLICKED), self.clickOne)
          frmTableLayout.addWidget(self.dispTable[-1][0], i + 2, 0)
          frmTableLayout.addWidget(VLINE(), i + 2, 1)
          frmTableLayout.addWidget(self.dispTable[-1][1], i + 2, 2)
          frmTableLayout.addWidget(VLINE(), i + 2, 3)
          frmTableLayout.addWidget(self.dispTable[-1][2], i + 2, 4)
-
+         frmTableLayout.addWidget(VLINE(), i + 2, 5)
+         frmTableLayout.addWidget(self.dispTable[-1][3], i + 2, 6)
       frmTable = QFrame()
       frmTable.setLayout(frmTableLayout)
       self.scrollAddrList = QScrollArea()
@@ -10519,9 +10523,7 @@ class DlgCoinControl(ArmoryDialog):
       totalBal = 0
       for dispList in self.dispTable:
          if dispList[0].isChecked():
-            atype, a160 = addrStr_to_hash160(str(dispList[0].text()), False)
-
-            totalBal += self.wlt.getAddrBalance(a160)
+            totalBal += dispList[2].nSatoshi
          else:
             self.chkSelectAll.setChecked(False)
 
@@ -10533,10 +10535,10 @@ class DlgCoinControl(ArmoryDialog):
       self.coinControlList = []
       for dispList in self.dispTable:
          if dispList[0].isChecked():
-            atype, a160 = addrStr_to_hash160(str(dispList[0].text()), False)
-
-            bal = self.wlt.getAddrBalance(a160)
-            self.coinControlList.append([a160, bal])
+            utxoIndex = dispList[4]
+            utxo = self.utxoList[utxoIndex]
+            
+            self.coinControlList.append(utxo)
 
       if len(self.coinControlList) == 0:
          QMessageBox.warning(self, 'Nothing Selected', \

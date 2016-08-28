@@ -93,20 +93,6 @@ public:
 };
 
 ///////////////////////////////////////////////////////////////////////////////
-class UtxoVector
-{
-private:
-   vector<UTXO> vec_;
-
-public:
-   void push_back(UTXO utxo) { vec_.push_back(move(utxo)); }
-   vector<UTXO> toVec(void) { return move(vec_); }
-   
-   friend ostream& operator << (ostream&, const UtxoVector&);
-   friend istream& operator >> (istream&, UtxoVector&);
-};
-
-///////////////////////////////////////////////////////////////////////////////
 struct ProgressData
 {
    BDMPhase phase_; 

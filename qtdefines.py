@@ -334,6 +334,7 @@ class QMoneyLabel(QRichLabel):
                               wBold=False, txtSize=10):
       QLabel.__init__(self, coin2str(nSatoshi))
 
+      self.nSatoshi = nSatoshi
       self.setValueText(nSatoshi, ndec, maxZeros, wColor, wBold, txtSize)
 
 

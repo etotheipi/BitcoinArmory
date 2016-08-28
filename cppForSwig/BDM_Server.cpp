@@ -346,17 +346,20 @@ void BDV_Server_Object::buildMethodMap()
 
       auto&& utxoVec = wltPtr->getSpendableTxOutListForValue(value, ignorezc);
 
-      UtxoVector retVec;
+      Arguments retarg;
+      unsigned count = utxoVec.size();
+      retarg.push_back(move(count));
+
       for (auto& utxo : utxoVec)
       {
-         UTXO entry(utxo.value_, utxo.txHeight_, utxo.txOutIndex_,
+         UTXO entry(utxo.value_, utxo.txHeight_, utxo.txIndex_, utxo.txOutIndex_,
             move(utxo.txHash_), move(utxo.script_));
 
-         retVec.push_back(move(entry));
+         auto&& bdser = entry.serialize();
+         BinaryDataObject bdo(move(bdser));
+         retarg.push_back(move(bdo));
       }
 
-      Arguments retarg;
-      retarg.push_back(move(retVec));
       return retarg;
    };
 
@@ -392,17 +395,20 @@ void BDV_Server_Object::buildMethodMap()
 
       auto&& utxoVec = addrObj->getAllUTXOs(spentByZC);
 
-      UtxoVector retVec;
+      Arguments retarg;
+      unsigned count = utxoVec.size();
+      retarg.push_back(move(count));
+
       for (auto& utxo : utxoVec)
       {
-         UTXO entry(utxo.value_, utxo.txHeight_, utxo.txOutIndex_,
+         UTXO entry(utxo.value_, utxo.txHeight_, utxo.txIndex_, utxo.txOutIndex_,
             move(utxo.txHash_), move(utxo.script_));
 
-         retVec.push_back(move(entry));
+         auto&& bdser = entry.serialize();
+         BinaryDataObject bdo(move(bdser));
+         retarg.push_back(move(bdser));
       }
 
-      Arguments retarg;
-      retarg.push_back(move(retVec));
       return retarg;
    };
 

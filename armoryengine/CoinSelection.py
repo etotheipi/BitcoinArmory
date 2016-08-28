@@ -83,7 +83,8 @@ class PyUnspentTxOut(object):
    def __init__(self, scrAddr=None, txHash=None, txoIdx=None, val=None, 
                                              numConf=None, fullScript=None):
 
-      self.initialize(scrAddr, txHash, txoIdx, val, numConf, fullScript)
+      self.initialize(scrAddr, txHash, None, None, None, 
+                      txoIdx, val, numConf, fullScript)
 
 
    #############################################################################
@@ -92,20 +93,27 @@ class PyUnspentTxOut(object):
       val    = cppUtxo.getValue()
       conf   = cppUtxo.getNumConfirm(TheBDM.getTopBlockHeight())
       txHash = cppUtxo.getTxHash()
+      txHashStr = cppUtxo.getTxHashStr()
       txoIdx = cppUtxo.getTxOutIndex()
       script = cppUtxo.getScript()
+      txHeight = cppUtxo.getHeight()
+      txIndex = cppUtxo.getTxIndex()
 
-      self.initialize(scrAddr, txHash, txoIdx, val, conf, script)
+      self.initialize(scrAddr, txHash, txHashStr, txHeight, txIndex, 
+                      txoIdx, val, conf, script)
       return self
 
    #############################################################################
-   def initialize(self, scrAddr=None, txHash=None, txoIdx=None, val=None, 
-                                              numConf=None, fullScript=None):
+   def initialize(self, scrAddr, txHash, txHashStr, txHeight, txIndex, 
+                  txoIdx, val, numConf=None, fullScript=None):
       self.scrAddr    = scrAddr
       self.txHash     = txHash
+      self.txHashStr  = txHashStr
       self.txOutIndex = txoIdx
       self.val        = val
       self.conf       = numConf
+      self.txHeight   = txHeight
+      self.txIndex    = txIndex
 
       if self.scrAddr and fullScript is None:
          self.binScript = scrAddr_to_script(self.scrAddr)
@@ -114,6 +122,9 @@ class PyUnspentTxOut(object):
 
    def getTxHash(self):
       return self.txHash
+   
+   def getTxHeight(self):
+      return self.txHeight
 
    def getTxOutIndex(self):
       return self.txOutIndex
@@ -139,6 +150,13 @@ class PyUnspentTxOut(object):
       pstr.append(coin2str(self.val))
       pstr.append(str(self.conf).rjust(8,' '))
       return '  '.join(pstr)
+   
+   def shortLabel(self):
+      return '%d|%d|%d' % (self.txHeight, self.txIndex, self.txOutIndex)
+      
+   def longLabel(self):
+      return 'height: %d, txIndex: %d, txOutIndex: %d, txHash: %s' % \
+         (self.txHeight, self.txIndex, self.txOutIndex, self.txHashStr)
 
    def pprint(self, indent=''):
       print self.prettyStr(indent)

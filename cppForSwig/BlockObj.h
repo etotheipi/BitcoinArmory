@@ -413,6 +413,7 @@ public:
    void init(LMDBBlockDatabase *db, TxOut & txout, uint32_t blknum, bool isMultiRef=false);
 
    BinaryData   getTxHash(void) const      { return txHash_;     }
+   uint32_t     getTxtIndex(void) const    { return txIndex_; }
    uint32_t     getTxOutIndex(void) const  { return txOutIndex_; }
    uint64_t     getValue(void)  const      { return value_;      }
    uint64_t     getTxHeight(void)  const   { return txHeight_;   }
@@ -450,6 +451,7 @@ public:
    BinaryData txHash_;
    uint32_t   txOutIndex_;
    uint32_t   txHeight_;
+   uint32_t   txIndex_;
    uint64_t   value_;
    BinaryData script_;
    bool       isMultisigRef_;

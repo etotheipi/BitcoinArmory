@@ -302,9 +302,11 @@ UnspentTxOut::UnspentTxOut(void) :
 void UnspentTxOut::init(LMDBBlockDatabase *db, TxOut & txout, uint32_t blkNum, 
    bool isMulti)
 {
-   DBTxRef parentTxRef(txout.getParentTxRef(), db);
+   TxRef txRef = txout.getParentTxRef();
+   DBTxRef parentTxRef(txRef, db);
    txHash_     = parentTxRef.getThisHash();
    txOutIndex_ = txout.getIndex();
+   txIndex_    = txRef.getBlockTxIndex();
    txHeight_   = txout.getParentHeight();
    value_      = txout.getValue();
    script_     = txout.getScript();

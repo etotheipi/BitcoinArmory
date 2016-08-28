@@ -97,7 +97,8 @@ public:
    vector<uint64_t> getBalancesAndCount(
       uint32_t topBlockHeight, bool IGNOREZC);
 
-   vector<UTXO> getSpendableTxOutListForValue(uint64_t val, bool ignoreZC);
+   vector<UTXO> getSpendableTxOutListForValue(
+      uint64_t val = UINT64_MAX, bool ignoreZC = true);
    map<BinaryData, uint32_t> getAddrTxnCountsFromDB(void);
    map<BinaryData, vector<uint64_t> >
       getAddrBalancesFromDB(void);

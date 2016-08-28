@@ -236,23 +236,24 @@ class SelectWalletFrame(ArmoryFrame):
 
    def doCoinCtrl(self):
       wlt = self.main.walletMap[self.getSelectedWltID()]
-      dlgcc = DlgCoinControl(self, self.main, wlt, self.sourceAddrList)
+      dlgcc = DlgCoinControl(self, self.main, wlt, self.customUtxoList)
       if dlgcc.exec_():
-         self.sourceAddrList = [x[0] for x in dlgcc.coinControlList]
-         self.altBalance = sum([x[1] for x in dlgcc.coinControlList])
+         self.customUtxoList = [x for x in dlgcc.coinControlList]
+         self.altBalance = sum([x.getValue() for x in dlgcc.coinControlList])
       
-         nAddr = len(self.sourceAddrList)
+         nUtxo = len(self.customUtxoList)
          if self.altBalance == wlt.getBalance('Spendable'):
             self.lblCoinCtrl.setText('Source: All addresses')
-            self.sourceAddrList = None
+            self.customUtxoList = None
             self.altBalance = None
-         elif nAddr == 0:
+         elif nUtxo == 0:
             self.lblCoinCtrl.setText('Source: None selected')
-         elif nAddr == 1:
-            aStr = hash160_to_addrStr(self.sourceAddrList[0])
+         elif nUtxo == 1:
+            utxo = self.customUtxoList[0]
+            aStr = hash160_to_addrStr(utxo.getRecipientHash160)
             self.lblCoinCtrl.setText('Source: %s...' % aStr[:12])
-         elif nAddr > 1:
-            self.lblCoinCtrl.setText('Source: %d addresses' % nAddr)
+         elif nUtxo > 1:
+            self.lblCoinCtrl.setText('Source: %d Outputs' % nUtxo)
          self.updateOnCoinControl()
          
    def updateOnWalletChange(self, ignoredInt=None):
@@ -289,7 +290,7 @@ class SelectWalletFrame(ArmoryFrame):
          # Reset the coin control variables after a new wallet is selected
          if self.coinControlCallback:
             self.altBalance = None
-            self.sourceAddrList = None
+            self.customUtxoList = None
             self.btnCoinCtrl.setEnabled(wlt.getBalance('Spendable')>0)
             self.lblCoinCtrl.setText('Source: All addresses' if wlt.getBalance('Spendable')>0 else\
                                      'Source: 0 addresses' )
@@ -320,7 +321,7 @@ class SelectWalletFrame(ArmoryFrame):
          self.dispBal.setText('(available when online)', color='DisableFG')
       self.repaint()
       if self.coinControlCallback:
-         self.coinControlCallback(self.sourceAddrList, self.altBalance)
+         self.coinControlCallback(self.customUtxoList, self.altBalance)
 
 
 

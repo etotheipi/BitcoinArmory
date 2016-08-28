@@ -341,9 +341,18 @@ vector<UTXO> BtcWallet::getSpendableTxOutListForValue(uint64_t val,
 
    auto&& retval = sock_->writeAndRead(cmd.command_);
    Arguments arg(move(retval));
-   auto&& utxoVec = arg.get<UtxoVector>();
+   auto count = arg.get<unsigned>();
 
-   auto&& utxovec = utxoVec.toVec();
+   vector<UTXO> utxovec;
+   for (unsigned i = 0; i < count; i++)
+   {
+      auto&& bdo = arg.get<BinaryDataObject>();
+      UTXO utxo;
+      utxo.unserialize(bdo.get());
+
+      utxovec.push_back(move(utxo));
+   }
+
    return utxovec;
 }
 
@@ -528,9 +537,18 @@ vector<UTXO> ScrAddrObj::getSpendableTxOutList(bool ignoreZC)
 
    auto&& retval = sock_->writeAndRead(cmd.command_);
    Arguments arg(move(retval));
-   auto&& utxoVec = arg.get<UtxoVector>();
+   auto count = arg.get<unsigned>();
 
-   auto&& utxovec = utxoVec.toVec();
+   vector<UTXO> utxovec;
+   for (unsigned i = 0; i < count; i++)
+   {
+      auto&& bdo = arg.get<BinaryDataObject>();
+      UTXO utxo;
+      utxo.unserialize(bdo.get());
+
+      utxovec.push_back(move(utxo));
+   }
+
    return utxovec;
 }
 

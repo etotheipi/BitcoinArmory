@@ -675,6 +675,52 @@ void TxRef::setRef(BinaryDataRef bdr)
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 //
+// UTXO methods
+//
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+BinaryData UTXO::serialize() const
+{
+   BinaryWriter bw;
+   //8 + 4 + 2 + 2 + 32 + scriptsize
+   bw.reserve(48 + script_.getSize());
+   bw.put_uint64_t(value_);
+   bw.put_uint32_t(txHeight_);
+   bw.put_uint16_t(txIndex_);
+   bw.put_uint16_t(txOutIndex_);
+   
+   bw.put_BinaryData(txHash_);
+   bw.put_BinaryData(script_);
+
+   return move(bw.getData());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void UTXO::unserialize(const BinaryData& data)
+{
+   if (data.getSize() < 48)
+      throw runtime_error("invalid raw utxo size");
+   
+   BinaryRefReader brr(data.getRef());
+
+
+   auto scriptSize = data.getSize() - 48;
+   if (scriptSize == 0)
+      throw runtime_error("no script data in raw utxo");
+
+   value_ = brr.get_uint64_t();
+   txHeight_ = brr.get_uint32_t();
+   txIndex_ = brr.get_uint16_t();
+   txOutIndex_ = brr.get_uint16_t();
+
+   txHash_ = brr.get_BinaryData(32);
+   script_ = brr.get_BinaryData(scriptSize);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+//
 // AddressBookEntry methods
 //
 ////////////////////////////////////////////////////////////////////////////////

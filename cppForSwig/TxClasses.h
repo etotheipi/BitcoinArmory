@@ -442,14 +442,15 @@ struct UTXO
    BinaryData txHash_;
    uint32_t   txOutIndex_;
    uint32_t   txHeight_;
+   uint32_t   txIndex_;
    uint64_t   value_;
    BinaryData script_;
    bool       isMultisigRef_;
 
-   UTXO(uint64_t value, uint32_t txHeight, uint32_t txOutIndex,
-      BinaryData txHash, BinaryData script) :
-      txHash_(move(txHash)), txHeight_(txHeight), txOutIndex_(txOutIndex),
-      value_(value), script_(move(script))
+   UTXO(uint64_t value, uint32_t txHeight, uint32_t txIndex, 
+      uint32_t txOutIndex, BinaryData txHash, BinaryData script) :
+      txHash_(move(txHash)), txHeight_(txHeight), txIndex_(txIndex), 
+      txOutIndex_(txOutIndex), value_(value), script_(move(script))
    {}
 
    UTXO(void) {}
@@ -459,12 +460,19 @@ struct UTXO
 
    uint64_t getValue(void) const { return value_; }
    const BinaryData& getTxHash(void) const { return txHash_; }
+   string getTxHashStr(void) const { return txHash_.toHexStr(); }
    const BinaryData& getScript(void) const { return script_; }
+   uint32_t getTxIndex(void) const { return txIndex_; }
    uint32_t getTxOutIndex(void) const { return txOutIndex_; }
    uint32_t getNumConfirm(uint32_t height) const
    {
       return height - txHeight_ + 1;
    }
+
+   uint32_t getHeight(void) const { return txHeight_; }
+
+   BinaryData serialize(void) const;
+   void unserialize(const BinaryData&);
 };
 
 

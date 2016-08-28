@@ -31,7 +31,7 @@ class SendBitcoinsFrame(ArmoryFrame):
                  spendFromLockboxID=None):
       super(SendBitcoinsFrame, self).__init__(parent, main)
       self.maxHeight = tightSizeNChar(GETFONT('var'), 1)[1] + 8
-      self.sourceAddrList = None
+      self.customUtxoList = []
       self.altBalance = None
       self.wlt = wlt
       self.wltID = wlt.uniqueIDB58 if wlt else None
@@ -412,8 +412,8 @@ class SendBitcoinsFrame(ArmoryFrame):
    # Update the available source address list and balance based on results from
    # coin control. This callback is now necessary because coin control was moved
    # to the Select Wallet Frame
-   def coinControlUpdate(self, sourceAddrList, altBalance):
-      self.sourceAddrList = sourceAddrList
+   def coinControlUpdate(self, customUtxoList, altBalance):
+      self.customUtxoList = customUtxoList
       self.altBalance = altBalance
 
 
@@ -856,6 +856,7 @@ class SendBitcoinsFrame(ArmoryFrame):
             return self.wlt.getUTXOListForSpendVal(totalSend)
 
          else:
+            '''
             utxoList = []
             for a160 in self.sourceAddrList:
                # Trying to avoid a swig bug involving iteration over vector<> types
@@ -864,6 +865,9 @@ class SendBitcoinsFrame(ArmoryFrame):
                for i in range(len(utxos)):
                   utxoList.append(PyUnspentTxOut().createFromCppUtxo(utxos[i]))
             return utxoList
+            '''
+            
+            return self.customUtxoList
       else:
          lbID = self.lbox.uniqueIDB58
          cppWlt = self.main.cppLockboxWltMap.get(lbID)
