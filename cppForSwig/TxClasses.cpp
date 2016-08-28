@@ -714,7 +714,7 @@ void AddressBookEntry::unserialize(const BinaryData& data)
 
    for (unsigned i = 0; i < hashListCount; i++)
    {
-      auto&& hash = move(brr.get_BinaryData(32));
+      auto&& hash = brr.get_BinaryData(32);
       txHashList_.push_back(move(hash));
    }
 }
