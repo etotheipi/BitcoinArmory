@@ -220,42 +220,10 @@ HttpSocket(obj)
 {}
 
 ///////////////////////////////////////////////////////////////////////////////
-FcgiMessage FcgiSocket::makePacket(const char* msg)
-{
-   FcgiMessage fcgiMsg;
-   auto requestID = fcgiMsg.beginRequest();
-
-   stringstream msglength;
-   msglength << strlen(msg);
-
-   //params
-   auto& params = fcgiMsg.getNewPacket();
-   params.addParam("CONTENT_TYPE", "text/html; charset=UTF-8");
-   params.addParam("CONTENT_LENGTH", msglength.str());
-   params.buildHeader(FCGI_PARAMS, requestID);
-
-   //terminate fcgi_param
-   auto& paramterminator = fcgiMsg.getNewPacket();
-   paramterminator.buildHeader(FCGI_PARAMS, requestID);
-
-   //data
-   //TODO: break down data into several FCGI_STDIN packets if length > UINT16_MAX
-   auto& data = fcgiMsg.getNewPacket();
-   data.addData(msg, strlen(msg));
-   data.buildHeader(FCGI_STDIN, requestID);
-
-   //terminate fcgi_stdin
-   auto& dataterminator = fcgiMsg.getNewPacket();
-   dataterminator.buildHeader(FCGI_STDIN, requestID);
-
-   return fcgiMsg;
-}
-
-///////////////////////////////////////////////////////////////////////////////
 string FcgiSocket::writeAndRead(const string msg, SOCKET sockfd)
 {
 
-   auto&& fcgiMsg = makePacket(msg.c_str());
+   auto&& fcgiMsg = FcgiMessage::makePacket(msg.c_str());
    auto serdata = fcgiMsg.serialize();
    auto serdatalength = fcgiMsg.getSerializedDataLength();
 

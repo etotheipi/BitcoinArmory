@@ -117,6 +117,9 @@
     <ClCompile Include="..\SocketObject.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\FcgiMessage.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="fcgi\include\fcgiapp.h">

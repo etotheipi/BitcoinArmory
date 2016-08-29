@@ -25,6 +25,7 @@
 #include "EncryptionUtils.h"
 #include "LedgerEntry.h"
 #include "DbHeader.h"
+#include "FcgiMessage.h"
 
 #define MAX_CONTENT_LENGTH 1024*1024*1024
 

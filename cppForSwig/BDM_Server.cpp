@@ -957,9 +957,18 @@ void FCGI_Server::haltFcgiLoop()
    //spin lock until all requests are closed
    while (liveThreads_.load(memory_order_relaxed) != 0);
 
-   //close the listening socket
-   BinarySocket::closeSocket(sockfd_);
-   OS_LibShutdown();
+   //connect to own listen to trigger thread exit
+   BinarySocket sock("127.0.0.1", port_);
+   auto sockfd = sock.openSocket(false);
+   if (sockfd == SOCK_MAX)
+      return;
+
+   auto&& fcgiMsg = FcgiMessage::makePacket("");
+   auto serdata = fcgiMsg.serialize();
+   auto serdatalength = fcgiMsg.getSerializedDataLength();
+
+   sock.writeToSocket(sockfd, serdata, serdatalength);
+   sock.closeSocket(sockfd);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

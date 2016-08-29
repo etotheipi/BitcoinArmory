@@ -31,6 +31,7 @@ using namespace std;
 ///////////////////////////////////////////////////////////////////////////////
 class BinarySocket
 {
+   friend class FCGI_Server;
 public:
    typedef function<bool(vector<uint8_t>, exception_ptr)>  ReadCallback;
 

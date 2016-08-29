@@ -216,6 +216,7 @@
     <ClCompile Include="..\DataObject.cpp" />
     <ClCompile Include="..\DBUtils.cpp" />
     <ClCompile Include="..\EncryptionUtils.cpp" />
+    <ClCompile Include="..\FcgiMessage.cpp" />
     <ClCompile Include="..\gtest\CppBlockUtilsTests.cpp" />
     <ClCompile Include="..\gtest\gtest-all.cc" />
     <ClCompile Include="..\HistoryPager.cpp" />

@@ -209,5 +209,8 @@
     <ClCompile Include="..\BlockDataManager\fcgi\libfcgi\os_win32.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\FcgiMessage.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

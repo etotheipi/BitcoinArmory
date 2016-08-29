@@ -91,7 +91,6 @@ class FcgiSocket : public HttpSocket
 {
 private:
    void addStringParam(const string& name, const string& val);
-   FcgiMessage makePacket(const char*);
 
    struct packetStruct
    {

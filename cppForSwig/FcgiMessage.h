@@ -12,6 +12,7 @@
 #include <stdint.h>
 #include <vector>
 #include <string>
+#include <sstream>
 #include "./BlockDataManager/fcgi/include/fastcgi.h"
 
 using namespace std;
@@ -54,6 +55,8 @@ private:
    int requestID_ = -1;
 
 public:
+   static FcgiMessage makePacket(const char* msg);
+
    uint8_t* serialize(void);
    size_t getSerializedDataLength(void) const { return serData_.size(); }
    
