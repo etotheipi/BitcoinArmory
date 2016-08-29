@@ -1235,10 +1235,14 @@ void BDV_Server_Object::maintenanceThread(void)
       }
 
       auto action = notifPtr->action_type();
+      if (action != BDV_Progress)
+      {
+         //skip all but progress notifications if BDV isn't ready
+         if (isReadyFuture_.wait_for(chrono::seconds(0)) != future_status::ready)
+            continue;
+      }
 
-      shared_ptr<BDV_Notification> notifSPtr = move(notifPtr);
-
-      scanWallets(notifSPtr);
+      scanWallets(notifPtr);
 
       switch(action)
       {
@@ -1246,7 +1250,7 @@ void BDV_Server_Object::maintenanceThread(void)
          {
             Arguments args2;
             auto&& payload =
-               dynamic_pointer_cast<BDV_Notification_NewBlock>(notifSPtr);
+               dynamic_pointer_cast<BDV_Notification_NewBlock>(notifPtr);
             uint32_t blocknum =
                payload->reorgState_.newTop->getBlockHeight();
 
@@ -1279,7 +1283,7 @@ void BDV_Server_Object::maintenanceThread(void)
          case BDV_Progress:
          {
             auto&& payload = 
-               dynamic_pointer_cast<BDV_Notification_Progress>(notifSPtr);
+               dynamic_pointer_cast<BDV_Notification_Progress>(notifPtr);
 
             ProgressData pd(payload->phase_, payload->progress_,
                payload->time_, payload->numericProgress_);
