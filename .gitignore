@@ -3,6 +3,7 @@
 *~
 *.o
 
+ArmoryDB
 /armoryengine/ArmoryBuild.py
 
 CppBlockUtils.py
