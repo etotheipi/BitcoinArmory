@@ -11,6 +11,7 @@ _CppBlockUtils.*
 /cppForSwig/CppBlockUtils_wrap.cxx
 /cppForSwig/libcryptopp.a
 /cppForSwig/libleveldb.a
+/cppForSwig/cryptopp/.a
 /cppForSwig/cryptopp/a.out
 /cppForSwig/cryptopp/Template
 /cppForSwig/cryptopp/TestData
@@ -20,6 +21,15 @@ _CppBlockUtils.*
 /cppForSwig/cryptopp/DLL_Debug
 /cppForSwig/cryptopp/dlltest___Win32_Debug
 /cppForSwig/cryptopp/Release
+
+/cppForSwig/gtest/ContainerTests
+/cppForSwig/gtest/CppBlockUtilsTests
+/cppForSwig/gtest/.txt
+/cppForSwig/gtest/.a
+/cppForSwig/gtest/.out.*
+/cppForSwig/gtest/blkfiletest/*
+/cppForSwig/gtest/ContainerTests.dSYM/*
+/cppForSwig/gtest/CppBlockUtilsTests.dSYM/*
 
 *.DS_Store
 osxbuild/Armory.app
