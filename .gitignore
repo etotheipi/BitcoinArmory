@@ -11,7 +11,7 @@ _CppBlockUtils.*
 /cppForSwig/CppBlockUtils_wrap.cxx
 /cppForSwig/libcryptopp.a
 /cppForSwig/libleveldb.a
-/cppForSwig/cryptopp/.a
+/cppForSwig/cryptopp/*.a
 /cppForSwig/cryptopp/a.out
 /cppForSwig/cryptopp/Template
 /cppForSwig/cryptopp/TestData
@@ -24,9 +24,9 @@ _CppBlockUtils.*
 
 /cppForSwig/gtest/ContainerTests
 /cppForSwig/gtest/CppBlockUtilsTests
-/cppForSwig/gtest/.txt
-/cppForSwig/gtest/.a
-/cppForSwig/gtest/.out.*
+/cppForSwig/gtest/*.txt
+/cppForSwig/gtest/*.a
+/cppForSwig/gtest/*.out.*
 /cppForSwig/gtest/blkfiletest/*
 /cppForSwig/gtest/ContainerTests.dSYM/*
 /cppForSwig/gtest/CppBlockUtilsTests.dSYM/*
