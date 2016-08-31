@@ -374,7 +374,7 @@ BlockDataFileMap::BlockDataFileMap(const string& filename, bool preload)
    {
       auto errorCode = GetLastError();
       stringstream errStr;
-      errStr << "Failed to create map of file. Error Code: " << errorCode;
+      errStr << "Failed to create map of file. Error Code: " << errorCode << " (" << strerror(errorCode) << ")";
       throw runtime_error(errStr.str());
    }
 
@@ -383,7 +383,7 @@ BlockDataFileMap::BlockDataFileMap(const string& filename, bool preload)
    {
       auto errorCode = GetLastError();
       stringstream errStr;
-      errStr << "Failed to create map of file. Error Code: " << errorCode;
+      errStr << "Failed to create map of file. Error Code: " << errorCode << " (" << strerror(errorCode) << ")";
       throw runtime_error(errStr.str());
    }
 
@@ -402,7 +402,7 @@ BlockDataFileMap::BlockDataFileMap(const string& filename, bool preload)
    if (fileMap_ == MAP_FAILED) {
       fileMap_ = NULL;
       stringstream errStr;
-      errStr << "Failed to create map of file. Error Code: " << errno;
+      errStr << "Failed to create map of file. Error Code: " << errno << " (" << strerror(errno) << ")";
 	   cout << errStr.str() << endl;
       throw runtime_error(errStr.str());
    }
