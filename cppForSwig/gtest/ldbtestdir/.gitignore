@@ -3,3 +3,22 @@
 *
 # Except this file
 !.gitignore
+
+blkdata
+blkdata-lock
+headers
+headers-lock
+history
+history-lock
+ssh
+ssh-lock
+stxo
+stxo-lock
+subssh
+subssh-lock
+txfilters
+txfilters-lock
+txhints
+txhints-lock
+zeroconf
+zeroconf-lock
