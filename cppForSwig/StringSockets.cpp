@@ -251,7 +251,13 @@ string FcgiSocket::writeAndRead(const string msg, SOCKET sockfd)
          {
             try
             {
-               if (socketData.size() == 0 && ePtr == nullptr)
+               if (ePtr != nullptr)
+               {
+                  readPromise->set_exception(ePtr);
+                  return true;
+               }
+
+               if (socketData.size() == 0)
                {
                   readPromise->set_value(true);
                   return true;
@@ -330,12 +336,6 @@ string FcgiSocket::writeAndRead(const string msg, SOCKET sockfd)
 
                   if (packetPtr->endpacket >= 1 || abortParse)
                      break;
-               }
-
-               if (ePtr != nullptr)
-               {
-                  readPromise->set_exception(ePtr);
-                  return true;
                }
 
                if (packetPtr->endpacket >= 1)
