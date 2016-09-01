@@ -1057,17 +1057,11 @@ void ZeroConfContainer::parseNewZC(map<BinaryData, Tx> zcMap,
          keysToWrite.push_back(newZCPair.first);
    }
 
-   auto waitonzcmap = waitOnZcMap_.get();
-
    map<string, set<BinaryData>> flaggedBDVs;
 
    for (auto& newZCPair : zcMap)
    {
       const BinaryData&& txHash = newZCPair.second.getThisHash();
-      auto promiseIter = waitonzcmap->find(txHash);
-      if (promiseIter != waitonzcmap->end())
-         promiseIter->second->set_value(true);
-
       if (txHashToDBKey_.find(txHash) != txHashToDBKey_.end())
          continue; //already have this ZC
 
@@ -1687,24 +1681,10 @@ void ZeroConfContainer::processInvTxThread(void)
       try
       {
          auto&& entry = newtxfuture.get();
-         //thread exit condition: push a block with a inv_terminate type
-         if (entry.invtype_ == Inv_Terminate)
-            break;
-
-         auto payload = networkNode_->getTx(entry);
-
-
-         //push raw tx with current time
-         pair<BinaryData, Tx> zcpair;
-         zcpair.first = getNewZCkey();
-         auto& rawTx = payload->getRawTx();
-         zcpair.second.unserialize(&rawTx[0], rawTx.size());
-         zcpair.second.setTxTime(time(0));
-
-         ZcActionStruct actionstruct;
-         actionstruct.zcMap_.insert(move(zcpair));
-         actionstruct.action_ = Zc_NewTx;
-         newZcStack_.push_back(move(actionstruct));
+         
+         //thread exit condition: prcessInvTxThread returns false
+         if (!processInvTxThread(move(entry)))
+            return;
       }
       catch (BitcoinP2P_Exception&)
       {
@@ -1713,9 +1693,36 @@ void ZeroConfContainer::processInvTxThread(void)
       }
       catch (future_error&)
       {
-         break;
+         return;
       }
    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+bool ZeroConfContainer::processInvTxThread(InvEntry entry)
+{
+   if (entry.invtype_ == Inv_Terminate)
+      return false;
+
+   auto payload = networkNode_->getTx(entry);
+
+   auto payloadtx = dynamic_pointer_cast<Payload_Tx>(payload);
+   if (payloadtx == nullptr)
+      return true;
+
+   //push raw tx with current time
+   pair<BinaryData, Tx> zcpair;
+   zcpair.first = getNewZCkey();
+   auto& rawTx = payloadtx->getRawTx();
+   zcpair.second.unserialize(&rawTx[0], rawTx.size());
+   zcpair.second.setTxTime(time(0));
+
+   ZcActionStruct actionstruct;
+   actionstruct.zcMap_.insert(move(zcpair));
+   actionstruct.action_ = Zc_NewTx;
+   newZcStack_.push_back(move(actionstruct));
+
+   return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1731,7 +1738,7 @@ void ZeroConfContainer::eraseBDVcallback(string id)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void ZeroConfContainer::broadcastZC(const BinaryData& rawzc,
+shared_ptr<GetDataStatus> ZeroConfContainer::broadcastZC(const BinaryData& rawzc, 
    uint32_t timeout_sec)
 {
    //get tx hash
@@ -1746,7 +1753,7 @@ void ZeroConfContainer::broadcastZC(const BinaryData& rawzc,
    memcpy(entry.hash, txHash.getPtr(), 32);
    
    vector<InvEntry> invVec;
-   invVec.push_back(move(entry));
+   invVec.push_back(entry);
 
    Payload_Inv payload_inv;
    payload_inv.setInvVector(invVec);
@@ -1769,6 +1776,11 @@ void ZeroConfContainer::broadcastZC(const BinaryData& rawzc,
    getDataPair.first = txHash;
    getDataPair.second = move(getDataPayload);
 
+   //Register tx hash for watching before broadcasting the inv. This guarantees we will
+   //catch any reject packet before trying to fetch the tx back for confirmation.
+   auto gds = make_shared<GetDataStatus>();
+   networkNode_->registerGetTxCallback(txHash, gds);
+
    //register getData payload
    networkNode_->getDataPayloadMap_.insert(move(getDataPair));
 
@@ -1776,49 +1788,52 @@ void ZeroConfContainer::broadcastZC(const BinaryData& rawzc,
    networkNode_->sendMessage(move(payload_inv));
 
    //wait on getData future
-   bool sentTx = false;
+   bool sent = false;
    if (timeout_sec == 0)
    {
-      getDataFut.get();
-      sentTx = true;
+      getDataFut.wait();
    }
    else
    {
       auto getDataFutStatus = getDataFut.wait_for(chrono::seconds(timeout_sec));
-      if (getDataFutStatus == future_status::ready)
-         sentTx = true;
+      if (getDataFutStatus != future_status::ready)
+      {
+         gds->setStatus(false);
+         gds->setMessage("tx broadcast timed out");
+      }
+      else
+         sent = true;
    }
 
    networkNode_->getDataPayloadMap_.erase(txHash);
 
-   if (!sentTx)
-      throw runtime_error("broadcast tx timed out");
+   if (!sent)
+   {
+      networkNode_->unregisterGetTxCallback(txHash);
+      return gds;
+   }
 
-   //register tx hash for watching
-   auto gotZcPromise = make_shared<promise<bool>>();
-   auto watchTxFuture = gotZcPromise->get_future();
-   waitOnZcMap_.insert(make_pair(txHash, gotZcPromise));
+   auto watchTxFuture = gds->getFuture();
 
    //try to fetch tx by hash from node
-   processInvTxVec(move(invVec));
+   processInvTxThread(move(entry));
 
-   bool gotTx = false;
    if (timeout_sec == 0)
    {
       watchTxFuture.wait();
-      gotTx = true;
    }
    else
    {
       auto status = watchTxFuture.wait_for(chrono::seconds(timeout_sec));
-      if (status == future_status::ready)
-         gotTx = true;
+      if (status != future_status::ready)
+      {
+         gds->setStatus(false);
+         gds->setMessage("tx broadcast timed out");
+      }
    }
 
-   waitOnZcMap_.erase(txHash);
-
-   if (!gotTx)
-      throw runtime_error("broadcast tx timed out");
+   networkNode_->unregisterGetTxCallback(txHash);
+   return gds;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

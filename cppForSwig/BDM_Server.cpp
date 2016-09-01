@@ -21,9 +21,9 @@ void BDV_Server_Object::buildMethodMap()
       if (cbPtr == nullptr || !cbPtr->isValid())
          return Arguments();
 
-      auto&& callbackArg = args.get<string>();
+      auto&& callbackArg = args.get<BinaryDataObject>();
 
-      auto&& retval = this->cb_->respond(callbackArg);
+      auto&& retval = this->cb_->respond(move(callbackArg.toStr()));
 
       if (!retval.hasArgs())
          LOGINFO << "returned empty callback packet";
@@ -175,12 +175,12 @@ void BDV_Server_Object::buildMethodMap()
       if (ids.size() != 1)
          throw runtime_error("unexpected id count");
 
-      auto&& id = args.get<string>();
+      auto&& id = args.get<BinaryDataObject>();
       auto&& scrAddrVec = args.get<BinaryDataVector>();
       auto&& isNew = args.get<unsigned int>();
 
       uint32_t retVal = 
-         this->registerWallet(scrAddrVec.get(), id, isNew);
+         this->registerWallet(scrAddrVec.get(), move(id.toStr()), isNew);
       
       Arguments retarg;
       retarg.push_back(move(retVal));
@@ -196,11 +196,12 @@ void BDV_Server_Object::buildMethodMap()
       if (ids.size() != 1)
          throw runtime_error("unexpected id count");
 
-      auto&& id = args.get<string>();
+      auto&& id = args.get<BinaryDataObject>();
       auto&& scrAddrVec = args.get<BinaryDataVector>();
       auto&& isNew = args.get<unsigned int>();
 
-      uint32_t retVal = this->registerLockbox(scrAddrVec.get(), id, isNew);
+      uint32_t retVal = this->registerLockbox(
+         scrAddrVec.get(), move(id.toStr()), isNew);
 
       Arguments retarg;
       retarg.push_back(move(retVal));
@@ -220,7 +221,8 @@ void BDV_Server_Object::buildMethodMap()
       this->delegateMap_.insert(make_pair(id, ledgerdelegate));
 
       Arguments retarg;
-      retarg.push_back(move(id));
+      BinaryDataObject bdo(id);
+      retarg.push_back(move(bdo));
       return retarg;
    };
 
@@ -237,7 +239,8 @@ void BDV_Server_Object::buildMethodMap()
       this->delegateMap_.insert(make_pair(id, ledgerdelegate));
 
       Arguments retarg;
-      retarg.push_back(move(id));
+      BinaryDataObject bdo(id);
+      retarg.push_back(move(bdo));
       return retarg;
    };
 
@@ -258,7 +261,8 @@ void BDV_Server_Object::buildMethodMap()
       this->delegateMap_.insert(make_pair(id, ledgerdelegate));
 
       Arguments retarg;
-      retarg.push_back(move(id));
+      BinaryDataObject bdo(id);
+      retarg.push_back(move(bdo));
       return retarg;
    };
 
@@ -406,7 +410,7 @@ void BDV_Server_Object::buildMethodMap()
 
          auto&& bdser = entry.serialize();
          BinaryDataObject bdo(move(bdser));
-         retarg.push_back(move(bdser));
+         retarg.push_back(move(bdo));
       }
 
       return retarg;
@@ -424,9 +428,19 @@ void BDV_Server_Object::buildMethodMap()
 
       auto&& rawTx = args.get<BinaryDataObject>();
 
-      this->zeroConfCont_->broadcastZC(rawTx.get());
+      auto&& status = this->zeroConfCont_->broadcastZC(rawTx.get());
 
       Arguments retarg;
+
+      unsigned success = (unsigned)status->status();
+      retarg.push_back(move(success));
+      if (!success)
+      {
+         BinaryData bd(move(status->getMessage()));
+         BinaryDataObject bdo(move(bd));
+         retarg.push_back(move(bdo));
+      }
+
       return retarg;
    };
 
@@ -645,8 +659,9 @@ Arguments Clients::runCommand(const string& cmdStr)
 
       try
       {
-         auto&& spawnId = cmdObj.args_.get<string>();
-         if ((spawnId.size() == 0) || (spawnId.compare(thisSpawnId) != 0))
+         auto&& spawnId = cmdObj.args_.get<BinaryDataObject>();
+         auto&& spawnStr = spawnId.toStr();
+         if ((spawnStr.size() == 0) || (spawnStr.compare(thisSpawnId) != 0))
             throw runtime_error("spawnId mismatch");
       }
       catch (...)
@@ -778,7 +793,8 @@ Arguments Clients::registerBDV(Arguments& arg)
    LOGINFO << "registered bdv: " << newID;
 
    Arguments args;
-   args.push_back(move(newID));
+   BinaryDataObject bdo(newID);
+   args.push_back(move(bdo));
    return args;
 }
 
@@ -1219,7 +1235,8 @@ void BDV_Server_Object::init()
    scanWallets(move(zcstruct));
 
    Arguments args;
-   args.push_back(move(string("BDM_Ready")));
+   BinaryDataObject bdo("BDM_Ready");
+   args.push_back(move(bdo));
    unsigned int topblock = blockchain().top().getBlockHeight();
    args.push_back(move(topblock));
    cb_->callback(move(args));
@@ -1263,7 +1280,8 @@ void BDV_Server_Object::maintenanceThread(void)
             uint32_t blocknum =
                payload->reorgState_.newTop->getBlockHeight();
 
-            args2.push_back(move(string("NewBlock")));
+            BinaryDataObject bdo("NewBlock");
+            args2.push_back(move(bdo));
             args2.push_back(move(blocknum));
             cb_->callback(move(args2), OrderNewBlock);
             break;
@@ -1274,18 +1292,37 @@ void BDV_Server_Object::maintenanceThread(void)
             //ignore refresh type and refreshID for now
 
             Arguments args2;
-            args2.push_back(move(string("BDV_Refresh")));
+            BinaryDataObject bdo("BDV_Refresh");
+            args2.push_back(move(bdo));
             cb_->callback(move(args2), OrderRefresh);
             break;
          }
 
          case BDV_ZC:
          {
-            //TODO: upgrade to reporting actual ZC to trigger tooltip notification
-            //in front end, instead simple refresh
             Arguments args2;
-            args2.push_back(move(string("BDV_Refresh")));
-            cb_->callback(move(args2), OrderRefresh);
+
+            auto&& payload =
+               dynamic_pointer_cast<BDV_Notification_ZC>(notifPtr);
+
+            BinaryDataObject bdo("BDV_ZC");
+            args2.push_back(move(bdo));
+
+            LedgerEntryVector lev;
+            for (auto& lePair : payload->leMap_)
+            {
+               auto&& le = lePair.second;
+               LedgerEntryData led(le.getWalletID(),
+                  le.getValue(), le.getBlockNum(), move(le.getTxHash()),
+                  le.getIndex(), le.getTxTime(), le.isCoinbase(),
+                  le.isSentToSelf(), le.isChangeBack());
+
+               lev.push_back(move(led));
+            }
+
+            args2.push_back(move(lev));
+
+            cb_->callback(move(args2), OrderZC);
             break;
          }
 
@@ -1298,7 +1335,8 @@ void BDV_Server_Object::maintenanceThread(void)
                payload->time_, payload->numericProgress_);
 
             Arguments args2;
-            args2.push_back(move(string("BDV_Progress")));
+            BinaryDataObject bdo("BDV_Progress");
+            args2.push_back(move(bdo));
             args2.push_back(move(pd));
 
             cb_->callback(move(args2), OrderProgress);
@@ -1387,7 +1425,8 @@ Arguments SocketCallback::respond(const string& command)
    if (!lock.try_lock())
    {
       Arguments arg;
-      arg.push_back(move(string("continue")));
+      BinaryDataObject bdo("continue");
+      arg.push_back(move(bdo));
       return move(arg);
    }
    
@@ -1402,7 +1441,8 @@ Arguments SocketCallback::respond(const string& command)
       {
          LOGINFO << "got ready signal from lambda";
          Arguments arg;
-         arg.push_back(string("BDM_Ready"));
+         BinaryDataObject bdo("BDM_Ready");
+         arg.push_back(move(bdo));
          arg.push_back(move(topheight));
          return move(arg);
       }
@@ -1421,20 +1461,23 @@ Arguments SocketCallback::respond(const string& command)
    catch (IsEmpty&)
    {
       Arguments arg;
-      arg.push_back(move(string("continue")));
+      BinaryDataObject bdo("continue");
+      arg.push_back(move(bdo));
       return move(arg);
    }
    catch (StackTimedOutException&)
    {
       Arguments arg;
-      arg.push_back(move(string("continue")));
+      BinaryDataObject bdo("continue");
+      arg.push_back(move(bdo));
       return move(arg);
    }
    catch (StopBlockingLoop&)
    {
       //return terminate packet
       Callback::OrderStruct terminateOrder;
-      terminateOrder.order_.push_back(move(string("terminate")));
+      BinaryDataObject bdo("terminate");
+      terminateOrder.order_.push_back(move(bdo));
       terminateOrder.otype_ = OrderOther;
    }
 
@@ -1471,7 +1514,8 @@ Arguments SocketCallback::respond(const string& command)
          case OrderTerminate:
          {
             Arguments terminateArg;
-            terminateArg.push_back(move(string("terminate")));
+            BinaryDataObject bdo("terminate");
+            terminateArg.push_back(move(bdo));
             return terminateArg;
          }
 
@@ -1481,12 +1525,16 @@ Arguments SocketCallback::respond(const string& command)
    }
 
    if (refreshNotification)
-      arg.push_back(move(string("BDV_Refresh")));
+   {
+      BinaryDataObject bdo("BDV_Refresh");
+      arg.push_back(move(bdo));
+   }
 
    if (newBlock > -1)
    {
-      arg.push_back(move(string("NewBlock")));
-      arg.push_back(move((unsigned int)newBlock));
+      BinaryDataObject bdo("NewBlock");
+      arg.push_back(move(bdo));
+      arg.push_back(move((unsigned)newBlock));
    }
 
    //send it

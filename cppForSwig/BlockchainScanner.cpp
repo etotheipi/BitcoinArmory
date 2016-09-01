@@ -1315,20 +1315,28 @@ void BlockchainScanner::getFilterHitsThread(
          if (fileNum < 0)
             break;
 
-         auto&& pool = db_->getFilterPoolRefForFileNum<TxFilterType>(fileNum);
-         for (auto& hash : hashSet)
+         try
          {
-            auto&& blockKeys = pool.compare(hash);
-            if (blockKeys.size() > 0)
+            auto&& pool = db_->getFilterPoolRefForFileNum<TxFilterType>(fileNum);
+            for (auto& hash : hashSet)
             {
-               auto& fileNumEntry = localResults[fileNum];
+               auto&& blockKeys = pool.compare(hash);
+               if (blockKeys.size() > 0)
+               {
+                  auto& fileNumEntry = localResults[fileNum];
 
-               TxFilterResults filterResult;
-               filterResult.hash_ = hash;
-               filterResult.filterHits_ = move(blockKeys);
+                  TxFilterResults filterResult;
+                  filterResult.hash_ = hash;
+                  filterResult.filterHits_ = move(blockKeys);
 
-               fileNumEntry.insert(move(filterResult));
+                  fileNumEntry.insert(move(filterResult));
+               }
             }
+         }
+         catch (runtime_error&)
+         {
+            LOGWARN << "couldnt get filter pool for file: " << fileNum;
+            continue;
          }
       }
    }
@@ -1488,7 +1496,7 @@ void BlockchainScanner::resolveTxHashes()
    to ARMORY_DB_FULL, no need to check dbType here
    ***/
 
-   TIMER_START("resolveHashes");
+   TIMER_RESTART("resolveHashes");
 
    set<BinaryData> missingHashes;
    try

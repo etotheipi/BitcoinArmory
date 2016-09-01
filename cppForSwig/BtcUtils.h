@@ -34,7 +34,7 @@
 #include "UniversalTimer.h"
 #include "log.h"
 
-class LedgerEntry;
+class LedgerEntryData;
 
 #define HEADER_SIZE 80
 #define COIN 100000000ULL
@@ -1790,9 +1790,9 @@ public:
       return *(reinterpret_cast<int*>(in));
    }
 
-   static const vector<LedgerEntry>& cast_to_LedgerVector(void* in)
+   static const vector<LedgerEntryData>& cast_to_LedgerVector(void* in)
    {
-      vector<LedgerEntry>* vle = (vector<LedgerEntry>*)in;
+      vector<LedgerEntryData>* vle = (vector<LedgerEntryData>*)in;
       return *vle;
    }
 

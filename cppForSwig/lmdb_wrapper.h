@@ -712,6 +712,8 @@ public:
       beginDBTransaction(&tx, db, LMDB::ReadOnly);
 
       auto val = getValueNoCopy(TXFILTERS, key);
+      if (val.getSize() == 0)
+         throw runtime_error("invalid txfilter key");
 
       return TxFilterPool<T>(val.getPtr(), val.getSize());
    }

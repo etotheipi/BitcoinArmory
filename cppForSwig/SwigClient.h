@@ -42,6 +42,12 @@ struct BDVAlreadyRegistered : public runtime_error
    {}
 };
 
+struct BroadcastStatus
+{
+   bool success_;
+   string msg_;
+};
+
 ///////////////////////////////////////////////////////////////////////////////
 class LedgerDelegate
 {
@@ -217,6 +223,7 @@ private:
    {
       CBO_continue,
       CBO_NewBlock,
+      CBO_ZC,
       CBO_BDV_Refresh,
       CBO_BDM_Ready,
       CBO_progress,
@@ -263,6 +270,9 @@ private:
    string bdvID_;
    const shared_ptr<BinarySocket> sock_;
 
+   //save all tx we fetch by hash to reduce resource cost on redundant fetches
+   map<BinaryData, Tx> txMap_;
+
 private:
    BlockDataViewer(const shared_ptr<BinarySocket> sock);
 
@@ -292,7 +302,7 @@ public:
    void unregisterFromDB(void);
    void shutdown(const string& spawnId);
 
-   void broadcastZC(const BinaryData& rawTx);
+   BroadcastStatus broadcastZC(const BinaryData& rawTx);
    Tx getTxByHash(const BinaryData& txHash);
 
    bool hasRemoteDB(void);

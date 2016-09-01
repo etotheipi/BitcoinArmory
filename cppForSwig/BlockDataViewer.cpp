@@ -73,6 +73,7 @@ void BlockDataViewer::scanWallets(shared_ptr<BDV_Notification> action)
 
    BDV_Notification_ZC::zcMapType zcMap;
    ScanWalletStruct scanData;
+   map<BinaryData, LedgerEntry>* leMapPtr = nullptr;
 
    switch (action->action_type())
    {
@@ -117,8 +118,12 @@ void BlockDataViewer::scanWallets(shared_ptr<BDV_Notification> action)
    {
       auto zcAction = 
          dynamic_pointer_cast<BDV_Notification_ZC>(action);
+      
       zcMap = move(zcAction->scrAddrZcMap_);
+      leMapPtr = &zcAction->leMap_;
+
       startBlock = endBlock = blockchain().top().getBlockHeight();
+
       break;
    }
 
@@ -180,6 +185,10 @@ void BlockDataViewer::scanWallets(shared_ptr<BDV_Notification> action)
    {
       scanData.startBlock_ = *sbIter;
       group.scanWallets(scanData, updateID_);
+
+      if (leMapPtr != nullptr)
+         leMapPtr->insert(scanData.saStruct_.zcLedgers_.begin(),
+                          scanData.saStruct_.zcLedgers_.end());
       sbIter++;
    }
 
@@ -1011,7 +1020,7 @@ void WalletGroup::updateLedgerFilter(const vector<BinaryData>& walletsList)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void WalletGroup::scanWallets(const ScanWalletStruct& scanData, 
+void WalletGroup::scanWallets(ScanWalletStruct& scanData, 
    uint32_t updateID)
 {
    ReadWriteLock::ReadLock rl(lock_);

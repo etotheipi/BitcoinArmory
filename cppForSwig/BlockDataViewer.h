@@ -278,7 +278,7 @@ private:
    bool pageHistory(bool forcePaging, bool pageAnyway);
    void updateLedgerFilter(const vector<BinaryData>& walletsVec);
 
-   void scanWallets(const ScanWalletStruct&, uint32_t);
+   void scanWallets(ScanWalletStruct&, uint32_t);
    void updateGlobalLedgerFirstPage(uint32_t startBlock, 
       uint32_t endBlock, BDV_refresh forceRefresh);
 

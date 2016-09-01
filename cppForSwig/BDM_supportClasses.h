@@ -418,8 +418,6 @@ private:
    Stack<promise<InvEntry>> newInvTxStack_;
    
    TransactionalMap<string, BDV_Callbacks> bdvCallbacks_;
-   TransactionalMap<BinaryData, shared_ptr<promise<bool>>> waitOnZcMap_;
-
    function<shared_ptr<set<ScrAddrFilter::AddrSyncState>>(void)> getMainAddressSet_;
    mutex parserMutex_;
 
@@ -432,6 +430,9 @@ private:
 
    void loadZeroConfMempool(bool clearMempool);
    set<BinaryData> purge(void);
+
+   void processInvTxThread(void);
+   bool processInvTxThread(InvEntry);
 
 public:
    //stacks new zc Tx objects from node
@@ -475,7 +476,6 @@ public:
       const vector<BinaryData>& keysToWrite, const vector<BinaryData>& keysToDel);
 
    void processInvTxVec(vector<InvEntry>);
-   void processInvTxThread(void);
 
    void init(function<shared_ptr<set<ScrAddrFilter::AddrSyncState>>(void)>,
       bool clearMempool);
@@ -484,7 +484,7 @@ public:
    void insertBDVcallback(string, BDV_Callbacks);
    void eraseBDVcallback(string);
 
-   void broadcastZC(const BinaryData& rawzc, uint32_t timeout_sec = 3);
+   shared_ptr<GetDataStatus> broadcastZC(const BinaryData& rawzc, uint32_t timeout_sec = 3);
 };
 
 //////
@@ -526,6 +526,7 @@ struct BDV_Notification_ZC : public BDV_Notification
 {
    typedef map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>> zcMapType;
    zcMapType scrAddrZcMap_;
+   map<BinaryData, LedgerEntry> leMap_;
 
    BDV_Notification_ZC(zcMapType&& mv) :
       scrAddrZcMap_(move(mv))

@@ -51,7 +51,8 @@ void BlockDataViewer::registerWithDB(BinaryData magic_word)
 
       auto&& result = sock_->writeAndRead(cmd.command_);
       Arguments args(move(result));
-      bdvID_ = args.get<string>();
+      auto&& bdoID = args.get<BinaryDataObject>();
+      bdvID_ = bdoID.toStr();
    }
    catch (runtime_error &e)
    {
@@ -99,7 +100,10 @@ void BlockDataViewer::shutdown(const string& spawnId)
    cmd.method_ = "shutdown";
    
    if (spawnId.size() > 0)
-      cmd.args_.push_back(move(spawnId));
+   {
+      BinaryDataObject bdo(spawnId);
+      cmd.args_.push_back(move(bdo));
+   }
 
    cmd.serialize();
    auto&& result = sock_->writeAndRead(cmd.command_);
@@ -112,7 +116,8 @@ BtcWallet BlockDataViewer::registerWallet(
    Command cmd;
    unsigned isNewInt = (unsigned int)isNew;
 
-   cmd.args_.push_back(id);
+   BinaryDataObject bdo(id);
+   cmd.args_.push_back(move(bdo));
    cmd.args_.push_back(move(BinaryDataVector(addrVec)));
    cmd.args_.push_back(move(isNewInt));
 
@@ -137,7 +142,8 @@ Lockbox BlockDataViewer::registerLockbox(
    Command cmd;
    uint32_t isNewInt = (uint32_t)isNew;
 
-   cmd.args_.push_back(id);
+   BinaryDataObject bdo(id);
+   cmd.args_.push_back(move(bdo));
    cmd.args_.push_back(BinaryDataVector(addrVec));
    cmd.args_.push_back(move(isNewInt));
 
@@ -167,7 +173,7 @@ LedgerDelegate BlockDataViewer::getLedgerDelegateForWallets()
    auto&& result = sock_->writeAndRead(cmd.command_);
 
    Arguments retval(result);
-   auto&& ldid = retval.get<string>();
+   auto&& ldid = retval.get<BinaryDataObject>().toStr();
    
    LedgerDelegate ld(sock_, bdvID_, ldid);
    return ld;
@@ -184,8 +190,8 @@ LedgerDelegate BlockDataViewer::getLedgerDelegateForLockboxes()
 
    auto&& result = sock_->writeAndRead(cmd.command_);
 
-   Arguments retval(result);
-   auto&& ldid = retval.get<string>();
+   Arguments retval(move(result));
+   auto&& ldid = retval.get<BinaryDataObject>().toStr();
 
    LedgerDelegate ld(sock_, bdvID_, ldid);
    return ld;
@@ -198,8 +204,12 @@ Blockchain BlockDataViewer::blockchain(void)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::broadcastZC(const BinaryData& rawTx)
+BroadcastStatus BlockDataViewer::broadcastZC(const BinaryData& rawTx)
 {
+   auto&& txHash = BtcUtils::getHash256(rawTx.getRef());
+   Tx tx(rawTx);
+   txMap_.insert(make_pair(txHash, tx));
+
    Command cmd;
 
    cmd.method_ = "broadcastZC";
@@ -208,11 +218,29 @@ void BlockDataViewer::broadcastZC(const BinaryData& rawTx)
    cmd.serialize();
 
    auto&& result = sock_->writeAndRead(cmd.command_);
+   Arguments retval(move(result));
+
+   BroadcastStatus bcs;
+   auto success = retval.get<unsigned>();
+   bcs.success_ = (bool)success;
+   
+   if (!success)
+   {
+      auto msg = move(retval.get<BinaryDataObject>());
+      auto& bd = msg.get();
+      bcs.msg_ = move(string(bd.toCharPtr(), bd.getSize()));
+   }
+
+   return bcs;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 Tx BlockDataViewer::getTxByHash(const BinaryData& txHash)
 {
+   auto iter = txMap_.find(txHash);
+   if (iter != txMap_.end())
+      return iter->second;
+
    Command cmd;
 
    cmd.method_ = "getTxByHash";
@@ -227,6 +255,7 @@ Tx BlockDataViewer::getTxByHash(const BinaryData& txHash)
 
    Tx tx;
    tx.unserializeWithMetaData(rawtx.get());
+   txMap_.insert(make_pair(txHash, tx));
    return tx;
 }
 
@@ -248,9 +277,9 @@ LedgerDelegate BlockDataViewer::getLedgerDelegateForScrAddr(
    auto&& result = sock_->writeAndRead(cmd.command_);
 
    Arguments retval(result);
-   auto&& ldid = retval.get<string>();
+   auto&& ldid = retval.get<BinaryDataObject>();
 
-   LedgerDelegate ld(sock_, bdvID_, ldid);
+   LedgerDelegate ld(sock_, bdvID_, ldid.toStr());
    return ld;
 }
 
@@ -631,12 +660,13 @@ void BlockHeader::unserialize(uint8_t const * ptr, uint32_t size)
 PythonCallback::PythonCallback(const BlockDataViewer& bdv) :
    sock_(bdv.sock_), bdvID_(bdv.getID())
 {
-   orderMap_["continue"] = CBO_continue;
-   orderMap_["NewBlock"] = CBO_NewBlock;
-   orderMap_["BDV_Refresh"] = CBO_BDV_Refresh;
-   orderMap_["BDM_Ready"] = CBO_BDM_Ready;
-   orderMap_["BDV_Progress"] = CBO_progress;
-   orderMap_["terminate"] = CBO_terminate;
+   orderMap_["continue"]      = CBO_continue;
+   orderMap_["NewBlock"]      = CBO_NewBlock;
+   orderMap_["BDV_ZC"]        = CBO_ZC;
+   orderMap_["BDV_Refresh"]   = CBO_BDV_Refresh;
+   orderMap_["BDM_Ready"]     = CBO_BDM_Ready;
+   orderMap_["BDV_Progress"]  = CBO_progress;
+   orderMap_["terminate"]     = CBO_terminate;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -671,7 +701,8 @@ void PythonCallback::remoteLoop(void)
    Command sendCmd;
    sendCmd.method_ = "registerCallback";
    sendCmd.ids_.push_back(bdvID_);
-   sendCmd.args_.push_back(move(string("waitOnBDV")));
+   BinaryDataObject bdo("waitOnBDV");
+   sendCmd.args_.push_back(move(bdo));
    sendCmd.serialize();
 
    bool isReady = false;
@@ -682,9 +713,9 @@ void PythonCallback::remoteLoop(void)
 
       while (args.hasArgs())
       {
-         auto&& cb = args.get<string>();
+         auto&& cb = args.get<BinaryDataObject>();
 
-         auto orderIter = orderMap_.find(cb);
+         auto orderIter = orderMap_.find(cb.toStr());
          if(orderIter == orderMap_.end())
          {
             continue;
@@ -704,6 +735,16 @@ void PythonCallback::remoteLoop(void)
                break;
             }
 
+            case CBO_ZC:
+            {
+               auto&& lev = args.get<LedgerEntryVector>();
+               auto leVec = lev.toVector();
+
+               run(BDMAction::BDMAction_ZC, &leVec, 0);
+
+               break;
+            }
+
             case CBO_BDV_Refresh:
             {
                vector<BinaryData> bdVector;
@@ -717,7 +758,8 @@ void PythonCallback::remoteLoop(void)
                isReady = true;
 
                sendCmd.args_.clear();
-               sendCmd.args_.push_back(move(string("getStatus")));
+               BinaryDataObject status("getStatus");
+               sendCmd.args_.push_back(move(status));
                sendCmd.serialize();
 
                unsigned int topblock = args.get<unsigned int>();

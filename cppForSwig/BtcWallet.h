@@ -136,7 +136,7 @@ public:
 private:   
    
    //returns true on bootstrap and new block, false on ZC
-   bool scanWallet(const ScanWalletStruct&, uint32_t);
+   bool scanWallet(ScanWalletStruct&, uint32_t);
 
    //wallet side reorg processing
    void updateAfterReorg(uint32_t lastValidBlockHeight);

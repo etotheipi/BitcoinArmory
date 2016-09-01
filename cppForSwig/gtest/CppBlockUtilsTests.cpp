@@ -196,8 +196,8 @@ string registerBDV(Clients* clients, const BinaryData& magic_word)
    auto&& result = clients->runCommand(cmd.command_);
 
    auto& argVec = result.getArgVector();
-   auto bdvId = dynamic_pointer_cast<DataObject<string>>(argVec[0]);
-   return bdvId->getObj();
+   auto bdvId = dynamic_pointer_cast<DataObject<BinaryDataObject>>(argVec[0]);
+   return bdvId->getObj().toStr();
 }
 
 void goOnline(Clients* clients, const string& id)
@@ -220,7 +220,8 @@ void regWallet(Clients* clients, const string& bdvId,
    Command cmd;
    unsigned isNewInt = (unsigned int)false;
 
-   cmd.args_.push_back(wltName);
+   BinaryDataObject bdo(wltName);
+   cmd.args_.push_back(move(bdo));
    cmd.args_.push_back(move(BinaryDataVector(scrAddrs)));
    cmd.args_.push_back(move(isNewInt));
 
@@ -243,7 +244,8 @@ void regLockbox(Clients* clients,  const string& bdvId,
    Command cmd;
    unsigned isNewInt = (unsigned int)false;
 
-   cmd.args_.push_back(wltName);
+   BinaryDataObject bdo(wltName);
+   cmd.args_.push_back(move(bdo));
    cmd.args_.push_back(move(BinaryDataVector(scrAddrs)));
    cmd.args_.push_back(move(isNewInt));
 
@@ -266,7 +268,9 @@ void waitOnSignal(Clients* clients, const string& bdvId,
    Command cmd;
    cmd.method_ = "registerCallback";
    cmd.ids_.push_back(bdvId);
-   cmd.args_.push_back(move(command));
+
+   BinaryDataObject bdo(command);
+   cmd.args_.push_back(move(bdo));
    cmd.serialize();
 
    auto processCallback = [&](Arguments args)->bool
@@ -275,11 +279,11 @@ void waitOnSignal(Clients* clients, const string& bdvId,
 
       for (auto arg : argVec)
       {
-         auto argstr = dynamic_pointer_cast<DataObject<string>>(arg);
+         auto argstr = dynamic_pointer_cast<DataObject<BinaryDataObject>>(arg);
          if (argstr == nullptr)
             continue;
 
-         auto&& cb = argstr->getObj();
+         auto&& cb = argstr->getObj().toStr();
          if (cb == signal)
             return true;
       }
@@ -308,7 +312,7 @@ void waitOnNewBlockSignal(Clients* clients, const string& bdvId)
 
 void waitOnNewZcSignal(Clients* clients, const string& bdvId)
 {
-   waitOnSignal(clients, bdvId, "getStatus", "BDV_Refresh");
+   waitOnSignal(clients, bdvId, "getStatus", "BDV_ZC");
 }
 
 void waitOnWalletRefresh(Clients* clients, const string& bdvId)

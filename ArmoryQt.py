@@ -3452,6 +3452,28 @@ class ArmoryMainWindow(QMainWindow):
       wlt.finishSweepScan(sweepList)
 
    #############################################################################
+   def notifyNewZeroConf(self, leVec):
+      '''
+      Function that looks at an incoming zero-confirmation transaction queue and
+      determines if any incoming transactions were created by Armory. If so, the
+      transaction will be passed along to a user notification queue.
+      '''
+      
+      vlen = leVec.size()
+      for i in range(0, vlen):
+         notifyIn = self.getSettingOrSetDefault('NotifyBtcIn', \
+                                                      not OS_MACOSX)
+         notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', \
+                                                          not OS_MACOSX)
+         
+         le = leVec[i]
+         if (le.getValue() <= 0 and notifyOut) or \
+                  (le.getValue() > 0 and notifyIn):
+            self.notifyQueue.append([le.getWalletID(), le, False])
+      
+      self.doTheSystemTrayThing()
+            
+   #############################################################################
    def broadcastTransaction(self, pytx, dryRun=False):
 
       if dryRun:
@@ -3464,14 +3486,24 @@ class ArmoryMainWindow(QMainWindow):
 
          try:
             LOGINFO('Sending Tx, %s', binary_to_hex(newTxHash))
-            TheBDM.bdv().broadcastZC(pytx.serialize())
-            LOGINFO('Transaction sent to Satoshi client...!')
+            broadcastStatus = TheBDM.bdv().broadcastZC(pytx.serialize())
          except:
+            QMessageBox.warning(self, tr('Broadcast failed'), tr("""
+                  The broadcast process failed unexpectedly. Report this error to
+                  the development team if this issue occurs repeatedly
+                  """, QMessageBox.Ok))
+            return
+            
+         if broadcastStatus.success_ == True:   
+            LOGINFO('Transaction sent to Satoshi client...!')
+
+         else:
             LOGERROR('Transaction was not accepted by the Satoshi client')
             LOGERROR('Raw transaction:')
             LOGRAWDATA(pytx.serialize(), logging.ERROR)
             LOGERROR('Transaction details')
             LOGPPRINT(pytx, logging.ERROR)
+            LOGERROR('Failure message: %s' % (broadcastStatus.msg_))
             searchstr  = binary_to_hex(newTxHash, BIGENDIAN)
 
             supportURL       = 'https://github.com/goatpig/BitcoinArmory/issues'
@@ -3479,10 +3511,13 @@ class ArmoryMainWindow(QMainWindow):
             blkexplURL_short = BLOCKEXPLORE_URL_TX % searchstr[:20]
 
             QMessageBox.warning(self, tr('Transaction Not Accepted'), tr("""
-                  The transaction that you just executed, does not
-                  appear to have been accepted by the Bitcoin network yet.
-                  This can happen for a variety of reasons.
-                  <br><br>On some occasions the transaction actually will succeed
+                  The transaction that you just executed failed with 
+                  the following error message: <br><br>
+                  <b>%(error_msg)s</b>
+                  <br><br>
+                  
+                  
+                  <br><br>On time out errors, the transaction may have actually succeed
                   and this message is displayed prematurely.  To confirm whether the
                   the transaction actually succeeded, you can try this direct link
                   to %(blockexplorer)s:
@@ -3501,7 +3536,8 @@ class ArmoryMainWindow(QMainWindow):
                   If the problem persists, go to "<i>File</i>" ->
                   "<i>Export Log File</i>" and then attach it to a support
                   ticket at
-                  <a href="%(supporturl)s">%(supporturl)s</a>""") % {
+                  <a href="%(supporturl)s">%(supporturl)s</a>""") % { \
+                     'error_msg' : broadcastStatus.msg_, \
                      'blockexplorer' : BLOCKEXPLORE_NAME, 'url' : blkexplURL, \
                      'urlshort' : blkexplURL_short, 'supporturl' : supportURL}, QMessageBox.Ok)
 
@@ -5762,7 +5798,9 @@ class ArmoryMainWindow(QMainWindow):
          #updated ledgers from the BDM and create the related notifications.
 
          self.updateWalletData()
-         self.checkNewZeroConf(args)
+         
+         self.notifyNewZeroConf(args)
+         self.createCombinedLedger()
 
       elif action == NEW_BLOCK_ACTION:
          #A new block has appeared, pull updated ledgers from the BDM, display
@@ -6156,7 +6194,7 @@ class ArmoryMainWindow(QMainWindow):
             txref = TheBDM.bdv().getTxByHash(le.getTxHash())
             nOut = txref.getNumTxOut()
             recipStr = ''
-            for i in range(nOut):
+            for i in range(0, nOut):
                script = txref.getTxOutCopy(i).getScript()
                if cppWlt.hasScrAddress(script_to_scrAddr(script)):
                   continue

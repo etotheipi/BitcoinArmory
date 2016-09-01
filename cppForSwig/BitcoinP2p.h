@@ -58,7 +58,8 @@ enum PayloadType
    Payload_ping,
    Payload_pong,
    Payload_inv,
-   Payload_getdata
+   Payload_getdata,
+   Payload_reject
 };
 
 enum InvType
@@ -376,9 +377,81 @@ public:
    }
 
    size_t getSize(void) const { return rawTx_.size(); }
-
 };
 
+////reject
+struct Payload_Reject : public Payload
+{
+private:
+   PayloadType rejectType_;
+   char code_;
+   string reasonStr_;
+   vector<uint8_t> extra_;
+
+private:
+   size_t serialize_inner(uint8_t*) const 
+   { throw runtime_error("not implemened"); }
+
+public:
+
+   Payload_Reject(void)
+   {}
+
+   Payload_Reject(uint8_t* dataptr, size_t len)
+   {
+      deserialize(dataptr, len);
+   }
+
+   void deserialize(uint8_t* dataptr, size_t len);
+
+   PayloadType rejectType(void) const { return rejectType_; }
+   const vector<uint8_t>& getExtra(void) const { return extra_; }
+   const string& getReasonStr(void) const { return reasonStr_; }
+
+   PayloadType type(void) const { return Payload_reject; }
+   string typeStr(void) const { return "reject"; }
+};
+
+////////////////////////////////////////////////////////////////////////////////
+class GetDataStatus
+{
+private:
+   bool received_ = true;
+   string msg_;
+
+   shared_ptr<promise<shared_ptr<Payload>>> prom_;
+   shared_future<shared_ptr<Payload>> fut_;
+
+
+public:
+   GetDataStatus(const GetDataStatus&) = delete;
+   
+   GetDataStatus(void)
+   {
+      prom_ = make_shared<promise<shared_ptr<Payload>>>();
+      fut_ = prom_->get_future();
+   }
+
+   shared_future<shared_ptr<Payload>> getFuture(void) const
+   {
+      return fut_;
+   }
+
+   shared_ptr<promise<shared_ptr<Payload>>> getPromise(void) const
+   {
+      return prom_;
+   }
+
+   void setMessage(const string& message)
+   {
+      msg_ = message;
+   }
+
+   string getMessage(void) const { return msg_; }
+
+   bool status(void) const { return received_; }
+   void setStatus(bool st) { received_ = st; }
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 class BitcoinP2P
@@ -402,10 +475,8 @@ private:
    Stack<function<void(const vector<InvEntry>&)>> invBlockLambdas_;
    function<void(vector<InvEntry>&)> invTxLambda_ = {};
 
-   typedef function<void(shared_ptr<Payload_Tx>)> getTxCallback;
-
    //stores callback by txhash for getdata packet we send to the node
-   TransactionalMap<BinaryData, getTxCallback> getTxCallbackMap_;
+   TransactionalMap<BinaryData, shared_ptr<GetDataStatus>> getTxCallbackMap_;
 
    atomic<bool> run_;
    future<bool> shutdownFuture_;
@@ -443,11 +514,9 @@ private:
    void processInvTx(vector<InvEntry>);
    void processGetData(unique_ptr<Payload>);
    void processGetTx(unique_ptr<Payload>);
+   void processReject(unique_ptr<Payload>);
 
    int64_t getTimeStamp() const;
-
-   void registerGetTxCallback(const BinaryDataRef&, getTxCallback);
-   void unregisterGetTxCallback(const BinaryDataRef&);
 
 public:
    BitcoinP2P(const string& addr, const string& port, uint32_t magic_word);
@@ -457,7 +526,7 @@ public:
    virtual void shutdown(void);
    void sendMessage(Payload&&);
 
-   shared_ptr<Payload_Tx> getTx(const InvEntry&, uint32_t timeout = 60);
+   shared_ptr<Payload> getTx(const InvEntry&, uint32_t timeout = 60);
 
    void registerInvBlockLambda(function<void(const vector<InvEntry>)> func)
    {
@@ -474,8 +543,12 @@ public:
 
       invTxLambda_ = move(func);
    }
+
+   void registerGetTxCallback(const BinaryDataRef&, shared_ptr<GetDataStatus>);
+   void unregisterGetTxCallback(const BinaryDataRef&);
 };
 
+////////////////////////////////////////////////////////////////////////////////
 class NodeUnitTest : public BitcoinP2P
 {
 public:

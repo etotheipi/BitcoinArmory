@@ -444,9 +444,13 @@ public:
 
    void erase(const T& id)
    {
-      auto newMap = make_shared<map<T, U>>();
-
       unique_lock<mutex> lock(mu_);
+
+      auto iter = map_->find(id);
+      if (iter == map_->end())
+         return;
+
+      auto newMap = make_shared<map<T, U>>();
       *newMap = *map_;
 
       newMap->erase(id);
@@ -463,12 +467,15 @@ public:
       unique_lock<mutex> lock(mu_);
       *newMap = *map_;
 
+      bool erased = false;
       for (auto& id : idVec)
       {
-         newMap->erase(id);
+         if (newMap->erase(id) != 0)
+            erased = true;
       }
 
-      map_ = newMap;
+      if (erased)
+         map_ = newMap;
    }
 
    shared_ptr<map<T, U>> pop_all(void)
@@ -548,9 +555,13 @@ public:
 
    void erase(const T& id)
    {
-      auto newSet = make_shared<set<T>>();
-
       unique_lock<mutex> lock(mu_);
+      
+      auto iter = set_->find(id);
+      if (iter == set_->end())
+         return;
+
+      auto newSet = make_shared<set<T>>();
       *newSet = *set_;
 
       newSet->erase(id);
@@ -567,12 +578,15 @@ public:
       unique_lock<mutex> lock(mu_);
       *newSet = *set_;
 
+      bool erased = false;
       for (auto& id : idVec)
       {
-         newSet->erase(id);
+         if (newSet->erase(id) != 0)
+            erased = true;
       }
 
-      set_ = newSet;
+      if (erased)
+         set_ = newSet;
    }
 
    shared_ptr<set<T>> pop_all(void)

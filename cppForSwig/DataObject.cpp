@@ -31,7 +31,6 @@ vector<shared_ptr<DataMeta>> DataMeta::iTypeIDs_ = {
    make_shared<DataObject<unsigned int>>(),
    make_shared<DataObject<uint64_t>>(),
    make_shared<DataObject<size_t>>(),
-   make_shared<DataObject<string>>(),
    make_shared<DataObject<BinaryDataObject>>(),
    make_shared<DataObject<BinaryDataVector>>(),
    make_shared<DataObject<LedgerEntryVector>>(),

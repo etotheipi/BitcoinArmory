@@ -116,7 +116,8 @@ const map<string, PayloadType> BitcoinP2P::strToPayload_ = {
    make_pair("ping", Payload_ping),
    make_pair("pong", Payload_pong),
    make_pair("getdata", Payload_getdata),
-   make_pair("tx", Payload_tx)
+   make_pair("tx", Payload_tx),
+   make_pair("reject", Payload_reject)
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -296,6 +297,10 @@ vector<unique_ptr<Payload>> Payload::deserialize(
                retvec.push_back(move(make_unique<Payload_GetData>(
                   payloadptr, *length)));
                break;
+
+            case Payload_reject:
+               retvec.push_back(move(make_unique<Payload_Reject>(
+                  payloadptr, *length)));
             }
          }
       }
@@ -617,6 +622,40 @@ size_t Payload_GetData::serialize_inner(uint8_t* dataptr) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+void Payload_Reject::deserialize(uint8_t* dataptr, size_t len)
+{
+   uint64_t typeLen;
+   auto remaining = len;
+   auto varintlen = get_varint(typeLen, dataptr, len);
+   auto ptr = dataptr + varintlen;
+   remaining -= (varintlen + typeLen + 1);
+
+   string msgtype((char*)ptr, typeLen);
+   auto typeIter = BitcoinP2P::strToPayload_.find(msgtype);
+   if (typeIter == BitcoinP2P::strToPayload_.end())
+      throw BitcoinMessageDeserError("unknown reject type");
+
+   rejectType_ = typeIter->second;
+   ptr += typeLen;
+
+   code_ = (char)*ptr;
+   ptr++;
+
+   uint64_t reasonLen;
+   varintlen = get_varint(reasonLen, ptr, len);
+   ptr += varintlen;
+   remaining -= (reasonLen + varintlen);
+
+   reasonStr_ = move(string((char*)ptr, reasonLen));
+   ptr += reasonLen;
+
+   if (remaining == 32)
+      extra_.resize(32);
+
+   memcpy(&extra_[0], ptr, 32);
+}
+
+////////////////////////////////////////////////////////////////////////////////
 ////
 //// BitcoinP2P
 ////
@@ -855,6 +894,10 @@ void BitcoinP2P::processPayload(vector<unique_ptr<Payload>> payloadVec)
          processGetTx(move(payload));
          break;
 
+      case Payload_reject:
+         processReject(move(payload));
+         break;
+
       default:
          continue;
       }
@@ -993,6 +1036,7 @@ void BitcoinP2P::processGetData(unique_ptr<Payload> payload)
 
       auto&& payload = *payloadIter->second.payload_.get();
       sendMessage(move(payload));
+      
       try
       {
          payloadIter->second.promise_->set_value(true);
@@ -1009,7 +1053,7 @@ void BitcoinP2P::processGetTx(unique_ptr<Payload> payload)
 {
    if (payload->type() != Payload_tx)
    {
-      LOGERR << "processGetTx: expected payload type tx type, got " <<
+      LOGERR << "processGetTx: expected payload_tx type, got " <<
          payload->typeStr() << " instead";
       return;
    }
@@ -1023,18 +1067,53 @@ void BitcoinP2P::processGetTx(unique_ptr<Payload> payload)
    }
 
    auto& txHash = payloadtx->getHash256();
+   auto gettxcallbackmap = getTxCallbackMap_.get();
+   auto callbackIter = gettxcallbackmap->find(txHash);
+   if (callbackIter == gettxcallbackmap->end())
+      return;
 
+   try
    {
-      auto gettxcallbackmap = getTxCallbackMap_.get();
+      auto prom = callbackIter->second->getPromise();
+      prom->set_value(payload_sptr);
+   }
+   catch (future_error&)
+   {
+      //do nothing
+   }
+}
 
-      auto callbackIter = gettxcallbackmap->find(txHash);
-      if (callbackIter == gettxcallbackmap->end())
-         return;
-      
-      callbackIter->second(move(payloadtx));
+////////////////////////////////////////////////////////////////////////////////
+void BitcoinP2P::processReject(unique_ptr<Payload> payload)
+{
+   if (payload->type() != Payload_reject)
+   {
+      LOGERR << "processReject: expected payload_reject type, got " <<
+         payload->typeStr() << " instead";
+      return;
    }
 
-   getTxCallbackMap_.erase(txHash);
+   shared_ptr<Payload> payload_sptr(move(payload));
+   auto payloadReject = dynamic_pointer_cast<Payload_Reject>(payload_sptr);
+
+   if (payloadReject->rejectType() == Payload_tx)
+   {
+      auto& txHash = payloadReject->getExtra();
+      BinaryDataRef hashRef(&txHash[0], txHash.size());
+
+      //let's check if we have callbacks registered for this tx hash
+      {
+         auto gettxcallbackmap = getTxCallbackMap_.get();
+         auto callbackIter = gettxcallbackmap->find(hashRef);
+         if (callbackIter != gettxcallbackmap->end())
+         {
+            callbackIter->second->setStatus(false);
+            callbackIter->second->setMessage(payloadReject->getReasonStr());
+            auto prom = callbackIter->second->getPromise();
+            prom->set_value(payload_sptr);
+         }
+      }
+   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1053,7 +1132,7 @@ int64_t BitcoinP2P::getTimeStamp() const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-shared_ptr<Payload_Tx> BitcoinP2P::getTx(
+shared_ptr<Payload> BitcoinP2P::getTx(
    const InvEntry& entry, uint32_t timeout)
 {
    //blocks until data is received or timeout expires
@@ -1061,27 +1140,40 @@ shared_ptr<Payload_Tx> BitcoinP2P::getTx(
       throw GetDataException("entry type isnt Inv_Msg_Tx");
 
    BinaryDataRef txHash(entry.hash, 32);
+   shared_ptr<GetDataStatus> gdsPtr = nullptr;
 
-   //use a shared_ptr until we start using a C++14 compiler for
-   //lambda generalized capture
-   auto gotDataPromise = make_shared<promise<shared_ptr<Payload_Tx>>>();
-   auto&& gotDataFuture = gotDataPromise->get_future().share();
-
-   auto waitOnDataCallback = 
-      [gotDataPromise](shared_ptr<Payload_Tx> payload)->void
+   //check if we already have a callback registered for this hash
    {
-      try
       {
-         gotDataPromise->set_value(payload);
-      }
-      catch (future_error&)
-      {
-         //do nothing
-      }
-   };
+         auto getTxCallBackMap = getTxCallbackMap_.get();
 
-   //register callback
-   registerGetTxCallback(txHash, move(waitOnDataCallback));
+         auto iter = getTxCallBackMap->find(txHash);
+         if (iter != getTxCallBackMap->end())
+         {
+            gdsPtr = iter->second;
+            auto fut = gdsPtr->getFuture();
+            if (fut.wait_for(chrono::seconds(0)) == future_status::ready)
+            {
+               return fut.get();
+            }
+         }
+      }
+   }
+
+   bool createCallback = false;
+   if (gdsPtr == nullptr)
+      createCallback = true;
+
+   if (createCallback)
+   {
+      gdsPtr = make_shared<GetDataStatus>();
+
+      //register callback
+      registerGetTxCallback(txHash, gdsPtr);
+   }
+
+   shared_ptr<Payload> payloadPtr = nullptr;
+   auto fut = gdsPtr->getFuture();
 
    //send message
    Payload_GetData payload(entry);
@@ -1091,30 +1183,29 @@ shared_ptr<Payload_Tx> BitcoinP2P::getTx(
    if (timeout == 0)
    {
       //wait undefinitely if timeout is 0
-      return gotDataFuture.get();
+      payloadPtr = fut.get();
    }
    else
    {
-      auto&& status = gotDataFuture.wait_for(chrono::seconds(timeout));
-      if (status != future_status::ready)
-      {
-         //unregister callback
-         unregisterGetTxCallback(txHash);
-
-         //throw
-         throw GetDataException("operation timed out");
-      }
-
-      return gotDataFuture.get();
+      auto&& status = fut.wait_for(chrono::seconds(timeout));
+      if (status == future_status::ready)
+         payloadPtr = fut.get();
+      else
+         gdsPtr->setStatus(false);
    }
+      
+   if (createCallback)
+      unregisterGetTxCallback(txHash);
+
+   return payloadPtr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 void BitcoinP2P::registerGetTxCallback(
-   const BinaryDataRef& hashRef, getTxCallback callback)
+   const BinaryDataRef& hashRef, shared_ptr<GetDataStatus> gdsPtr)
 {
    getTxCallbackMap_.insert(move(make_pair(
-      hashRef, callback)));
+      hashRef, gdsPtr)));
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -529,7 +529,7 @@ void BtcWallet::scanWalletZeroConf(const ScanWalletStruct& scanInfo,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-bool BtcWallet::scanWallet(const ScanWalletStruct& scanInfo, uint32_t updateID)
+bool BtcWallet::scanWallet(ScanWalletStruct& scanInfo, uint32_t updateID)
 {
    if (scanInfo.action_ != BDV_ZC)
    {
@@ -564,8 +564,27 @@ bool BtcWallet::scanWallet(const ScanWalletStruct& scanInfo, uint32_t updateID)
          scanWalletZeroConf(scanInfo, updateID);
          map<BinaryData, TxIOPair> txioMap;
          getTxioForRange(scanInfo.endBlock_ + 1, UINT32_MAX, txioMap);
+         
+         BinaryData lastLedgerEntryKey;
+         if (ledgerAllAddr_->size() > 0)
+            lastLedgerEntryKey = ledgerAllAddr_->rbegin()->first;
+
          updateWalletLedgersFromTxio(*ledgerAllAddr_, txioMap, 
             scanInfo.endBlock_ + 1, UINT32_MAX, true);
+
+         auto iter = ledgerAllAddr_->rbegin();
+         while (iter != ledgerAllAddr_->rend())
+         {
+            if (iter->first > lastLedgerEntryKey)
+            {
+               scanInfo.saStruct_.zcLedgers_.insert(
+                  make_pair(iter->first, iter->second));
+
+               ++iter;
+            }
+
+            break;
+         }
 
          balance_ = getFullBalanceFromDB();
 

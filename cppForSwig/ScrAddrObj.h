@@ -42,6 +42,7 @@ struct ScanAddressStruct
 {
    set<BinaryData> invalidatedZCKeys_;
    map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>> zcMap_;
+   map<BinaryData, LedgerEntry> zcLedgers_;
 };
 
 class ScrAddrObj

@@ -56,12 +56,23 @@ public:
       bd_(bd)
    {}
 
+   BinaryDataObject(const string& str)
+   {
+      bd_ = move(BinaryData(str));
+   }
+
    friend ostream& operator << (ostream&, const BinaryDataObject&);
    friend istream& operator >> (istream&, BinaryDataObject&);
 
    const BinaryData& get(void) const
    {
       return bd_;
+   }
+
+   string toStr(void) const
+   {
+      string str(bd_.toCharPtr(), bd_.getSize());
+      return move(str);
    }
 };
 
