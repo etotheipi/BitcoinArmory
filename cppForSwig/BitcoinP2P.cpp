@@ -332,7 +332,7 @@ void BitcoinNetAddr::deserialize(BinaryRefReader brr)
 ////////////////////////////////////////////////////////////////////////////////
 void BitcoinNetAddr::serialize(uint8_t* ptr) const
 {
-   put_integer_be(ptr, services_);
+   memcpy(ptr, &services_, 8);
    memcpy(ptr + 8, ipV6_, 16);
    put_integer_be(ptr + 24, port_);
 }
@@ -393,9 +393,9 @@ size_t Payload_Version::serialize_inner(uint8_t* dataptr) const
 
    uint8_t* vhptr = dataptr;
    
-   put_integer_be(vhptr, vheader_.version_);
-   put_integer_be(vhptr +4, vheader_.services_);
-   put_integer_be(vhptr +12, vheader_.timestamp_);
+   memcpy(vhptr, &vheader_.version_, 4);
+   memcpy(vhptr +4, &vheader_.services_, 8);
+   memcpy(vhptr + 12, &vheader_.timestamp_, 8);
    vhptr += 20;
 
    vheader_.addr_recv_.serialize(vhptr);
@@ -410,7 +410,11 @@ size_t Payload_Version::serialize_inner(uint8_t* dataptr) const
    memcpy(ptr, &varint[0], varintlen);
    ptr += varintlen;
    memcpy(ptr, userAgent_.c_str(), userAgent_.size());
-   memcpy(ptr + userAgent_.size() + 1, &startHeight_, 4);
+   ptr += userAgent_.size();
+   memcpy(ptr, &startHeight_, 4);
+   ptr += 4;
+   *ptr = 1;
+   
 
    return serlen;
 }
@@ -759,8 +763,11 @@ void BitcoinP2P::connectLoop(void)
          if (binSocket_.getSocketName(clientsocketaddr) != 0)
             throw SocketError("failed to get client sockaddr");
 
+         if (binSocket_.getPeerName(node_addr_) != 0)
+            throw SocketError("failed to get peer sockaddr");
+
          // Services, for future extensibility
-         uint32_t services = 0 | NODE_WITNESS;
+         uint32_t services = NODE_WITNESS;
 
          version.setVersionHeaderIPv4(70012, services, timestamp,
             node_addr_, clientsocketaddr);

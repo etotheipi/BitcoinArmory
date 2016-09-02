@@ -97,9 +97,8 @@ struct BitcoinNetAddr
       ipV6_[11] = (char)255;
 
       memcpy(ipV6_ + 12, nodeaddr.sa_data + 2, 4);
-      char* portptr = (char*)&port_;
-      portptr[0] = nodeaddr.sa_data[1];
-      portptr[1] = nodeaddr.sa_data[0];
+      auto ptr = (uint8_t*)nodeaddr.sa_data;
+      port_ = (unsigned)ptr[0] * 256 + (unsigned)ptr[1];
    }
 };
 

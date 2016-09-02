@@ -111,6 +111,17 @@ public:
       return getsockname(sockfd_, &sa, &namelen);
    }
 
+   int getPeerName(struct sockaddr& sa)
+   {
+#ifdef _WIN32
+      int namelen = sizeof(sa);
+#else
+      unsigned int namelen = sizeof(sa);
+#endif
+
+      return getpeername(sockfd_, &sa, &namelen);
+   }
+
    bool isValid(void) const { return sockfd_ != SOCK_MAX; }
 };
 
