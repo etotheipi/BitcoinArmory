@@ -67,8 +67,6 @@ from armoryengine.Transaction import *
 import BDM
 from bitcoinrpc_jsonrpc.authproxy import JSONRPCException
 
-
-
 ################################################################################
 # These would normally be defined by C++ and fed in, but I've recreated
 # the C++ class here... it's really just a container, anyway
@@ -809,15 +807,10 @@ def calcMinSuggestedFeesHackMS(selectCoinsResult, targetOutVal, preSelectedFee,
 
    return suggestedFee
    
-      
-
 ################################################################################
-def calcMinSuggestedFees(selectCoinsResult, targetOutVal, preSelectedFee,
+def estimateTxSize(selectCoinsResult, targetOutVal, preSelectedFee,
                          numRecipients):
-
-   # TODO: this should be updated to accommodate the non-constant 
-   #       TxOut/TxIn size given that it now accepts P2SH and Multisig
-
+     
    if len(selectCoinsResult)==0:
       return -1
    
@@ -828,6 +821,20 @@ def calcMinSuggestedFees(selectCoinsResult, targetOutVal, preSelectedFee,
    numBytes  =  10
    numBytes += 180 * len(selectCoinsResult)
    numBytes +=  35 * (numRecipients + (1 if change>0 else 0))
+   
+   return numBytes 
+
+################################################################################
+def calcMinSuggestedFees(selectCoinsResult, targetOutVal, preSelectedFee,
+                         numRecipients):
+
+   # TODO: this should be updated to accommodate the non-constant 
+   #       TxOut/TxIn size given that it now accepts P2SH and Multisig
+
+   numBytes = estimateTxSize(selectCoinsResult, targetOutVal, preSelectedFee, numRecipients)
+   if numBytes == -1:
+      return -1
+   
    numKb = int(numBytes / 1000)
 
    suggestedFee = (1+numKb)*estimateFee()

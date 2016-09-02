@@ -14,7 +14,7 @@ from qtdefines import * #@UnusedWildImport
 from armoryengine.Transaction import UnsignedTransaction, getTxOutScriptType
 from armoryengine.Script import convertScriptToOpStrings
 from armoryengine.CoinSelection import PySelectCoins, calcMinSuggestedFees,\
-   calcMinSuggestedFeesHackMS, PyUnspentTxOut
+   calcMinSuggestedFeesHackMS, PyUnspentTxOut, estimateTxSize
 from ui.WalletFrames import SelectWalletFrame, LockboxSelectFrame
 from armoryengine.MultiSigUtils import \
       calcLockboxID, readLockboxEntryStr, createLockboxEntryStr, isBareLockbox,\
@@ -64,8 +64,13 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.edtFeeAmt.setMaximumWidth(tightSizeNChar(self.edtFeeAmt, 12)[0])
       self.edtFeeAmt.setMaximumHeight(self.maxHeight)
       self.edtFeeAmt.setAlignment(Qt.AlignRight)
-      self.edtFeeAmt.setText(coin2str(txFee, maxZeros=1).strip())
-
+      
+      self.radioFlatFee = QRadioButton('Total')
+      self.radioPerSatF = QRadioButton('Satoshi/Byte')
+               
+      self.connect(self.radioFlatFee, SIGNAL(CLICKED), self.flatFeeChecked)
+      self.connect(self.radioPerSatF, SIGNAL(CLICKED), self.perSatFChecked)
+      self.flatFeeChecked()   
 
 
       # This used to be in the later, expert-only section, but some of these
@@ -133,13 +138,12 @@ class SendBitcoinsFrame(ArmoryFrame):
 
       # Only the Create  Unsigned Transaction button if there is a callback for it.
       # Otherwise the containing dialog or wizard will provide the offlien tx button
-      componentList = [ QLabel('Fee:'), self.edtFeeAmt, feetip, STRETCH]
+      componentList = [ QLabel('Fee:'), self.radioFlatFee, self.radioPerSatF, feetip, STRETCH]
       if self.createUnsignedTxCallback:
          self.connect(self.unsignedCheckbox, SIGNAL(CLICKED), self.unsignedCheckBoxUpdate)
          componentList.append(self.unsignedCheckbox)
          componentList.append(self.ttipUnsigned)
-      buttonList = [STRETCH]
-      buttonList.append(self.btnCancel)
+      buttonList = [self.edtFeeAmt, STRETCH, self.btnCancel]
       # Only add the Send Button if there's a callback for it
       # Otherwise the containing dialog or wizard will provide the send button
       if self.sendCallback:
@@ -317,6 +321,16 @@ class SendBitcoinsFrame(ArmoryFrame):
 
       self.unsignedCheckBoxUpdate()
 
+   def flatFeeChecked(self):
+      txFee = self.main.getSettingOrSetDefault('Default_Fee', MIN_TX_FEE)
+      self.radioFlatFee.setChecked(True)
+      self.radioPerSatF.setChecked(False)
+      self.edtFeeAmt.setText(QString(coin2str(txFee, maxZeros=1).strip()))
+         
+   def perSatFChecked(self):
+      self.radioFlatFee.setChecked(False)
+      self.radioPerSatF.setChecked(True)
+      self.edtFeeAmt.setText(QString('0'))      
 
    #############################################################################
    def unsignedCheckBoxUpdate(self):
@@ -427,7 +441,6 @@ class SendBitcoinsFrame(ArmoryFrame):
       addrList = []
       self.comments = []
 
-      isSendToNonStandardLockbox = False
       for row in range(len(self.widgetTable)):
          # Verify validity of address strings
          addrStr = str(self.widgetTable[row]['QLE_ADDR'].text()).strip()
@@ -546,9 +559,15 @@ class SendBitcoinsFrame(ArmoryFrame):
          scriptValPairs.append([script, value])
          self.comments.append((str(self.widgetTable[row]['QLE_COMM'].text()), value))
 
+      perByteCalc = False
       try:
          feeStr = str(self.edtFeeAmt.text())
-         fee = str2coin(feeStr, negAllowed=False)
+         if self.radioPerSatF.isChecked():
+            feePerByte = int(feeStr)
+            fee = 0
+            perByteCalc = True
+         else:
+            fee = str2coin(feeStr, negAllowed=False)
       except NegativeValueError:
          QMessageBox.critical(self, tr('Negative Value'), tr("""
             You must enter a positive value for the fee."""), QMessageBox.Ok)
@@ -570,7 +589,6 @@ class SendBitcoinsFrame(ArmoryFrame):
 
       bal = self.getUsableBalance()
       if totalSend + fee > bal:
-         valTry = coin2str(totalSend + fee, maxZeros=2).strip()
          valMax = coin2str(bal, maxZeros=2).strip()
          if self.altBalance == None:
             QMessageBox.critical(self, tr('Insufficient Funds'), tr("""
@@ -595,29 +613,58 @@ class SendBitcoinsFrame(ArmoryFrame):
       # last condition,and give the user an insufficient balance warning.
       minFee = None
       utxoSelect = []
-      feeTry = fee
-      while minFee is None or (feeTry < minFee and totalSend + minFee <= bal):
-         if minFee:
-            feeTry = minFee
-         utxoList = self.getUsableTxOutList(totalSend)
-         utxoSelect = PySelectCoins(utxoList, totalSend, feeTry)
       
-         if self.lbox is None:
-            minFee = calcMinSuggestedFees(utxoSelect, totalSend, feeTry, \
+      if perByteCalc == False:
+         feeTry = fee
+         while minFee is None or (feeTry < minFee and totalSend + minFee <= bal):
+            if minFee:
+               feeTry = minFee
+            utxoList = self.getUsableTxOutList(totalSend + feeTry)
+            utxoSelect = PySelectCoins(utxoList, totalSend, feeTry)
+         
+            if self.lbox is None:
+               minFee = calcMinSuggestedFees(utxoSelect, totalSend, feeTry, \
+                                                len(scriptValPairs))
+            else:
+               minFee = calcMinSuggestedFeesHackMS(utxoSelect, totalSend, feeTry, \
+                                                len(scriptValPairs))
+   
+   
+         if minFee > 99*MIN_RELAY_TX_FEE:
+            QMessageBox.critical(self, tr('Minimum Transaction Fee Is Too Large'), tr("""
+               The minimum fee for this transaction is <b>%s BTC</b>. That fee is too
+               large and indicates that there are probably too many small inputs to fit
+               into a single transaction. To send these Bitcoins, this transaction must
+               be broken up into to smaller pieces.            
+               """) % coin2strNZS(minFee), QMessageBox.Ok)
+            return False
+      else:
+         feeTry = 0
+         
+         while True:
+            utxoList = self.getUsableTxOutList(totalSend + feeTry)
+            
+            while True:
+               totalBal = sum([u.getValue() for u in utxoList])
+               utxoSelect = PySelectCoins(utxoList, totalSend, feeTry)
+                             
+               #estimate tx size with the current txin count
+               sizeEstimate = estimateTxSize(utxoSelect, totalSend, feeTry, \
                                              len(scriptValPairs))
-         else:
-            minFee = calcMinSuggestedFeesHackMS(utxoSelect, totalSend, feeTry, \
-                                             len(scriptValPairs))
+               feeTry = sizeEstimate * feePerByte
+   
+               utxoSelectBalance = sum([u.getValue() for u in utxoSelect])
+               if feeTry + totalSend <= utxoSelectBalance:
+                  fee = feeTry
+                  break
+               
+               if totalSend + feeTry > totalBal:
+                  break
+            
+            if fee != 0:
+               minFee = 1000
+               break
 
-
-      if minFee > 99*MIN_RELAY_TX_FEE:
-         QMessageBox.critical(self, tr('Minimum Transaction Fee Is Too Large'), tr("""
-            The minimum fee for this transaction is <b>%s BTC</b>. That fee is too
-            large and indicates that there are probably too many small inputs to fit
-            into a single transaction. To send these Bitcoins, this transaction must
-            be broken up into to smaller pieces.            
-            """) % coin2strNZS(minFee), QMessageBox.Ok)
-         return False
          
       # We now have a min-fee that we know we can match if the user agrees
       if fee < minFee:
@@ -721,10 +768,6 @@ class SendBitcoinsFrame(ArmoryFrame):
       else:
          self.selectedBehavior = NO_CHANGE
          
-      changePair = None
-      if len(self.selectedBehavior) > 0:
-         changePair = (self.changeScript, self.selectedBehavior)
-
       # Keep a copy of the originally-sorted list for display
       origSVPairs = scriptValPairs[:]
 
