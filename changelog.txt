@@ -4,12 +4,12 @@ v0.94.99-testing
 
    - Introducing litenode
    - Client and database are now split in 2 binaries: ArmoryQt (client) and ArmoryDB (server)
-   - Clients interface with servers over the FCGI protocol. Server is hardcoded to listen on localhost:9001
-   - ArmoryDB can serve remote clients through the use of a HTTP daemon. Example setup for nginx can be found in here: 
+   - Clients interface with servers over the FCGI protocol. Server is hardcoded to listen on localhost, default port is 9001
+   - ArmoryDB can serve remote clients through the use of a HTTP daemon. Example config file for nginx can be found here: 
      ./nginx_example.conf
 
    - As a result, bitcoin P2P connectivity has been moved from ArmoryQt to ArmoryDB. This means in turn that clients do not 
-     require the presence of a local bitcoin node process to operate.
+     require the presence of a local bitcoin node to operate anymore.
    - By default ArmoryQt spawns and controls ArmoryDB. This will not happen in 2 cases:
       _ There is already an instance of ArmoryDB listening on localhost:9001
       _ ArmoryQt has been pointed to specific ArmoryDB through a combination of the new --armorydb-ip and --armorydb-port 
@@ -20,8 +20,8 @@ v0.94.99-testing
      ./cppForSwig/BlockUtils.cpp:778
 
    - DB modes are selected with the new --db-type cli arg. It defaults to --db-type=DB_FULL. Also available are DB_BARE and
-     DB_SUPER. DB has not effect currently, it will be implemented in a future release.   
-   - Introduced an extra set of data to resolve random transaction hashes. This database is ~550MB with the current
+     DB_SUPER. DB_SUPER has no effect currently, it will be implemented in a future release.   
+   - Introducing an extra dataset to resolve random transaction hashes. This database is ~550MB with the current
      blockchain size. This comes in addition to the previous db features of 0.94. This is the default mode, i.e. DB_FULL. 
      To disable this feature (revert to the bare 0.94 db), use --db-type=DB_BARE.
    - You cannot swap db modes on top of an existing db, you will need to build one from scratch instead.
@@ -36,8 +36,16 @@ v0.94.99-testing
        bound, be careful when using high values. <= 0 values result in use of default.
      _ --thread-count: int >= 1. Defaults to CPU max thread count. As with ram-usage, use large upper values with care.
 
+   - Improved coin control granularity. You now select UTXOs directly.
+   - Added fee per byte options in Send Bitcoins dialog.
+   - Failure to broadcast zero confirmation transactions to the network are now reported with the specific reject message
+     from your node.
+
+   - Added Segregated Witness read support. This means the database can successfully parse SW transactions.
+   - No SW spending feature yet. This will be the subject of another release.
+
 == Fixed ==
-   - Fixed the missing transaction issue in Tx detail dialog through the addition of the new resolver dataset
+   - Fixed the missing transaction issue in the Tx Details dialog through the addition of the new resolver dataset
 
 == Removed ==
    - ArmoryQt does not interface nor require the presence of a local bitcoin node to operate online anymore. This 
