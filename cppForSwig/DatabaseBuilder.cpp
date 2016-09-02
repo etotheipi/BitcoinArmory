@@ -33,6 +33,7 @@ void DatabaseBuilder::init()
 
    //read all blocks already in DB and populate blockchain
    topBlockOffset_ = loadBlockHeadersFromDB(progress_);
+   progress_(BDMPhase_OrganizingChain, 0, UINT32_MAX, 0);
    blockchain_->forceOrganize();
    blockchain_->setDuplicateIDinRAM(db_);
 
@@ -181,10 +182,10 @@ BlockOffset DatabaseBuilder::loadBlockHeadersFromDB(
       if (currblock > topBlockOffet)
          topBlockOffet = currblock;
 
-      if ((counter % 10000) != 0)
+      if ((counter++ % 50000) != 0)
          return;
 
-      calc.advance(counter++);
+      calc.advance(counter);
       progress(BDMPhase_DBHeaders, 
          calc.fractionCompleted(), calc.remainingSeconds(), counter);
    };
@@ -206,12 +207,34 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
    unsigned threadcount = min(bdmConfig_.threadCount_,
       blockFiles_.fileCount() - topBlockOffset_.fileID_);
 
+   if (initialLoad)
+   {
+      //rewind 30MB for good measure
+      unsigned rewind = 30 * 1024 * 1024;
+      if (topBlockOffset_.offset_ > rewind)
+         topBlockOffset_.offset_ -= rewind;
+      else
+         topBlockOffset_.offset_ = 0;
+   }
+
+   mutex progressMutex;
+   unsigned baseID = topBlockOffset_.fileID_;
+
+   //init progress
+   ProgressCalculator calc(blockFiles_.fileCount());
+   if (verbose)
+   {
+      calc.init(baseID);
+      auto val = calc.fractionCompleted();
+      progress(BDMPhase_BlockData,
+         calc.fractionCompleted(), UINT32_MAX,
+         baseID);
+   }
+
+
    auto addblocks = [&](uint16_t fileID, size_t startOffset, 
       shared_ptr<BlockOffset> bo, bool verbose)->void
    {
-      ProgressCalculator calc(blockFiles_.fileCount());
-      calc.advance(fileID);
-
       while (1)
       {
          if (!addBlocksToDB(bdl, fileID, startOffset, bo))
@@ -219,12 +242,18 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
 
          if (verbose)
          {
-            LOGINFO << "parsed block file #" << fileID;
-            
-            calc.advance(fileID, false);
-            progress(BDMPhase_BlockData,
-            calc.fractionCompleted(), calc.remainingSeconds(), 
-               fileID + threadcount);
+            unique_lock<mutex> lock(progressMutex, defer_lock);
+            if (lock.try_lock() && fileID >= baseID)
+            {
+               LOGINFO << "parsed block file #" << fileID;
+
+               calc.advance(fileID);
+               progress(BDMPhase_BlockData,
+                  calc.fractionCompleted(), calc.remainingSeconds(),
+                  fileID);
+
+               baseID = fileID;
+            }
          }
 
          //reset startOffset for the next file
@@ -236,21 +265,11 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
    vector<thread> tIDs;
    vector<shared_ptr<BlockOffset>> boVec;
 
-   if (initialLoad)
-   {
-      //rewind 30MB for good measure
-      unsigned rewind = 30 * 1024 * 1024;
-      if (topBlockOffset_.offset_ > rewind)
-         topBlockOffset_.offset_ -= rewind;
-      else
-         topBlockOffset_.offset_ = 0;
-   }
-
    for (unsigned i = 1; i < threadcount; i++)
    {
       boVec.push_back(make_shared<BlockOffset>(topBlockOffset_));
       tIDs.push_back(thread(addblocks, topBlockOffset_.fileID_ + i, 0, 
-	                  boVec.back(), false));
+	                  boVec.back(), verbose));
    }
 
    boVec.push_back(make_shared<BlockOffset>(topBlockOffset_));
@@ -270,6 +289,7 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
    }
 
    //done parsing new blocks, reorg and add to DB
+   progress_(BDMPhase_OrganizingChain, 0, UINT32_MAX, 0);
    auto&& reorgState = blockchain_->organize(verbose);
    blockchain_->putNewBareHeaders(db_);
 

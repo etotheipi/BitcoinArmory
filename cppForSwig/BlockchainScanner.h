@@ -150,7 +150,8 @@ private:
       map<uint32_t, map<uint32_t, 
       set<const TxFilterResults*>>>& filtersResultMap,
       TransactionalSet<BinaryData>& missingHashes,
-      atomic<int>& counter, map<BinaryData, BinaryData>& results);
+      atomic<int>& counter, map<BinaryData, BinaryData>& results,
+      function<void(size_t)> prog);
 
 
 public:

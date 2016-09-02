@@ -16,11 +16,14 @@
 
 enum BDMPhase
 {
-   BDMPhase_DBHeaders=1,
+   BDMPhase_DBHeaders = 1,
    BDMPhase_OrganizingChain,
    BDMPhase_BlockHeaders,
    BDMPhase_BlockData,
-   BDMPhase_Rescan
+   BDMPhase_Rescan,
+   BDMPhase_Balance,
+   BDMPhase_SearchHashes,
+   BDMPhase_ResolveHashes
 };
 
 enum BDMAction

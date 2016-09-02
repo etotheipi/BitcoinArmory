@@ -4720,7 +4720,7 @@ class ArmoryMainWindow(QMainWindow):
 
          self.lblDashModeScan.setVisible(True)
          self.barProgressScan.setVisible(True)
-         self.lblTimeLeftScan.setVisible(True)
+         self.lblTimeLeftScan.setVisible(False)
 
          phase,pct,tleft,numericProgress = TheBDM.predictLoadTime()
          if phase==Cpp.BDMPhase_DBHeaders:
@@ -4742,6 +4742,7 @@ class ArmoryMainWindow(QMainWindow):
             self.barProgressBuild.setValue(0)
             self.barProgressBuild.setRange(0,0)
             self.lblTimeLeftBuild.setVisible(False)
+            self.lblTimeLeftScan.setVisible(False)
          elif phase==Cpp.BDMPhase_BlockHeaders:
             self.lblDashModeBuild.setText( tr('Reading New Block Headers'), \
                                         size=4, bold=True, color='Foreground')
@@ -4768,17 +4769,61 @@ class ArmoryMainWindow(QMainWindow):
             self.barProgressBuild.setValue(100)
             self.barProgressBuild.setRange(0,100)
             self.barProgressScan.setFormat('%p%')
-
-
-         tstring = secondsToHumanTime(tleft)
+         elif phase==Cpp.BDMPhase_Balance:
+            self.lblDashModeBuild.setText( tr('Build Databases'), \
+                                        size=4, bold=True, color='DisableFG')
+            self.lblDashModeScan.setText( tr('Computing Balances'), \
+                                        size=4, bold=True, color='Foreground')
+            self.barProgressBuild.setFormat('')
+            self.barProgressScan.setFormat('')
+            self.barProgressBuild.setValue(0)
+            self.barProgressBuild.setRange(0,0)
+            self.lblTimeLeftBuild.setVisible(False)   
+         elif phase==Cpp.BDMPhase_SearchHashes:
+            self.lblDashModeBuild.setText( tr('Build Databases'), \
+                                        size=4, bold=True, color='DisableFG')
+            self.lblDashModeScan.setText( tr('Parsing Tx Hashes'), \
+                                        size=4, bold=True, color='Foreground')
+            self.lblTimeLeftBuild.setVisible(False)
+            self.barProgressBuild.setFormat('')
+            self.barProgressBuild.setValue(100)
+            self.barProgressBuild.setRange(0,100)
+            self.lblTimeLeftScan.setVisible(False)
+            self.barProgressScan.setFormat('')
+            self.barProgressScan.setValue(0)
+            self.barProgressScan.setRange(0,0)
+            self.lblTimeLeftScan.setVisible(False)     
+         elif phase==Cpp.BDMPhase_ResolveHashes:
+            self.lblDashModeBuild.setText( tr('Build Databases'), \
+                                        size=4, bold=True, color='DisableFG')
+            self.lblDashModeScan.setText( tr('Resolving Tx Hashes'), \
+                                        size=4, bold=True, color='Foreground')
+            self.lblTimeLeftBuild.setVisible(False)
+            self.barProgressBuild.setFormat('')
+            self.barProgressBuild.setValue(100)
+            self.barProgressBuild.setRange(0,100)
+            self.lblTimeLeftBuild.setVisible(False)
+            self.barProgressScan.setFormat('')
+            self.barProgressScan.setValue(100)
+            self.barProgressScan.setRange(0,100)
+            self.barProgressScan.setFormat('%p%')  
+       
+         showPct = True
+         if tleft != 2**32 - 1:
+            tstring = secondsToHumanTime(tleft)
+         else:
+            tstring = "N/A"
+            showPct = False
          pvalue = pct*100
 
-         if phase==BDMPhase_BlockHeaders or phase==BDMPhase_BlockData or phase==BDMPhase_DBHeaders:
-            self.lblTimeLeftBuild.setText(tstring)
-            self.barProgressBuild.setValue(pvalue)
-         elif phase==BDMPhase_Rescan:
-            self.lblTimeLeftScan.setText(tstring)
-            self.barProgressScan.setValue(pvalue)
+         if showPct:
+            if phase==BDMPhase_BlockHeaders or phase==BDMPhase_BlockData or phase==BDMPhase_DBHeaders:
+               self.lblTimeLeftBuild.setText(tstring)
+               self.barProgressBuild.setValue(pvalue)
+            elif phase==BDMPhase_Rescan or BDMPhase_ResolveHashes:
+               self.lblTimeLeftScan.setText(tstring)
+               self.barProgressScan.setValue(pvalue)
+               self.lblTimeLeftScan.setVisible(True)
 
       elif TheSDM.getSDMState() in ['BitcoindInitializing','BitcoindSynchronizing']:
 

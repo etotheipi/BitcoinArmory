@@ -613,6 +613,12 @@ public:
 
       set_ = newSet;
    }
+
+   size_t size(void) const
+   {
+      unique_lock<mutex> lock(mu_);
+      return set_->size();
+   }
 };
 
 

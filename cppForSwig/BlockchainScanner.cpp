@@ -524,7 +524,12 @@ void BlockchainScanner::writeBlockData(
 
    ProgressCalculator calc(getGlobalOffsetForBlock(
       blockchain_->top().getBlockHeight()));
-   calc.advance(getGlobalOffsetForBlock(startAt_));
+   auto initVal = getGlobalOffsetForBlock(startAt_);
+   calc.init(initVal);
+   if (reportProgress_)
+      progress_(BDMPhase_Rescan,
+      calc.fractionCompleted(), UINT32_MAX,
+      initVal);
 
    auto writeHintsLambda = 
       [&](const vector<shared_ptr<BlockDataBatch>>& batchVec)->void
@@ -779,8 +784,10 @@ void BlockchainScanner::updateSSH(bool force)
 {
    //loop over all subssh entiers in SUBSSH db, 
    //compile balance, txio count and summary map for each address
-
    //now also resolves unhinted tx hashes
+
+   if (reportProgress_)
+      progress_(BDMPhase_Balance, 0, 0, 0);
 
    StoredDBInfo sdbi = scrAddrFilter_->getSshSDBI();
 
@@ -1350,7 +1357,8 @@ void BlockchainScanner::getFilterHitsThread(
 void BlockchainScanner::processFilterHitsThread(
    map<uint32_t, map<uint32_t, set<const TxFilterResults*>>>& filtersResultMap,
    TransactionalSet<BinaryData>& missingHashes,
-   atomic<int>& counter, map<BinaryData, BinaryData>& results)
+   atomic<int>& counter, map<BinaryData, BinaryData>& results,
+   function<void(size_t)> prog)
 {
    map<BinaryData, BinaryData> result;
 
@@ -1420,6 +1428,8 @@ void BlockchainScanner::processFilterHitsThread(
                         txid));
 
                      missingHashes.erase(txnHash);
+                     auto count = missingHashes.size();
+                     prog(count);
 
                      hashSet.erase(hashIter++);
                      continue;
@@ -1497,6 +1507,9 @@ void BlockchainScanner::resolveTxHashes()
    ***/
 
    TIMER_RESTART("resolveHashes");
+
+   if (reportProgress_)
+      progress_(BDMPhase_SearchHashes, 0, UINT32_MAX, 0);
 
    set<BinaryData> missingHashes;
    try
@@ -1597,12 +1610,40 @@ void BlockchainScanner::resolveTxHashes()
    map<BinaryData, BinaryData> resolverResults;
    vector<thread> resolverThreads;
 
+   auto hashCount = missingHashSet.size();
+   ProgressCalculator calc(hashCount);
+   mutex progressMutex;
+   uint64_t topCount = hashCount;
+
+   auto resolveProgress = [&](size_t count)->void
+   {
+      if (!reportProgress_)
+         return;
+
+      unique_lock<mutex> lock(progressMutex, defer_lock);
+      if (!lock.try_lock())
+         return;
+
+      if (count > topCount)
+         return;
+
+      topCount = count;
+      auto intprog = hashCount - count;
+      calc.advance(intprog);
+      this->progress_(BDMPhase_ResolveHashes, 
+         calc.fractionCompleted(), calc.remainingSeconds(), count);
+   };
+
    auto resolverThr = [&](void)->void
    {
       processFilterHitsThread(resultsByHash,
          missingHashSet,
-         counter, resolverResults);
+         counter, resolverResults, resolveProgress);
    };
+
+   if (reportProgress_)
+      progress_(BDMPhase_ResolveHashes, 0, UINT32_MAX, 0);
+
 
    for (unsigned i = 1; i < totalThreadCount_; i++)
       resolverThreads.push_back(thread(resolverThr));

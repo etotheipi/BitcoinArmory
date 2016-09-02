@@ -47,7 +47,8 @@ class ProgressCalculator
 public:
    ProgressCalculator(uint64_t total);
    
-   void advance(uint64_t to, bool suppress = true);
+   void init(uint64_t to);
+   void advance(uint64_t to);
 
    uint64_t total() const { return total_; }
 
