@@ -959,7 +959,7 @@ class PyBtcWallet(object):
       return self
 
    #############################################################################
-   def advanceHighestIndex(self, ct=1):
+   def advanceHighestIndex(self, ct=1, isNew=False):
       topIndex = self.highestUsedChainIndex + ct
       topIndex = min(topIndex, self.lastComputedChainIndex)
       topIndex = max(topIndex, 0)
@@ -967,7 +967,7 @@ class PyBtcWallet(object):
       self.highestUsedChainIndex = topIndex
       self.walletFileSafeUpdate( [[WLT_UPDATE_MODIFY, self.offsetTopUsed, \
                     int_to_binary(self.highestUsedChainIndex, widthBytes=8)]])
-      self.fillAddressPool()
+      self.fillAddressPool(isActuallyNew=isNew)
       
    #############################################################################
    def rewindHighestIndex(self, ct=1):
@@ -985,10 +985,10 @@ class PyBtcWallet(object):
    #############################################################################
    def getNextUnusedAddress(self):
       if self.lastComputedChainIndex - self.highestUsedChainIndex < \
-                                              max(self.addrPoolSize-1,1):
-         self.fillAddressPool(self.addrPoolSize)
+                                              max(self.addrPoolSize,1):
+         self.fillAddressPool(self.addrPoolSize, True)
 
-      self.advanceHighestIndex(1)
+      self.advanceHighestIndex(1, True)
       new160 = self.getAddress160ByChainIndex(self.highestUsedChainIndex)
       self.addrMap[new160].touch()
       self.walletFileSafeUpdate( [[WLT_UPDATE_MODIFY, \
@@ -1063,7 +1063,7 @@ class PyBtcWallet(object):
                                  doRegister=False))) 
          
       #add addresses in bulk once they are all computed   
-      if doRegister and self.isRegistered():
+      if doRegister and self.isRegistered() and numToCreate > 0:
          #isEnabled will be flagged back to True by the callback once it notifies
          #that the wallet has properly loaded the new scrAddr and scanned it
          

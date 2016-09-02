@@ -193,7 +193,6 @@ private:
    
    //false: dont scan
    //true: wipe existing ssh then scan
-   bool                           doScan_ = true; 
    bool                           isScanning_ = false;
 
    Pile<ScrAddrSideScanData> scanDataPile_;

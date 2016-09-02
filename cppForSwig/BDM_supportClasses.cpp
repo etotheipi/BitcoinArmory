@@ -401,12 +401,6 @@ bool ScrAddrFilter::registerAddressBatch(
       sca->setParent(this);
       bool hasNewSA = false;
 
-      if (areNew)
-      {
-         //mark addresses as fresh to skip DB scan
-         doScan_ = false;
-      }
-
       for (auto& batch : wltInfoVec)
       {
          if (batch->scrAddrSet_.size() == 0)
@@ -461,7 +455,7 @@ void ScrAddrFilter::scanScrAddrThread()
       topScannedBlockHash = sbh.thisHash_;
    }
 
-   if(doScan_ == false)
+   if(scrAddrDataForSideScan_.doScan_ == false)
    {
       //new addresses, set their last seen block in the ssh entries
       setSSHLastScanned(currentTopBlockHeight());
