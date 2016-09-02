@@ -136,7 +136,7 @@ void BinarySocket::writeToSocket(SOCKET sockfd, void* data, size_t size)
 
       if (pfd.revents & POLLNVAL)
       {
-         LOGERR << "POLLNVAL in writeToSocket";
+         //LOGERR << "POLLNVAL in writeToSocket";
          throw SocketError("POLLNVAL in writeToSocket");
       }
 
@@ -266,11 +266,11 @@ void BinarySocket::readFromSocketThread(SOCKET sockfd, ReadCallback callback)
          if (pfd.revents & POLLNVAL)
          {
 #ifndef _WIN32
-            int error = 0;
+            /*int error = 0;
             socklen_t errlen = sizeof(error);
             getsockopt(sockfd, SOL_SOCKET, SO_ERROR, (void *)&error, &errlen);
             LOGERR << "readFromSocketThread poll returned POLLNVAL, errnum: " <<
-               error << ", errmsg: " << strerror(error);                  
+               error << ", errmsg: " << strerror(error);*/            
 #endif
             throw SocketError("POLLNVAL in readFromSocketThread");
          }
