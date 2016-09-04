@@ -141,7 +141,8 @@ class SatoshiDaemonManager(object):
       if 'testnet' in newDir or 'regtest' in newDir:
          self.satoshiRoot, tail = os.path.split(newDir)
 
-      self.dbExecutable = "./ArmoryDB"
+      path = os.path.dirname(os.path.abspath(__file__))
+      self.dbExecutable = os.path.join(path, 'ArmoryDB')
       if OS_WINDOWS:
          self.dbExecutable += ".exe"
 
