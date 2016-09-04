@@ -14,7 +14,7 @@ from qtdefines import * #@UnusedWildImport
 from armoryengine.Transaction import UnsignedTransaction, getTxOutScriptType
 from armoryengine.Script import convertScriptToOpStrings
 from armoryengine.CoinSelection import PySelectCoins, calcMinSuggestedFees,\
-   calcMinSuggestedFeesHackMS, PyUnspentTxOut, estimateTxSize
+   calcMinSuggestedFeesHackMS, PyUnspentTxOut, estimateTxSize, estimateFee
 from ui.WalletFrames import SelectWalletFrame, LockboxSelectFrame
 from armoryengine.MultiSigUtils import \
       calcLockboxID, readLockboxEntryStr, createLockboxEntryStr, isBareLockbox,\
@@ -330,7 +330,7 @@ class SendBitcoinsFrame(ArmoryFrame):
    def perSatFChecked(self):
       self.radioFlatFee.setChecked(False)
       self.radioPerSatF.setChecked(True)
-      self.edtFeeAmt.setText(QString('0'))      
+      self.edtFeeAmt.setText(QString(str(estimateFee() / 1000.0)))
 
    #############################################################################
    def unsignedCheckBoxUpdate(self):
