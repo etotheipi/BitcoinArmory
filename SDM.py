@@ -152,6 +152,10 @@ class SatoshiDaemonManager(object):
    def setupSDM(self, pathToBitcoindExe=None, satoshiHome=None, \
                       extraExeSearch=[], createHomeIfDNE=True):
       LOGDEBUG('Exec setupSDM')
+      # If the client is remote, don't do anything.
+      if not self.localClient:
+         LOGWARN("No SDM since the client is remote")
+         return
 
       self.failedFindExe = False
       self.failedFindHome = False
@@ -205,6 +209,10 @@ class SatoshiDaemonManager(object):
    #############################################################################
    def setupManualSDM(self):
       LOGDEBUG('Exec setupManualSDM')
+      # If the client is remote, don't do anything.
+      if not self.localClient:
+         LOGWARN("No SDM since the client is remote")
+         return
 
       # Setup bitcoind stuff
       self.bitcoind = False
@@ -219,6 +227,13 @@ class SatoshiDaemonManager(object):
          LOGDEBUG("bitcoind rpc is not actually availalbe")
          self.bitcoind = None
          self.proxy = None
+
+   #############################################################################
+   def checkClientIsLocal(self):
+      if ARMORYDB_IP != ARMORYDB_DEFAULT_IP or ARMORYDB_PORT != ARMORYDB_DEFAULT_PORT:
+         self.localClient = False
+      else:
+         self.localClient = True
 
    #############################################################################
    def setDisabled(self, newBool=True):
