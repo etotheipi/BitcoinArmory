@@ -10,6 +10,7 @@ import os.path
 import socket
 import stat
 import time
+from urllib import quote_plus as urlquote
 from threading import Event
 from bitcoinrpc_jsonrpc import ServiceProxy
 from CppBlockUtils import SecureBinaryData, CryptoECDSA
@@ -393,22 +394,14 @@ class SatoshiDaemonManager(object):
       # Look for rpcport, use default if not there
       self.bitconf['rpcport'] = int(self.bitconf.get('rpcport', BITCOIN_RPC_PORT))
 
-      # We must have a username and password.  If not, append to file
-      if not self.bitconf.has_key('rpcuser'):
-         LOGDEBUG('No rpcuser: creating one')
-         with open(bitconf,'a') as f:
-            f.write('\n')
-            f.write('rpcuser=generated_by_armory\n')
-            self.bitconf['rpcuser'] = 'generated_by_armory'
-
+      # If there is no password, use cookie auth
       if not self.bitconf.has_key('rpcpassword'):
-         LOGDEBUG('No rpcpassword: creating one')
-         with open(bitconf,'a') as f:
-            randBase58 = SecureBinaryData().GenerateRandom(32).toBinStr()
-            randBase58 = binary_to_base58(randBase58)
-            f.write('\n')
-            f.write('rpcpassword=%s' % randBase58)
-            self.bitconf['rpcpassword'] = randBase58
+         LOGDEBUG('No rpcpassword: Using cookie Auth')
+         cookiefile = os.path.join(self.satoshiRoot, '.cookie')
+         with open(cookiefile,'r') as f:
+            userpass = f.readline().split(":", 1)
+            self.bitconf['rpcuser'] = userpass[0]
+            self.bitconf['rpcpassword'] = urlquote(userpass[1])
 
 
       if not isASCII(self.bitconf['rpcuser']):
@@ -710,7 +703,7 @@ class SatoshiDaemonManager(object):
          LOGDEBUG('Creating proxy')
          usr,pas,hst,prt = [self.bitconf[k] for k in ['rpcuser','rpcpassword',\
                                                       'host', 'rpcport']]
-         pstr = 'https://%s:%s@%s:%d' % (usr,pas,hst,prt)
+         pstr = 'http://%s:%s@%s:%d' % (usr,pas,hst,prt)
          LOGINFO('Creating proxy in SDM: host=%s, port=%s', hst,prt)
          self.proxy = ServiceProxy(pstr)
 

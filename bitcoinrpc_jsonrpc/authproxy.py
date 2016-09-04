@@ -41,6 +41,7 @@ except ImportError:
 import base64
 import json
 import decimal
+import urllib
 try:
     import urllib.parse as urlparse
 except ImportError:
@@ -65,7 +66,7 @@ class AuthServiceProxy(object):
         else:
             port = self.__url.port
         self.__idcnt = 0
-        authpair = "%s:%s" % (self.__url.username, self.__url.password)
+        authpair = "%s:%s" % (self.__url.username, urllib.unquote(self.__url.password))
         authpair = unicode(authpair, 'utf-8').encode('utf-8')
         self.__authhdr = "Basic ".encode('utf8') + base64.b64encode(authpair)
         if self.__url.scheme == 'https':
