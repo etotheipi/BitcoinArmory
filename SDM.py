@@ -201,6 +201,21 @@ class SatoshiDaemonManager(object):
       self.readBitcoinConf(makeIfDNE=True)
 
    #############################################################################
+   def setupManualSDM(self):
+      LOGDEBUG('Exec setupManualSDM')
+      self.bitcoind = False
+      self.readBitcoinConf()
+
+      # Check bitcoind is actually up. If it is not, remove self.bitcoind
+      self.createProxy()
+      try:
+         self.proxy.getinfo()
+      except:
+         LOGDEBUG("bitcoind rpc is not actually availalbe")
+         self.bitcoind = None
+         self.proxy = None
+
+   #############################################################################
    def setDisabled(self, newBool=True):
       s = self.getSDMState()
 
@@ -543,6 +558,9 @@ class SatoshiDaemonManager(object):
    #############################################################################
    def stopBitcoind(self):
       LOGINFO('Called stopBitcoind')
+      if self.bitcoind == False:
+         self.bitcoind = None
+         return
       try:
          if not self.isRunningBitcoind():
                LOGINFO('...but bitcoind is not running, to be able to stop')
@@ -580,6 +598,9 @@ class SatoshiDaemonManager(object):
       """
       if self.bitcoind==None:
          return False
+      # Assume Bitcoind is running if manually started
+      if self.bitcoind==False:
+         return True
       else:
          if not self.bitcoind.poll()==None:
             LOGDEBUG('Bitcoind is no more')

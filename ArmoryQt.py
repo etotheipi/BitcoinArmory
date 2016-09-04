@@ -2218,6 +2218,8 @@ class ArmoryMainWindow(QMainWindow):
          return False
 
       if TheBDM.hasRemoteDB() or not self.doAutoBitcoind:
+         self.setSatoshiPaths()
+         TheSDM.setupManualSDM()
          self.notifyBitcoindIsReady()
          return False
 
