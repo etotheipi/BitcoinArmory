@@ -22,7 +22,8 @@ from armoryengine.ArmoryUtils import BITCOIN_PORT, LOGERROR, hex_to_binary, \
    PyBackgroundThread, touchFile, secondsToHumanTime, \
    bytesToHumanSize, MAGIC_BYTES, deleteBitcoindDBs, satoshiIsAvailable,\
    MEGABYTE, ARMORY_HOME_DIR, CLI_OPTIONS, AllowAsync, ARMORY_RAM_USAGE,\
-   ARMORY_THREAD_COUNT, ARMORY_DB_TYPE
+   ARMORY_THREAD_COUNT, ARMORY_DB_TYPE, ARMORYDB_IP, ARMORYDB_DEFAULT_IP, ARMORYDB_PORT, \
+   ARMORYDB_DEFAULT_PORT
 from bitcoinrpc_jsonrpc import authproxy
 
 
@@ -151,6 +152,7 @@ class SatoshiDaemonManager(object):
    def setupSDM(self, pathToBitcoindExe=None, satoshiHome=None, \
                       extraExeSearch=[], createHomeIfDNE=True):
       LOGDEBUG('Exec setupSDM')
+
       self.failedFindExe = False
       self.failedFindHome = False
       # If we are supplied a path, then ignore the extra exe search paths
@@ -198,13 +200,16 @@ class SatoshiDaemonManager(object):
       self.isMidQuery = False
       self.last20queries = []
 
-      self.readBitcoinConf(makeIfDNE=True)
+      self.readBitcoinConf()
 
    #############################################################################
    def setupManualSDM(self):
       LOGDEBUG('Exec setupManualSDM')
+
+      # Setup bitcoind stuff
       self.bitcoind = False
       self.readBitcoinConf()
+      self.readCookieFile()
 
       # Check bitcoind is actually up. If it is not, remove self.bitcoind
       self.createProxy()
@@ -345,86 +350,77 @@ class SatoshiDaemonManager(object):
       return gpath
 
    #############################################################################
-   def readBitcoinConf(self, makeIfDNE=False):
+   def readBitcoinConf(self):
       LOGINFO('Reading bitcoin.conf file')
       bitconf = os.path.join(self.satoshiRoot, 'bitcoin.conf')
-      if not os.path.exists(bitconf):
-         if not makeIfDNE:
-            raise self.BitcoinDotConfError, 'Could not find bitcoin.conf'
-         else:
-            LOGINFO('No bitcoin.conf available.  Creating it...')
-            touchFile(bitconf)
-
-      # Guarantee that bitcoin.conf file has very strict permissions
-      if OS_WINDOWS:
-         if OS_VARIANT[0].lower()=='xp':
-            LOGERROR('Cannot set permissions correctly in XP!')
-            LOGERROR('Please confirm permissions on the following file ')
-            LOGERROR('are set to exclusive access only for your user ')
-            LOGERROR('(it usually is, but Armory cannot guarantee it ')
-            LOGERROR('on XP systems):')
-            LOGERROR('    %s', bitconf)
-         else:
-            LOGINFO('Setting permissions on bitcoin.conf')
-            import ctypes
-            username_u16 = ctypes.create_unicode_buffer(u'\0', 512)
-            str_length = ctypes.c_int(512)
-            ctypes.windll.Advapi32.GetUserNameW(ctypes.byref(username_u16),
-                                                ctypes.byref(str_length))
-
-            if not CLI_OPTIONS.disableConfPermis:
-               import win32process
+      if os.path.exists(bitconf):
+         # Guarantee that bitcoin.conf file has very strict permissions
+         if OS_WINDOWS:
+            if OS_VARIANT[0].lower()=='xp':
+               LOGERROR('Cannot set permissions correctly in XP!')
+               LOGERROR('Please confirm permissions on the following file ')
+               LOGERROR('are set to exclusive access only for your user ')
+               LOGERROR('(it usually is, but Armory cannot guarantee it ')
+               LOGERROR('on XP systems):')
+               LOGERROR('    %s', bitconf)
+            else:
                LOGINFO('Setting permissions on bitcoin.conf')
-               cmd_icacls = [u'icacls',bitconf,u'/inheritance:r',u'/grant:r', u'%s:F' % username_u16.value]
-               kargs = {}
-               kargs['shell'] = True
-               kargs['creationflags'] = win32process.CREATE_NO_WINDOW
-               icacls_out = subprocess_check_output(cmd_icacls, **kargs)
-               LOGINFO('icacls returned: %s', icacls_out)
+               import ctypes
+               username_u16 = ctypes.create_unicode_buffer(u'\0', 512)
+               str_length = ctypes.c_int(512)
+               ctypes.windll.Advapi32.GetUserNameW(ctypes.byref(username_u16),
+                                                   ctypes.byref(str_length))
+
+               if not CLI_OPTIONS.disableConfPermis:
+                  import win32process
+                  LOGINFO('Setting permissions on bitcoin.conf')
+                  cmd_icacls = [u'icacls',bitconf,u'/inheritance:r',u'/grant:r', u'%s:F' % username_u16.value]
+                  kargs = {}
+                  kargs['shell'] = True
+                  kargs['creationflags'] = win32process.CREATE_NO_WINDOW
+                  icacls_out = subprocess_check_output(cmd_icacls, **kargs)
+                  LOGINFO('icacls returned: %s', icacls_out)
+               else:
+                  LOGWARN('Skipped setting permissions on bitcoin.conf file')
+
+         else:
+            if not CLI_OPTIONS.disableConfPermis:
+               LOGINFO('Setting permissions on bitcoin.conf')
+               os.chmod(bitconf, stat.S_IRUSR | stat.S_IWUSR)
             else:
                LOGWARN('Skipped setting permissions on bitcoin.conf file')
 
-      else:
-         if not CLI_OPTIONS.disableConfPermis:
-            LOGINFO('Setting permissions on bitcoin.conf')
-            os.chmod(bitconf, stat.S_IRUSR | stat.S_IWUSR)
-         else:
-            LOGWARN('Skipped setting permissions on bitcoin.conf file')
 
+         with open(bitconf,'r') as f:
+            # Find the last character of the each line:  either a newline or '#'
+            endchr = lambda line: line.find('#') if line.find('#')>1 else len(line)
 
-      with open(bitconf,'r') as f:
-         # Find the last character of the each line:  either a newline or '#'
-         endchr = lambda line: line.find('#') if line.find('#')>1 else len(line)
+            # Reduce each line to a list of key,value pairs separated with '='
+            allconf = [l[:endchr(l)].strip().split('=') for l in f.readlines()]
 
-         # Reduce each line to a list of key,value pairs separated with '='
-         allconf = [l[:endchr(l)].strip().split('=') for l in f.readlines()]
+            # Need to convert to (x[0],x[1:]) in case the password has '=' in it
+            allconfPairs = [[x[0], '='.join(x[1:])] for x in allconf if len(x)>1]
 
-         # Need to convert to (x[0],x[1:]) in case the password has '=' in it
-         allconfPairs = [[x[0], '='.join(x[1:])] for x in allconf if len(x)>1]
+            # Convert the list of pairs to a dictionary
+            self.bitconf = dict(allconfPairs)
 
-         # Convert the list of pairs to a dictionary
-         self.bitconf = dict(allconfPairs)
+         # If there is no password, use cookie auth
+         if not self.bitconf.has_key('rpcpassword'):
+            LOGDEBUG('No rpcpassword: Using cookie Auth')
+            self.readCookieFile()
 
+      # defaults
+      self.bitconf['host'] = '127.0.0.1'
+      self.bitconf['rpcport'] = BITCOIN_RPC_PORT
 
-      # Look for rpcport, use default if not there
-      self.bitconf['rpcport'] = int(self.bitconf.get('rpcport', BITCOIN_RPC_PORT))
-
-      # If there is no password, use cookie auth
-      if not self.bitconf.has_key('rpcpassword'):
-         LOGDEBUG('No rpcpassword: Using cookie Auth')
-         cookiefile = os.path.join(self.satoshiRoot, '.cookie')
-         with open(cookiefile,'r') as f:
+   def readCookieFile(self):
+      cookiefile = os.path.join(self.satoshiHome, '.cookie')
+      if os.path.exists(cookiefile):
+         # This only works if bitcoind has started
+         with open(cookiefile, 'r') as f:
             userpass = f.readline().split(":", 1)
             self.bitconf['rpcuser'] = userpass[0]
             self.bitconf['rpcpassword'] = urlquote(userpass[1])
-
-
-      if not isASCII(self.bitconf['rpcuser']):
-         LOGERROR('Non-ASCII character in bitcoin.conf (rpcuser)!')
-      if not isASCII(self.bitconf['rpcpassword']):
-         LOGERROR('Non-ASCII character in bitcoin.conf (rpcpassword)!')
-
-      self.bitconf['host'] = '127.0.0.1'
 
    #############################################################################
    def startBitcoind(self, callback):
@@ -442,6 +438,9 @@ class SatoshiDaemonManager(object):
          raise self.BitcoindError, 'Could not find bitcoind'
 
       self.launchBitcoindAndGuardian()
+
+      # wait for user and pass from cookie file after bitcoind has started. Should be very quick
+      self.readCookieFile()
 
       #New backend code: we wont be polling the SDM state in the main thread
       #anymore, instead create a thread at bitcoind start to poll the SDM state
