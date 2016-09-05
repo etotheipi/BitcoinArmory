@@ -8,6 +8,8 @@
 
 #include "SwigClient.h"
 
+using namespace SwigClient;
+
 ///////////////////////////////////////////////////////////////////////////////
 //
 // BlockDataViewer
@@ -110,7 +112,7 @@ void BlockDataViewer::shutdown(const string& spawnId)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-BtcWallet BlockDataViewer::registerWallet(
+SwigClient::BtcWallet BlockDataViewer::registerWallet(
    const string& id, const vector<BinaryData>& addrVec, bool isNew)
 {
    Command cmd;
@@ -318,12 +320,13 @@ vector<LedgerEntryData> LedgerDelegate::getHistoryPage(uint32_t id)
 // BtcWallet
 //
 ///////////////////////////////////////////////////////////////////////////////
-BtcWallet::BtcWallet(const BlockDataViewer& bdv, const string& id) :
+SwigClient::BtcWallet::BtcWallet(const BlockDataViewer& bdv, const string& id) :
    sock_(bdv.sock_), walletID_(id), bdvID_(bdv.bdvID_)
 {}
 
 ///////////////////////////////////////////////////////////////////////////////
-vector<uint64_t> BtcWallet::getBalancesAndCount(uint32_t blockheight, bool IGNOREZC)
+vector<uint64_t> SwigClient::BtcWallet::getBalancesAndCount(
+   uint32_t blockheight, bool IGNOREZC)
 {
    Command cmd;
    cmd.method_ = "getBalancesAndCount";
@@ -354,7 +357,7 @@ vector<uint64_t> BtcWallet::getBalancesAndCount(uint32_t blockheight, bool IGNOR
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-vector<UTXO> BtcWallet::getSpendableTxOutListForValue(uint64_t val,
+vector<UTXO> SwigClient::BtcWallet::getSpendableTxOutListForValue(uint64_t val,
    bool ignoreZC)
 {
    Command cmd;
@@ -386,7 +389,7 @@ vector<UTXO> BtcWallet::getSpendableTxOutListForValue(uint64_t val,
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-map<BinaryData, uint32_t> BtcWallet::getAddrTxnCountsFromDB()
+map<BinaryData, uint32_t> SwigClient::BtcWallet::getAddrTxnCountsFromDB()
 {
    Command cmd;
    cmd.method_ = "getAddrTxnCounts";
@@ -413,7 +416,7 @@ map<BinaryData, uint32_t> BtcWallet::getAddrTxnCountsFromDB()
 
 ///////////////////////////////////////////////////////////////////////////////
 map<BinaryData, vector<uint64_t>>
-   BtcWallet::getAddrBalancesFromDB(void)
+SwigClient::BtcWallet::getAddrBalancesFromDB(void)
 {
    Command cmd;
    cmd.method_ = "getAddrBalances";
@@ -442,7 +445,7 @@ map<BinaryData, vector<uint64_t>>
 
 
 ///////////////////////////////////////////////////////////////////////////////
-vector<LedgerEntryData> BtcWallet::getHistoryPage(uint32_t id)
+vector<LedgerEntryData> SwigClient::BtcWallet::getHistoryPage(uint32_t id)
 {
    Command cmd;
    cmd.method_ = "getHistoryPage";
@@ -462,7 +465,7 @@ vector<LedgerEntryData> BtcWallet::getHistoryPage(uint32_t id)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-LedgerEntryData BtcWallet::getLedgerEntryForTxHash(
+LedgerEntryData SwigClient::BtcWallet::getLedgerEntryForTxHash(
    const BinaryData& txhash)
 {
    Command cmd;
@@ -485,7 +488,7 @@ LedgerEntryData BtcWallet::getLedgerEntryForTxHash(
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-ScrAddrObj BtcWallet::getScrAddrObjByKey(const BinaryData& scrAddr,
+ScrAddrObj SwigClient::BtcWallet::getScrAddrObjByKey(const BinaryData& scrAddr,
    uint64_t full, uint64_t spendable, uint64_t unconf, uint32_t count)
 {
    return ScrAddrObj(sock_, bdvID_, walletID_, scrAddr,
@@ -493,7 +496,7 @@ ScrAddrObj BtcWallet::getScrAddrObjByKey(const BinaryData& scrAddr,
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-vector<AddressBookEntry> BtcWallet::createAddressBook(void) const
+vector<AddressBookEntry> SwigClient::BtcWallet::createAddressBook(void) const
 {
    Command cmd;
    cmd.method_ = "createAddressBook";

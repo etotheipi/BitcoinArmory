@@ -251,7 +251,10 @@ public:
    const shared_ptr<set<AddrSyncState>>& getScrAddrSet(void) const
    { 
       if (!run_.load(memory_order_relaxed))
+      {
+         LOGERR << "ScrAddrFilter flagged for termination";
          throw runtime_error("ScrAddrFilter flagged for termination");
+      }
       return scrAddrSet_; 
    }
 

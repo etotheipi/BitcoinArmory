@@ -38,6 +38,7 @@
 #include "../TxClasses.h"
 #include "../txio.h"
 #include "../bdmenums.h"
+#include "../SwigClient.h"
 
 
 
@@ -5994,8 +5995,11 @@ protected:
    /////////////////////////////////////////////////////////////////////////////
    virtual void TearDown(void)
    {
-      clients_->exitRequestLoop();
-      clients_->shutdown();
+      if (clients_ != nullptr)
+      {
+         clients_->exitRequestLoop();
+         clients_->shutdown();
+      }
 
       delete clients_;
       delete theBDMt_;
@@ -8202,10 +8206,250 @@ TEST_F(BlockUtilsBare, LedgerSeDer)
       EXPECT_EQ(lev2.toVector()[i].getTxHash(), lev2deser.toVector()[i].getTxHash());
       EXPECT_EQ(lev2.toVector()[i].getValue(), lev2deser.toVector()[i].getValue());
    }
-
 }
 
+TEST_F(BlockUtilsBare, FCGIStack)
+{
+   //gotta derive callback class
+   class UTCallback : public SwigClient::PythonCallback
+   {
+   private:
+      BlockingStack<BDMAction> actionStack_;
 
+   public:
+      UTCallback(const SwigClient::BlockDataViewer& bdv) :
+         PythonCallback(bdv)
+      {}
+
+      void run(BDMAction action, void* ptr, int block = 0)
+      {
+         actionStack_.push_back(move(action));
+      }
+
+      void progress(
+         BDMPhase phase,
+         const vector<string> &walletIdVec,
+         float progress, unsigned secondsRem,
+         unsigned progressNumeric
+         )
+      {}
+
+      void waitOnSignal(BDMAction signal)
+      {
+         while (1)
+         {
+            auto action = actionStack_.pop_front();
+            if (action == signal)
+            {
+               actionStack_.clear();
+               return;
+            }
+         }
+      }
+   };
+
+   //
+   setBlocks({ "0", "1", "2", "3" }, blk0dat_);
+
+   //run clients from fcgiserver object instead
+   clients_->exitRequestLoop();
+   clients_->shutdown();
+
+   delete clients_;
+   delete theBDMt_;
+   clients_ = nullptr;
+
+   config.spawnID_ = "abc";
+
+   FCGX_Init();
+   ScrAddrFilter::init();
+   theBDMt_ = new BlockDataManagerThread(config);
+   FCGI_Server server(theBDMt_);
+
+   server.checkSocket();
+   server.init();
+
+   theBDMt_->start(config.initMode_);
+
+   auto fcgiLoop = [&](void)->void
+   { server.enterLoop(); };
+
+   auto tID = thread(fcgiLoop);
+
+   auto&& bdvObj = SwigClient::BlockDataViewer::getNewBDV(
+      "127.0.0.1", "9001", SocketType::SocketFcgi);
+   bdvObj.registerWithDB(config.magicBytes_);
+
+   vector<BinaryData> scrAddrVec;
+   scrAddrVec.push_back(TestChain::scrAddrA);
+   scrAddrVec.push_back(TestChain::scrAddrB);
+   scrAddrVec.push_back(TestChain::scrAddrC);
+   scrAddrVec.push_back(TestChain::scrAddrE);
+
+   const vector<BinaryData> lb1ScrAddrs
+   {
+      TestChain::lb1ScrAddr,
+      TestChain::lb1ScrAddrP2SH
+   };
+   const vector<BinaryData> lb2ScrAddrs
+   {
+      TestChain::lb2ScrAddr,
+      TestChain::lb2ScrAddrP2SH
+   };
+
+   auto&& wallet1 = bdvObj.registerWallet("wallet1", scrAddrVec, false);
+   auto&& lb1 = bdvObj.registerLockbox("lb1", lb1ScrAddrs, false);
+   auto&& lb2 = bdvObj.registerLockbox("lb2", lb2ScrAddrs, false);
+
+   //wait on signals
+   bdvObj.goOnline();
+   UTCallback pCallback(bdvObj);
+   pCallback.startLoop();
+   pCallback.waitOnSignal(BDMAction_Ready);
+
+   auto w1AddrBalances = wallet1.getAddrBalancesFromDB();
+   vector<size_t> balanceVec;
+   balanceVec = w1AddrBalances[TestChain::scrAddrA];
+   EXPECT_EQ(balanceVec[0], 50 * COIN);
+   balanceVec = w1AddrBalances[TestChain::scrAddrB];
+   EXPECT_EQ(balanceVec[0], 30 * COIN);
+   balanceVec = w1AddrBalances[TestChain::scrAddrC];
+   EXPECT_EQ(balanceVec[0], 55 * COIN);
+
+   auto w1Balances = wallet1.getBalancesAndCount(4, true);
+   uint64_t fullBalance = w1Balances[0];
+   uint64_t spendableBalance = w1Balances[1];
+   uint64_t unconfirmedBalance = w1Balances[2];
+   EXPECT_EQ(fullBalance, 165 * COIN);
+   EXPECT_EQ(spendableBalance, 65 * COIN);
+   EXPECT_EQ(unconfirmedBalance, 165 * COIN);
+
+   auto lb1AddrBalances = lb1.getAddrBalancesFromDB();
+   balanceVec = lb1AddrBalances[TestChain::lb1ScrAddr];
+   EXPECT_EQ(balanceVec[0], 10 * COIN);
+   balanceVec = lb1AddrBalances[TestChain::lb1ScrAddrP2SH];
+   EXPECT_EQ(balanceVec.size(), 0);
+
+   auto lb2AddrBalances = lb2.getAddrBalancesFromDB();
+   balanceVec = lb2AddrBalances[TestChain::lb2ScrAddr];
+   EXPECT_EQ(balanceVec[0], 10 * COIN);
+   balanceVec = lb2AddrBalances[TestChain::lb2ScrAddrP2SH];
+   EXPECT_EQ(balanceVec[0], 5 * COIN);
+
+   auto lb1Balances = lb1.getBalancesAndCount(4, true);
+   EXPECT_EQ(lb1Balances[0], 10 * COIN);
+
+   auto lb2Balances = lb2.getBalancesAndCount(4, true);
+   EXPECT_EQ(lb2Balances[0], 15 * COIN);
+
+   //add ZC
+   BinaryData rawZC(TestChain::zcTxSize);
+   FILE *ff = fopen("../reorgTest/ZCtx.tx", "rb");
+   fread(rawZC.getPtr(), TestChain::zcTxSize, 1, ff);
+   fclose(ff);
+   ZcVector rawZcVec;
+   rawZcVec.push_back(move(rawZC), 0);
+
+   BinaryData rawLBZC(TestChain::lbZCTxSize);
+   FILE *flb = fopen("../reorgTest/LBZC.tx", "rb");
+   fread(rawLBZC.getPtr(), TestChain::lbZCTxSize, 1, flb);
+   fclose(flb);
+   ZcVector rawLBZcVec;
+   rawLBZcVec.push_back(move(rawLBZC), 0);
+
+   pushNewZc(theBDMt_, rawZcVec);
+   pCallback.waitOnSignal(BDMAction_ZC);
+
+   pushNewZc(theBDMt_, rawLBZcVec);
+   pCallback.waitOnSignal(BDMAction_ZC);
+
+   w1AddrBalances = wallet1.getAddrBalancesFromDB();
+   balanceVec = w1AddrBalances[TestChain::scrAddrA];
+   //value didn't change, shouldnt be getting a balance vector for this address
+   EXPECT_EQ(balanceVec.size(), 0); 
+   balanceVec = w1AddrBalances[TestChain::scrAddrB];
+   EXPECT_EQ(balanceVec[0], 20 * COIN);
+   balanceVec = w1AddrBalances[TestChain::scrAddrC];
+   EXPECT_EQ(balanceVec[0], 65 * COIN);
+
+   w1Balances = wallet1.getBalancesAndCount(4, true);
+   fullBalance = w1Balances[0];
+   spendableBalance = w1Balances[1];
+   unconfirmedBalance = w1Balances[2];
+   EXPECT_EQ(fullBalance, 165 * COIN);
+   EXPECT_EQ(spendableBalance, 35 * COIN);
+   EXPECT_EQ(unconfirmedBalance, 135 * COIN);
+
+   lb1AddrBalances = lb1.getAddrBalancesFromDB();
+   balanceVec = lb1AddrBalances[TestChain::lb1ScrAddr];
+   EXPECT_EQ(balanceVec[0], 5 * COIN);
+   balanceVec = lb1AddrBalances[TestChain::lb1ScrAddrP2SH];
+   EXPECT_EQ(balanceVec.size(), 0);
+
+   lb2AddrBalances = lb2.getAddrBalancesFromDB();
+   balanceVec = lb2AddrBalances[TestChain::lb2ScrAddr];
+   EXPECT_EQ(balanceVec.size(), 0);
+   balanceVec = lb2AddrBalances[TestChain::lb2ScrAddrP2SH];
+   EXPECT_EQ(balanceVec.size(), 0);
+
+   lb1Balances = lb1.getBalancesAndCount(4, true);
+   EXPECT_EQ(lb1Balances[0], 5 * COIN);
+
+   lb2Balances = lb2.getBalancesAndCount(4, true);
+   EXPECT_EQ(lb2Balances[0], 15 * COIN);
+
+   //
+   setBlocks({ "0", "1", "2", "3", "4", "5" }, blk0dat_);
+   triggerNewBlockNotification(theBDMt_);
+   pCallback.waitOnSignal(BDMAction_NewBlock);
+
+   w1AddrBalances = wallet1.getAddrBalancesFromDB();
+   balanceVec = w1AddrBalances[TestChain::scrAddrA];
+   EXPECT_EQ(balanceVec[0], 50 * COIN);
+   balanceVec = w1AddrBalances[TestChain::scrAddrB];
+   EXPECT_EQ(balanceVec[0], 70 * COIN);
+   balanceVec = w1AddrBalances[TestChain::scrAddrC];
+   EXPECT_EQ(balanceVec[0], 20 * COIN);
+
+   w1Balances = wallet1.getBalancesAndCount(5, true);
+   fullBalance = w1Balances[0];
+   spendableBalance = w1Balances[1];
+   unconfirmedBalance = w1Balances[2];
+   EXPECT_EQ(fullBalance, 170 * COIN);
+   EXPECT_EQ(spendableBalance, 70 * COIN);
+   EXPECT_EQ(unconfirmedBalance, 170 * COIN);
+
+   lb1AddrBalances = lb1.getAddrBalancesFromDB();
+   balanceVec = lb1AddrBalances[TestChain::lb1ScrAddr];
+   EXPECT_EQ(balanceVec[0], 5 * COIN);
+   balanceVec = lb1AddrBalances[TestChain::lb1ScrAddrP2SH];
+   EXPECT_EQ(balanceVec[0], 25 * COIN);
+
+   lb2AddrBalances = lb2.getAddrBalancesFromDB();
+   balanceVec = lb2AddrBalances[TestChain::lb2ScrAddr];
+   EXPECT_EQ(balanceVec[0], 30 * COIN);
+   balanceVec = lb2AddrBalances[TestChain::lb2ScrAddrP2SH];
+   EXPECT_EQ(balanceVec[0], 0 * COIN);
+
+   lb1Balances = lb1.getBalancesAndCount(5, true);
+   EXPECT_EQ(lb1Balances[0], 30 * COIN);
+
+   lb2Balances = lb2.getBalancesAndCount(5, true);
+   EXPECT_EQ(lb2Balances[0], 30 * COIN);
+
+   //cleanup
+   bdvObj.unregisterFromDB();
+   pCallback.shutdown();
+   bdvObj.shutdown("abc");
+   
+   if (tID.joinable())
+      tID.join();
+
+   server.shutdown();
+
+   delete theBDMt_;
+   theBDMt_ = nullptr;
+}
 
 
 // Comments need to be added....

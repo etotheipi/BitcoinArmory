@@ -92,6 +92,9 @@ void FcgiPacket::addData(const char* msg, size_t length)
    data_.push_back(FcgiData());
    FcgiData& data = data_.back();
 
+   if (length == 0)
+      return;
+
    data.data_.resize(length);
    memcpy(&data.data_[0], msg, length);
 }
