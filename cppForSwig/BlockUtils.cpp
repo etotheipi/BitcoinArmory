@@ -1050,16 +1050,7 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
       //test all paths
       auto testPath = [](const string& path, int mode)
       {
-#ifdef _WIN32
-         if (_access(path.c_str(), mode) != 0)
-#else
-         auto nixmode = F_OK;
-         if (mode & 2)
-            nixmode |= R_OK;
-         if (mode & 4)
-            nixmode |= W_OK;
-         if (access(path.c_str(), nixmode) != 0)
-#endif
+         if (!DBUtils::fileExists(path, mode))
          {
             stringstream ss;
             ss << path << " is not a valid path";

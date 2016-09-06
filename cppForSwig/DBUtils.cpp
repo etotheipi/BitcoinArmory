@@ -280,3 +280,18 @@ BinaryData DBUtils::getMissingHashesKey(uint32_t id)
 
    return bd;
 }
+
+/////////////////////////////////////////////////////////////////////////////
+bool DBUtils::fileExists(const string& path, int mode)
+{
+#ifdef _WIN32
+   return _access(path.c_str(), mode) == 0;
+#else
+      auto nixmode = F_OK;
+      if (mode & 2)
+         nixmode |= R_OK;
+      if (mode & 4)
+         nixmode |= W_OK;
+      return access(path.c_str(), nixmode) == 0;
+#endif
+}

@@ -132,5 +132,7 @@ public:
 
    static BinaryData getFilterPoolKey(uint32_t filenum);
    static BinaryData getMissingHashesKey(uint32_t id);
+
+   static bool fileExists(const string& path, int mode);
 };
 #endif

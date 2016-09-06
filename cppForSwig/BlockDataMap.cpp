@@ -334,89 +334,125 @@ BlockDataFileMap::BlockDataFileMap(const string& filename, bool preload)
    //atomicity in these operations
    useCounter_.store(0, memory_order_relaxed);
 
+   if (!DBUtils::fileExists(filename, 2))
+      return;
+
    //check filename exists and open it, otherwise return nullptr fileMap_
    int fd;
 
-#ifdef _WIN32
-   fd = _open(filename.c_str(), _O_RDONLY | _O_BINARY);
-   if (fd == -1)
-      return;
-
-   size_ = _lseek(fd, 0, SEEK_END);
-
-   if(size_ == 0)
+   while (1)
    {
-      stringstream ss;
-      ss << "empty block file under path: " << filename;
-      throw ss.str();
-   }
+      try
+      {
+#ifdef _WIN32
+         fd = _open(filename.c_str(), _O_RDONLY | _O_BINARY);
+         if (fd == -1)
+            throw runtime_error("failed to open file");
 
-   _lseek(fd, 0, SEEK_SET);
+         size_ = _lseek(fd, 0, SEEK_END);
+
+         if (size_ == 0)
+         {
+            stringstream ss;
+            ss << "empty block file under path: " << filename;
+            throw ss.str();
+         }
+
+         _lseek(fd, 0, SEEK_SET);
 #else
-   fd = open(filename.c_str(), O_RDONLY);
-   if (fd == -1)
-      return;
+         fd = open(filename.c_str(), O_RDONLY);
+         if (fd == -1)
+            throw runtime_error("failed to open file");
 
-   size_ = lseek(fd, 0, SEEK_END);
-   lseek(fd, 0, SEEK_SET);
+         size_ = lseek(fd, 0, SEEK_END);
+
+         if (size_ == 0)
+         {
+            stringstream ss;
+            ss << "empty block file under path: " << filename;
+            throw ss.str();
+         }
+
+         lseek(fd, 0, SEEK_SET);
 #endif
 
-   char* data = nullptr;
+         char* data = nullptr;
 
 #ifdef _WIN32
-   //create mmap
-   auto fileHandle = (HANDLE)_get_osfhandle(fd);
-   HANDLE mh;
+         //create mmap
+         auto fileHandle = (HANDLE)_get_osfhandle(fd);
+         HANDLE mh;
 
-   mh = CreateFileMapping(fileHandle, NULL, PAGE_READONLY,
-   0, size_, NULL);
-   if (!mh)
-   {
-      auto errorCode = GetLastError();
-      stringstream errStr;
-      errStr << "Failed to create map of file. Error Code: " << errorCode << " (" << strerror(errorCode) << ")";
-      throw runtime_error(errStr.str());
-   }
+         mh = CreateFileMapping(fileHandle, NULL, PAGE_READONLY,
+            0, size_, NULL);
+         if (!mh)
+         {
+            auto errorCode = GetLastError();
+            stringstream errStr;
+            errStr << "Failed to create map of file. Error Code: " <<
+               errorCode << " (" << strerror(errorCode) << ")";
+            throw runtime_error(errStr.str());
+         }
 
-   fileMap_ = (uint8_t*)MapViewOfFileEx(mh, FILE_MAP_READ, 0, 0, size_, NULL);
-   if (fileMap_ == nullptr)
-   {
-      auto errorCode = GetLastError();
-      stringstream errStr;
-      errStr << "Failed to create map of file. Error Code: " << errorCode << " (" << strerror(errorCode) << ")";
-      throw runtime_error(errStr.str());
-   }
+         fileMap_ = (uint8_t*)MapViewOfFileEx(mh, FILE_MAP_READ, 0, 0, size_, NULL);
+         if (fileMap_ == nullptr)
+         {
+            auto errorCode = GetLastError();
+            stringstream errStr;
+            errStr << "Failed to create map of file. Error Code: " <<
+               errorCode << " (" << strerror(errorCode) << ")";
+            throw runtime_error(errStr.str());
+         }
 
-   CloseHandle(mh);
-   //preload as indicated
-   if (preload)
-   {
-      data = new char[size_];
-      _read(fd, data, size_);
-   }
+         CloseHandle(mh);
+         //preload as indicated
+         if (preload)
+         {
+            data = new char[size_];
+            _read(fd, data, size_);
+         }
 
-   _close(fd);
+         _close(fd);
 #else
-   fileMap_ = (uint8_t*)mmap(0, size_, PROT_READ, MAP_SHARED,
-      fd, 0);
-   if (fileMap_ == MAP_FAILED) {
-      fileMap_ = NULL;
-      stringstream errStr;
-      errStr << "Failed to create map of file. Error Code: " << errno << " (" << strerror(errno) << ")";
-	   cout << errStr.str() << endl;
-      throw runtime_error(errStr.str());
-   }
+         fileMap_ = (uint8_t*)mmap(0, size_, PROT_READ, MAP_SHARED,
+            fd, 0);
+         if (fileMap_ == MAP_FAILED) {
+            fileMap_ = NULL;
+            stringstream errStr;
+            errStr << "Failed to create map of file. Error Code: " << 
+               errno << " (" << strerror(errno) << ")";
+            cout << errStr.str() << endl;
+            throw runtime_error(errStr.str());
+         }
 
-   //preload as indicated
-   if (preload)
-   {
-      data = new char[size_];
-      read(fd, data, size_);
-   }
+         //preload as indicated
+         if (preload)
+         {
+            data = new char[size_];
+            read(fd, data, size_);
+         }
 
-   close(fd);
+         close(fd);
 #endif
 
-   if (data != nullptr)
-      delete[] data;
+         if (data != nullptr)
+            delete[] data;
+
+         return;
+      }
+      catch (exception&)
+      {
+         if (fd > 0)
+         {
+#ifdef _WIN32
+            _close(fd);
+#else
+            close(fd);
+#endif
+         }
+
+         LOGWARN << "Failed to create BlockDataMap for file: " << filename;
+         LOGWARN << "Trying again...";
+      }
+   }
 }
