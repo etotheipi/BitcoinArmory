@@ -67,7 +67,7 @@ CXXFLAGS += -g -std=c++11
 
 # All tests produced by this Makefile.  Remember to add new tests you
 # created to the list.
-TESTS = CppBlockUtilsTests ContainerTests
+TESTS = CppBlockUtilsTests ContainerTests DB1kIterTest
 
 # All Google Test headers.  Usually you shouldn't change this
 # definition.
@@ -132,6 +132,9 @@ CppBlockUtilsTests.o : CppBlockUtilsTests.cpp $(HEADERS) $(GTEST_HEADERS)
 ContainerTests.o : ContainerTests.cpp $(GTEST_HEADERS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c ContainerTests.cpp
 
+DB1kIterTest.o : DB1kIterTest.cpp $(HEADERS) $(GTEST_HEADERS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c DB1kIterTest.cpp
+
 %.o: $(USER_DIR)/%.cpp $(ALL_HEADERS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $<
 
@@ -154,8 +157,10 @@ libcryptopp.a: Makefile
 CppBlockUtilsTests : $(OBJS_UnitTests) CppBlockUtilsTests.o gtest.a ../libcryptopp.a
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -Wl,-rpath,$(PWD)/../.. ../libcryptopp.a $^ -lpthread $(PYTHON_LDFLAGS) -o $@
 
-
 ContainerTests : ContainerTests.o gtest.a
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -lpthread -o $@
+
+DB1kIterTest : $(OBJS_UnitTests) DB1kIterTest.o gtest.a ../libcryptopp.a
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -Wl,-rpath,$(PWD)/../.. ../libcryptopp.a $^ -lpthread -o $@
 
 
