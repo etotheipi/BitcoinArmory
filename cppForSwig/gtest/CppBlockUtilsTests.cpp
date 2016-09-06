@@ -8309,7 +8309,7 @@ TEST_F(BlockUtilsBare, FCGIStack)
    pCallback.waitOnSignal(BDMAction_Ready);
 
    auto w1AddrBalances = wallet1.getAddrBalancesFromDB();
-   vector<size_t> balanceVec;
+   vector<uint64_t> balanceVec;
    balanceVec = w1AddrBalances[TestChain::scrAddrA];
    EXPECT_EQ(balanceVec[0], 50 * COIN);
    balanceVec = w1AddrBalances[TestChain::scrAddrB];
