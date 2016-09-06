@@ -28,8 +28,6 @@ private:
    const ProgressCallback progress_;
    const BinaryData magicBytes_;
    BlockOffset topBlockOffset_;
-   const ARMORY_DB_TYPE dbType_;
-
    const BlockDataManagerConfig bdmConfig_;
 
 private:

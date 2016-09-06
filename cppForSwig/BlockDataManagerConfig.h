@@ -55,7 +55,10 @@ struct BlockDataManagerConfig
    unsigned threadCount_ = thread::hardware_concurrency();
 
    exception_ptr exceptionPtr_ = nullptr;
+
+   bool reportProgress_ = true;
    
+   /////////////
    void setGenesisBlockHash(const BinaryData &h)
    {
       genesisBlockHash_ = h;

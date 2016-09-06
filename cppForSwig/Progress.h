@@ -52,12 +52,21 @@ public:
 
    uint64_t total() const { return total_; }
 
-   double fractionCompleted() const { return lastSample_/double(total_); }
+   double fractionCompleted() const 
+   { 
+      if (lastSample_ > total_)
+         return 1.0;
+
+      return lastSample_/double(total_); 
+   }
    
    double unitsPerSecond() const { return avgSpeed_; }
    
    uint64_t remainingSeconds() const
    {
+      if (lastSample_ > total_)
+         return UINT32_MAX;
+
       return (total_-lastSample_)/unitsPerSecond();
    }
 };

@@ -1373,7 +1373,7 @@ BinaryData BlockDataManager::applyBlockRangeToDB(
    // Start scanning and timer
    BlockchainScanner bcs(blockchain_, iface_, &scrAddrData, 
       *blockFiles_.get(), config_.threadCount_, config_.ramUsage_,
-      prog, true);
+      prog, config_.reportProgress_);
    bcs.scan_nocheck(blk0);
    bcs.updateSSH(true);
    bcs.resolveTxHashes();

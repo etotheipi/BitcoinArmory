@@ -19,8 +19,7 @@ DatabaseBuilder::DatabaseBuilder(BlockFiles& blockFiles,
    bdmConfig_(bdm.config()), blockchain_(bdm.blockchain()),
    scrAddrFilter_(bdm.getScrAddrFilter()),
    progress_(progress),
-   magicBytes_(db_->getMagicBytes()), topBlockOffset_(0, 0),
-   dbType_(bdm.config().armoryDbType_)
+   magicBytes_(db_->getMagicBytes()), topBlockOffset_(0, 0)
 {}
 
 /////////////////////////////////////////////////////////////////////////////
@@ -33,14 +32,18 @@ void DatabaseBuilder::init()
 
    //read all blocks already in DB and populate blockchain
    topBlockOffset_ = loadBlockHeadersFromDB(progress_);
-   progress_(BDMPhase_OrganizingChain, 0, UINT32_MAX, 0);
+   
+   if (bdmConfig_.reportProgress_)
+      progress_(BDMPhase_OrganizingChain, 0, UINT32_MAX, 0);
+
    blockchain_->forceOrganize();
    blockchain_->setDuplicateIDinRAM(db_);
 
    //update db
    TIMER_START("updateblocksindb");
    LOGINFO << "updating HEADERS db";
-   auto reorgState = updateBlocksInDB(progress_, true, true);
+   auto reorgState = updateBlocksInDB(
+      progress_, bdmConfig_.reportProgress_, true);
    TIMER_STOP("updateblocksindb");
    double updatetime = TIMER_READ_SEC("updateblocksindb");
    LOGINFO << "updated HEADERS db in " << updatetime << "s";
@@ -185,6 +188,9 @@ BlockOffset DatabaseBuilder::loadBlockHeadersFromDB(
       if ((counter++ % 50000) != 0)
          return;
 
+      if (!bdmConfig_.reportProgress_)
+         return;
+
       calc.advance(counter);
       progress(BDMPhase_DBHeaders, 
          calc.fractionCompleted(), calc.remainingSeconds(), counter);
@@ -289,7 +295,8 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
    }
 
    //done parsing new blocks, reorg and add to DB
-   progress_(BDMPhase_OrganizingChain, 0, UINT32_MAX, 0);
+   if (verbose)
+      progress_(BDMPhase_OrganizingChain, 0, UINT32_MAX, 0);
    auto&& reorgState = blockchain_->organize(verbose);
    blockchain_->putNewBareHeaders(db_);
 
@@ -360,7 +367,7 @@ bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl,
    auto&& insertedBlocks = blockchain_->addBlocksInBulk(bhmap);
 
    //process filters
-   if (dbType_ == ARMORY_DB_FULL && insertedBlocks.size() > 0)
+   if (bdmConfig_.armoryDbType_ == ARMORY_DB_FULL && insertedBlocks.size() > 0)
    {
       //pull existing file filter bucket from db (if any)
       auto&& pool = db_->getFilterPoolForFileNum<TxFilterType>(fileID);
@@ -459,7 +466,8 @@ void DatabaseBuilder::parseBlockFile(
 BinaryData DatabaseBuilder::updateTransactionHistory(int32_t startHeight)
 {
    //Scan history
-   auto topScannedBlockHash = scanHistory(startHeight, true);
+   auto topScannedBlockHash = 
+      scanHistory(startHeight, bdmConfig_.reportProgress_);
 
    //return the hash of the last scanned block
    return topScannedBlockHash;
