@@ -377,3 +377,162 @@ void BinarySocket::readFromSocketThread(SOCKET sockfd, ReadCallback callback)
    //mark read as completed
    callback(vector<uint8_t>(), exceptptr);
 }
+
+///////////////////////////////////////////////////////////////////////////////
+vector<uint8_t> BinarySocket::writeAndRead(
+   SOCKET sockfd, uint8_t* data, size_t len, SequentialReadCallback callback)
+{
+   size_t readIncrement = 8192;
+   stringstream errorss;
+   bool haveWritten = false;
+
+   exception_ptr exceptptr = nullptr;
+
+   struct pollfd pfd;
+   pfd.fd = sockfd;
+   pfd.events = POLLOUT;
+
+   while (1)
+   {
+#ifdef _WIN32
+      auto status = WSAPoll(&pfd, 1, 60000);
+#else
+      auto status = poll(&pfd, 1, 60000);
+#endif
+
+      if (status == 0)
+         continue;
+
+      if (status == -1)
+      {
+         //select error, process and exit loop
+#ifdef _WIN32
+         auto errornum = WSAGetLastError();
+#else
+         auto errornum = errno;
+#endif
+         errorss << "poll() error in readAndWrite: " << errornum;
+         LOGERR << errorss.str();
+         throw SocketError(errorss.str());
+      }
+
+      if (pfd.revents & POLLNVAL)
+      {
+#ifndef _WIN32
+         /*int error = 0;
+         socklen_t errlen = sizeof(error);
+         getsockopt(sockfd, SOL_SOCKET, SO_ERROR, (void *)&error, &errlen);
+         LOGERR << "readFromSocketThread poll returned POLLNVAL, errnum: " <<
+         error << ", errmsg: " << strerror(error);*/
+#endif
+         throw SocketError("POLLNVAL in readAndWrite");
+      }
+
+      //exceptions
+      if (pfd.revents & POLLERR)
+      {
+         //TODO: grab socket error code, pass error to callback
+
+         //break out of poll loop
+         errorss << "POLLERR error in readAndWrite";
+         LOGERR << errorss.str();
+         throw SocketError(errorss.str());
+      }
+
+      if (pfd.revents & POLLOUT)
+      {
+         if (!haveWritten)
+         {
+            auto bytessent = send(sockfd, (char*)data, len, 0);
+            if (bytessent != len)
+               throw SocketError("failed to send data");
+
+            haveWritten = true;
+
+            pfd.events = POLLIN;
+         }
+      }
+
+      if (pfd.revents & POLLRDBAND)
+      {
+         //we dont use OOB data, just grab and dump
+         vector<uint8_t> readdata;
+         readdata.resize(1024);
+         int readAmt;
+         size_t totalread = 0;
+
+         while (readAmt =
+            recv(sockfd, (char*)&readdata[0] + totalread, 1024, MSG_OOB))
+         {
+            if (readAmt < 0)
+               break;
+
+            totalread += readAmt;
+            if (readAmt < 1024)
+               break;
+
+            readdata.resize(totalread + 1024);
+         }
+      }
+
+      if (pfd.revents & POLLIN)
+      {
+         //read socket
+         vector<uint8_t> readdata;
+         readdata.resize(readIncrement);
+
+         size_t totalread = 0;
+         int readAmt;
+
+         while ((readAmt =
+            recv(sockfd, (char*)&readdata[0] + totalread, readIncrement, 0))
+            != 0)
+         {
+            if (readAmt < 0)
+            {
+#ifdef _WIN32
+               auto errornum = WSAGetLastError();
+               if (errornum == WSAEWOULDBLOCK)
+                  break;
+#else
+               auto errornum = errno;
+               if (errornum == EAGAIN || errornum == EWOULDBLOCK)
+                  break;
+#endif
+
+               errorss << "recv error: " << errornum;
+               throw SocketError(errorss.str());
+               break;
+            }
+
+            totalread += readAmt;
+            if (readAmt < readIncrement)
+               break;
+
+            readdata.resize(totalread + readIncrement);
+         }
+
+         if (readAmt == 0)
+         {
+            LOGINFO << "POLLIN recv return 0";
+            break;
+         }
+
+         if (totalread > 0)
+         {
+            readdata.resize(totalread);
+
+            //callback with the new data, exit poll loop on true
+            if (callback(move(readdata)))
+               break;
+         }
+      }
+
+      //socket was closed
+      if (pfd.revents & POLLHUP)
+         break;
+   }
+
+   //cleanup
+   closeSocket(sockfd);
+}

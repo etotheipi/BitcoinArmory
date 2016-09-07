@@ -361,7 +361,7 @@ void pushNewZc(BlockDataManagerThread* bdmt, const ZcVector& zcVec)
    zcConf->newZcStack_.push_back(move(newzcstruct));
 }
 
-
+/*
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -5928,7 +5928,7 @@ TEST_F(BlockDir, BlockFileSplitUpdate)
 
    delete clients;
    delete BDMt;
-}
+}*/
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -6039,7 +6039,7 @@ protected:
    BinaryData LB1ID;
    BinaryData LB2ID;
 };
-
+/*
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, DISABLED_DbInit1kIter)
 {
@@ -8206,7 +8206,7 @@ TEST_F(BlockUtilsBare, LedgerSeDer)
       EXPECT_EQ(lev2.toVector()[i].getTxHash(), lev2deser.toVector()[i].getTxHash());
       EXPECT_EQ(lev2.toVector()[i].getValue(), lev2deser.toVector()[i].getValue());
    }
-}
+}*/
 
 TEST_F(BlockUtilsBare, FCGIStack)
 {
@@ -8451,7 +8451,7 @@ TEST_F(BlockUtilsBare, FCGIStack)
    theBDMt_ = nullptr;
 }
 
-
+/*
 // Comments need to be added....
 // Most of this data is from the BIP32 test vectors.
 class TestCryptoECDSA : public ::testing::Test
@@ -8560,7 +8560,7 @@ TEST_F(TestCryptoECDSA, VerifyPubKeyValidity)
    EXPECT_TRUE(CryptoECDSA().VerifyPublicKeyValid(uncompPointPub1));
    EXPECT_TRUE(CryptoECDSA().VerifyPublicKeyValid(uncompPointPub2));
 }
-
+*/
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 // Now actually execute all the tests

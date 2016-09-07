@@ -242,122 +242,97 @@ string FcgiSocket::writeAndRead(const string msg, SOCKET sockfd)
 
       try
       {
-         auto readPromise = make_shared<promise<bool>>();
-         auto waitOnRead = readPromise->get_future();
 
          auto processFcgiPacket =
-            [readPromise, packetPtr](
-            vector<uint8_t> socketData, exception_ptr ePtr)->bool
+            [packetPtr](
+            vector<uint8_t> socketData)->bool
          {
-            try
+            if (socketData.size() == 0)
+               return true;
+
+            packetPtr->fcgidata.insert(
+               packetPtr->fcgidata.end(), socketData.begin(), socketData.end());
+
+            while (packetPtr->ptroffset + FCGI_HEADER_LEN <=
+               packetPtr->fcgidata.size())
             {
-               if (ePtr != nullptr)
+               //grab fcgi header
+               auto* fcgiheader = &packetPtr->fcgidata[packetPtr->ptroffset];
+
+               packetPtr->ptroffset += FCGI_HEADER_LEN;
+
+               //make sure fcgi version and request id match
+               if (fcgiheader[0] != FCGI_VERSION_1)
+                  throw FcgiError("unexpected fcgi header version");
+
+               uint16_t requestid;
+               requestid = (uint8_t)fcgiheader[3] + (uint8_t)fcgiheader[2] * 256;
+               if (requestid != packetPtr->fcgiid)
+                  throw FcgiError("request id mismatch");
+
+               //check packet type
+               bool abortParse = false;
+               switch (fcgiheader[1])
                {
-                  readPromise->set_exception(ePtr);
-                  return true;
+               case FCGI_END_REQUEST:
+               {
+                  packetPtr->endpacket++;
+                  break;
                }
 
-               if (socketData.size() == 0)
+               case FCGI_STDOUT:
                {
-                  readPromise->set_value(true);
-                  return true;
-               }
+                  //get packetsize and padding
+                  uint16_t packetsize = 0, padding;
 
-               packetPtr->fcgidata.insert(
-                  packetPtr->fcgidata.end(), socketData.begin(), socketData.end());
+                  packetsize |= (uint8_t)fcgiheader[5];
+                  packetsize |= (uint16_t)(fcgiheader[4] << 8);
+                  padding = (uint8_t)fcgiheader[6];
 
-               while (packetPtr->ptroffset + FCGI_HEADER_LEN <=
-                  packetPtr->fcgidata.size())
-               {
-                  //grab fcgi header
-                  auto* fcgiheader = &packetPtr->fcgidata[packetPtr->ptroffset];
-
-                  packetPtr->ptroffset += FCGI_HEADER_LEN;
-
-                  //make sure fcgi version and request id match
-                  if (fcgiheader[0] != FCGI_VERSION_1)
-                     throw FcgiError("unexpected fcgi header version");
-
-                  uint16_t requestid;
-                  requestid = (uint8_t)fcgiheader[3] + (uint8_t)fcgiheader[2] * 256;
-                  if (requestid != packetPtr->fcgiid)
-                     throw FcgiError("request id mismatch");
-
-                  //check packet type
-                  bool abortParse = false;
-                  switch (fcgiheader[1])
+                  if (packetsize > 0)
                   {
-                  case FCGI_END_REQUEST:
-                  {
-                     packetPtr->endpacket++;
-                     break;
-                  }
-
-                  case FCGI_STDOUT:
-                  {
-                     //get packetsize and padding
-                     uint16_t packetsize = 0, padding;
-
-                     packetsize |= (uint8_t)fcgiheader[5];
-                     packetsize |= (uint16_t)(fcgiheader[4] << 8);
-                     padding = (uint8_t)fcgiheader[6];
-
-                     if (packetsize > 0)
+                     //do not process this fcgi packet if we dont have enough
+                     //data in the read buffer to cover the advertized length
+                     if (packetsize + padding + packetPtr->ptroffset >
+                        packetPtr->fcgidata.size())
                      {
-                        //do not process this fcgi packet if we dont have enough
-                        //data in the read buffer to cover the advertized length
-                        if (packetsize + padding + packetPtr->ptroffset >
-                           packetPtr->fcgidata.size())
-                        {
-                           packetPtr->ptroffset -= FCGI_HEADER_LEN;
-                           abortParse = true;
-                           break;
-                        }
-
-                        //extract http data
-                        packetPtr->httpData.insert(packetPtr->httpData.end(),
-                           packetPtr->fcgidata.begin() + packetPtr->ptroffset,
-                           packetPtr->fcgidata.begin() + packetPtr->ptroffset + packetsize);
-
-                        //advance index to next header
-                        packetPtr->ptroffset += packetsize + padding;
+                        packetPtr->ptroffset -= FCGI_HEADER_LEN;
+                        abortParse = true;
+                        break;
                      }
 
-                     break;
+                     //extract http data
+                     packetPtr->httpData.insert(packetPtr->httpData.end(),
+                        packetPtr->fcgidata.begin() + packetPtr->ptroffset,
+                        packetPtr->fcgidata.begin() + packetPtr->ptroffset + packetsize);
+
+                     //advance index to next header
+                     packetPtr->ptroffset += packetsize + padding;
                   }
 
-                  case FCGI_ABORT_REQUEST:
-                     throw FcgiError("received FCGI_ABORT_REQUEST packet");
-
-                     //we do not handle the other request types as a client
-                  default:
-                     throw FcgiError("unknown fcgi header request byte");
-                  }
-
-                  if (packetPtr->endpacket >= 1 || abortParse)
-                     break;
+                  break;
                }
 
-               if (packetPtr->endpacket >= 1)
-               {
-                  readPromise->set_value(true);
-                  return true;
+               case FCGI_ABORT_REQUEST:
+                  throw FcgiError("received FCGI_ABORT_REQUEST packet");
+
+                  //we do not handle the other request types as a client
+               default:
+                  throw FcgiError("unknown fcgi header request byte");
                }
 
-               return false;
+               if (packetPtr->endpacket >= 1 || abortParse)
+                  break;
             }
-            catch (...)
-            {
-               readPromise->set_exception(current_exception());
+
+            if (packetPtr->endpacket >= 1)
                return true;
-            }
 
+            return false;
          };
 
-         writeToSocket(sockfd, (char*)serdata, serdatalength);
-         readFromSocket(sockfd, processFcgiPacket);
-
-         waitOnRead.get();
+         BinarySocket::writeAndRead(sockfd, 
+            serdata, serdatalength, processFcgiPacket);
          
          //if we got this far we're all good
          break;
@@ -369,6 +344,16 @@ string FcgiSocket::writeAndRead(const string msg, SOCKET sockfd)
       catch (SocketError &e)
       {
          //socket error, try again
+         int abc = 0;
+      }
+      catch (future_error& e)
+      {
+         cout << e.what();
+         int abc = 0;
+      }
+      catch (...)
+      {
+         int abc = 0;
       }
 
       closeSocket(sockfd);

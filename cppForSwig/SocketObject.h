@@ -34,6 +34,7 @@ class BinarySocket
    friend class FCGI_Server;
 public:
    typedef function<bool(vector<uint8_t>, exception_ptr)>  ReadCallback;
+   typedef function<bool(vector<uint8_t>)>  SequentialReadCallback;
 
 protected:
    const size_t maxread_ = 4*1024*1024;
@@ -49,6 +50,9 @@ protected:
    void writeToSocket(SOCKET, void*, size_t);
    void readFromSocket(SOCKET, ReadCallback);
    void setBlocking(SOCKET, bool);
+
+   vector<uint8_t> writeAndRead(SOCKET, uint8_t*, size_t, 
+      SequentialReadCallback);
    
 public:
    static void closeSocket(SOCKET&);
