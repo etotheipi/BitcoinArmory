@@ -34,7 +34,7 @@ class BinarySocket
    friend class FCGI_Server;
 public:
    typedef function<bool(vector<uint8_t>, exception_ptr)>  ReadCallback;
-   typedef function<bool(vector<uint8_t>)>  SequentialReadCallback;
+   typedef function<bool(const vector<uint8_t>&)>  SequentialReadCallback;
 
 protected:
    const size_t maxread_ = 4*1024*1024;
@@ -51,7 +51,7 @@ protected:
    void readFromSocket(SOCKET, ReadCallback);
    void setBlocking(SOCKET, bool);
 
-   vector<uint8_t> writeAndRead(SOCKET, uint8_t*, size_t, 
+   void writeAndRead(SOCKET, uint8_t*, size_t, 
       SequentialReadCallback);
    
 public:
@@ -61,7 +61,7 @@ public:
    BinarySocket(const string& addr, const string& port);
    bool testConnection(void);
 
-   virtual string writeAndRead(const string, SOCKET sock = SOCK_MAX)
+   virtual string writeAndRead(const string&, SOCKET sock = SOCK_MAX)
    {
       throw SocketError("not implemented, use the protected method instead");
    }

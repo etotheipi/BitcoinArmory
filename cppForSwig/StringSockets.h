@@ -82,7 +82,7 @@ private:
 
 public:
    HttpSocket(const BinarySocket&);
-   virtual string writeAndRead(const string, SOCKET sockfd = SOCK_MAX);
+   virtual string writeAndRead(const string&, SOCKET sockfd = SOCK_MAX);
    virtual SocketType type(void) const { return SocketHttp; }
 };
 
@@ -113,7 +113,7 @@ private:
 
 public:
    FcgiSocket(const HttpSocket&);
-   string writeAndRead(const string, SOCKET sfd = SOCK_MAX);
+   string writeAndRead(const string&, SOCKET sfd = SOCK_MAX);
    SocketType type(void) const { return SocketFcgi; }
 };
 

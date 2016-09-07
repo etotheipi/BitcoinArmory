@@ -84,7 +84,7 @@ string HttpSocket::getBody(vector<uint8_t> msg)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-string HttpSocket::writeAndRead(const string msg, SOCKET sockfd)
+string HttpSocket::writeAndRead(const string& msg, SOCKET sockfd)
 {
 
    char* packet = nullptr;
@@ -220,19 +220,19 @@ HttpSocket(obj)
 {}
 
 ///////////////////////////////////////////////////////////////////////////////
-string FcgiSocket::writeAndRead(const string msg, SOCKET sockfd)
+string FcgiSocket::writeAndRead(const string& msg, SOCKET sockfd)
 {
 
    auto&& fcgiMsg = FcgiMessage::makePacket(msg.c_str());
    auto serdata = fcgiMsg.serialize();
    auto serdatalength = fcgiMsg.getSerializedDataLength();
 
-   auto packetPtr = make_shared<packetStruct>();
-   packetPtr->fcgiid = fcgiMsg.id();
+   packetStruct packetPtr;
+   packetPtr.fcgiid = fcgiMsg.id();
 
    while (1)
    {
-      packetPtr->clear();
+      packetPtr.clear();
       
       if (sockfd == SOCK_MAX)
          sockfd = openSocket(false);
@@ -244,22 +244,22 @@ string FcgiSocket::writeAndRead(const string msg, SOCKET sockfd)
       {
 
          auto processFcgiPacket =
-            [packetPtr](
-            vector<uint8_t> socketData)->bool
+            [&packetPtr](
+            const vector<uint8_t>& socketData)->bool
          {
             if (socketData.size() == 0)
                return true;
 
-            packetPtr->fcgidata.insert(
-               packetPtr->fcgidata.end(), socketData.begin(), socketData.end());
+            packetPtr.fcgidata.insert(
+               packetPtr.fcgidata.end(), socketData.begin(), socketData.end());
 
-            while (packetPtr->ptroffset + FCGI_HEADER_LEN <=
-               packetPtr->fcgidata.size())
+            while (packetPtr.ptroffset + FCGI_HEADER_LEN <=
+               packetPtr.fcgidata.size())
             {
                //grab fcgi header
-               auto* fcgiheader = &packetPtr->fcgidata[packetPtr->ptroffset];
+               auto* fcgiheader = &packetPtr.fcgidata[packetPtr.ptroffset];
 
-               packetPtr->ptroffset += FCGI_HEADER_LEN;
+               packetPtr.ptroffset += FCGI_HEADER_LEN;
 
                //make sure fcgi version and request id match
                if (fcgiheader[0] != FCGI_VERSION_1)
@@ -267,7 +267,7 @@ string FcgiSocket::writeAndRead(const string msg, SOCKET sockfd)
 
                uint16_t requestid;
                requestid = (uint8_t)fcgiheader[3] + (uint8_t)fcgiheader[2] * 256;
-               if (requestid != packetPtr->fcgiid)
+               if (requestid != packetPtr.fcgiid)
                   throw FcgiError("request id mismatch");
 
                //check packet type
@@ -276,7 +276,7 @@ string FcgiSocket::writeAndRead(const string msg, SOCKET sockfd)
                {
                case FCGI_END_REQUEST:
                {
-                  packetPtr->endpacket++;
+                  packetPtr.endpacket++;
                   break;
                }
 
@@ -293,21 +293,21 @@ string FcgiSocket::writeAndRead(const string msg, SOCKET sockfd)
                   {
                      //do not process this fcgi packet if we dont have enough
                      //data in the read buffer to cover the advertized length
-                     if (packetsize + padding + packetPtr->ptroffset >
-                        packetPtr->fcgidata.size())
+                     if (packetsize + padding + packetPtr.ptroffset >
+                        packetPtr.fcgidata.size())
                      {
-                        packetPtr->ptroffset -= FCGI_HEADER_LEN;
+                        packetPtr.ptroffset -= FCGI_HEADER_LEN;
                         abortParse = true;
                         break;
                      }
 
                      //extract http data
-                     packetPtr->httpData.insert(packetPtr->httpData.end(),
-                        packetPtr->fcgidata.begin() + packetPtr->ptroffset,
-                        packetPtr->fcgidata.begin() + packetPtr->ptroffset + packetsize);
+                     packetPtr.httpData.insert(packetPtr.httpData.end(),
+                        packetPtr.fcgidata.begin() + packetPtr.ptroffset,
+                        packetPtr.fcgidata.begin() + packetPtr.ptroffset + packetsize);
 
                      //advance index to next header
-                     packetPtr->ptroffset += packetsize + padding;
+                     packetPtr.ptroffset += packetsize + padding;
                   }
 
                   break;
@@ -321,11 +321,11 @@ string FcgiSocket::writeAndRead(const string msg, SOCKET sockfd)
                   throw FcgiError("unknown fcgi header request byte");
                }
 
-               if (packetPtr->endpacket >= 1 || abortParse)
+               if (packetPtr.endpacket >= 1 || abortParse)
                   break;
             }
 
-            if (packetPtr->endpacket >= 1)
+            if (packetPtr.endpacket >= 1)
                return true;
 
             return false;
@@ -362,5 +362,5 @@ string FcgiSocket::writeAndRead(const string msg, SOCKET sockfd)
    closeSocket(sockfd);
    fcgiMsg.clear();
 
-   return HttpSocket::getBody(move(packetPtr->httpData));
+   return HttpSocket::getBody(move(packetPtr.httpData));
 }

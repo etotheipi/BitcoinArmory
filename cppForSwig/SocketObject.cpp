@@ -379,7 +379,7 @@ void BinarySocket::readFromSocketThread(SOCKET sockfd, ReadCallback callback)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-vector<uint8_t> BinarySocket::writeAndRead(
+void BinarySocket::writeAndRead(
    SOCKET sockfd, uint8_t* data, size_t len, SequentialReadCallback callback)
 {
    size_t readIncrement = 8192;
@@ -523,7 +523,7 @@ vector<uint8_t> BinarySocket::writeAndRead(
             readdata.resize(totalread);
 
             //callback with the new data, exit poll loop on true
-            if (callback(move(readdata)))
+            if (callback(readdata))
                break;
          }
       }
