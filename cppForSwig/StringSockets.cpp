@@ -92,7 +92,7 @@ string HttpSocket::writeAndRead(const string& msg, SOCKET sockfd)
 
    typedef vector<char>::iterator vecIterType;
 
-   auto packetPtr = make_shared<packetData>();
+   packetData packetPtr;
 
    while (1)
    {
@@ -102,95 +102,70 @@ string HttpSocket::writeAndRead(const string& msg, SOCKET sockfd)
       if (sockfd == SOCK_MAX)
          throw SocketError("failed to connect socket");
 
-      packetPtr->clear();
+      packetPtr.clear();
 
       try
       {
-         auto readPromise = make_shared<promise<bool>>();
-         auto waitOnRead = readPromise->get_future();
-
-         auto processHttpPacket = [readPromise, packetPtr]
-            (vector<uint8_t> socketData, exception_ptr ePtr)->bool
+         auto processHttpPacket = [&packetPtr]
+            (const vector<uint8_t>& socketData)->bool
          {
-            try
+            auto& httpData = packetPtr.httpData;
+
+            if (socketData.size() == 0)
+               return true;
+
             {
-               auto& httpData = packetPtr->httpData;
+               httpData.insert(
+                  httpData.end(), socketData.begin(), socketData.end());
 
-               if (socketData.size() == 0 && ePtr)
+               if (packetPtr.content_length == -1)
                {
-                  readPromise->set_value(true);
-                  return true;
-               }
-
-         {
-            httpData.insert(
-               httpData.end(), socketData.begin(), socketData.end());
-
-            if (packetPtr->content_length == -1)
-            {
-               //if content_length is -1, we have not read the content-length in the
-               //http header yet, let's find that
-               for (unsigned i = 0; i < httpData.size(); i++)
-               {
-                  if (httpData[i] == '\r')
+                  //if content_length is -1, we have not read the content-length in the
+                  //http header yet, let's find that
+                  for (unsigned i = 0; i < httpData.size(); i++)
                   {
-                     if (httpData.size() - i < 3)
-                        break;
-
-                     if (httpData[i + 1] == '\n' &&
-                        httpData[i + 2] == '\r' &&
-                        httpData[i + 3] == '\n')
+                     if (httpData[i] == '\r')
                      {
-                        packetPtr->header_len = i + 4;
-                        break;
+                        if (httpData.size() - i < 3)
+                           break;
+
+                        if (httpData[i + 1] == '\n' &&
+                           httpData[i + 2] == '\r' &&
+                           httpData[i + 3] == '\n')
+                        {
+                           packetPtr.header_len = i + 4;
+                           break;
+                        }
                      }
                   }
+
+                  if (packetPtr.header_len == 0)
+                     throw HttpError("couldn't find http header in response");
+
+                  string header_str((char*)&httpData[0], packetPtr.header_len);
+                  packetPtr.get_content_len(header_str);
                }
 
-               if (packetPtr->header_len == 0)
-                  throw HttpError("couldn't find http header in response");
+               if (packetPtr.content_length == -1)
+                  throw HttpError("failed to find http header response packet");
 
-               string header_str((char*)&httpData[0], packetPtr->header_len);
-               packetPtr->get_content_len(header_str);
+               //check the total amount of data read matches the advertised
+               //data in the http header
             }
 
-            if (packetPtr->content_length == -1)
-               throw HttpError("failed to find http header response packet");
-
-            //check the total amount of data read matches the advertised
-            //data in the http header
-         }
-
-         bool done = false;
-         if (httpData.size() >= packetPtr->content_length + packetPtr->header_len)
-         {
-            httpData.resize(packetPtr->content_length + packetPtr->header_len);
-            done = true;
-         }
-
-         if (ePtr != nullptr)
-         {
-            readPromise->set_exception(ePtr);
-            done = true;
-         }
-         else if (done)
-         {
-            readPromise->set_value(true);
-         }
-
-         return done;
-            }
-            catch (...)
+            bool done = false;
+            if (httpData.size() >= packetPtr.content_length + packetPtr.header_len)
             {
-               readPromise->set_exception(current_exception());
-               return true;
+               httpData.resize(packetPtr.content_length + packetPtr.header_len);
+               done = true;
             }
+
+            return done;
          };
 
-         writeToSocket(sockfd, packet, packetSize);
-         readFromSocket(sockfd, processHttpPacket);
+         BinarySocket::writeAndRead(sockfd,
+            (uint8_t*)packet, packetSize, processHttpPacket);
 
-         waitOnRead.get();
          break;
       }
       catch (HttpError &e)
@@ -205,7 +180,7 @@ string HttpSocket::writeAndRead(const string& msg, SOCKET sockfd)
    }
 
    closeSocket(sockfd);
-   auto&& retmsg = getBody(move(packetPtr->httpData));
+   auto&& retmsg = getBody(move(packetPtr.httpData));
 
    return retmsg;
 }
@@ -341,18 +316,9 @@ string FcgiSocket::writeAndRead(const string& msg, SOCKET sockfd)
       {
          LOGERR << "FcgiSocket::writeAndRead FcgiError: " << e.what();
       }
-      catch (SocketError &e)
-      {
-         //socket error, try again
-         int abc = 0;
-      }
       catch (future_error& e)
       {
          cout << e.what();
-         int abc = 0;
-      }
-      catch (...)
-      {
          int abc = 0;
       }
 
