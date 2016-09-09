@@ -238,8 +238,14 @@ try
          //wait on future
          newBlocksFuture.get();
       }
+      catch (exception &e)
+      {
+         LOGERR << "caught exception in main thread: " << e.what();
+         break;
+      }
       catch (...)
       {
+         LOGERR << "caught unknown exception in main thread";
          break;
       }
    }
