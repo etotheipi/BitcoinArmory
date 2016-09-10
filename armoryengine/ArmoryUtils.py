@@ -127,6 +127,8 @@ parser.add_option("--armorydb-port", dest="armorydb_port", default=ARMORYDB_DEFA
 parser.add_option("--ram-usage", dest="ram_usage", default=-1, type="int", help="Set maximum ram during scans, as 128MB increments. Defaults to 4")
 parser.add_option("--thread-count", dest="thread_count", default=-1, type="int", help="Set max thread count during builds and scans. Defaults to CPU total thread count")
 parser.add_option("--db-type", dest="db_type", default="DB_FULL", type="str", help="Set db mode, defaults to DB_FULL")
+parser.add_option("--language", dest="language", default="en", type="str", help="""Set the language for the client to display in. Use the ISO 639-1 language code to choose a language. 
+                                                                                 Options are da, de, en, es, el, fr, he, hr, id, ru, sv. Default is en. """)
 
 parser.set_defaults(enableDetSign=True)
 
@@ -492,9 +494,6 @@ if ARMORY_HOME_DIR and not os.path.exists(ARMORY_HOME_DIR):
 
 if not os.path.exists(ARMORY_DB_DIR):
    os.makedirs(ARMORY_DB_DIR)
-
-
-
 
 ##### MAIN NETWORK IS DEFAULT #####
 if not USE_TESTNET and not USE_REGTEST:
@@ -3748,7 +3747,17 @@ class SettingsFile(object):
          except:
             LOGEXCEPT('Invalid setting in %s (skipping...)', path)
 
-
+# Grab language settings from settings file or from cli
+LANGUAGES = ["da", "de", "en", "es", "el", "fr", "he", "hr", "id", "ru", "sv"]
+if CLI_OPTIONS.language == "en":
+   langSetting = SettingsFile(SETTINGS_PATH).get('Language')
+else:
+   langSetting = CLI_OPTIONS.language
+if langSetting not in LANGUAGES:
+   LOGERROR("Unsupported language %s specified. Defaulting to English (en)", langSetting)
+   langSetting = "en"
+GUI_LANGUAGE = "armory_" + langSetting + ".qm"
+LOGINFO("Using Language: %s", langSetting)
 
 # Random method for creating
 def touchFile(fname):

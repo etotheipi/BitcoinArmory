@@ -50,6 +50,15 @@ from armoryengine.Decorators import RemoveRepeatingExtensions
 from armoryengine.PyBtcWalletRecovery import WalletConsistencyCheck
 from armoryengine.parseAnnounce import changelogParser, downloadLinkParser, \
    notificationParser
+
+import qt4reactor
+qt4reactor.install()
+
+# Setup translations
+translator = QTranslator(QAPP)
+translator.load(GUI_LANGUAGE, os.path.join(os.path.dirname(os.path.realpath(__file__)), "lang/"))
+QAPP.installTranslator(translator)
+
 from armorymodels import *
 from jasvet import verifySignature
 import qrc_img_resources
@@ -1644,7 +1653,7 @@ class ArmoryMainWindow(QMainWindow):
                QMessageBox.information(parent, self.tr('Aborted'), self.tr("""
                   No passphrase was selected for the encrypted backup.
                   No backup was created"""), QMessageBox.Ok)
-            newPassphrase = SecureBinaryData(unicode(dlgCrypt.edtPasswd1.text()))
+            newPassphrase = SecureBinaryData(str(dlgCrypt.edtPasswd1.text()))
 
          wlt.makeEncryptedWalletCopy(savePath, newPassphrase)
       elif copyType.lower() == 'pkcc':
@@ -1707,6 +1716,19 @@ class ArmoryMainWindow(QMainWindow):
 
       self.firstModeSwitch = False
 
+   #############################################################################
+   def setLang(self, lang):
+      LOGINFO('Changing language:')
+      LOGINFO('   From: %s', self.settings.get('Language'))
+      self.language = lang
+      self.writeSetting("Language", lang)
+      LOGINFO('     To: %s', self.settings.get('Language'))
+
+      if not self.firstModeSwitch:
+         QMessageBox.information(self, self.tr('Restart Armory'),
+            self.tr('''You will have to restart Armory for the new language to go into effect'''), QMessageBox.Ok)
+
+      self.firstModeSwitch = False
 
 
    #############################################################################
@@ -2035,6 +2057,11 @@ class ArmoryMainWindow(QMainWindow):
          self.usermode = USERMODE.Advanced
       elif self.settings.get('User_Mode') == 'Expert':
          self.usermode = USERMODE.Expert
+
+      # Set the language, default to English
+      self.language = 'en'
+      if self.settings.get('Language') != '':
+         self.language = self.settings.get('Language')
 
 
       # The user may have asked to never be notified of a particular
@@ -6325,9 +6352,6 @@ def checkForAlreadyOpenError():
 ############################################
 
 if 1:
-
-   import qt4reactor
-   qt4reactor.install()
 
    if CLI_OPTIONS.interport > 1:
       checkForAlreadyOpen()

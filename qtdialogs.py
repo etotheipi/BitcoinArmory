@@ -31,6 +31,7 @@ from armoryengine.MultiSigUtils import calcLockboxID, createLockboxEntryStr,\
 from ui.MultiSigModels import LockboxDisplayModel, LockboxDisplayProxy,\
    LOCKBOXCOLS
 from armoryengine.PyBtcWalletRecovery import RECOVERMODE
+from armoryengine.ArmoryUtils import BTC_HOME_DIR
 
 from ui.TreeViewGUI import AddressTreeModel
 
@@ -8724,7 +8725,7 @@ class DlgSettings(ArmoryDialog):
       lblDefaultExe = QRichLabel(self.tr('Leave blank to have Armory search default '
                                   'locations for your OS'), size=2)
       lblDefaultHome = QRichLabel(self.tr('Leave blank to use default datadir '
-                                  '(%1)').arg(BTC_HOME_DIR_, size=2))
+                                  '(%1)').arg(BTC_HOME_DIR), size=2)
 
       self.btnSetExe = createDirectorySelectButton(self, self.edtSatoshiExePath)
       self.btnSetHome = createDirectorySelectButton(self, self.edtSatoshiHomePath)
@@ -8952,8 +8953,8 @@ class DlgSettings(ArmoryDialog):
       self.connect(self.btnCancel, SIGNAL(CLICKED), self.reject)
       self.connect(self.btnAccept, SIGNAL(CLICKED), self.accept)
 
-
-
+      ################################################################
+      # User mode selection
       self.cmbUsermode = QComboBox()
       self.cmbUsermode.clear()
       self.cmbUsermode.addItem('Standard')
@@ -8975,8 +8976,17 @@ class DlgSettings(ArmoryDialog):
 
       self.connect(self.cmbUsermode, SIGNAL('activated(int)'), self.setUsermodeDescr)
 
-
-
+      ###############################################################
+      # Language preferences
+      self.lblLang = QRichLabel(self.tr('<b>Preferred Language<b>:<br>'))
+      self.lblLangDescr = QRichLabel(self.tr(
+         'Specify which language you would like Armory to be displayed in.'))
+      self.cmbLang = QComboBox()
+      self.cmbLang.clear()
+      for lang in LANGUAGES:
+         self.cmbLang.addItem(QLocale(lang).nativeLanguageName() + " (" + lang + ")")
+      self.cmbLang.setCurrentIndex(LANGUAGES.index(self.main.language))
+      self.langInit = self.main.language
 
       frmLayout = QGridLayout()
 
@@ -9072,8 +9082,20 @@ class DlgSettings(ArmoryDialog):
 
       i += 1
       frmLayout.addWidget(self.lblUsermodeDescr, i, 0, 1, 3)
-      
- 
+
+
+      i += 1
+      frmLayout.addWidget(HLINE(), i, 0, 1, 3)
+
+      i += 1
+      frmLayout.addWidget(self.lblLang, i, 0)
+      frmLayout.addWidget(QLabel(''), i, 1)
+      frmLayout.addWidget(self.cmbLang, i, 2)
+
+      i += 1
+      frmLayout.addWidget(self.lblLangDescr, i, 0, 1, 3)
+
+
       frmOptions = QFrame()
       frmOptions.setLayout(frmLayout)
       
@@ -9344,6 +9366,9 @@ class DlgSettings(ArmoryDialog):
             self.main.setUserMode(USERMODE.Advanced)
          elif modestr.lower() == 'expert':
             self.main.setUserMode(USERMODE.Expert)
+
+      if not self.langInit == self.cmbLang.currentText()[-3:-1]:
+         self.main.setLang(LANGUAGES[self.cmbLang.currentIndex()])
 
       if self.chkMinOrClose.isChecked():
          self.main.writeSetting('MinimizeOrClose', 'Minimize')
