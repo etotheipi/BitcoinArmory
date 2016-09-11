@@ -236,7 +236,7 @@ protected:
    void pop_promise(void)
    {
       int zero = 0;
-      while (!replaceFut_.compare_exchange_strong(zero, -1,
+      while (!replaceFut_.compare_exchange_weak(zero, -1,
          memory_order_release, memory_order_relaxed))
       {
          if (zero == -1)
@@ -790,7 +790,7 @@ private:
 private:
    shared_future<bool> get_future()
    {
-      auto completed = completed_.load(memory_order_relaxed);
+      auto completed = completed_.load(memory_order_acquire);
       if (completed)
       {
          if (Stack<T>::exceptPtr_ != nullptr)
@@ -815,17 +815,15 @@ public:
       //blocks as long as there is no data available in the chain.
       //run in loop until we get data or a throw
 
-      waiting_.fetch_add(1, memory_order_relaxed);
+      waiting_.fetch_add(1, memory_order_acq_rel);
 
       try
       {
          while (1)
          {
-            auto terminate = terminated_.load(memory_order_relaxed);
+            auto terminate = terminated_.load(memory_order_acquire);
             if (terminate)
             {
-               waiting_.fetch_sub(1, memory_order_relaxed);
-               
                if (Stack<T>::exceptPtr_ != nullptr)
                   rethrow_exception(Stack<T>::exceptPtr_);
 
@@ -836,12 +834,11 @@ public:
             try
             {
                auto&& retval = Stack<T>::pop_front(false);
-               waiting_.fetch_sub(1, memory_order_relaxed);
+               waiting_.fetch_sub(1, memory_order_acq_rel);
                return move(retval);
             }
             catch (IsEmpty&)
-            {
-            }
+            {}
 
             //if there are no items, create promise, push to promise pile
             auto fut = get_future();
@@ -849,11 +846,14 @@ public:
             try
             {
                auto&& retval = Stack<T>::pop_front(false);
-               waiting_.fetch_sub(1, memory_order_relaxed);
+               waiting_.fetch_sub(1, memory_order_acq_rel);
                return move(retval);
             }
             catch (IsEmpty&)
             {
+               if(completed_.load(memory_order_acquire) || 
+                  terminated_.load(memory_order_acquire))
+	          throw StopBlockingLoop();
             }
 
             try
@@ -867,7 +867,7 @@ public:
       catch (...)
       {
          //loop stopped
-         waiting_.fetch_sub(1, memory_order_relaxed);
+         waiting_.fetch_sub(1, memory_order_acq_rel);
          rethrow_exception(current_exception());
       }
 
@@ -877,7 +877,7 @@ public:
 
    void push_back(T&& obj)
    {
-      auto completed = completed_.load(memory_order_relaxed);
+      auto completed = completed_.load(memory_order_acquire);
       if (completed)
          return;
 
@@ -900,10 +900,10 @@ public:
       }
 
       Stack<T>::exceptPtr_ = exceptptr;
-      terminated_.store(true, memory_order_relaxed);
-      completed_.store(true, memory_order_relaxed);
+      terminated_.store(true, memory_order_release);
+      completed_.store(true, memory_order_release);
 
-      while (waiting_.load(memory_order_relaxed) > 0)
+      //while (waiting_.load(memory_order_acquire) > 0)
          Stack<T>::pop_promise();
    }
 
@@ -932,9 +932,10 @@ public:
       }
 
       Stack<T>::exceptPtr_ = exceptptr;
-      completed_.store(true, memory_order_relaxed);
+      completed_.store(true, memory_order_release);
 
-      Stack<T>::pop_promise();
+      //while (waiting_.load(memory_order_acquire) > 0)
+         Stack<T>::pop_promise();
    }
 
    int waiting(void) const
