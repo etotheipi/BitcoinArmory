@@ -333,9 +333,20 @@ bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl,
          bd.deserialize(data, size, nullptr, 
             getID, true);
       }
+      catch (BlockDeserializingException &e)
+      {
+         LOGERR << "block deser except: " <<  e.what();
+         return false;
+      }
+      catch (exception &e)
+      {
+         LOGERR << "exception: " << e.what();
+         return false;
+      }
       catch (...)
       {
          //deser failed, ignore this block
+         LOGERR << "unknown exception";
          return false;
       }
 

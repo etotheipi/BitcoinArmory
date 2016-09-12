@@ -101,7 +101,12 @@ void BlockData::deserialize(const uint8_t* data, size_t size,
 
    auto&& merkleroot = BtcUtils::calculateMerkleRoot(allhashes);
    if (merkleroot != bh.getMerkleRoot())
+   {
+      LOGERR << "merkle root mismatch!";
+      LOGERR << "   header has: " << bh.getMerkleRoot().toHexStr();
+      LOGERR << "   block yields: " << merkleroot.toHexStr();
       throw BlockDeserializingException("invalid merkle root");
+   }
 
    uniqueID_ = getID();
 

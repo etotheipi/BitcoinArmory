@@ -18,6 +18,7 @@
 #include <future>
 #include <atomic>
 
+#include <iostream>
 #include <string>
 #include <sstream>
 #include <iomanip>
@@ -72,7 +73,10 @@ struct BCTX
          {
             BinaryData noWitData;
             BinaryDataRef version(data_, 4);
-            BinaryDataRef txinout(data_ + size_ + 6, txouts_.back().first - 6);
+           
+            auto& lastTxOut = txouts_.back();
+            auto witnessOffset = lastTxOut.first + lastTxOut.second;
+            BinaryDataRef txinout(data_ + 6, witnessOffset - 6);
             BinaryDataRef locktime(data_ + size_ - 4, 4);
            
             noWitData.append(version);
