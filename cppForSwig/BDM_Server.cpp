@@ -1233,6 +1233,8 @@ void BDV_Server_Object::init()
 
    auto&& zcstruct = createZcStruct();
    scanWallets(move(zcstruct));
+   
+   isReadyPromise_->set_value(true);
 
    Arguments args;
    BinaryDataObject bdo("BDM_Ready");
@@ -1241,7 +1243,6 @@ void BDV_Server_Object::init()
    args.push_back(move(topblock));
    cb_->callback(move(args));
 
-   isReadyPromise_->set_value(true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

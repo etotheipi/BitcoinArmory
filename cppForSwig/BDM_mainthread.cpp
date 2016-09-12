@@ -253,7 +253,6 @@ try
 catch (std::exception &e)
 {
    LOGERR << "BDM thread failed: " << e.what();
-   string errstr(e.what());
 }
 catch (...)
 {
