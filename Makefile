@@ -38,6 +38,7 @@ install : all
 	sed "s: /usr: $(PREFIX):g" < dpkgfiles/armory > $(DESTDIR)$(PREFIX)/bin/armory
 	chmod +x $(DESTDIR)$(PREFIX)/bin/armory
 	cp *.py *.so README.md $(DESTDIR)$(PREFIX)/lib/armory/
+	cp ArmoryDB $(DESTDIR)$(PREFIX)/bin/
 	rsync -rupE armoryengine $(DESTDIR)$(PREFIX)/lib/armory/
 	rsync -rupE --exclude="img/.DS_Store" img $(DESTDIR)$(PREFIX)/share/armory/
 	cp extras/*.py $(DESTDIR)$(PREFIX)/lib/armory/extras
