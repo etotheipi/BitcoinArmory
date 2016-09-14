@@ -44,6 +44,12 @@ v0.94.99-testing
    - Added Segregated Witness read support. This means the database can successfully parse SW transactions.
    - No SW spending feature yet. This will be the subject of another release.
 
+   - Makes use of bitcoind's new cookie authentication in order to access bitcoind's JSON-RPC interface
+   - Can now make use of the JSON-RPC calls for estimatefee and estimatepriority regardless of whether Armory is managing
+     bitcoind.
+   - Those RPC calls will only work if client is local, i.e. ArmoryDB and bitcoind are being run on the same computer as
+     ArmoryQt.
+
 == Fixed ==
    - Fixed the missing transaction issue in the Tx Details dialog through the addition of the new resolver dataset
 
