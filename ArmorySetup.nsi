@@ -5,8 +5,8 @@ Name "Bitcoin Armory"
 
 # General Symbol Definitions
 !define REGKEY "SOFTWARE\$(^Name)"
-!define COMPANY "Armory Technologies Inc."
-!define URL http://bitcoinarmory.com/
+!define COMPANY "Community maintained"
+!define URL http://btcarmory.com/
 
 # MultiUser Symbol Definitions
 !define MULTIUSER_EXECUTIONLEVEL Highest
