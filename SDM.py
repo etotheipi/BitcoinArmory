@@ -100,6 +100,7 @@ class SatoshiDaemonManager(object):
 
    class BitcoindError(Exception): pass
    class BitcoindNotAvailableError(Exception): pass
+   class BadPath(Exception): pass
    class BitcoinDotConfError(Exception): pass
    class SatoshiHomeDirDNE(Exception): pass
    class ConfigFileUserDNE(Exception): pass
@@ -148,6 +149,8 @@ class SatoshiDaemonManager(object):
          
       if OS_WINDOWS:
          self.dbExecutable += ".exe"
+         if not os.path.exists(self.dbExecutable):
+            self.dbExecutable = "./ArmoryDB.exe"
       
       if OS_LINUX:
          #if there is no local armorydb in the execution folder, 
@@ -227,8 +230,8 @@ class SatoshiDaemonManager(object):
       self.readCookieFile()
 
       # Check bitcoind is actually up. If it is not, remove self.bitcoind
-      self.createProxy()
       try:
+         self.createProxy()         
          self.proxy.getinfo()
       except:
          LOGDEBUG("bitcoind rpc is not actually availalbe")
@@ -490,7 +493,7 @@ class SatoshiDaemonManager(object):
 
       blocksdir = os.path.join(self.satoshiHome, 'blocks')
       if not os.path.exists(blocksdir):
-         raise "Invalid blockdata path"
+         raise self.BadPath, "Invalid blockdata path"
 
       randBase58 = SecureBinaryData().GenerateRandom(32).toBinStr()
       spawnId = binary_to_base58(randBase58)

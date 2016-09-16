@@ -2183,30 +2183,34 @@ class ArmoryMainWindow(QMainWindow):
    def startArmoryDBIfNecessary(self):
       if CLI_OPTIONS.offline:
          return False
-
-      if TheBDM.bdv().hasRemoteDB() == False:
-
-         if ARMORYDB_DEFAULT_PORT != ARMORYDB_PORT:
-            return False
-
-         if ARMORYDB_DEFAULT_IP != ARMORYDB_IP:
-            return False
-
-         #If we got this far we are using default settings and expecting
-         #a local db process which is missing. Let's spawn it.
-         self.setSatoshiPaths()
-         spawnId = TheSDM.spawnDB(TheBDM.armoryDBDir)
-         TheBDM.setSpawnId(spawnId)
-
-         #test if db has started
+      try:
          if TheBDM.bdv().hasRemoteDB() == False:
-            #wait 1 second
-            time.sleep(1)
-            if TheBDM.bdv().hasRemoteDB == False:
-               LOGERROR("Failed to spawn ArmoryDB")
+   
+            if ARMORYDB_DEFAULT_PORT != ARMORYDB_PORT:
                return False
-
-      return True
+   
+            if ARMORYDB_DEFAULT_IP != ARMORYDB_IP:
+               return False
+   
+            #If we got this far we are using default settings and expecting
+            #a local db process which is missing. Let's spawn it.
+            self.setSatoshiPaths()
+            spawnId = TheSDM.spawnDB(TheBDM.armoryDBDir)
+            TheBDM.setSpawnId(spawnId)
+   
+            #test if db has started
+            if TheBDM.bdv().hasRemoteDB() == False:
+               #wait 1 second
+               time.sleep(1)
+               if TheBDM.bdv().hasRemoteDB == False:
+                  LOGERROR("Failed to spawn ArmoryDB")
+                  return False
+   
+         return True
+      except:
+         pass
+      
+      return False
 
    ############################################################################
    def startBitcoindIfNecessary(self):
@@ -6671,13 +6675,16 @@ class ArmoryMainWindow(QMainWindow):
    def completeBlockchainProcessingInitialization(self):
       gotDB = self.startArmoryDBIfNecessary()
       if gotDB == False:
+         TheBDM.setState(BDM_OFFLINE)
          self.switchNetworkMode(NETWORKMODE.Offline)
 
          QMessageBox.warning(self, tr('Database Error'), tr("""
-                           Armory failed to spawn the DB! <br>
-                           Continuiing operations in offline mode instead. <br>
-                           Refer to the DB log for more information.""" \
-                           % TheBDM.exception), QMessageBox.Ok)
+                           Armory failed to spawn the DB!<br> 
+                           Continuing operations in offline mode instead. <br>
+                           Refer to the dbLog.txt for more information."""), QMessageBox.Ok)
+         
+         self.setDashboardDetails()
+         return
       else:
          self.switchNetworkMode(NETWORKMODE.Full)
 
