@@ -1842,7 +1842,7 @@ class DlgLockboxManager(ArmoryDialog):
             lbIDList.append(lb.uniqueIDB58)
             
       self.main.currentLBPage = 0      
-      TheBDM.bdv().updateLockboxesLedgerFilter(lbIDList)
+      #TheBDM.bdv().updateLockboxesLedgerFilter(lbIDList)
 
 ################################################################################
 class DlgFundLockbox(ArmoryDialog):
