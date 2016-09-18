@@ -51,9 +51,7 @@ endif
 
 CPPFLAGS += -Icryptopp -Imdb -IBlockDataManager/fcgi -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
 LDLIBS += -lpthread -Lmdb
-SWIG_OPTS    += -c++ -python -threads -D__GNUC__
-
-SWIG_INC     += 
+SWIG_OPTS    += -c++ -python -threads
 
 # rt library used for glibc <2.17. Safe to include for Linux but not OS X.
 # Place at the end due to link order concerns involving Ubuntu 12.04.
@@ -61,6 +59,7 @@ ifneq ($(OS),Windows_NT)
     UNAME_S := $(shell uname -s)
     ifeq ($(UNAME_S),Linux)
         LDLIBS += -lrt
+	SWIG_OPTS += -D__GNUC__
     endif
 endif
 
@@ -122,7 +121,7 @@ CppBlockUtils_wrap.cxx: $(ALL_HEADERS) CppBlockUtils.i
 	swig $(SWIG_OPTS) -outdir ../ -v CppBlockUtils.i 
 
 CppBlockUtils_wrap.o: $(ALL_HEADERS) CppBlockUtils_wrap.cxx
-	$(CXX) $(SWIG_INC) $(CXXFLAGS) $(CXXCPP) -c CppBlockUtils_wrap.cxx
+	$(CXX) $(CXXFLAGS) $(CXXCPP) -c CppBlockUtils_wrap.cxx
 
 playground: ../_CppBlockUtils.so playground.cpp $(ALL_HEADERS)
 	$(CXX) $(CXXCPP) $(CXXFLAGS) $(LDFLAGS) $(shell $(PYVER)-config --libs) -Wl,-rpath,$(PWD)/.. ../_CppBlockUtils.so -o playground playground.cpp
