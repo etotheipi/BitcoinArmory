@@ -15,11 +15,11 @@ from threading import Event
 from bitcoinrpc_jsonrpc import ServiceProxy
 from CppBlockUtils import SecureBinaryData, CryptoECDSA
 from armoryengine.ArmoryUtils import BITCOIN_PORT, LOGERROR, hex_to_binary, \
-   ARMORY_INFO_SIGN_PUBLICKEY, LOGINFO, BTC_HOME_DIR, LOGDEBUG, OS_WINDOWS, OS_LINUX, \
-   SystemSpecs, subprocess_check_output, LOGEXCEPT, FileExistsError, OS_VARIANT, \
-   BITCOIN_RPC_PORT, binary_to_base58, isASCII, USE_TESTNET, USE_REGTEST, GIGABYTE, \
-   launchProcess, killProcessTree, killProcess, LOGWARN, RightNow, HOUR, \
-   PyBackgroundThread, touchFile, secondsToHumanTime, \
+   ARMORY_INFO_SIGN_PUBLICKEY, LOGINFO, BTC_HOME_DIR, LOGDEBUG, OS_MACOSX, \
+   OS_WINDOWS, OS_LINUX, SystemSpecs, subprocess_check_output, LOGEXCEPT, \
+   FileExistsError, OS_VARIANT, BITCOIN_RPC_PORT, binary_to_base58, isASCII, \
+   USE_TESTNET, USE_REGTEST, GIGABYTE, launchProcess, killProcessTree, killProcess, \
+   LOGWARN, RightNow, HOUR, PyBackgroundThread, touchFile, secondsToHumanTime, \
    bytesToHumanSize, MAGIC_BYTES, deleteBitcoindDBs, satoshiIsAvailable,\
    MEGABYTE, ARMORY_HOME_DIR, CLI_OPTIONS, AllowAsync, ARMORY_RAM_USAGE,\
    ARMORY_THREAD_COUNT, ARMORY_DB_TYPE, ARMORYDB_IP, ARMORYDB_DEFAULT_IP, ARMORYDB_PORT, \
@@ -144,7 +144,10 @@ class SatoshiDaemonManager(object):
       if 'testnet' in newDir or 'regtest' in newDir:
          self.satoshiRoot, tail = os.path.split(newDir)
 
-      path = os.path.dirname(os.path.abspath(__file__))    
+      path = os.path.dirname(os.path.abspath(__file__))
+      if OS_MACOSX:
+         # OSX separates binaries/start scripts from the Python code. Back up!
+         path = os.path.join(path, '../../../../')
       self.dbExecutable = os.path.join(path, 'ArmoryDB')  
          
       if OS_WINDOWS:

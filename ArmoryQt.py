@@ -2207,8 +2207,8 @@ class ArmoryMainWindow(QMainWindow):
                   return False
    
          return True
-      except:
-         pass
+      except Exception, e:
+         LOGEXCEPT('Failed to start Armory database: %s' % str(e))
       
       return False
 
