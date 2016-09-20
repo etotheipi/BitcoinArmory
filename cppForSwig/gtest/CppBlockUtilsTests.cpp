@@ -1152,6 +1152,18 @@ TEST_F(BinaryDataTest, Contains)
    EXPECT_FALSE(bd4_.contains(d, 8));
 }
 
+TEST_F(BinaryDataTest, b58Tests)
+{
+   BinaryData h_160 = READHEX("00010966776006953d5567439e5e39f86a0d273bee");
+   BinaryData scrAddr("16UwLL9Risc3QfPqBUvKofHmBQ7wMtjvM");
+
+   auto&& encoded = BtcUtils::scrAddrToBase58(h_160);
+   EXPECT_EQ(encoded, scrAddr);
+
+   auto&& decoded = BtcUtils::base58toScriptAddr(scrAddr);
+   EXPECT_EQ(decoded, h_160);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 //TEST_F(BinaryDataTest, GenerateRandom)
 //{
