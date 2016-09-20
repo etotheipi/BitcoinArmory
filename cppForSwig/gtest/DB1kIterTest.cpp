@@ -464,7 +464,7 @@ protected:
    BinaryData LB1ID;
    BinaryData LB2ID;
 };
-/*
+
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(DB1kIter, DbInit1kIter)
 {
@@ -524,7 +524,7 @@ TEST_F(DB1kIter, DbInit1kIter)
    //one last init so that TearDown doesn't blow up
    initBDM();
 }
-*/
+
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(DB1kIter, DbInit1kIter_WithSignals)
 {

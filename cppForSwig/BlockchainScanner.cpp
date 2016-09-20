@@ -1393,11 +1393,21 @@ void BlockchainScanner::processFilterHitsThread(
 
          //search the block
          BlockData bdata;
-         bdata.deserialize(
-            fileptr->getPtr() + headerPtr->getOffset(),
-            headerPtr->getBlockSize(),
-            headerPtr, getID, false);
-
+         try
+         {
+            bdata.deserialize(
+               fileptr->getPtr() + headerPtr->getOffset(),
+               headerPtr->getBlockSize(),
+               headerPtr, getID, false);
+         }
+         catch (BlockDeserializingException& e)
+         {
+            LOGERR << "Block deser error while processing tx filters: ";
+            LOGERR << "  " << e.what();
+            LOGERR << "Skipping this block";
+            continue;
+         }
+            
          auto txns = bdata.getTxns();
 
          for (auto& filterhit : filterSet)

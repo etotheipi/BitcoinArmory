@@ -6206,13 +6206,11 @@ class ArmoryMainWindow(QMainWindow):
 
 
          if pywlt:
-            cppWlt  = self.walletMap[moneyID].cppWallet
             wname = self.walletMap[moneyID].labelName
             if len(wname)>20:
                wname = wname[:17] + '...'
             wltName = tr('Wallet "%(wname)s" (%(moneyID)s)') % { 'wname': wname, 'moneyID' : moneyID }
          else:
-            cppWlt = self.cppLockboxWltMap[moneyID]
             lbox   = self.getLockboxByID(moneyID)
             M      = self.getLockboxByID(moneyID).M
             N      = self.getLockboxByID(moneyID).N
@@ -6249,7 +6247,7 @@ class ArmoryMainWindow(QMainWindow):
             recipStr = ''
             for i in range(0, nOut):
                script = txref.getTxOutCopy(i).getScript()
-               if cppWlt.hasScrAddress(script_to_scrAddr(script)):
+               if pywlt.hasScrAddr(script_to_scrAddr(script)):
                   continue
                if len(recipStr)==0:
                   recipStr = self.getDisplayStringForScript(script, 45)['String']

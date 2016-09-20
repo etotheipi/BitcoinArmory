@@ -996,6 +996,18 @@ void FCGI_Server::enterLoop()
       FCGX_InitRequest(request, sockfd_, 0);
       int rc = FCGX_Accept_r(request);
 
+      if (rc != 0)
+      {
+#ifdef _WIN32
+         auto err_i = WSAGetLastError();
+#else
+         auto err_i = errno;
+#endif
+         LOGERR << "Accept failed with error number: " << err_i;
+         LOGERR << "error message is: " << strerror(err_i);
+         throw runtime_error("accept error");
+      }
+
       auto processRequestLambda = [this](FCGX_Request* req)->void
       {
          this->processRequest(req);
