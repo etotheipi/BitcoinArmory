@@ -10,283 +10,211 @@
 #include "BtcUtils.h"
 
 ///////////////////////////////////////////////////////////////////////////////
-ostream& operator << (ostream& os, const ErrorType& et)
+void ErrorType::serialize(BinaryWriter& bw) const
 {
-   os << et.err_;
-
-   return os;
+   bw.put_uint8_t(ERRTYPE_CODE);
+   bw.put_var_int(err_.size());
+   bw.put_BinaryData((uint8_t*)err_.c_str(), err_.size());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-istream& operator >> (istream& is, ErrorType& et)
+ErrorType ErrorType::deserialize(BinaryRefReader& brr)
 {
-   getline(is, et.err_);
+   if (brr.get_uint8_t() != ERRTYPE_CODE)
+      throw runtime_error("unexpected type");
 
-   return is;
+   auto size = brr.get_var_int();
+   if (size > brr.getSizeRemaining())
+      throw runtime_error("invalid data len");
+
+   return ErrorType(string((char*)brr.getCurrPtr(), size));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-vector<shared_ptr<DataMeta>> DataMeta::iTypeIDs_ = {
-   make_shared<DataObject<int>>(),
-   make_shared<DataObject<unsigned int>>(),
-   make_shared<DataObject<uint64_t>>(),
-   make_shared<DataObject<size_t>>(),
-   make_shared<DataObject<BinaryDataObject>>(),
-   make_shared<DataObject<BinaryDataVector>>(),
-   make_shared<DataObject<LedgerEntryVector>>(),
-   make_shared<DataObject<ProgressData>>(),
-   make_shared<DataObject<ErrorType>>()
-};
-
-map<string, uint32_t> DataMeta::strTypeIDs_;
-
-///////////////////////////////////////////////////////////////////////////////
-void DataMeta::initTypeMap()
+void LedgerEntryVector::serialize(BinaryWriter& bw) const
 {
-   auto iter = iTypeIDs_.begin();
+   bw.put_uint8_t(LEDGERENTRYVECTOR_CODE);
+   bw.put_var_int(leVec_.size());
 
-   while (iter != iTypeIDs_.end())
+   for (auto& le : leVec_)
    {
-      auto id = iter - iTypeIDs_.begin();
-      strTypeIDs_[(*iter)->getTypeName()] = id;
+      auto idSize = le.ID_.size();
+      size_t totalsize = idSize + 53;
+      bw.put_var_int(totalsize);
 
-      iter++;
+      bw.put_var_int(idSize);
+      bw.put_BinaryData((uint8_t*)le.ID_.c_str(), idSize);
+      
+      bw.put_uint64_t(le.value_);
+      bw.put_uint32_t(le.blockNum_);
+      bw.put_BinaryData(le.txHash_);
+      bw.put_uint32_t(le.index_);
+      bw.put_uint32_t(le.txTime_);
+
+      BitPacker<uint8_t> bp;
+      bp.putBit(le.isCoinbase_);
+      bp.putBit(le.isSentToSelf_);
+      bp.putBit(le.isChangeBack_);
+      bp.putBit(le.optInRBF_);
+
+      bw.put_BitPacker(bp);
    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-ostream& operator << (ostream& os, const LedgerEntryVector& lev)
+LedgerEntryVector LedgerEntryVector::deserialize(BinaryRefReader& brr)
 {
-   os << "*" << lev.leVec_.size();
+   LedgerEntryVector lev;
 
-   for (auto& le : lev.leVec_)
+   if (brr.get_uint8_t() != LEDGERENTRYVECTOR_CODE)
+      throw runtime_error("unexpected type");
+
+
+   auto count = brr.get_var_int();
+
+   for (unsigned i = 0; i < count; i++)
    {
-      os << "+";
-      os << le.getID();
-      os << "_" << le.getValue();
-      os << "_" << le.getBlockNum();
-      os << "_" << le.getTxHash().toHexStr();
-      os << "_" << le.getIndex();
-      os << "_" << le.getTxTime();
-      os << "_" << le.isCoinbase();
-      os << "_" << le.isSentToSelf();
-      os << "_" << le.isChangeBack();
+      auto leSize = brr.get_var_int();
+      if (leSize > brr.getSizeRemaining())
+         throw runtime_error("deser size mismatch");
+
+      auto idSize = brr.get_var_int();
+      if (idSize > leSize - 53)
+         throw runtime_error("deser size mismatch");
+
+      string leid((char*)brr.getCurrPtr(), idSize);
+
+      auto value = (int64_t*)brr.getCurrPtr();
+      brr.advance(8);
+
+      auto blockNum = brr.get_uint32_t();
+      auto txHash = brr.get_BinaryDataRef(32);
+      auto txindex = brr.get_uint32_t();
+      auto txTime = brr.get_uint32_t();
+
+      BitUnpacker<uint8_t> bit(brr.get_uint8_t());
+      auto coinbase = bit.getBit();
+      auto sts = bit.getBit();
+      auto change = bit.getBit();
+      auto rbf = bit.getBit();
+
+      LedgerEntryData led(leid, *value,
+         blockNum, txHash, txindex, txTime,
+         coinbase, sts, change, rbf);
+
+      lev.push_back(move(led));
    }
 
-   return os;
+   return lev;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-istream& operator >> (istream& is, LedgerEntryVector& lev)
+void BinaryDataObject::serialize(BinaryWriter& bw) const
 {
-   lev.leVec_.clear();
-   if (is.eof())
-      throw runtime_error("reached stream eof");
+   bw.put_uint8_t(BINARYDATAOBJECT_CODE);
+   bw.put_var_int(bd_.getSize());
+   bw.put_BinaryData(bd_);
+}
 
-   char c = 0;
-   is.get(c);
-   if (c != '*')
-      throw runtime_error("malformed LedgerEntryVector argument");
+///////////////////////////////////////////////////////////////////////////////
+BinaryDataObject BinaryDataObject::deserialize(BinaryRefReader& brr)
+{
+   if (brr.get_uint8_t() != BINARYDATAOBJECT_CODE)
+      throw runtime_error("unexpected type");
 
-   size_t count;
-   is >> count;
+   auto size = brr.get_var_int();
+   if (size > brr.getSizeRemaining())
+      throw runtime_error("invalid bdo size");
 
-   string objstr;
-   while (getline(is, objstr, '+'))
+   return BinaryDataObject(brr.get_BinaryDataRef(size));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void BinaryDataVector::serialize(BinaryWriter& bw) const
+{
+   bw.put_uint8_t(BINARYDATAVECTOR_CODE);
+   size_t size = 0;
+   for (auto& bdo : bdVec_)
+      size += bdo.getSize();
+
+   bw.put_var_int(size);
+   bw.put_var_int(bdVec_.size());
+
+   for (auto& bdo : bdVec_)
    {
-      if (objstr.size() == 0)
-         continue;
+      bw.put_var_int(bdo.getSize());
+      bw.put_BinaryData(bdo);
+   }
+}
 
-      stringstream objss(move(objstr));
+///////////////////////////////////////////////////////////////////////////////
+BinaryDataVector BinaryDataVector::deserialize(BinaryRefReader& brr)
+{
+   if (brr.get_uint8_t() != BINARYDATAVECTOR_CODE)
+      throw runtime_error("unexpected type");
 
-      string ID;
-      if (!getline(objss, ID, '_'))
-         throw runtime_error("malformed LedgerEntryVector argument");
+   auto size = brr.get_var_int();
+   if (size > brr.getSizeRemaining())
+      throw runtime_error("invalid bdvec size");
 
-      int64_t value;
-      uint32_t blockNum;
-      objss >> value;
-      char underscore;
-      objss.get(underscore);
-      if (underscore != '_')
-         throw runtime_error("malformed LedgerEntryVector argument");
-      objss >> blockNum;
+   BinaryDataVector bdvec;
 
-      objss.get(underscore);
-      if (underscore != '_')
-         throw runtime_error("malformed LedgerEntryVector argument");
+   auto count = brr.get_var_int();
+   for (unsigned i = 0; i < count; i++)
+   {
+      auto bdsize = brr.get_var_int();
+      if (bdsize > brr.getSizeRemaining())
+         throw runtime_error("invalid bd size");
 
-      string data;
-      if (!getline(objss, data, '_'))
-         throw runtime_error("malformed LedgerEntryVector argument");
-      BinaryData txHash(READHEX(data));
+      auto&& bdo = brr.get_BinaryData(bdsize);
 
-      uint32_t index, txTime;
-      bool isCoinbase, isSentToSelf, isChangeBack;
-      objss >> index;
-      objss.get(underscore);
-      if (underscore != '_')
-         throw runtime_error("malformed LedgerEntryVector argument");
-
-      objss >> txTime;
-      objss.get(underscore);
-      if (underscore != '_')
-         throw runtime_error("malformed LedgerEntryVector argument");
-
-      objss >> isCoinbase;
-      objss.get(underscore);
-      if (underscore != '_')
-         throw runtime_error("malformed LedgerEntryVector argument");
-
-      objss >> isSentToSelf;
-      objss.get(underscore);
-      if (underscore != '_')
-         throw runtime_error("malformed LedgerEntryVector argument");
-
-      objss >> isChangeBack;
-
-      LedgerEntryData le(ID, value, blockNum,
-         txHash, index, txTime,
-         isCoinbase, isSentToSelf, isChangeBack);
-      lev.leVec_.push_back(move(le));
+      bdvec.push_back(move(bdo));
    }
 
-   if (count != lev.leVec_.size())
-      throw runtime_error("malformed LedgerEntryVector argument");
-
-   return is;
+   return bdvec;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-ostream& operator << (ostream& os, const BinaryDataObject& bdo)
+void ProgressData::serialize(BinaryWriter& bw) const
 {
-   os << "_" << bdo.bd_.toHexStr();
+   bw.put_uint8_t(PROGRESSDATA_CODE);
 
-   return os;
+   bw.put_uint8_t((uint8_t)phase_);
+   bw.put_double(progress_);
+   bw.put_uint32_t(time_);
+   bw.put_uint32_t(numericProgress_);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-istream& operator >> (istream& is, BinaryDataObject& bdo)
+ProgressData ProgressData::deserialize(BinaryRefReader& brr)
 {
-   bdo.bd_.clear();
-   if (is.eof())
-      throw runtime_error("reached stream eof");
+   if(brr.get_var_int() != PROGRESSDATA_CODE)
+      throw runtime_error("unexpected type");
 
-   char c = 0;
-   is.get(c);
-   if (c != '_')
-      throw runtime_error("malfored BinaryDataObject argument");
-
-   string data;
-   is >> data;
-   bdo.bd_ = READHEX(data);
-
-   return is;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-ostream& operator << (ostream& os, const DataMeta& obj)
-{
-   /***
-   int a = 123 : ~1-_123
-   string str("abc") : ~4-+3_abc
-   BinaryDataObject(BinaryData("abc")) : ~5-+3_616263
-   ***/
-
-   auto entry = DataMeta::strTypeIDs_.find(obj.getTypeName());
-   if (entry == DataMeta::strTypeIDs_.end())
-   {
-      stringstream ss;
-      ss << "unknown type: " << obj.getTypeName();
-      throw runtime_error(ss.str());
-   }
-
-   os << "~" << entry->second << "-";
-   obj.serializeToStream(os);
-   return os;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-ostream& operator << (ostream& os, const BinaryDataVector& bdvec)
-{
-   os << "*" << bdvec.bdVec_.size();
-
-   for (auto& bd : bdvec.bdVec_)
-      os << "+" << bd.toHexStr();
-
-   return os;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-istream& operator >> (istream& is, BinaryDataVector& bdvec)
-{
-   bdvec.bdVec_.clear();
-   if (is.eof())
-      throw runtime_error("reached stream eof");
-
-   char c = 0;
-   is.get(c);
-   if (c != '*')
-      throw runtime_error("malformed BinaryDataVector argument");
-
-   size_t count;
-   is >> count;
-
-   string objstr;
-   while (getline(is, objstr, '+'))
-   {
-      if (objstr.size() == 0)
-         continue; //why is getline so bad?
-
-      auto&& bd = READHEX(objstr);
-      bdvec.bdVec_.push_back(move(bd));
-   }
-
-   if (count != bdvec.bdVec_.size())
-      throw runtime_error("malformed BinaryDataVector argument");
-
-   return is;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-ostream& operator << (ostream& os, const ProgressData& pd)
-{
-   BinaryWriter bw;
-   bw.put_uint8_t((uint8_t)pd.phase_);
-   bw.put_double(pd.progress_);
-   bw.put_uint32_t(pd.time_);
-   bw.put_uint32_t(pd.numericProgress_);
-
-   os << "_" << bw.getDataRef().toHexStr();
-
-   return os;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-istream& operator >> (istream& is, ProgressData& pd)
-{
-   if (is.eof())
-      throw runtime_error("reached stream eof");
-
-   char c = 0;
-   is.get(c);
-   if (c != '_') //awkward epiphany face
-      throw runtime_error("malfored ProgressData argument");
-
-   string data;
-   is >> data;
-   auto&& bdData = READHEX(data);
-
-   BinaryRefReader brr(bdData.getRef());
-
+   ProgressData pd;
    pd.phase_ = (BDMPhase)brr.get_uint8_t();
    pd.progress_ = brr.get_double();
    pd.time_ = brr.get_uint32_t();
    pd.numericProgress_ = brr.get_uint32_t();
 
-   return is;
+   return pd;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+void IntType::serialize(BinaryWriter& bw) const
+{
+   bw.put_uint8_t(INTTYPE_CODE);
+   bw.put_var_int(val_);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+IntType IntType::deserialize(BinaryRefReader& brr)
+{
+   if (brr.get_var_int() != INTTYPE_CODE)
+      throw runtime_error("unexpected type");
+
+   return IntType(brr.get_var_int());
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -300,7 +228,7 @@ void Arguments::init()
 
    if (argStr_.size() != 0)
    {
-      breakdownString();
+      setRawData();
    }
    else if (argData_.size() != 0)
    {
@@ -320,42 +248,21 @@ const string& Arguments::serialize()
    if (argStr_.size() != 0)
       return argStr_;
 
-   //all sizes are 2 digits long
-   //~size-arg
-   stringstream ss;
-   for (auto arg : argData_)
-      ss << *arg;
-   argStr_ = ss.str();
+   BinaryWriter bw;
+   for (auto& arg : argData_)
+      arg->serialize(bw);
+
+   auto& bdser = bw.getData();
+   argStr_ = bdser.toHexStr();
 
    return argStr_;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void Arguments::breakdownString()
+void Arguments::setRawData()
 {
-   if (strArgs_.size() != 0)
-      return;
-
-   vector<size_t> vpos;
-
-   size_t pos = 0;
-   while ((pos = argStr_.find('~', pos)) != string::npos)
-   {
-      vpos.push_back(pos);
-      pos++;
-   }
-
-   if (vpos.size() == 0)
-      return;
-
-   vpos.push_back(argStr_.size());
-   for (int i = 0; i < vpos.size() - 1; i++)
-   {
-      ssize_t len = vpos[i + 1] - vpos[i];
-      if (len < 0)
-         throw range_error("invalid arg length");
-      strArgs_.push_back(move(argStr_.substr(vpos[i], len)));
-   }
+   rawBinary_ = READHEX(argStr_);
+   rawRefReader_.setNewData(rawBinary_);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -373,7 +280,7 @@ void Command::deserialize()
    else
    {
       ids = command_.substr(0, pos);
-      args_ = Arguments(command_.substr(pos + 1));
+      args_ = move(Arguments(command_.substr(pos + 1)));
    }
 
    //tokensize by &

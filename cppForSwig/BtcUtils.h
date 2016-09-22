@@ -18,6 +18,7 @@
 
 #include <iostream>
 #include <vector>
+#include <deque>
 #include <list>
 #include <string>
 #include <sstream>
@@ -30,6 +31,7 @@
 #include "BinaryData.h"
 #include "cryptlib.h"
 #include "sha.h"
+#include "integer.h"
 #include "ripemd.h"
 #include "UniversalTimer.h"
 #include "log.h"
@@ -288,6 +290,8 @@ public:
 class BtcUtils
 {
    static const BinaryData        BadAddress_;
+   static const string base58Chars_;
+   static const map<char, uint8_t> base58Vals_;
 
 public:
    static const BinaryData        EmptyHash_;
@@ -1846,7 +1850,127 @@ public:
       return true;
    }
    */
+   
+   static BinaryData scrAddrToBase58(const BinaryData& scrAddr)
+   {
+      /***
+      make sure the scrAddr is prepended with the version byte
+      ***/
 
+      //hash payload
+      auto&& checksum = getHash256(scrAddr);
+
+      //append first 4 bytes of hash to payload
+      auto scriptNhash = scrAddr;
+      scriptNhash.append(checksum.getSliceRef(0, 4));
+
+      return base58_encode(scriptNhash);
+   }
+
+   static BinaryData base58toScriptAddr(const BinaryData& b58Addr)
+   {
+      //decode
+      auto&& scriptNhash = base58_decode(b58Addr);
+
+      //should be at least 4 bytes checksum + 1 version byte
+      if (scriptNhash.getSize() <= 5) 
+         throw range_error("invalid b58 decoded address length");
+
+      //split last 4 bytes
+      auto len = scriptNhash.getSize();
+      auto scriptRef = 
+         scriptNhash.getSliceRef(0, len - 4);
+
+      auto checksumRef =
+         scriptNhash.getSliceRef(len - 4, 4);
+
+      auto&& scriptHash = getHash256(scriptRef);
+      auto hash4First = scriptHash.getSliceRef(0, 4);
+
+      if (checksumRef != hash4First)
+         throw runtime_error("invalid checksum in b58 address");
+
+      return BinaryData(scriptRef);
+   }
+
+   static BinaryData base58_encode(const BinaryData& payload)
+   {
+      //divide by 58
+      CryptoPP::Integer value, result, zero;
+      value.Decode(payload.getPtr(), payload.getSize(),
+         CryptoPP::Integer::UNSIGNED);
+
+      CryptoPP::word fifty_eight(58);
+      CryptoPP::word remainder(0);
+
+      deque<char> div_output;
+
+      do
+      {
+         CryptoPP::Integer::Divide(remainder, result, value, fifty_eight);
+
+         if (remainder > 58)
+            throw runtime_error("invalid remainder in b58 encode");
+
+         div_output.push_front(base58Chars_[remainder]);
+
+         value.swap(result);
+      } while (value.Compare(CryptoPP::Integer::Zero()));
+
+      //prepend null byte markers
+      unsigned pos = 0;
+      while (payload.getPtr()[pos++] == 0)
+         div_output.push_front('1');
+
+      vector<char> div_vec;
+      div_vec.insert(div_vec.end(), div_output.begin(), div_output.end());
+      BinaryData b58_output((uint8_t*)&div_vec[0], div_vec.size());
+      return b58_output;
+   }
+
+   static BinaryData base58_decode(const BinaryData& b58)
+   {
+      //remove leading 1s
+      if (b58.getSize() == 0)
+         throw range_error("empty BinaryData");
+
+      unsigned zero_count = 0;
+      unsigned offset = 0;
+      auto ptr = b58.getPtr();
+      while (offset < b58.getSize())
+      {
+         if (ptr[offset] != '1')
+            break;
+
+         ++offset;
+         ++zero_count;
+      }
+
+      //decode
+      CryptoPP::Integer exponent = CryptoPP::Integer::One();
+      CryptoPP::Integer five_eight(58);
+      CryptoPP::Integer value = CryptoPP::Integer::Zero();
+      for (unsigned i = b58.getSize() - 1; i >= offset; i--)
+      {
+         auto b58Iter = base58Vals_.find(ptr[i]);
+         if (b58Iter == base58Vals_.end())
+            throw runtime_error("invalid char in b58 string");
+
+         CryptoPP::Integer valAtIndex(b58Iter->second);
+         value = value.Plus(valAtIndex.Times(exponent));
+
+         exponent = exponent.Times(five_eight);
+      }
+
+      auto totallen = value.MinEncodedSize();
+      BinaryData final_value;
+      for (unsigned i = 0; i < zero_count; i++)
+         final_value.append(0);
+      
+      final_value.resize(totallen + zero_count);
+      value.Encode(final_value.getPtr() + zero_count, totallen);
+      return final_value;
+   }
 };
    
 static inline void suppressUnusedFunctionWarning()

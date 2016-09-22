@@ -35,11 +35,10 @@ public:
    {}
 
    void push_back(LedgerEntryData&& led) { leVec_.push_back(move(led)); }
-
-   friend ostream& operator << (ostream&, const LedgerEntryVector&);
-   friend istream& operator >> (istream&, LedgerEntryVector&);
-
    const vector<LedgerEntryData>& toVector(void) const;
+
+   void serialize(BinaryWriter &bw) const;
+   static LedgerEntryVector deserialize(BinaryRefReader& bdr);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -56,13 +55,14 @@ public:
       bd_(bd)
    {}
 
+   BinaryDataObject(const BinaryDataRef& bdr) :
+      bd_(bdr)
+   {}
+
    BinaryDataObject(const string& str)
    {
       bd_ = move(BinaryData(str));
    }
-
-   friend ostream& operator << (ostream&, const BinaryDataObject&);
-   friend istream& operator >> (istream&, BinaryDataObject&);
 
    const BinaryData& get(void) const
    {
@@ -74,6 +74,9 @@ public:
       string str(bd_.toCharPtr(), bd_.getSize());
       return move(str);
    }
+
+   void serialize(BinaryWriter& bw) const;
+   static BinaryDataObject deserialize(BinaryRefReader& bdr);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -99,8 +102,8 @@ public:
    void push_back(BinaryData&& bd)
    { bdVec_.push_back(move(bd)); }
 
-   friend ostream& operator << (ostream&, const BinaryDataVector&);
-   friend istream& operator >> (istream&, BinaryDataVector&);
+   void serialize(BinaryWriter& bw) const;
+   static BinaryDataVector deserialize(BinaryRefReader& bdr);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -120,8 +123,8 @@ struct ProgressData
       numericProgress_(numProg)
    {}
 
-   friend ostream& operator << (ostream&, const ProgressData&);
-   friend istream& operator >> (istream&, ProgressData&);
+   void serialize(BinaryWriter& bw) const;
+   static ProgressData deserialize(BinaryRefReader& bdr);
 };
 
 #endif

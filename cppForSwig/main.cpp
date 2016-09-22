@@ -11,8 +11,6 @@ using namespace std;
 
 int main(int argc, char* argv[])
 {
-
-   DataMeta::initTypeMap();
    ScrAddrFilter::init();
 
    BlockDataManagerConfig bdmConfig;

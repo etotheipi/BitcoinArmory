@@ -173,7 +173,7 @@ string HttpSocket::writeAndRead(const string& msg, SOCKET sockfd)
          LOGERR << "HttpSocket::writeAndRead HttpError: " << e.what();
          continue;
       }
-      catch (SocketError &e)
+      catch (SocketError&)
       {
          continue;
       }
@@ -197,7 +197,6 @@ HttpSocket(obj)
 ///////////////////////////////////////////////////////////////////////////////
 string FcgiSocket::writeAndRead(const string& msg, SOCKET sockfd)
 {
-
    auto&& fcgiMsg = FcgiMessage::makePacket(msg.c_str());
    auto serdata = fcgiMsg.serialize();
    auto serdatalength = fcgiMsg.getSerializedDataLength();

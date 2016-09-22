@@ -56,7 +56,7 @@ void FcgiPacket::addParam(const string& name, const string& val)
 
    data.data_.reserve(namelength + vallength + 8);
 
-   if (namelength && 0x00000080)
+   if (namelength < 128)
    {
       data.data_.push_back((uint8_t)namelength);
    }
@@ -69,7 +69,7 @@ void FcgiPacket::addParam(const string& name, const string& val)
       data.data_.push_back(lengthptr[0]);
    }
 
-   if (vallength && 0x00000080)
+   if (vallength < 128)
    {
       data.data_.push_back((uint8_t)vallength);
    }

@@ -28,10 +28,10 @@ public:
    LedgerEntryData(void) {}
    LedgerEntryData(string ID, int64_t value, uint32_t block,
       const BinaryData& txHash, uint32_t index, uint32_t txtime,
-      bool iscoinbase, bool isSTS, bool ischangeback) :
+      bool iscoinbase, bool isSTS, bool ischangeback, bool isRBF) :
       ID_(ID), value_(value), blockNum_(block), txHash_(txHash),
       index_(index), txTime_(txtime), isCoinbase_(iscoinbase),
-      isSentToSelf_(isSTS), isChangeBack_(ischangeback)
+      isSentToSelf_(isSTS), isChangeBack_(ischangeback), optInRBF_(isRBF)
    {}
 
    string              getID(void) const { return ID_; }
