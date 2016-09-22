@@ -96,7 +96,7 @@
 #define STDC_HEADERS 1
 
 /* Define if cross-process locking is required by accept() */
-#define USE_LOCKING 1
+//#define USE_LOCKING 1
 
 /* Version number of package */
 #define VERSION "2.4.1-SNAP-0311112127"

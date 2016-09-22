@@ -356,7 +356,7 @@ int OS_CreateLocalIpcFd(const char *bindPath, int backlog)
 	    exit(1000);
 	}
     }
-    if(bind(listenSock, (struct sockaddr *) &sa.unixVariant, servLen) < 0
+    if(bind(listenSock, (struct sockaddr *) &sa.inetVariant, servLen) < 0
        || listen(listenSock, backlog) < 0) {
 	perror("bind/listen");
         exit(errno);
