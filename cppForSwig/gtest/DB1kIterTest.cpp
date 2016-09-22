@@ -212,12 +212,10 @@ void regWallet(Clients* clients, const string& bdvId,
    const vector<BinaryData>& scrAddrs, const string& wltName)
 {
    Command cmd;
-   unsigned isNewInt = (unsigned int)false;
-
    BinaryDataObject bdo(wltName);
    cmd.args_.push_back(move(bdo));
    cmd.args_.push_back(move(BinaryDataVector(scrAddrs)));
-   cmd.args_.push_back(move(isNewInt));
+   cmd.args_.push_back(move(IntType(false)));
 
    cmd.method_ = "registerWallet";
    cmd.ids_.push_back(bdvId);
@@ -227,8 +225,8 @@ void regWallet(Clients* clients, const string& bdvId,
 
    //check result
    auto& argVec = result.getArgVector();
-   auto retint = dynamic_pointer_cast<DataObject<unsigned>>(argVec[0]);
-   if (retint->getObj() == 0)
+   auto retint = dynamic_pointer_cast<DataObject<IntType>>(argVec[0]);
+   if (retint->getObj().getVal() == 0)
       throw runtime_error("server returned false to registerWallet query");
 }
 
@@ -236,12 +234,11 @@ void regLockbox(Clients* clients, const string& bdvId,
    const vector<BinaryData>& scrAddrs, const string& wltName)
 {
    Command cmd;
-   unsigned isNewInt = (unsigned int)false;
 
    BinaryDataObject bdo(wltName);
    cmd.args_.push_back(move(bdo));
    cmd.args_.push_back(move(BinaryDataVector(scrAddrs)));
-   cmd.args_.push_back(move(isNewInt));
+   cmd.args_.push_back(move(IntType(false)));
 
    cmd.method_ = "registerLockbox";
    cmd.ids_.push_back(bdvId);
@@ -251,8 +248,8 @@ void regLockbox(Clients* clients, const string& bdvId,
 
    //check result
    auto& argVec = result.getArgVector();
-   auto retint = dynamic_pointer_cast<DataObject<unsigned>>(argVec[0]);
-   if (retint->getObj() == 0)
+   auto retint = dynamic_pointer_cast<DataObject<IntType>>(argVec[0]);
+   if (retint->getObj().getVal() == 0)
       throw runtime_error("server returned false to registerWallet query");
 }
 
@@ -464,7 +461,7 @@ protected:
    BinaryData LB1ID;
    BinaryData LB2ID;
 };
-/*
+
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(DB1kIter, DbInit1kIter)
 {
@@ -524,7 +521,7 @@ TEST_F(DB1kIter, DbInit1kIter)
    //one last init so that TearDown doesn't blow up
    initBDM();
 }
-*/
+
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(DB1kIter, DbInit1kIter_WithSignals)
 {
@@ -821,8 +818,6 @@ GTEST_API_ int main(int argc, char **argv)
    WORD wVersion = MAKEWORD(2, 0);
    WSAStartup(wVersion, &wsaData);
 #endif
-
-   DataMeta::initTypeMap();
 
    std::cout << "Running main() from gtest_main.cc\n";
 
