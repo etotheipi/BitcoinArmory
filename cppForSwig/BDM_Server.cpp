@@ -49,7 +49,7 @@ void BDV_Server_Object::buildMethodMap()
    auto getTopBlockHeight = [this]
       (const vector<string>& ids, Arguments& args)->Arguments
    {
-      auto retVal = this->getTopBlockHeight();
+      auto retVal = IntType(this->getTopBlockHeight());
       Arguments retarg;
       retarg.push_back(move(retVal));
       return retarg;
@@ -73,7 +73,7 @@ void BDV_Server_Object::buildMethodMap()
             LedgerEntryData led(le.getWalletID(),
                le.getValue(), le.getBlockNum(), le.getTxHash(),
                le.getIndex(), le.getTxTime(), le.isCoinbase(),
-               le.isSentToSelf(), le.isChangeBack());
+               le.isSentToSelf(), le.isChangeBack(), le.isOptInRBF());
             lev.push_back(move(led));
          }
 
@@ -89,9 +89,9 @@ void BDV_Server_Object::buildMethodMap()
          
          auto& delegateObject = delegateIter->second;
 
-         auto arg0 = args.get<unsigned int>();
+         auto arg0 = args.get<IntType>();
 
-         auto&& retVal = delegateObject.getHistoryPage(arg0);
+         auto&& retVal = delegateObject.getHistoryPage(arg0.getVal());
 
          Arguments retarg;
          retarg.push_back(move(toLedgerEntryVector(retVal)));
@@ -114,7 +114,7 @@ void BDV_Server_Object::buildMethodMap()
          //is a page or a hash
          try
          {
-            pageId = args.get<unsigned int>();
+            pageId = args.get<IntType>().getVal();
          }
          catch (runtime_error&)
          {
@@ -144,7 +144,7 @@ void BDV_Server_Object::buildMethodMap()
                      LedgerEntryData led(le.getWalletID(),
                      le.getValue(), le.getBlockNum(), le.getTxHash(),
                      le.getIndex(), le.getTxTime(), le.isCoinbase(),
-                     le.isSentToSelf(), le.isChangeBack());
+                     le.isSentToSelf(), le.isChangeBack(), le.isOptInRBF());
 
                      LedgerEntryVector lev;
                      lev.push_back(move(led));
@@ -177,10 +177,10 @@ void BDV_Server_Object::buildMethodMap()
 
       auto&& id = args.get<BinaryDataObject>();
       auto&& scrAddrVec = args.get<BinaryDataVector>();
-      auto&& isNew = args.get<unsigned int>();
+      bool isNew = args.get<IntType>().getVal();
 
-      uint32_t retVal = 
-         this->registerWallet(scrAddrVec.get(), move(id.toStr()), isNew);
+      auto retVal = 
+         IntType(this->registerWallet(scrAddrVec.get(), move(id.toStr()), isNew));
       
       Arguments retarg;
       retarg.push_back(move(retVal));
@@ -198,10 +198,10 @@ void BDV_Server_Object::buildMethodMap()
 
       auto&& id = args.get<BinaryDataObject>();
       auto&& scrAddrVec = args.get<BinaryDataVector>();
-      auto&& isNew = args.get<unsigned int>();
+      bool isNew = args.get<IntType>().getVal();
 
-      uint32_t retVal = this->registerLockbox(
-         scrAddrVec.get(), move(id.toStr()), isNew);
+      auto retVal = IntType(this->registerLockbox(
+         scrAddrVec.get(), move(id.toStr()), isNew));
 
       Arguments retarg;
       retarg.push_back(move(retVal));
@@ -288,13 +288,16 @@ void BDV_Server_Object::buildMethodMap()
       if (wltPtr == nullptr)
          throw runtime_error("unknown wallet/lockbox ID");
 
-      auto height = args.get<uint32_t>();
-      auto ignorezc = args.get<unsigned int>();
+      auto height = args.get<IntType>();
+      bool ignorezc = args.get<IntType>().getVal();
 
-      auto balance_full = wltPtr->getFullBalance();
-      auto balance_spen = wltPtr->getSpendableBalance(height, ignorezc);
-      auto balance_unco = wltPtr->getUnconfirmedBalance(height, ignorezc);
-      auto count = wltPtr->getWltTotalTxnCount();
+      auto balance_full = 
+         IntType(wltPtr->getFullBalance());
+      auto balance_spen = 
+         IntType(wltPtr->getSpendableBalance(height.getVal(), ignorezc));
+      auto balance_unco = 
+         IntType(wltPtr->getUnconfirmedBalance(height.getVal(), ignorezc));
+      auto count = IntType(wltPtr->getWltTotalTxnCount());
 
       Arguments retarg;
       retarg.push_back(move(balance_full));
@@ -315,8 +318,8 @@ void BDV_Server_Object::buildMethodMap()
 
       auto&& hash = args.get<BinaryDataObject>();
 
-      unsigned int hasHash = 
-         this->blockchain().hasHeaderWithHash(hash.get());
+      auto hasHash = 
+         IntType(this->blockchain().hasHeaderWithHash(hash.get()));
 
       Arguments retarg;
       retarg.push_back(move(hasHash));
@@ -345,13 +348,13 @@ void BDV_Server_Object::buildMethodMap()
       if (wltPtr == nullptr)
          throw runtime_error("unknown wallet or lockbox ID");
 
-      auto value = args.get<uint64_t>();
-      auto ignorezc = args.get<unsigned int>();
+      auto value = args.get<IntType>().getVal();
+      bool ignorezc = args.get<IntType>().getVal();
 
       auto&& utxoVec = wltPtr->getSpendableTxOutListForValue(value, ignorezc);
 
       Arguments retarg;
-      unsigned count = utxoVec.size();
+      auto count = IntType(utxoVec.size());
       retarg.push_back(move(count));
 
       for (auto& utxo : utxoVec)
@@ -392,7 +395,7 @@ void BDV_Server_Object::buildMethodMap()
       auto&& scrAddr = args.get<BinaryDataObject>();      
       auto addrObj = wltPtr->getScrAddrObjByKey(scrAddr.get());
 
-      auto ignorezc = args.get<unsigned int>();
+      bool ignorezc = args.get<IntType>().getVal();
 
       auto spentByZC = [this](const BinaryData& dbkey)->bool
       { return this->isTxOutSpentByZC(dbkey); };
@@ -400,7 +403,7 @@ void BDV_Server_Object::buildMethodMap()
       auto&& utxoVec = addrObj->getAllUTXOs(spentByZC);
 
       Arguments retarg;
-      unsigned count = utxoVec.size();
+      auto count = IntType(utxoVec.size());
       retarg.push_back(move(count));
 
       for (auto& utxo : utxoVec)
@@ -432,8 +435,9 @@ void BDV_Server_Object::buildMethodMap()
 
       Arguments retarg;
 
-      unsigned success = (unsigned)status->status();
-      retarg.push_back(move(success));
+      auto success = status->status();
+      IntType successIT(success);
+      retarg.push_back(move(successIT));
       if (!success)
       {
          BinaryData bd(move(status->getMessage()));
@@ -469,14 +473,14 @@ void BDV_Server_Object::buildMethodMap()
       auto&& countMap = wltPtr->getAddrTxnCounts(updateID_);
 
       Arguments retarg;
-      auto&& mapSize = countMap.size();
+      auto&& mapSize = IntType(countMap.size());
       retarg.push_back(move(mapSize));
 
       for (auto count : countMap)
       {
          BinaryDataObject bdo(move(count.first));
          retarg.push_back(move(bdo));
-         retarg.push_back(move(count.second));
+         retarg.push_back(move(IntType(count.second)));
       }
 
       return retarg;
@@ -507,16 +511,16 @@ void BDV_Server_Object::buildMethodMap()
       auto&& balanceMap = wltPtr->getAddrBalances(updateID_);
 
       Arguments retarg;
-      auto&& mapSize = balanceMap.size();
+      auto&& mapSize = IntType(balanceMap.size());
       retarg.push_back(move(mapSize));
 
       for (auto balances : balanceMap)
       {
          BinaryDataObject bdo(move(balances.first));
          retarg.push_back(move(bdo));
-         retarg.push_back(move(get<0>(balances.second)));
-         retarg.push_back(move(get<1>(balances.second)));
-         retarg.push_back(move(get<2>(balances.second)));
+         retarg.push_back(move(IntType(get<0>(balances.second))));
+         retarg.push_back(move(IntType(get<1>(balances.second))));
+         retarg.push_back(move(IntType(get<2>(balances.second))));
       }
 
       return retarg;
@@ -554,7 +558,7 @@ void BDV_Server_Object::buildMethodMap()
       auto&& retval = this->getAddrFullBalance(scrAddr.get());
 
       Arguments retarg;
-      retarg.push_back(move(get<0>(retval)));
+      retarg.push_back(move(IntType(get<0>(retval))));
       return move(retarg);
    };
 
@@ -571,7 +575,7 @@ void BDV_Server_Object::buildMethodMap()
       auto&& retval = this->getAddrFullBalance(scrAddr.get());
 
       Arguments retarg;
-      retarg.push_back(move(get<1>(retval)));
+      retarg.push_back(move(IntType(get<1>(retval))));
       return move(retarg);
    };
 
@@ -584,7 +588,7 @@ void BDV_Server_Object::buildMethodMap()
       if (ids.size() != 1)
          throw runtime_error("unexpected id count");
 
-      auto&& height = args.get<unsigned>();
+      auto height = args.get<IntType>().getVal();
       auto& header = blockchain().getHeaderByHeight(height);
 
       BinaryDataObject bdo(header.serialize());
@@ -611,7 +615,7 @@ void BDV_Server_Object::buildMethodMap()
 
       Arguments retarg;
       unsigned count = abeVec.size();
-      retarg.push_back(move(count));
+      retarg.push_back(move(IntType(count)));
 
       for (auto& abe : abeVec)
       {
@@ -1240,7 +1244,7 @@ void BDV_Server_Object::init()
    BinaryDataObject bdo("BDM_Ready");
    args.push_back(move(bdo));
    unsigned int topblock = blockchain().top().getBlockHeight();
-   args.push_back(move(topblock));
+   args.push_back(move(IntType(topblock)));
    cb_->callback(move(args));
 
 }
@@ -1283,7 +1287,7 @@ void BDV_Server_Object::maintenanceThread(void)
 
             BinaryDataObject bdo("NewBlock");
             args2.push_back(move(bdo));
-            args2.push_back(move(blocknum));
+            args2.push_back(move(IntType(blocknum)));
             cb_->callback(move(args2), OrderNewBlock);
             break;
          }
@@ -1316,7 +1320,7 @@ void BDV_Server_Object::maintenanceThread(void)
                LedgerEntryData led(le.getWalletID(),
                   le.getValue(), le.getBlockNum(), move(le.getTxHash()),
                   le.getIndex(), le.getTxTime(), le.isCoinbase(),
-                  le.isSentToSelf(), le.isChangeBack());
+                  le.isSentToSelf(), le.isChangeBack(), le.isOptInRBF());
 
                lev.push_back(move(led));
             }
@@ -1444,7 +1448,7 @@ Arguments SocketCallback::respond(const string& command)
          Arguments arg;
          BinaryDataObject bdo("BDM_Ready");
          arg.push_back(move(bdo));
-         arg.push_back(move(topheight));
+         arg.push_back(move(IntType(topheight)));
          return move(arg);
       }
 
@@ -1497,9 +1501,9 @@ Arguments SocketCallback::respond(const string& command)
             if (argVector.size() != 2)
                break;
 
-            auto heightPtr = (DataObject<uint32_t>*)argVector[1].get();
+            auto heightPtr = (DataObject<IntType>*)argVector[1].get();
 
-            int blockheight = (int)heightPtr->getObj();
+            int blockheight = (int)heightPtr->getObj().getVal();
             if (blockheight > newBlock)
                newBlock = blockheight;
 
@@ -1535,7 +1539,7 @@ Arguments SocketCallback::respond(const string& command)
    {
       BinaryDataObject bdo("NewBlock");
       arg.push_back(move(bdo));
-      arg.push_back(move((unsigned)newBlock));
+      arg.push_back(move(IntType(newBlock)));
    }
 
    //send it

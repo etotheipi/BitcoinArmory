@@ -219,12 +219,11 @@ void regWallet(Clients* clients, const string& bdvId,
    const vector<BinaryData>& scrAddrs, const string& wltName)
 {
    Command cmd;
-   unsigned isNewInt = (unsigned int)false;
 
    BinaryDataObject bdo(wltName);
    cmd.args_.push_back(move(bdo));
    cmd.args_.push_back(move(BinaryDataVector(scrAddrs)));
-   cmd.args_.push_back(move(isNewInt));
+   cmd.args_.push_back(move(IntType(false)));
 
    cmd.method_ = "registerWallet";
    cmd.ids_.push_back(bdvId);
@@ -234,8 +233,8 @@ void regWallet(Clients* clients, const string& bdvId,
 
    //check result
    auto& argVec = result.getArgVector();
-   auto retint = dynamic_pointer_cast<DataObject<unsigned>>(argVec[0]);
-   if (retint->getObj() == 0)
+   auto retint = dynamic_pointer_cast<DataObject<IntType>>(argVec[0]);
+   if (retint->getObj().getVal() == 0)
       throw runtime_error("server returned false to registerWallet query");
 }
 
@@ -243,12 +242,11 @@ void regLockbox(Clients* clients,  const string& bdvId,
    const vector<BinaryData>& scrAddrs, const string& wltName)
 {
    Command cmd;
-   unsigned isNewInt = (unsigned int)false;
 
    BinaryDataObject bdo(wltName);
    cmd.args_.push_back(move(bdo));
    cmd.args_.push_back(move(BinaryDataVector(scrAddrs)));
-   cmd.args_.push_back(move(isNewInt));
+   cmd.args_.push_back(move(IntType(false)));
 
    cmd.method_ = "registerLockbox";
    cmd.ids_.push_back(bdvId);
@@ -258,8 +256,8 @@ void regLockbox(Clients* clients,  const string& bdvId,
 
    //check result
    auto& argVec = result.getArgVector();
-   auto retint = dynamic_pointer_cast<DataObject<unsigned>>(argVec[0]);
-   if (retint->getObj() == 0)
+   auto retint = dynamic_pointer_cast<DataObject<IntType>>(argVec[0]);
+   if (retint->getObj().getVal() == 0)
       throw runtime_error("server returned false to registerWallet query");
 }
 
@@ -8124,103 +8122,6 @@ TEST_F(BlockUtilsBare, Load4Blocks_ZC_GetUtxos)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsBare, LedgerSeDer)
-{
-   setBlocks({ "0", "1", "2", "3" }, blk0dat_);
-   theBDMt_->start(config.initMode_);
-   auto&& bdvID = registerBDV(clients_, magic_);
-
-   vector<BinaryData> scrAddrVec;
-   scrAddrVec.push_back(TestChain::scrAddrA);
-   scrAddrVec.push_back(TestChain::scrAddrB);
-   scrAddrVec.push_back(TestChain::scrAddrC);
-   scrAddrVec.push_back(TestChain::scrAddrE);
-
-   const vector<BinaryData> lb1ScrAddrs
-   {
-      TestChain::lb1ScrAddr,
-      TestChain::lb1ScrAddrP2SH
-   };
-   const vector<BinaryData> lb2ScrAddrs
-   {
-      TestChain::lb2ScrAddr,
-      TestChain::lb2ScrAddrP2SH
-   };
-
-   regWallet(clients_, bdvID, scrAddrVec, "wallet1");
-   regLockbox(clients_, bdvID, lb1ScrAddrs, TestChain::lb1B58ID);
-   regLockbox(clients_, bdvID, lb2ScrAddrs, TestChain::lb2B58ID);
-
-   auto bdvPtr = getBDV(clients_, bdvID);
-
-   //wait on signals
-   goOnline(clients_, bdvID);
-   waitOnBDMReady(clients_, bdvID);
-   auto wlt = bdvPtr->getWalletOrLockbox(wallet1id);
-   auto wltLB1 = bdvPtr->getWalletOrLockbox(LB1ID);
-   auto wltLB2 = bdvPtr->getWalletOrLockbox(LB2ID);
-
-   auto&& ledgervec = wlt->getHistoryPageAsVector(0);
-   
-   LedgerEntryVector lev;
-   for (auto& le : ledgervec)
-   {
-      LedgerEntryData led(le.getWalletID(),
-         le.getValue(), le.getBlockNum(), le.getTxHash(),
-         le.getIndex(), le.getTxTime(), le.isCoinbase(),
-         le.isSentToSelf(), le.isChangeBack());
-      lev.push_back(move(led));
-   }
-
-   stringstream ss;
-   ss << lev;
-
-   LedgerEntryVector deserlev;
-   ss >> deserlev;
-
-
-   for (unsigned i = 0; i < deserlev.toVector().size(); i++)
-   {
-      EXPECT_EQ(lev.toVector()[i].getID(), deserlev.toVector()[i].getID());
-      EXPECT_EQ(lev.toVector()[i].getTxHash(), deserlev.toVector()[i].getTxHash());
-      EXPECT_EQ(lev.toVector()[i].getValue(), deserlev.toVector()[i].getValue());
-   }
-
-   //////
-   //create huge ledger vector (1k entries)
-
-   LedgerEntryVector lev2;
-   for (unsigned i = 0; i < 1000; i++)
-   {
-      stringstream ssID;
-      ssID << setw(7) << setfill('0') << i;
-      string strid = ssID.str();
-
-      auto&& txHash = BtcUtils::getHash256((uint8_t*)strid.c_str(), strid.size());
-
-      LedgerEntryData led(strid,
-         i, i, 
-         txHash,
-         i, i, false,
-         false, false);
-      lev2.push_back(move(led));
-   }
-
-   stringstream largestream;
-   largestream << lev2;
-
-   LedgerEntryVector lev2deser;
-   largestream >> lev2deser;
-
-   for (unsigned i = 0; i < 1000; i++)
-   {
-      EXPECT_EQ(lev2.toVector()[i].getID(), lev2deser.toVector()[i].getID());
-      EXPECT_EQ(lev2.toVector()[i].getTxHash(), lev2deser.toVector()[i].getTxHash());
-      EXPECT_EQ(lev2.toVector()[i].getValue(), lev2deser.toVector()[i].getValue());
-   }
-}
-
-////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, FCGIStack)
 {
    //gotta derive callback class
@@ -8586,8 +8487,6 @@ GTEST_API_ int main(int argc, char **argv)
       WORD wVersion = MAKEWORD(2, 0);
       WSAStartup(wVersion, &wsaData);
    #endif
-
-   DataMeta::initTypeMap();
 
    std::cout << "Running main() from gtest_main.cc\n";
 

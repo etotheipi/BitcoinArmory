@@ -430,7 +430,7 @@ void ScrAddrObj::getHistoryForScrAddr(
 ////////////////////////////////////////////////////////////////////////////////
 vector<LedgerEntry> ScrAddrObj::getHistoryPageById(uint32_t id)
 {
-   if (id < 0 || id > hist_.getPageCount())
+   if (id > hist_.getPageCount())
       throw std::range_error("pageId out of range");
 
    auto getTxio = [this](uint32_t start, 

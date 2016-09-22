@@ -24,6 +24,14 @@
 #include "BDM_seder.h"
 #include "ThreadSafeClasses.h"
 
+#define ERRTYPE_CODE             1
+#define INTTYPE_CODE             2
+#define STRINGTTYPE_CODE         3
+#define BINARYDATAOBJECT_CODE    4
+#define BINARYDATAVECTOR_CODE    5
+#define LEDGERENTRYVECTOR_CODE   6
+#define PROGRESSDATA_CODE        7
+
 using namespace std;
 
 enum OrderType
@@ -42,11 +50,7 @@ class DataMeta
 private:
    const type_index t_;
 
-public:
-   static map<string, uint32_t> strTypeIDs_;
-   static vector<shared_ptr<DataMeta>> iTypeIDs_;
-
-public:
+public:   
    DataMeta(const type_info& type) :
       t_(type)
    {}
@@ -57,44 +61,14 @@ public:
    }
 
    bool isType(type_index in) const { return in == t_; }
-
-   static void initTypeMap(void);
-
-   virtual void serializeToStream(ostream&) const = 0;
-
-   friend ostream& operator << (ostream&, const DataMeta&);
+   virtual void serialize(BinaryWriter& bw) const = 0;
 };
 
 template <typename T> class DataObject;
 
 ///////////////////////////////////////////////////////////////////////////////
-template<typename T> istream& operator >> (istream& is, DataObject<T>& obj)
-{
-   is >> obj.obj_;
-   return is;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-template<typename T> ostream& operator << (ostream& os, const DataObject<T>& obj)
-{
-   os << obj.obj_;
-   return os;
-}
-
-///////////////////////////////////////////////////////////////////////////////
 template <typename T> class DataObject : public DataMeta
 {
-   /***
-   serialization headers:
-   ~: arg type
-   *: object count
-   +: length of upcoming object
-   -: object
-   _: object data
-   .: arguments delimiter
-   &: id
-   ***/
-
 private:
    T obj_;
 
@@ -115,10 +89,8 @@ public:
 
    const T getObj(void) const { return obj_; }
 
-   friend ostream& operator << <> (ostream&, const DataObject<T>&);
-   friend istream& operator >> <> (istream&, DataObject<T>&);
-
-void serializeToStream(ostream& os) const { os << obj_; }
+   void serialize(BinaryWriter& bw) const { obj_.serialize(bw); }
+   T deserialize(BinaryDataRef bdr) const { return obj_.deserialize(); }
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -143,11 +115,44 @@ public:
       err_(str)
    {}
 
-   friend ostream& operator << (ostream&, const ErrorType&);
-   friend istream& operator >> (istream&, ErrorType&);
+   void serialize(BinaryWriter& bw) const;
+   static ErrorType deserialize(BinaryRefReader& brr);
 
    const string& what(void) const { return err_; }
 };
+
+///////////////////////////////////////////////////////////////////////////////
+class IntType
+{
+private:
+   uint64_t val_;
+
+public:
+
+   IntType(uint64_t val) : val_(val)
+   {}
+
+   IntType(int64_t val)
+   {
+      memcpy(&val_, &val, 8);
+   }
+
+   IntType(uint32_t val) : val_(val)
+   {}
+
+   IntType(int32_t val) : val_(val)
+   {}
+
+   IntType(bool val) : val_(val)
+   {}
+
+   void serialize(BinaryWriter& bw) const;
+   static IntType deserialize(BinaryRefReader& brr);
+
+   uint64_t getVal(void) const { return val_; }
+   int64_t getSignedVal(void) const { return *(int64_t*)&val_; }
+};
+
 ///////////////////////////////////////////////////////////////////////////////
 class Arguments
 {
@@ -155,9 +160,31 @@ private:
    bool initialized_ = false;
    string argStr_;
    vector<shared_ptr<DataMeta>> argData_;
-   deque<string> strArgs_;
+   BinaryData rawBinary_;
+   BinaryRefReader rawRefReader_;
 
+private:
    void init(void);
+
+   void setFromRVal(Arguments&& arg)
+   {
+      initialized_ = arg.initialized_;
+      argStr_ = move(arg.argStr_);
+      argData_ = move(arg.argData_);
+      rawBinary_ = move(arg.rawBinary_);
+      rawRefReader_.setNewData(rawBinary_);
+      rawRefReader_.advance(arg.rawRefReader_.getPosition());
+   }
+
+   void setFromRef(const Arguments& arg)
+   {
+      initialized_ = arg.initialized_;
+      argStr_ = arg.argStr_;
+      argData_ = arg.argData_;
+      rawBinary_ = arg.rawBinary_;
+      rawRefReader_.setNewData(rawBinary_);
+      rawRefReader_.advance(arg.rawRefReader_.getPosition());
+   }
 
 public:
    Arguments(void)
@@ -166,13 +193,13 @@ public:
    Arguments(const string& argAsString) :
       argStr_(argAsString)
    {
-      breakdownString();
+      setRawData();
    }
 
    Arguments(const string&& argAsString) :
       argStr_(move(argAsString))
    {
-      breakdownString();
+      setRawData();
    }
 
    Arguments(const vector<shared_ptr<DataMeta>>&& argAsData) :
@@ -185,7 +212,35 @@ public:
          argAsData.begin(), argAsData.end());
    }
 
-   void breakdownString();
+   Arguments(Arguments&& arg)
+   {
+      setFromRVal(move(arg));
+   }
+
+   Arguments(const Arguments& arg)
+   {
+      setFromRef(arg);
+   }
+
+   Arguments operator=(Arguments&& arg)
+   {
+      if (this == &arg)
+         return *this;
+
+      setFromRVal(move(arg));
+      return *this;
+   }
+
+   Arguments operator=(const Arguments& arg)
+   {
+      if (this == &arg)
+         return *this;
+
+      setFromRef(arg);
+      return *this;
+   }
+
+   void setRawData();
    const string& serialize();
 
    ///////////////////////////////////////////////////////////////////////////////
@@ -218,62 +273,24 @@ public:
    ///////////////////////////////////////////////////////////////////////////////
    template<typename T> auto get() -> T
    {
-      if (strArgs_.size() == 0)
+      if (rawRefReader_.getSizeRemaining() == 0)
       {
          LOGERR << "exhausted entries in Arguments object";
          throw range_error("exhausted entries in Arguments object");
       }
 
-      stringstream ss(strArgs_.front());
-
-      char c = 0;
-      ss.get(c);
-      if (c != '~')
-         throw runtime_error("bad argument syntax");
-
-      string objType;
-      getline(ss, objType, '-');
-      if (objType.size() == 0)
-         throw runtime_error("arg missing type marker");
-      unsigned int objTypeInt = (unsigned int)atoi(objType.c_str());
-      if (objTypeInt >= DataMeta::iTypeIDs_.size())
-         throw runtime_error("unknown type id in arg");
-
-      auto typeIter = DataMeta::iTypeIDs_.cbegin() + objTypeInt;
-      if (!(*typeIter)->isType(typeid(T)))
-      {
-         if ((*typeIter)->isType(typeid(ErrorType)))
-         {
-            DataObject<ErrorType> errObj;
-            ss >> errObj;
-
-            throw DbErrorMsg(errObj.getObj().what());
-         }
-
-         stringstream ssErr;
-         ssErr << "Invalid argument type. Expected: " << typeid(T).name()
-            << ", got:" << (*typeIter)->getTypeName() ;
-         throw runtime_error(ssErr.str());
-      }
-
-      strArgs_.pop_front();
-
-      DataObject<T> dataObj;
-      ss >> dataObj;
-
-      return dataObj.getObj();
+      return T::deserialize(rawRefReader_);
    }
 
    bool hasArgs(void) const
    {
-      return strArgs_.size() != 0 || argData_.size() != 0;
+      return rawRefReader_.getSizeRemaining() != 0 || argData_.size() != 0;
    }
 
    void clear(void)
    {
       argStr_.clear();
       argData_.clear();
-      strArgs_.clear();
    }
 };
 

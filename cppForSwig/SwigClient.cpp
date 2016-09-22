@@ -86,9 +86,7 @@ void BlockDataViewer::goOnline()
 ///////////////////////////////////////////////////////////////////////////////
 BlockDataViewer::BlockDataViewer(const shared_ptr<BinarySocket> sock) :
    sock_(sock)
-{
-   DataMeta::initTypeMap();
-}
+{}
 
 ///////////////////////////////////////////////////////////////////////////////
 BlockDataViewer::~BlockDataViewer()
@@ -116,12 +114,11 @@ SwigClient::BtcWallet BlockDataViewer::registerWallet(
    const string& id, const vector<BinaryData>& addrVec, bool isNew)
 {
    Command cmd;
-   unsigned isNewInt = (unsigned int)isNew;
 
    BinaryDataObject bdo(id);
    cmd.args_.push_back(move(bdo));
    cmd.args_.push_back(move(BinaryDataVector(addrVec)));
-   cmd.args_.push_back(move(isNewInt));
+   cmd.args_.push_back(move(IntType(isNew)));
 
    cmd.method_ = "registerWallet";
    cmd.ids_.push_back(bdvID_);
@@ -130,7 +127,7 @@ SwigClient::BtcWallet BlockDataViewer::registerWallet(
 
    //check result
    Arguments retval(result);
-   auto retint = retval.get<unsigned int>();
+   auto retint = retval.get<IntType>().getVal();
    if (retint == 0)
       throw runtime_error("server returned false to registerWallet query");
 
@@ -142,12 +139,11 @@ Lockbox BlockDataViewer::registerLockbox(
    const string& id, const vector<BinaryData>& addrVec, bool isNew)
 {
    Command cmd;
-   uint32_t isNewInt = (uint32_t)isNew;
 
    BinaryDataObject bdo(id);
    cmd.args_.push_back(move(bdo));
    cmd.args_.push_back(BinaryDataVector(addrVec));
-   cmd.args_.push_back(move(isNewInt));
+   cmd.args_.push_back(move(IntType(isNew)));
 
    cmd.method_ = "registerLockbox";
    cmd.ids_.push_back(bdvID_);
@@ -156,7 +152,7 @@ Lockbox BlockDataViewer::registerLockbox(
 
    //check result
    Arguments retval(result);
-   auto retint = retval.get<unsigned int>();
+   auto retint = retval.get<IntType>().getVal();
    if (retint == 0)
       throw runtime_error("server returned false to registerLockbox query");
 
@@ -223,7 +219,7 @@ BroadcastStatus BlockDataViewer::broadcastZC(const BinaryData& rawTx)
    Arguments retval(move(result));
 
    BroadcastStatus bcs;
-   auto success = retval.get<unsigned>();
+   auto success = retval.get<IntType>().getVal();
    bcs.success_ = (bool)success;
    
    if (!success)
@@ -303,7 +299,7 @@ vector<LedgerEntryData> LedgerDelegate::getHistoryPage(uint32_t id)
    cmd.ids_.push_back(bdvID_);
    cmd.ids_.push_back(delegateID_);
 
-   cmd.args_.push_back(move(id));
+   cmd.args_.push_back(move(IntType(id)));
 
    cmd.serialize();
 
@@ -334,18 +330,18 @@ vector<uint64_t> SwigClient::BtcWallet::getBalancesAndCount(
    cmd.ids_.push_back(walletID_);
    
    unsigned int ignorezc = IGNOREZC;
-   cmd.args_.push_back(move(blockheight));
-   cmd.args_.push_back(move(ignorezc));
+   cmd.args_.push_back(move(IntType(blockheight)));
+   cmd.args_.push_back(move(IntType(IGNOREZC)));
 
    cmd.serialize();
 
    auto&& retval = sock_->writeAndRead(cmd.command_);
    Arguments arg(retval);
    
-   auto&& balance_full = arg.get<uint64_t>();
-   auto&& balance_spen = arg.get<uint64_t>();
-   auto&& balance_unco = arg.get<uint64_t>();
-   auto&& count = arg.get<uint64_t>();
+   auto&& balance_full = arg.get<IntType>().getVal();
+   auto&& balance_spen = arg.get<IntType>().getVal();
+   auto&& balance_unco = arg.get<IntType>().getVal();
+   auto&& count = arg.get<IntType>().getVal();
 
    vector<uint64_t> balanceVec;
    balanceVec.push_back(balance_full);
@@ -365,15 +361,14 @@ vector<UTXO> SwigClient::BtcWallet::getSpendableTxOutListForValue(uint64_t val,
    cmd.ids_.push_back(bdvID_);
    cmd.ids_.push_back(walletID_);
 
-   unsigned int ignorezc = ignoreZC;
-   cmd.args_.push_back(move(val));
-   cmd.args_.push_back(move(ignorezc));
+   cmd.args_.push_back(move(IntType(val)));
+   cmd.args_.push_back(move(IntType(ignoreZC)));
 
    cmd.serialize();
 
    auto&& retval = sock_->writeAndRead(cmd.command_);
    Arguments arg(move(retval));
-   auto count = arg.get<unsigned>();
+   auto count = arg.get<IntType>().getVal();
 
    vector<UTXO> utxovec;
    for (unsigned i = 0; i < count; i++)
@@ -402,11 +397,11 @@ map<BinaryData, uint32_t> SwigClient::BtcWallet::getAddrTxnCountsFromDB()
 
    map<BinaryData, uint32_t> countMap;
 
-   auto&& count = arg.get<uint64_t>();
+   auto&& count = arg.get<IntType>().getVal();
    for (unsigned i = 0; i < count; i++)
    {
       auto&& addr = arg.get<BinaryDataObject>();
-      auto&& count = arg.get<uint32_t>();
+      auto&& count = arg.get<IntType>().getVal();
 
       countMap[addr.get()] = count;
    }
@@ -429,15 +424,15 @@ SwigClient::BtcWallet::getAddrBalancesFromDB(void)
 
    map<BinaryData, vector<uint64_t>> balanceMap;
 
-   auto&& count = arg.get<uint64_t>();
+   auto&& count = arg.get<IntType>().getVal();
    for (unsigned i = 0; i < count; i++)
    {
       auto&& addr = arg.get<BinaryDataObject>();
       auto& balanceVec = balanceMap[addr.get()];
 
-      balanceVec.push_back(arg.get<uint64_t>());
-      balanceVec.push_back(arg.get<uint64_t>());
-      balanceVec.push_back(arg.get<uint64_t>());
+      balanceVec.push_back(arg.get<IntType>().getVal());
+      balanceVec.push_back(arg.get<IntType>().getVal());
+      balanceVec.push_back(arg.get<IntType>().getVal());
    }
 
    return balanceMap;
@@ -452,7 +447,7 @@ vector<LedgerEntryData> SwigClient::BtcWallet::getHistoryPage(uint32_t id)
    cmd.ids_.push_back(bdvID_);
    cmd.ids_.push_back(walletID_);
 
-   cmd.args_.push_back(move(id));
+   cmd.args_.push_back(move(IntType(id)));
 
    cmd.serialize();
 
@@ -507,7 +502,7 @@ vector<AddressBookEntry> SwigClient::BtcWallet::createAddressBook(void) const
 
    auto&& retval = sock_->writeAndRead(cmd.command_);
    Arguments arg(move(retval));
-   auto count = arg.get<unsigned>();
+   auto count = arg.get<IntType>().getVal();
 
    vector<AddressBookEntry> abVec;
 
@@ -560,16 +555,15 @@ vector<UTXO> ScrAddrObj::getSpendableTxOutList(bool ignoreZC)
    cmd.ids_.push_back(bdvID_);
    cmd.ids_.push_back(walletID_);
 
-   unsigned int ignorezc = ignoreZC;
    BinaryDataObject bdo(scrAddr_);
    cmd.args_.push_back(move(bdo));
-   cmd.args_.push_back(move(ignorezc));
+   cmd.args_.push_back(move(IntType(ignoreZC)));
 
    cmd.serialize();
 
    auto&& retval = sock_->writeAndRead(cmd.command_);
    Arguments arg(move(retval));
-   auto count = arg.get<unsigned>();
+   auto count = arg.get<IntType>().getVal();
 
    vector<UTXO> utxovec;
    for (unsigned i = 0; i < count; i++)
@@ -607,7 +601,7 @@ bool Blockchain::hasHeaderWithHash(const BinaryData& hash)
 
    auto&& retval = sock_->writeAndRead(cmd.command_);
    Arguments arg(retval);
-   auto&& hasHash = arg.get<unsigned int>();
+   auto&& hasHash = arg.get<IntType>().getVal();
 
    return hasHash;
 }
@@ -619,7 +613,7 @@ BlockHeader Blockchain::getHeaderByHeight(unsigned height)
 
    cmd.method_ = "getHeaderByHeight";
    cmd.ids_.push_back(bdvID_);
-   cmd.args_.push_back(move(height));
+   cmd.args_.push_back(move(IntType(height)));
    cmd.serialize();
 
    auto&& result = sock_->writeAndRead(cmd.command_);
@@ -731,7 +725,7 @@ void PythonCallback::remoteLoop(void)
 
             case CBO_NewBlock:
             {
-               unsigned int newblock = args.get<unsigned int>();
+               unsigned int newblock = args.get<IntType>().getVal();
                if (newblock != 0)
                   run(BDMAction::BDMAction_NewBlock, &newblock, newblock);
 
@@ -765,7 +759,7 @@ void PythonCallback::remoteLoop(void)
                sendCmd.args_.push_back(move(status));
                sendCmd.serialize();
 
-               unsigned int topblock = args.get<unsigned int>();
+               unsigned int topblock = args.get<IntType>().getVal();
                run(BDMAction::BDMAction_Ready, nullptr, topblock);
 
                break;
