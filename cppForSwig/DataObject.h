@@ -146,6 +146,11 @@ public:
    IntType(bool val) : val_(val)
    {}
 
+#ifdef __clang__
+   IntType(size_t val) : val_(val)
+   {}
+#endif
+
    void serialize(BinaryWriter& bw) const;
    static IntType deserialize(BinaryRefReader& brr);
 
