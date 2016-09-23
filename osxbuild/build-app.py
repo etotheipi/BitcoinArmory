@@ -28,7 +28,7 @@ psutilSubdir  = '22/a8/6ab3f0b3b74a36104785808ec874d24203c6a511ffd2732dd215cf32d
 zopeVer       = '4.2.0'
 zopeSubdir    = 'ea/a3/38bdc8e8bd068ea5b4d21a2d80eca1547cd8509318e8d7c875f7247abe43'
 twistedVer    = '16.3.0'
-libpngVer     = '1.6.24'
+libpngVer     = '1.6.25'
 qtVer         = '4.8.7'  # NB: ArmoryMac.pro must also be kept up to date!!!
                          # Possibly "sipFlags" below too.
 sipVer        = '4.18.1' # NB: ArmoryMac.pro must also be kept up to date!!!
@@ -333,7 +333,7 @@ distfiles.append( [ 'Twisted', \
 distfiles.append( [ 'libpng', \
                     "libpng-%s.tar.xz" % libpngVer, \
                     "https://dl.bintray.com/homebrew/mirror/libpng-%s.tar.xz" % libpngVer, \
-                    "b8fa86449bebd7b1cda71e0ed2cd417b6596ce78" ] )
+                    "fb471b7732d886b5adf10b4d689a90c88f005aa5" ] )
 
 # When we upgrade to Qt5....
 #distfiles.append( [ "Qt", \
@@ -602,12 +602,9 @@ def compile_armory():
    execAndWait('make DESTDIR="%s" install' % pydir, cwd='..')
    copyfile('Armory-script.sh', armoryAppScript)
    copyfile('armoryd-script.sh', armorydAppScript)
-   os.chdir("..")
-   copyfile('ArmoryDB', armoryDB)
-   os.chdir("osxbuild")
    execAndWait('chmod +x "%s"' % armoryAppScript)
    execAndWait('chmod +x "%s"' % armorydAppScript)
-   execAndWait('chmod +x "%s"' % armoryDB)
+   execAndWait('chmod +x "%s"' % armoryDB) # ArmoryDB copied over by Makefile
 
 ########################################################
 def compile_objc_library():
