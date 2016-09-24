@@ -79,10 +79,11 @@ LedgerEntryVector LedgerEntryVector::deserialize(BinaryRefReader& brr)
          throw runtime_error("deser size mismatch");
 
       auto idSize = brr.get_var_int();
-      if (idSize > leSize - 53)
+      if (idSize + 53 != leSize)
          throw runtime_error("deser size mismatch");
 
       string leid((char*)brr.getCurrPtr(), idSize);
+      brr.advance(idSize);
 
       auto value = (int64_t*)brr.getCurrPtr();
       brr.advance(8);
