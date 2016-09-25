@@ -1106,7 +1106,7 @@ public:
             return bw.getData();
          case(TXOUT_SCRIPT_P2WSH) :
             bw.put_uint8_t(SCRIPT_PREFIX_P2SH);
-            bw.put_BinaryData(getHash160(script.getSliceCopy(3, 32)));
+            bw.put_BinaryData(script.getSliceCopy(2, 32));
             return bw.getData();
          case(TXOUT_SCRIPT_STDPUBKEY65) :
             bw.put_uint8_t(SCRIPT_PREFIX_HASH160);
