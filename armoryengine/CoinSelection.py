@@ -745,7 +745,8 @@ def estimateFee():
    try:
       # See https://bitcoin.org/en/developer-reference#estimatefee for
       # documentation about this RPC call
-      fee = BDM.TheSDM.callJSON('estimatefee', NBLOCKS_TO_CONFIRM)
+      fee = BDM.TheSDM.callJSONIgnoreOwnership( \
+               'estimatefee', NBLOCKS_TO_CONFIRM)
       # -1 is returned if BitcoinD does not have enough data to estimate fee.
       if fee > 0:
          result = int(fee * ONE_BTC)
@@ -809,13 +810,15 @@ def calcMinSuggestedFeesHackMS(selectCoinsResult, targetOutVal, preSelectedFee,
    
 ################################################################################
 def estimateTxSize(selectCoinsResult, targetOutVal, preSelectedFee,
-                         numRecipients):
+                         numRecipients, autoChange = True):
      
    if len(selectCoinsResult)==0:
       return -1
    
    paid = targetOutVal + preSelectedFee
-   change = sum([u.getValue() for u in selectCoinsResult]) - paid
+   change = False
+   if autoChange == True:
+      change = sum([u.getValue() for u in selectCoinsResult]) - paid
 
    # Calc approx tx size
    numBytes  =  10
@@ -826,12 +829,13 @@ def estimateTxSize(selectCoinsResult, targetOutVal, preSelectedFee,
 
 ################################################################################
 def calcMinSuggestedFees(selectCoinsResult, targetOutVal, preSelectedFee,
-                         numRecipients):
+                         numRecipients, autoChange = True):
 
    # TODO: this should be updated to accommodate the non-constant 
    #       TxOut/TxIn size given that it now accepts P2SH and Multisig
 
-   numBytes = estimateTxSize(selectCoinsResult, targetOutVal, preSelectedFee, numRecipients)
+   numBytes = estimateTxSize(selectCoinsResult, \
+               targetOutVal, preSelectedFee, numRecipients, autoChange)
    if numBytes == -1:
       return -1
    

@@ -41,8 +41,8 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.createUnsignedTxCallback = createUnsignedTxCallback
       self.lbox = self.main.getLockboxByID(spendFromLockboxID)
       self.onlyOfflineWallets = onlyOfflineWallets
-      txFee = self.main.getSettingOrSetDefault('Default_Fee', MIN_TX_FEE)
       self.widgetTable = []
+      self.isMax = False
       self.scrollRecipArea = QScrollArea()
       lblRecip = QRichLabel('<b>Enter Recipients:</b>')
       lblRecip.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
@@ -563,7 +563,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       try:
          feeStr = str(self.edtFeeAmt.text())
          if self.radioPerSatF.isChecked():
-            feePerByte = int(feeStr)
+            feePerByte = float(feeStr)
             fee = 0
             perByteCalc = True
          else:
@@ -583,6 +583,7 @@ class SendBitcoinsFrame(ArmoryFrame):
             The fee you specified is invalid.  A standard fee is 
             0.0001 BTC, though some transactions may succeed with 
             zero fee."""), QMessageBox.Ok)
+
          LOGERROR(tr('Invalid fee specified: "%s"') % feeStr)
          return False
 
@@ -650,7 +651,7 @@ class SendBitcoinsFrame(ArmoryFrame):
                              
                #estimate tx size with the current txin count
                sizeEstimate = estimateTxSize(utxoSelect, totalSend, feeTry, \
-                                             len(scriptValPairs))
+                                             len(scriptValPairs), not self.isMax)
                feeTry = sizeEstimate * feePerByte
    
                utxoSelectBalance = sum([u.getValue() for u in utxoSelect])
@@ -662,7 +663,7 @@ class SendBitcoinsFrame(ArmoryFrame):
                   break
             
             if fee != 0:
-               minFee = 1000
+               minFee = MIN_RELAY_TX_FEE
                break
 
          
@@ -895,22 +896,11 @@ class SendBitcoinsFrame(ArmoryFrame):
    #############################################################################
    def getUsableTxOutList(self, totalSend):
       if self.lbox is None:
-         if self.altBalance is None:
+         if self.customUtxoList is None or len(self.customUtxoList) == 0:
             return self.wlt.getUTXOListForSpendVal(totalSend)
-
          else:
-            '''
-            utxoList = []
-            for a160 in self.sourceAddrList:
-               # Trying to avoid a swig bug involving iteration over vector<> types
-               cppAddr = self.wlt.getCppAddr(a160)
-               utxos = cppAddr.getSpendableTxOutList(IGNOREZC)
-               for i in range(len(utxos)):
-                  utxoList.append(PyUnspentTxOut().createFromCppUtxo(utxos[i]))
-            return utxoList
-            '''
-            
             return self.customUtxoList
+         
       else:
          lbID = self.lbox.uniqueIDB58
          cppWlt = self.main.cppLockboxWltMap.get(lbID)
@@ -983,7 +973,21 @@ class SendBitcoinsFrame(ArmoryFrame):
       r = 0
       try:
          bal = self.getUsableBalance()
-         txFee = str2coin(str(self.edtFeeAmt.text()))
+         
+         feeStr = str(self.edtFeeAmt.text())
+         if self.radioPerSatF.isChecked():
+            feePerByte = float(feeStr)
+            
+            utxoList = self.getUsableTxOutList(bal)
+            self.customUtxoList = utxoList
+            bal = sum([u.getValue() for u in utxoList])
+            
+            sizeEstimate = estimateTxSize(utxoList, bal, 0, \
+                                          nRecip, False)
+            txFee = sizeEstimate * feePerByte                 
+         else:
+            txFee = str2coin(feeStr, negAllowed=False)
+
          while r < nRecip:
             # Use while loop so 'r' is still in scope in the except-clause
             if targWidget == self.widgetTable[r]['QLE_AMT']:
@@ -1013,6 +1017,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          return
 
       targWidget.setText(maxStr.strip())
+      self.isMax = True
 
 
    #####################################################################

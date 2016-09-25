@@ -839,6 +839,12 @@ class SatoshiDaemonManager(object):
 
       return self.lastTopBlockInfo.copy()
 
+   #############################################################################
+   def callJSONIgnoreOwnership(self, func, *args):
+      if self.proxy is None:
+         raise self.BitcoindError, 'no node RPC connection'
+      
+      return self.proxy.__getattr__(func)(*args)
 
    #############################################################################
    def callJSON(self, func, *args):

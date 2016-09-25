@@ -873,7 +873,7 @@ void Clients::maintenanceThread(void) const
       for (auto& bdv : *bdvmap)
       {
          auto newPtr = notifPtr;
-         bdv.second->notificationStack_.push_back(move(notifPtr));
+         bdv.second->notificationStack_.push_back(move(newPtr));
       }
    }
 }
