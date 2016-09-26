@@ -59,7 +59,9 @@ ifneq ($(OS),Windows_NT)
     UNAME_S := $(shell uname -s)
     ifeq ($(UNAME_S),Linux)
         LDLIBS += -lrt
-	SWIG_OPTS += -D__GNUC__
+	    SWIG_OPTS += -D__GNUC__
+	else ifeq ($(UNAME_S),Darwin)
+        SWIG_OPTS += -D__CLANG__
     endif
 endif
 

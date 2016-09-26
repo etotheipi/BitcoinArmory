@@ -36,7 +36,7 @@
 %typedef unsigned short     uint16_t;
 %typedef unsigned int       uint32_t;
 
-#if defined(_WIN32) || defined(__WIN32__) || defined(__CYGWIN__)
+#if defined(_WIN32) || defined(__WIN32__) || defined(__CYGWIN__) || (__CLANG__)
 %typedef unsigned long long uint64_t;
 #else
 #if defined(__GNUC__) // Linux
