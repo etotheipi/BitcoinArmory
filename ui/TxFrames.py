@@ -652,7 +652,7 @@ class SendBitcoinsFrame(ArmoryFrame):
                #estimate tx size with the current txin count
                sizeEstimate = estimateTxSize(utxoSelect, totalSend, feeTry, \
                                              len(scriptValPairs), not self.isMax)
-               feeTry = sizeEstimate * feePerByte
+               feeTry = int(sizeEstimate * feePerByte) + 1
    
                utxoSelectBalance = sum([u.getValue() for u in utxoSelect])
                if feeTry + totalSend <= utxoSelectBalance:
@@ -984,7 +984,7 @@ class SendBitcoinsFrame(ArmoryFrame):
             
             sizeEstimate = estimateTxSize(utxoList, bal, 0, \
                                           nRecip, False)
-            txFee = sizeEstimate * feePerByte                 
+            txFee = int(sizeEstimate * feePerByte) + 1
          else:
             txFee = str2coin(feeStr, negAllowed=False)
 
