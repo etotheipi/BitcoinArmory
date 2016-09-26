@@ -1740,10 +1740,7 @@ shared_ptr<GetDataStatus> ZeroConfContainer::broadcastZC(const BinaryData& rawzc
 
    //create inv payload
    InvEntry entry;
-   if(PEER_USES_WITNESS)
-      entry.invtype_ = Inv_Msg_Witness_Tx;
-   else
-      entry.invtype_ = Inv_Msg_Tx;
+   entry.invtype_ = Inv_Msg_Tx;
    memcpy(entry.hash, txHash.getPtr(), 32);
    
    vector<InvEntry> invVec;
@@ -1810,7 +1807,18 @@ shared_ptr<GetDataStatus> ZeroConfContainer::broadcastZC(const BinaryData& rawzc
    auto watchTxFuture = gds->getFuture();
 
    //try to fetch tx by hash from node
-   processInvTxThread(move(entry));
+   if(PEER_USES_WITNESS)
+      entry.invtype_ = Inv_Msg_Witness_Tx;
+
+   auto grabtxlambda = [this](InvEntry inventry)->void
+   {
+      processInvTxThread(move(inventry));
+   };
+
+   thread grabtxthread(grabtxlambda, move(entry));
+   if (grabtxthread.joinable())
+      grabtxthread.detach();
+
 
    if (timeout_sec == 0)
    {
