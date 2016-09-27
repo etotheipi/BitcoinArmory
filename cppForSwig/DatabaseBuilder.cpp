@@ -378,14 +378,28 @@ bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl,
    auto&& insertedBlocks = blockchain_->addBlocksInBulk(bhmap);
 
    //process filters
-   if (bdmConfig_.armoryDbType_ == ARMORY_DB_FULL && insertedBlocks.size() > 0)
+   if (bdmConfig_.armoryDbType_ == ARMORY_DB_FULL)
    {
       //pull existing file filter bucket from db (if any)
       auto&& pool = db_->getFilterPoolForFileNum<TxFilterType>(fileID);
 
+      if (insertedBlocks.size() == 0)
+      {
+         if (pool.isValid())
+         {
+            //this block has a filter pool and there is no data to append,
+            //we can return
+            return true;
+         }
+
+         //if we got this far, this block file does not add any new blocks 
+         //to the chain, but it still needs an empty filter pool for the 
+         //resolver to fetch. we simply let it run on an empty block set
+      }
+
       //tally all block filters
       set<TxFilter<TxFilterType>> allFilters;
-      
+
       for (auto& bdId : insertedBlocks)
       {
          allFilters.insert(bdMap[bdId].getTxFilter());
