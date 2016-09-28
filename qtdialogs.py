@@ -10430,6 +10430,15 @@ class DlgCoinControl(ArmoryDialog):
       self.connect(self.chkSelectAll, SIGNAL(CLICKED), self.clickAll)
 
       self.utxoList = wlt.getFullUTXOList()
+      selectedUtxos = {}
+      if currSelect is not None:
+         selectedUtxos = {}
+         for  pyutxo in currSelect:
+            h160 = pyutxo.getRecipientHash160()
+            if h160 not in selectedUtxos:
+               selectedUtxos[h160] = []
+            selectedUtxos[h160].append(pyutxo.txOutIndex)
+               
       totalBal = wlt.getBalance('Spendable')
 
       frmTableLayout = QGridLayout()
@@ -10446,6 +10455,7 @@ class DlgCoinControl(ArmoryDialog):
          utxo = self.utxoList[i]
          a160 = utxo.getRecipientHash160()
          bal  = utxo.getValue()
+         txoIndex = utxo.txOutIndex
          
          fullcmt = self.wlt.getCommentForAddress(a160)
          shortcmt = fullcmt
@@ -10460,7 +10470,17 @@ class DlgCoinControl(ArmoryDialog):
          self.dispTable[-1][1] = QRichLabel(utxo.shortLabel(), doWrap = False)
          self.dispTable[-1][2] = QMoneyLabel(bal)
          self.dispTable[-1][3] = QRichLabel(shortcmt, doWrap=False)
-         self.dispTable[-1][0].setChecked(currSelect == None or (a160 in currSelect))
+         
+         isSelected = False
+         try:
+            selectedutxo = selectedUtxos[a160]
+            
+            if txoIndex in selectedutxo:
+               isSelected = True
+         except:
+            pass
+         
+         self.dispTable[-1][0].setChecked(currSelect == None or isSelected)
          if len(shortcmt) > 0:
             self.dispTable[-1][0].setToolTip('<u></u>' + fullcmt)
             self.dispTable[-1][2].setToolTip('<u></u>' + fullcmt)
