@@ -584,7 +584,7 @@ void Payload_GetData::deserialize(uint8_t* dataptr, size_t len)
          throw BitcoinMessageDeserError("inv deser size mismatch");
 
       auto entrytype = *(uint32_t*)(ptr);
-      if (entrytype > 3)
+      if ((entrytype & ~Inv_Witness) > 3)
          throw BitcoinMessageDeserError("invalid inv entry type");
 
       entry.invtype_ = (InvType)entrytype;
@@ -1038,9 +1038,6 @@ void BitcoinP2P::processGetData(unique_ptr<Payload> payload)
       if (payloadIter == getdatamap->end())
          continue;
 
-      if(payloadIter->second.payload_->type() != entry.invtype_)
-         continue;
-
       auto&& payload = *payloadIter->second.payload_.get();
       sendMessage(move(payload));
       
@@ -1182,25 +1179,37 @@ shared_ptr<Payload> BitcoinP2P::getTx(
    shared_ptr<Payload> payloadPtr = nullptr;
    auto fut = gdsPtr->getFuture();
 
-   //send message
-   Payload_GetData payload(entry);
-   sendMessage(move(payload));
+   //timeout is in sec, let's make it ms
+   auto timeoutMS = timeout * 1000;
+   unsigned timeIncrement = 200; //poll node every 200ms
+   chrono::milliseconds chronoIncrement(timeIncrement);
+   unsigned timeTally = 0;
 
-   //wait on promise
-   if (timeout == 0)
+   while (1)
    {
-      //wait undefinitely if timeout is 0
-      payloadPtr = fut.get();
-   }
-   else
-   {
-      auto&& status = fut.wait_for(chrono::seconds(timeout));
+      //send message
+      Payload_GetData payload(entry);
+      sendMessage(move(payload));
+
+      //wait on promise
+      auto&& status = fut.wait_for(chronoIncrement);
       if (status == future_status::ready)
+      {
          payloadPtr = fut.get();
-      else
-         gdsPtr->setStatus(false);
+         break;
+      }
+
+      timeTally += timeIncrement;
+      if (timeout > 0)
+      {
+         if (timeTally > timeoutMS)
+         {
+            gdsPtr->setStatus(false);
+            break;
+         }
+      }
    }
-      
+
    if (createCallback)
       unregisterGetTxCallback(txHash);
 

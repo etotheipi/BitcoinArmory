@@ -1456,7 +1456,6 @@ Arguments SocketCallback::respond(const string& command)
       auto topheight = isReady_();
       if (topheight != UINT32_MAX)
       {
-         LOGINFO << "got ready signal from lambda";
          Arguments arg;
          BinaryDataObject bdo("BDM_Ready");
          arg.push_back(move(bdo));
