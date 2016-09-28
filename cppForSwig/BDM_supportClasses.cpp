@@ -776,7 +776,10 @@ Tx ZeroConfContainer::getTxByHash(const BinaryData& txHash) const
    if (keyIter == txHashToDBKey_.end())
       return Tx();
 
-   return txMap_.find(keyIter->second)->second;
+   auto theTx = txMap_.find(keyIter->second)->second;
+   theTx.setTxRef(TxRef(keyIter->second));
+
+   return theTx;
 }
 ///////////////////////////////////////////////////////////////////////////////
 bool ZeroConfContainer::hasTxByHash(const BinaryData& txHash) const
