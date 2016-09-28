@@ -9,6 +9,7 @@
 #include "FcgiMessage.h"
 #include <cstring>
 #include <stdexcept>
+#include <algorithm>
 #if defined(__APPLE__)
 #include <cstdlib>
 #endif
@@ -178,10 +179,18 @@ FcgiMessage FcgiMessage::makePacket(const char *msg)
    paramterminator.buildHeader(FCGI_PARAMS, requestID);
 
    //data
-   //TODO: break down data into several FCGI_STDIN packets if length > UINT16_MAX
-   auto& data = fcgiMsg.getNewPacket();
-   data.addData(msg, strlen(msg));
-   data.buildHeader(FCGI_STDIN, requestID);
+   auto msglen = strlen(msg);
+   size_t offset = 0;
+   size_t uint16max = UINT16_MAX;
+   while (msglen > offset)
+   {
+      size_t currentlen = min(msglen - offset, uint16max);
+      auto& data = fcgiMsg.getNewPacket();
+      data.addData(msg + offset, currentlen);
+      data.buildHeader(FCGI_STDIN, requestID);
+
+      offset += currentlen;
+   }
 
    //terminate fcgi_stdin
    auto& dataterminator = fcgiMsg.getNewPacket();
