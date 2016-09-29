@@ -59,6 +59,8 @@
 
 #define NUM_BLKS_IS_DIRTY 2016
 
+extern int FCGI_PORT;
+
 
 using namespace std;
 

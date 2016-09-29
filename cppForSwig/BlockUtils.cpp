@@ -20,6 +20,9 @@
 #include "util.h"
 #include "BlockchainScanner.h"
 #include "DatabaseBuilder.h"
+#include "DbHeader.h"
+
+int FCGI_PORT = 9001;
 
 static bool scanFor(std::istream &in, const uint8_t * bytes, const unsigned len)
 {
@@ -854,10 +857,12 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
          if (str == "--testnet")
          {
             selectNetwork("Test");
+	    FCGI_PORT = 19001;
          }
          else if (str == "--regtest")
          {
             selectNetwork("Regtest");
+	    FCGI_PORT = 19002;
          }
          else if (str == "--rescan")
          {

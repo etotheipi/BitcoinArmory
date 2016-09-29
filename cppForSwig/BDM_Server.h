@@ -26,6 +26,7 @@
 #include "LedgerEntry.h"
 #include "DbHeader.h"
 #include "FcgiMessage.h"
+#include "BlockUtils.h"
 
 #define MAX_CONTENT_LENGTH 1024*1024*1024
 
@@ -241,7 +242,7 @@ private:
    string getPort(uint32_t iPort)
    {
       if (iPort == UINT32_MAX)
-         iPort = DEFAULT_FCGI_PORT;
+         iPort = FCGI_PORT;
 
       stringstream ss;
       ss << iPort;

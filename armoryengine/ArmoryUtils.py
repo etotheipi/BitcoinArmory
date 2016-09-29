@@ -122,7 +122,7 @@ parser.add_option("--disable-conf-permis", dest="disableConfPermis", default=Fal
 parser.add_option("--disable-detsign", dest="enableDetSign", action="store_false", help="Disable Transaction Deterministic Signing (RFC 6979)")
 parser.add_option("--enable-detsign", dest="enableDetSign", action="store_true", help="Enable Transaction Deterministic Signing (RFC 6979) - Enabled by default")
 parser.add_option("--armorydb-ip", dest="armorydb_ip", default=ARMORYDB_DEFAULT_IP, type="str", help="Set remote DB IP (default: 127.0.0.1)")
-parser.add_option("--armorydb-port", dest="armorydb_port", default=ARMORYDB_DEFAULT_PORT, type="str", help="Set remote DB port (default: 9050)")
+parser.add_option("--armorydb-port", dest="armorydb_port", default=ARMORYDB_DEFAULT_PORT, type="str", help="Set remote DB port (default: 9001)")
 parser.add_option("--ram-usage", dest="ram_usage", default=-1, type="int", help="Set maximum ram during scans, as 128MB increments. Defaults to 4")
 parser.add_option("--thread-count", dest="thread_count", default=-1, type="int", help="Set max thread count during builds and scans. Defaults to CPU total thread count")
 parser.add_option("--db-type", dest="db_type", default="DB_FULL", type="str", help="Set db mode, defaults to DB_FULL")
@@ -272,7 +272,6 @@ for opt,val in CLI_OPTIONS.__dict__.iteritems():
 
 # Use CLI args to determine testnet or not
 USE_TESTNET = CLI_OPTIONS.testnet
-#USE_TESTNET = True
 
 # Use CLI args to determine regtest or not
 USE_REGTEST = CLI_OPTIONS.regtest
@@ -517,12 +516,16 @@ else:
       GENESIS_BLOCK_HASH      = 'CI\x7f\xd7\xf8&\x95q\x08\xf4\xa3\x0f\xd9\xce\xc3\xae\xbay\x97 \x84\xe9\x0e\xad\x01\xea3\t\x00\x00\x00\x00'
       GENESIS_TX_HASH_HEX     = '3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a'
       GENESIS_TX_HASH         = ';\xa3\xed\xfdz{\x12\xb2z\xc7,>gv\x8fa\x7f\xc8\x1b\xc3\x88\x8aQ2:\x9f\xb8\xaaK\x1e^J'
+      ARMORYDB_DEFAULT_PORT = "19001"
+      ARMORYDB_PORT = "19001"
    else:
       MAGIC_BYTES  = '\xfa\xbf\xb5\xda'
       GENESIS_BLOCK_HASH_HEX  = '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f'
       GENESIS_BLOCK_HASH      = '\x06\x22\x6e\x46\x11\x1a\x0b\x59\xca\xaf\x12\x60\x43\xeb\x5b\xbf\x28\xc3\x4f\x3a\x5e\x33\x2a\x1f\xc7\xb2\xb7\x3c\xf1\x88\x91\x0f'
       GENESIS_TX_HASH_HEX     = '3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a'
       GENESIS_TX_HASH         = ';\xa3\xed\xfdz{\x12\xb2z\xc7,>gv\x8fa\x7f\xc8\x1b\xc3\x88\x8aQ2:\x9f\xb8\xaaK\x1e^J'
+      ARMORYDB_DEFAULT_PORT = "19002"
+      ARMORYDB_PORT = "19002"
    ADDRBYTE = '\x6f'
    P2SHBYTE = '\xc4'
    PRIVKEYBYTE = '\xef'
