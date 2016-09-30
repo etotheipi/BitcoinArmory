@@ -3227,22 +3227,24 @@ class PyBtcWallet(object):
    def getScrAddrObj(self, scrAddr):
       fullBalance = 0
       spendableBalance = 0
-      unconfirmedBalance = 0      
+      unconfirmedBalance = 0  
+      txioCount = 0    
       
       try:
          addrBalances = self.addrBalanceDict[scrAddr]
+         txioCount = self.getAddrTotalTxnCount(scrAddr)
          
          fullBalance = addrBalances[0]
          spendableBalance = addrBalances[1]
          unconfirmedBalance = addrBalances[2]
       except:
          pass
+      
 
-      
-      txioCount = self.getAddrTotalTxnCount(scrAddr)
-      
-      return self.cppWallet.getScrAddrObjByKey(scrAddr, \
+      scraddrobj = self.cppWallet.getScrAddrObjByKey(scrAddr, \
          fullBalance, spendableBalance, unconfirmedBalance, txioCount)
+      return scraddrobj
+
       
 ###############################################################################
 def getSuffixedPath(walletPath, nameSuffix):

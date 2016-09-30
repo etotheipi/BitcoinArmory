@@ -8178,7 +8178,7 @@ TEST_F(BlockUtilsBare, FCGIStack)
    FCGX_Init();
    ScrAddrFilter::init();
    theBDMt_ = new BlockDataManagerThread(config);
-   FCGI_Server server(theBDMt_);
+   FCGI_Server server(theBDMt_, config.fcgiPort_);
 
    server.checkSocket();
    server.init();

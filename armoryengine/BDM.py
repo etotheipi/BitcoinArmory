@@ -170,7 +170,6 @@ class BlockDataManager(object):
          socketType = Cpp.SocketHttp 
          self.remoteDB = True
 
-      print ARMORYDB_PORT
       self.bdv_ = Cpp.BlockDataViewer_getNewBDV(ARMORYDB_IP, ARMORYDB_PORT, socketType)   
 
    #############################################################################

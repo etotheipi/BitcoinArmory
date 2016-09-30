@@ -26,7 +26,6 @@
 #include "LedgerEntry.h"
 #include "DbHeader.h"
 #include "FcgiMessage.h"
-#include "BlockUtils.h"
 
 #define MAX_CONTENT_LENGTH 1024*1024*1024
 
@@ -239,21 +238,10 @@ private:
       return shutdownCallback;
    }
 
-   string getPort(uint32_t iPort)
-   {
-      if (iPort == UINT32_MAX)
-         iPort = FCGI_PORT;
-
-      stringstream ss;
-      ss << iPort;
-
-      return ss.str();
-   }
-
 public:
-   FCGI_Server(BlockDataManagerThread* bdmT, uint32_t port = UINT32_MAX) :
+   FCGI_Server(BlockDataManagerThread* bdmT, string port) :
       clients_(bdmT, getShutdownCallback()),
-      ip_("127.0.0.1"), port_(getPort(port))
+      ip_("127.0.0.1"), port_(port)
    {
       liveThreads_.store(0, memory_order_relaxed);
    }

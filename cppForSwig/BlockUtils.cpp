@@ -20,9 +20,6 @@
 #include "util.h"
 #include "BlockchainScanner.h"
 #include "DatabaseBuilder.h"
-#include "DbHeader.h"
-
-int FCGI_PORT = 9001;
 
 static bool scanFor(std::istream &in, const uint8_t * bytes, const unsigned len)
 {
@@ -741,6 +738,14 @@ BlockDataManagerConfig::BlockDataManagerConfig()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+string BlockDataManagerConfig::portToString(unsigned port) 
+{
+   stringstream ss;
+   ss << port;
+   return ss.str();
+}
+
+////////////////////////////////////////////////////////////////////////////////
 void BlockDataManagerConfig::selectNetwork(const string &netname)
 {
    if(netname == "Main")
@@ -748,14 +753,16 @@ void BlockDataManagerConfig::selectNetwork(const string &netname)
       genesisBlockHash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
       genesisTxHash_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
       magicBytes_ = READHEX(MAINNET_MAGIC_BYTES);
-      btcPort_ = "8333";
+      btcPort_ = portToString(NODE_PORT_MAINNET);
+      fcgiPort_ = portToString(FCGI_PORT_MAINNET);
    }
    else if(netname == "Test")
    {
       genesisBlockHash_ = READHEX(TESTNET_GENESIS_HASH_HEX);
       genesisTxHash_ = READHEX(TESTNET_GENESIS_TX_HASH_HEX);
       magicBytes_ = READHEX(TESTNET_MAGIC_BYTES);
-      btcPort_ = "18333";
+      btcPort_ = portToString(NODE_PORT_TESTNET);
+      fcgiPort_ = portToString(FCGI_PORT_TESTNET);
 
       testnet_ = true;
    }
@@ -764,7 +771,8 @@ void BlockDataManagerConfig::selectNetwork(const string &netname)
 	   genesisBlockHash_ = READHEX(REGTEST_GENESIS_HASH_HEX);
 	   genesisTxHash_ = READHEX(REGTEST_GENESIS_TX_HASH_HEX);
 	   magicBytes_ = READHEX(REGTEST_MAGIC_BYTES);
-      btcPort_ = "18444";
+      btcPort_ = portToString(NODE_PORT_REGTEST);
+      fcgiPort_ = portToString(FCGI_PORT_REGTEST);
 
       regtest_ = true;
    }
@@ -857,12 +865,10 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
          if (str == "--testnet")
          {
             selectNetwork("Test");
-	    FCGI_PORT = 19001;
          }
          else if (str == "--regtest")
          {
             selectNetwork("Regtest");
-	    FCGI_PORT = 19002;
          }
          else if (str == "--rescan")
          {
