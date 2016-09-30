@@ -1021,7 +1021,7 @@ void WalletGroup::updateLedgerFilter(const vector<BinaryData>& walletsList)
 
 ////////////////////////////////////////////////////////////////////////////////
 void WalletGroup::scanWallets(ScanWalletStruct& scanData, 
-   uint32_t updateID)
+   int32_t updateID)
 {
    ReadWriteLock::ReadLock rl(lock_);
 

@@ -221,6 +221,12 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
          topBlockOffset_.offset_ -= rewind;
       else
          topBlockOffset_.offset_ = 0;
+
+      if (topBlockOffset_.offset_ == 0)
+      {
+         if (topBlockOffset_.fileID_ > 0)
+            topBlockOffset_.fileID_--;
+      }
    }
 
    mutex progressMutex;

@@ -254,7 +254,7 @@ public:
    void updateTxIOMap(map<BinaryData, TxIOPair>& txio_map);
 
    void scanZC(const ScanAddressStruct&, function<bool(const BinaryDataRef)>,
-      uint32_t);
+      int32_t);
    bool purgeZC(const set<BinaryData>& invalidatedTxOutKeys);
 
    void updateAfterReorg(uint32_t lastValidBlockHeight);
@@ -280,7 +280,7 @@ public:
 
    void fetchDBScrAddrData(uint32_t startBlock, 
                            uint32_t endBlock,
-                           uint32_t updateID);
+                           int32_t updateID);
 
    void getHistoryForScrAddr(
       uint32_t startBlock, uint32_t endBlock,
@@ -360,7 +360,7 @@ private:
 
    map<BinaryData, set<BinaryData> > validZCKeys_;
 
-   uint32_t updateID_ = 0;
+   int32_t updateID_ = 0;
 };
 
 #endif
