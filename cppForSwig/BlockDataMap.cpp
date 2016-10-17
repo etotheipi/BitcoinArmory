@@ -12,7 +12,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 void BlockData::deserialize(const uint8_t* data, size_t size,
    const BlockHeader* blockHeader,
-   function<unsigned int(void)> getID, bool checkMerkle)
+   function<unsigned int(void)> getID, bool checkMerkle, bool keepHashes)
 {
    headerPtr_ = blockHeader;
 
@@ -76,6 +76,15 @@ void BlockData::deserialize(const uint8_t* data, size_t size,
          offsetOuts[y],
          offsetOuts[y + 1] - offsetOuts[y]));
 
+      if (tx->usesWitness_)
+      {
+         for (int y = 0; y < offsetsWitness.size() - 1; y++)
+            tx->witnesses_.push_back(
+            make_pair(
+            offsetsWitness[y],
+            offsetsWitness[y + 1] - offsetsWitness[y]));
+      }
+
       tx->lockTime_ = READ_UINT32_LE(brr.getCurrPtr() + offsetsWitness.back());
 
       //move it to BlockData object vector
@@ -95,8 +104,16 @@ void BlockData::deserialize(const uint8_t* data, size_t size,
    vector<BinaryData> allhashes;
    for (auto& txn : txns_)
    {
-      auto txhash = txn->moveHash();
-      allhashes.push_back(move(txhash));
+      if (!keepHashes)
+      {
+         auto txhash = txn->moveHash();
+         allhashes.push_back(move(txhash));
+      }
+      else
+      {
+         txn->getHash();
+         allhashes.push_back(txn->txHash_);
+      }
    }
 
    auto&& merkleroot = BtcUtils::calculateMerkleRoot(allhashes);

@@ -262,7 +262,7 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch,
          bdata.deserialize(
             filemap->getPtr() + blockheader->getOffset(),
             blockheader->getBlockSize(),
-            blockheader, getID, false);
+            blockheader, getID, false, false);
 
          return bdata;
       }
@@ -1117,7 +1117,7 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
 
       BlockData bdata;
       bdata.deserialize(filemap.get()->getPtr() + blockPtr->getOffset(),
-         blockPtr->getBlockSize(), blockPtr, getID);
+         blockPtr->getBlockSize(), blockPtr, getID, false, false);
 
       auto& txns = bdata.getTxns();
       for (unsigned i = 0; i < txns.size(); i++)
@@ -1398,7 +1398,7 @@ void BlockchainScanner::processFilterHitsThread(
             bdata.deserialize(
                fileptr->getPtr() + headerPtr->getOffset(),
                headerPtr->getBlockSize(),
-               headerPtr, getID, false);
+               headerPtr, getID, false, false);
          }
          catch (BlockDeserializingException& e)
          {

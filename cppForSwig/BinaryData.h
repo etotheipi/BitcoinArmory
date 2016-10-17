@@ -1319,6 +1319,12 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
+   BinaryRefReader fork(void) const
+   {
+      return BinaryRefReader(bdRef_.getPtr() + pos_, getSizeRemaining());
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
    void get_BinaryData(BinaryData & bdTarget, uint32_t nBytes)
    {
       if(getSizeRemaining() < nBytes)
@@ -1614,6 +1620,13 @@ public:
             theString_.append(str.getPtr() + offset, sz);
       }
    }
+
+   /////////////////////////////////////////////////////////////////////////////
+   void put_BinaryDataRef(BinaryDataRef const & str)
+   {
+      theString_.append(str);
+   }
+
 
    /////////////////////////////////////////////////////////////////////////////
    void put_BinaryData(uint8_t const * targPtr, uint32_t nBytes)

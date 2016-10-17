@@ -168,6 +168,16 @@ BlockHeader& Blockchain::getHeaderByHeight(unsigned index) const
    return *headersByHeight_[index];
 }
 
+const BlockHeader& Blockchain::getHeaderByHeightConst(unsigned index) const
+{
+   auto headerIter = headersByHeight_.cbegin() + index;
+   if (headerIter == headersByHeight_.cend())
+      throw std::range_error("Cannot get block at height " + to_string(index));
+
+   return *(*headerIter);
+}
+
+
 bool Blockchain::hasHeaderByHeight(unsigned height) const
 {
    if (height >= headersByHeight_.size())

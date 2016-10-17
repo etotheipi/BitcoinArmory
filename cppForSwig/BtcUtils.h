@@ -283,6 +283,14 @@ public:
    { }
 };
 
+class DERException : public runtime_error
+{
+public:
+   DERException(const string& what = "") :
+      runtime_error(what)
+   {}
+};
+
 
 // This class holds only static methods.  
 // NOTE:  added default ctor and a few non-static, to support SWIG
@@ -470,6 +478,25 @@ public:
       return out;
    }
 
+   /////////////////////////////////////////////////////////////////////////////
+   static void getSha256(const uint8_t* data, 
+                         size_t len, 
+                         BinaryData& hashOutput)
+   {
+      CryptoPP::SHA256 sha256_;
+      if (hashOutput.getSize() != 32)
+         hashOutput.resize(32);
+
+      sha256_.CalculateDigest(hashOutput.getPtr(), data, len);
+   }
+   
+   /////////////////////////////////////////////////////////////////////////////
+   static BinaryData getSha256(const BinaryData& bd)
+   {
+      BinaryData hashOutput;
+      BtcUtils::getSha256(bd.getPtr(), bd.getSize(), hashOutput);
+      return hashOutput;
+   }
 
    /////////////////////////////////////////////////////////////////////////////
    static void getHash256(uint8_t const * strToHash,
@@ -1970,6 +1997,63 @@ public:
       final_value.resize(totallen + zero_count);
       value.Encode(final_value.getPtr() + zero_count, totallen);
       return final_value;
+   }
+
+   static BinaryData extractRSFromDERSig(BinaryDataRef bdr)
+   {
+      auto forceTo32Bytes = [](BinaryDataRef data, BinaryWriter& output)->void
+      {
+         auto len = data.getSize();
+
+         if (len > 32)
+         {
+            output.put_BinaryData(data.getSliceRef(len - 32, 32));
+         }
+         else
+         {
+            int zeroCount = 32 - len;
+            while (zeroCount-- > 0)
+               output.put_uint8_t(0);
+            
+            output.put_BinaryData(data);
+         }
+      };
+
+      BinaryWriter output;
+      BinaryRefReader brr(bdr);
+
+      //check code byte and total length
+      auto codeByte = brr.get_uint8_t();
+      if (codeByte != 0x30)
+         throw DERException("unexpected code byte in DER sig");
+
+      auto len = brr.get_uint8_t();
+
+      //onto R, again check code byte
+      codeByte = brr.get_uint8_t();
+      len = brr.get_uint8_t();
+      if (codeByte != 0x02)
+         throw DERException("unexpected code byte in DER sig");
+
+      //grab R
+      auto rRef = brr.get_BinaryDataRef(len);
+
+      //force to 32 bytes length
+      forceTo32Bytes(rRef, output);
+
+      //S
+      codeByte = brr.get_uint8_t();
+      len = brr.get_uint8_t();
+      if (codeByte != 0x02)
+         throw DERException("unexpected code byte in DER sig");
+
+      //grab S
+      auto sRef = brr.get_BinaryDataRef(len);
+
+      //force to 32 bytes length
+      forceTo32Bytes(sRef, output);
+
+      return output.getData();
    }
 };
    

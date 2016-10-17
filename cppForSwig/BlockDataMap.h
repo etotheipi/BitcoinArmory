@@ -56,6 +56,7 @@ struct BCTX
 
    vector<OffsetAndSize> txins_;
    vector<OffsetAndSize> txouts_;
+   vector<OffsetAndSize> witnesses_;
 
    mutable BinaryData txHash_;
 
@@ -101,6 +102,28 @@ struct BCTX
 
       return move(txHash_);
    }
+
+   BinaryDataRef getTxInRef(unsigned inputId) const
+   {
+      if (inputId >= txins_.size())
+         throw range_error("txin index overflow");
+
+      auto txinIter = txins_.cbegin() + inputId;
+
+      return BinaryDataRef(data_ + (*txinIter).first,
+         (*txinIter).second);
+   }
+
+   BinaryDataRef getTxOutRef(unsigned outputId) const
+   {
+      if (outputId >= txouts_.size())
+         throw range_error("txout index overflow");
+
+      auto txoutIter = txouts_.cbegin() + outputId;
+
+      return BinaryDataRef(data_ + (*txoutIter).first,
+         (*txoutIter).second);
+   }
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -130,7 +153,8 @@ public:
 
    void deserialize(const uint8_t* data, size_t size,
       const BlockHeader*, 
-      function<unsigned int(void)> getID, bool checkMerkle = false);
+      function<unsigned int(void)> getID, bool checkMerkle,
+      bool keepHashes);
 
    bool isInitialized(void) const
    {

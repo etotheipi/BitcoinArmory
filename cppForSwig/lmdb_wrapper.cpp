@@ -1668,7 +1668,7 @@ Tx LMDBBlockDatabase::getFullTxCopy(uint16_t txIndex, BlockHeader* bhPtr) const
 
    BlockData block;
    block.deserialize(dataPtr + bhPtr->getOffset(),
-      bhPtr->getBlockSize(), bhPtr, getID);
+      bhPtr->getBlockSize(), bhPtr, getID, false, false);
 
    auto bctx = block.getTxns()[txIndex];
 

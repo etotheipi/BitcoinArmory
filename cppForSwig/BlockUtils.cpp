@@ -871,6 +871,10 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
          {
             initMode_ = INIT_SSH;
          }
+         else if (str == "--checkchain")
+         {
+            checkChain_ = true;
+         }
          else
          {
             if (str == "--datadir")
@@ -1539,6 +1543,10 @@ void BlockDataManager::loadDiskState(
    blockFiles_ = make_shared<BlockFiles>(config_.blkFileLocation_);
    dbBuilder_ = make_shared<DatabaseBuilder>(*blockFiles_, *this, progress);
    dbBuilder_->init();
+
+   if (config_.checkChain_)
+      checkTransactionCount_ = dbBuilder_->getCheckedTxCount();
+
    BDMstate_ = BDM_ready;
 }
 

@@ -318,6 +318,7 @@ class Tx
 {
    friend class BtcWallet;
    friend class BlockDataManager;
+   friend class TransactionVerifier;
 
 public:
    Tx(void) : isInitialized_(false), offsetsTxIn_(0), offsetsTxOut_(0) {}
@@ -473,6 +474,7 @@ struct UTXO
 
    BinaryData serialize(void) const;
    void unserialize(const BinaryData&);
+   void unserializeRaw(const BinaryData&);
 };
 
 

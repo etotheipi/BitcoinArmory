@@ -16,6 +16,7 @@ int main(int argc, char* argv[])
    BlockDataManagerConfig bdmConfig;
    bdmConfig.parseArgs(argc, argv);
    
+   cout << "logging in " << bdmConfig.logFilePath_ << endl;
    STARTLOGGING(bdmConfig.logFilePath_, LogLvlDebug);
    LOGENABLESTDOUT();
 
@@ -29,11 +30,18 @@ int main(int argc, char* argv[])
    BlockDataManagerThread bdmThread(bdmConfig);
    FCGI_Server server(&bdmThread);
    
-   server.checkSocket();
-   server.init();
+   if (!bdmConfig.checkChain_)
+   {
+      server.checkSocket();
+      server.init();
+   }
+
    bdmThread.start(bdmConfig.initMode_);
    
-   server.enterLoop();
+   if (!bdmConfig.checkChain_)
+      server.enterLoop();
+   else
+      bdmThread.join();
 
    //stop all threads and clean up
    server.shutdown();

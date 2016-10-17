@@ -127,6 +127,8 @@ private:
 
    exception_ptr exceptPtr_ = nullptr;
 
+   unsigned checkTransactionCount_ = 0;
+
 public:
    typedef function<void(BDMPhase, double,unsigned, unsigned)> ProgressCallback;   
    shared_ptr<BitcoinP2P> networkNode_;
@@ -238,6 +240,8 @@ public:
    {
       ScrAddrFilter::shutdown();
    }
+
+   unsigned getCheckedTxCount(void) const { return checkTransactionCount_; }
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -272,6 +276,7 @@ public:
 
    // return true if the caller should wait on callback notification
    void shutdown();
+   void join();
 
    BlockHeader* topBH(void) const { return topBH_; }
    void cleanUp(void)

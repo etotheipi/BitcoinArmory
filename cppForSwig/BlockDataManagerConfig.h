@@ -57,6 +57,8 @@ struct BlockDataManagerConfig
    exception_ptr exceptionPtr_ = nullptr;
 
    bool reportProgress_ = true;
+
+   bool checkChain_ = false;
    
    /////////////
    void setGenesisBlockHash(const BinaryData &h)

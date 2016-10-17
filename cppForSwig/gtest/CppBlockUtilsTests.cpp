@@ -5513,6 +5513,130 @@ TEST_F(TxRefTest, TxRefKeyParts)
    EXPECT_EQ(txr.getBlockTxIndex(), 15);
 }
 
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+class TransactionsTest : public ::testing::Test
+{
+protected:
+   BlockDataManagerThread *theBDMt_;
+   Clients* clients_;
+
+   void initBDM(void)
+   {
+      ScrAddrFilter::init();
+      theBDMt_ = new BlockDataManagerThread(config);
+      iface_ = theBDMt_->bdm()->getIFace();
+
+      auto mockedShutdown = [](void)->void {};
+      clients_ = new Clients(theBDMt_, mockedShutdown);
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void SetUp()
+   {
+      LOGDISABLESTDOUT();
+      magic_ = READHEX(MAINNET_MAGIC_BYTES);
+      ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
+      gentx_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
+      zeros_ = READHEX("00000000");
+
+      blkdir_ = string("./blkfiletest");
+      homedir_ = string("./fakehomedir");
+      ldbdir_ = string("./ldbtestdir");
+
+      rmdir(blkdir_);
+      rmdir(homedir_);
+      rmdir(ldbdir_);
+
+      mkdir(blkdir_);
+      mkdir(homedir_);
+      mkdir(ldbdir_);
+
+      // Put the first 5 blocks into the blkdir
+      blk0dat_ = BtcUtils::getBlkFilename(blkdir_, 0);
+      setBlocks({ "0", "1", "2", "3", "4", "5" }, blk0dat_);
+
+      config.armoryDbType_ = ARMORY_DB_BARE;
+      config.blkFileLocation_ = blkdir_;
+      config.dbDir_ = ldbdir_;
+      config.threadCount_ = 3;
+
+      config.genesisBlockHash_ = ghash_;
+      config.genesisTxHash_ = gentx_;
+      config.magicBytes_ = magic_;
+      config.nodeType_ = Node_UnitTest;
+
+      wallet1id = BinaryData("wallet1");
+      wallet2id = BinaryData("wallet2");
+      LB1ID = BinaryData(TestChain::lb1B58ID);
+      LB2ID = BinaryData(TestChain::lb2B58ID);
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void TearDown(void)
+   {
+      if (clients_ != nullptr)
+      {
+         clients_->exitRequestLoop();
+         clients_->shutdown();
+      }
+
+      delete clients_;
+      delete theBDMt_;
+
+      theBDMt_ = nullptr;
+      clients_ = nullptr;
+
+      rmdir(blkdir_);
+      rmdir(homedir_);
+
+#ifdef _MSC_VER
+      rmdir("./ldbtestdir");
+      mkdir("./ldbtestdir");
+#else
+      string delstr = ldbdir_ + "/*";
+      rmdir(delstr);
+#endif
+      LOGENABLESTDOUT();
+      CLEANUP_ALL_TIMERS();
+   }
+
+   BlockDataManagerConfig config;
+
+   LMDBBlockDatabase* iface_;
+   BinaryData magic_;
+   BinaryData ghash_;
+   BinaryData gentx_;
+   BinaryData zeros_;
+
+   string blkdir_;
+   string homedir_;
+   string ldbdir_;
+   string blk0dat_;
+
+   BinaryData wallet1id;
+   BinaryData wallet2id;
+   BinaryData LB1ID;
+   BinaryData LB2ID;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(TransactionsTest, CheckChain)
+{
+   config.threadCount_ = 1;
+   config.checkChain_ = true;
+
+   initBDM();
+
+   theBDMt_->start(config.initMode_);
+   theBDMt_->join();
+
+   EXPECT_EQ(theBDMt_->bdm()->getCheckedTxCount(), 20);
+}
+
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 class BlockDir : public ::testing::Test

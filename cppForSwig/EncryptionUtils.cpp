@@ -683,6 +683,36 @@ bool CryptoECDSA::VerifyData(SecureBinaryData const & binMessage,
 }
 
 /////////////////////////////////////////////////////////////////////////////
+bool CryptoECDSA::VerifyData(BinaryData const & binMessage,
+   const BinaryData& sig,
+   BTC_PUBKEY const & cppPubKey) const
+{
+   /***
+   This is the faster sig verification, with less sanity checks and copies.
+   Meant for chain verifiation, use the SecureBinaryData versions for regular
+   verifications.
+   ***/
+
+   CryptoPP::SHA256  sha256;
+   BTC_PRNG prng;
+
+   //pub keys are already validated by the script parser
+
+   // We execute the first SHA256 op, here.  Next one is done by Verifier
+   BinaryData hashVal(32);
+   sha256.CalculateDigest(hashVal.getPtr(),
+      binMessage.getPtr(),
+      binMessage.getSize());
+
+   // Verifying message 
+   BTC_VERIFIER verifier(cppPubKey);
+   return verifier.VerifyMessage((const byte*)hashVal.getPtr(),
+      hashVal.getSize(),
+      (const byte*)sig.getPtr(),
+      sig.getSize());
+}
+
+/////////////////////////////////////////////////////////////////////////////
 bool CryptoECDSA::VerifyData(SecureBinaryData const & binMessage, 
                              SecureBinaryData const & binSignature,
                              BTC_PUBKEY const & cppPubKey)

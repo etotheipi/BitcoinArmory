@@ -396,6 +396,14 @@ public:
                    SecureBinaryData const & pubkey65B);
 
    /////////////////////////////////////////////////////////////////////////////
+   // The version with no mlock'd memory. Reduces copies for increased speed,
+   // meant for mined tx verification.
+   bool VerifyData(BinaryData const & binMessage,
+      const BinaryData& sig,
+      BTC_PUBKEY const & cppPubKey) const;
+
+
+   /////////////////////////////////////////////////////////////////////////////
    // Deterministically generate new private key using a chaincode
    // Changed:  Added using the hash of the public key to the mix
    //           b/c multiplying by the chaincode alone is too "linear"

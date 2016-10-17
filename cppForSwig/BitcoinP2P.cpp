@@ -856,6 +856,15 @@ void BitcoinP2P::processDataStackThread()
       LOGERR << "caught exception in processDataStackThread: "
          << e.what();
    }
+   catch (StopBlockingLoop&)
+   {
+      LOGERR << "caught StopBlockingLoop in processDataStackThread";
+   }
+   catch (BitcoinP2P_Exception& e)
+   {
+      LOGERR << "caught BitcoinP2P_Exception in processDataStackThread: "
+         << e.what();
+   }
    catch (...)
    {
 

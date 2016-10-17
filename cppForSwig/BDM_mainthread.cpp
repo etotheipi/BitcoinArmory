@@ -96,6 +96,16 @@ void BlockDataManagerThread::shutdown()
    }
 }
 
+void BlockDataManagerThread::join()
+{
+   if (pimpl->run)
+   {
+      if (pimpl->tID.joinable())
+         pimpl->tID.join();
+   }
+}
+
+
 namespace
 {
 class OnFinish
@@ -163,7 +173,8 @@ try
       else if (mode == 2) bdm->doInitialSyncOnLoad_Rebuild(loadProgress);
       else if (mode == 3) bdm->doInitialSyncOnLoad_RescanBalance(loadProgress);
 
-      bdm->enableZeroConf(clearZc);
+      if (!bdm->config().checkChain_)
+         bdm->enableZeroConf(clearZc);
    }
    catch (BDMStopRequest&)
    {
@@ -172,6 +183,9 @@ try
    }
 
    isReadyPromise.set_value(true);
+
+   if (bdm->config().checkChain_)
+      return;
 
    auto updateChainLambda = [bdm, this]()->bool
    {

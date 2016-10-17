@@ -10,6 +10,7 @@
 #include "BlockUtils.h"
 #include "BlockchainScanner.h"
 #include "BDM_supportClasses.h"
+#include "Transactions.h"
 
 /////////////////////////////////////////////////////////////////////////////
 DatabaseBuilder::DatabaseBuilder(BlockFiles& blockFiles, 
@@ -25,6 +26,12 @@ DatabaseBuilder::DatabaseBuilder(BlockFiles& blockFiles,
 /////////////////////////////////////////////////////////////////////////////
 void DatabaseBuilder::init()
 {
+   if (bdmConfig_.checkChain_)
+   {
+      verifyChain();
+      return;
+   }
+
    TIMER_START("initdb");
 
    //list all files in block data folder
@@ -43,7 +50,7 @@ void DatabaseBuilder::init()
    TIMER_START("updateblocksindb");
    LOGINFO << "updating HEADERS db";
    auto reorgState = updateBlocksInDB(
-      progress_, bdmConfig_.reportProgress_, true);
+      progress_, bdmConfig_.reportProgress_, true, false);
    TIMER_STOP("updateblocksindb");
    double updatetime = TIMER_READ_SEC("updateblocksindb");
    LOGINFO << "updated HEADERS db in " << updatetime << "s";
@@ -205,7 +212,8 @@ BlockOffset DatabaseBuilder::loadBlockHeadersFromDB(
 
 /////////////////////////////////////////////////////////////////////////////
 Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
-   const ProgressCallback &progress, bool verbose, bool initialLoad)
+   const ProgressCallback &progress, bool verbose, bool initialLoad,
+   bool fullHints)
 {
    //preload and prefetch
    BlockDataLoader bdl(blockFiles_.folderPath(), true, true, false);
@@ -243,7 +251,7 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
    {
       while (1)
       {
-         if (!addBlocksToDB(bdl, fileID, startOffset, bo))
+         if (!addBlocksToDB(bdl, fileID, startOffset, bo, fullHints))
             return;
 
          if (verbose)
@@ -305,7 +313,8 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
 
 /////////////////////////////////////////////////////////////////////////////
 bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl, 
-   uint16_t fileID, size_t startOffset, shared_ptr<BlockOffset> bo)
+   uint16_t fileID, size_t startOffset, shared_ptr<BlockOffset> bo,
+   bool fullHints)
 {
    auto&& blockfilemappointer = bdl.get(fileID, true);
    auto ptr = blockfilemappointer.get()->getPtr();
@@ -331,7 +340,7 @@ bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl,
       try
       {
          bd.deserialize(data, size, nullptr, 
-            getID, true);
+            getID, true, fullHints);
       }
       catch (BlockDeserializingException &e)
       {
@@ -377,39 +386,46 @@ bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl,
    //add in bulk
    auto&& insertedBlocks = blockchain_->addBlocksInBulk(bhmap);
 
-   //process filters
-   if (bdmConfig_.armoryDbType_ == ARMORY_DB_FULL)
+   if (!fullHints)
    {
-      //pull existing file filter bucket from db (if any)
-      auto&& pool = db_->getFilterPoolForFileNum<TxFilterType>(fileID);
-
-      if (insertedBlocks.size() == 0)
+      //process filters
+      if (bdmConfig_.armoryDbType_ == ARMORY_DB_FULL)
       {
-         if (pool.isValid())
+         //pull existing file filter bucket from db (if any)
+         auto&& pool = db_->getFilterPoolForFileNum<TxFilterType>(fileID);
+
+         if (insertedBlocks.size() == 0)
          {
-            //this block has a filter pool and there is no data to append,
-            //we can return
-            return true;
+            if (pool.isValid())
+            {
+               //this block has a filter pool and there is no data to append,
+               //we can return
+               return true;
+            }
+
+            //if we got this far, this block file does not add any new blocks 
+            //to the chain, but it still needs an empty filter pool for the 
+            //resolver to fetch. we simply let it run on an empty block set
          }
 
-         //if we got this far, this block file does not add any new blocks 
-         //to the chain, but it still needs an empty filter pool for the 
-         //resolver to fetch. we simply let it run on an empty block set
+         //tally all block filters
+         set<TxFilter<TxFilterType>> allFilters;
+
+         for (auto& bdId : insertedBlocks)
+         {
+            allFilters.insert(bdMap[bdId].getTxFilter());
+         }
+
+         //update bucket
+         pool.update(allFilters);
+
+         //update db entry
+         db_->putFilterPoolForFileNum(fileID, pool);
       }
-
-      //tally all block filters
-      set<TxFilter<TxFilterType>> allFilters;
-
-      for (auto& bdId : insertedBlocks)
-      {
-         allFilters.insert(bdMap[bdId].getTxFilter());
-      }
-
-      //update bucket
-      pool.update(allFilters);
-
-      //update db entry
-      db_->putFilterPoolForFileNum(fileID, pool);
+   }
+   else
+   {
+      commitAllTxHints(bdMap);
    }
 
    return true;
@@ -486,7 +502,6 @@ void DatabaseBuilder::parseBlockFile(
    }
 }
 
-
 /////////////////////////////////////////////////////////////////////////////
 BinaryData DatabaseBuilder::updateTransactionHistory(int32_t startHeight)
 {
@@ -523,7 +538,7 @@ Blockchain::ReorganizationState DatabaseBuilder::update(void)
    blockFiles_.detectAllBlockFiles();
 
    //update db
-   auto&& reorgState = updateBlocksInDB(progress_, false, false);
+   auto&& reorgState = updateBlocksInDB(progress_, false, false, false);
 
    if (!reorgState.hasNewTop)
       return reorgState;
@@ -656,7 +671,7 @@ map<BinaryData, BlockHeader> DatabaseBuilder::assessBlkFile(
 
       try
       {
-         bd.deserialize(data, size, nullptr, getID, true);
+         bd.deserialize(data, size, nullptr, getID, true, false);
       }
       catch (...)
       {
@@ -705,4 +720,373 @@ map<BinaryData, BlockHeader> DatabaseBuilder::assessBlkFile(
    }
 
    return returnMap;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void DatabaseBuilder::verifyChain()
+{
+   /*
+   builds db (no scanning) with full txhints, then verifies all tx.
+   */
+
+   //list all files in block data folder
+   blockFiles_.detectAllBlockFiles();
+
+   //read all blocks already in DB and populate blockchain
+   topBlockOffset_ = loadBlockHeadersFromDB(progress_);
+
+   if (bdmConfig_.reportProgress_)
+      progress_(BDMPhase_OrganizingChain, 0, UINT32_MAX, 0);
+
+   blockchain_->forceOrganize();
+   blockchain_->setDuplicateIDinRAM(db_);
+
+   //update db
+   LOGINFO << "updating HEADERS db";
+   auto reorgState = updateBlocksInDB(
+      progress_, bdmConfig_.reportProgress_, true, true);
+   LOGINFO << "updated HEADERS db";
+
+   //verify transactions
+   verifyTransactions();
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void DatabaseBuilder::commitAllTxHints(const map<uint32_t, BlockData>& bdMap)
+{
+   map<BinaryData, StoredTxHints> txHints;
+
+   auto addTxHint =
+      [&](StoredTxHints& stxh, const BinaryData& txkey)->void
+   {
+      //make sure key isn't already in there
+      for (auto& key : stxh.dbKeyList_)
+      {
+         if (key == txkey)
+            return;
+      }
+
+      stxh.dbKeyList_.push_back(txkey);
+   };
+
+   //The readwrite db transactions makes sure only one thread is batching 
+   //txhints at a time. This is relevant, as hints are first pulled from
+   //disk then updated. In case 2 different blocks commit the to the same 
+   //hint, one will likely overwrite the other.
+   LMDBEnv::Transaction hintdbtx;
+   db_->beginDBTransaction(&hintdbtx, TXHINTS, LMDB::ReadWrite);
+
+   {
+      auto addTxHintMap =
+         [&](shared_ptr<BCTX> txn, const BinaryData& txkey)->void
+      {
+         auto&& txHashPrefix = txn->txHash_.getSliceCopy(0, 4);
+         StoredTxHints& stxh = txHints[txHashPrefix];
+
+         //pull txHint from DB first, don't want to override 
+         //existing hints
+         if (stxh.isNull())
+            db_->getStoredTxHints(stxh, txHashPrefix);
+
+         addTxHint(stxh, txkey);
+
+         stxh.preferredDBKey_ = stxh.dbKeyList_.front();
+      };
+
+      for (auto& block : bdMap)
+      {
+         auto& txns = block.second.getTxns();
+         auto nTxn = txns.size();
+         for (unsigned i=0; i < nTxn; i++)
+         {
+            auto& txn = txns[i];
+            auto&& txkey = DBUtils::getBlkDataKeyNoPrefix(block.first, 0xFF, i);
+
+            addTxHintMap(txn, txkey);
+         }
+      }
+   }
+
+   map<BinaryData, BinaryWriter> serializedHints;
+
+   //serialize
+   for (auto& txhint : txHints)
+   {
+      auto& bw = serializedHints[txhint.second.getDBKey()];
+      txhint.second.serializeDBValue(bw);
+   }
+
+   //write
+   {
+      for (auto& txhint : serializedHints)
+      {
+         db_->putValue(TXHINTS,
+            txhint.first.getRef(),
+            txhint.second.getDataRef());
+      }
+   }
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void DatabaseBuilder::verifyTransactions()
+{
+   struct ParserState
+   {
+      atomic<unsigned> blockHeight_;
+      atomic<unsigned> unknownErrors_;
+      atomic<unsigned> unsupportedSigHash_;
+      atomic<unsigned> unresolvedHashes_;
+      atomic<unsigned> parsedCount_;
+      mutex mu_;
+
+      ParserState() 
+      {
+         blockHeight_.store(0);
+         unknownErrors_.store(0);
+         unsupportedSigHash_.store(0);
+         unresolvedHashes_.store(0);
+         parsedCount_.store(0);
+      }
+   };
+
+   TIMER_START("10blocks");
+
+   //dont preload, prefetch
+   BlockDataLoader bdl(blockFiles_.folderPath(), true, false, true);
+
+   auto stateStruct = make_shared<ParserState>();
+
+   auto verifyBlockTx = [&bdl, this, stateStruct](void)->void
+   {
+      map<unsigned, shared_ptr<BlockFileMapPointer>> filePtrMap;
+
+      auto getFileMap = [&bdl, &filePtrMap](unsigned fileNum)->
+         shared_ptr<BlockFileMapPointer>&
+      {
+         auto& fmp = filePtrMap[fileNum];
+         if (fmp == nullptr)
+            fmp = make_shared<BlockFileMapPointer>(bdl.get(fileNum, false));
+
+         return fmp;
+      };
+
+      auto getUtxoMap = [&bdl, stateStruct, getFileMap, this]
+         (shared_ptr<BCTX> txn)->TransactionVerifier::utxoMap
+      {
+         TransactionVerifier::utxoMap utxomap;
+         for (auto& txin : txn->txins_)
+         {
+            //get output hash
+            BinaryDataRef hashref(txn->data_ + txin.first, 32);
+            auto outputID = (uint32_t*)(txn->data_ + txin.first + 32);
+
+            //resolve hash
+            StoredTxHints sths;
+            if (!db_->getStoredTxHints(sths, hashref.getSliceRef(0, 4)))
+            {
+               stateStruct->unresolvedHashes_.fetch_add(1, memory_order_relaxed);
+               throw UnresolvedHashException();
+            }
+
+            bool foundtx = false;
+            for (auto& outpointkey : sths.dbKeyList_)
+            {
+               if (outpointkey.getSize() == 0)
+                  continue;
+
+               //parse key
+               auto blockkey = outpointkey.getSliceRef(0, 4);
+               auto opDup = (uint8_t*)(outpointkey.getPtr() + 3);
+               if (*opDup != 0xFF)
+                  continue;
+
+               auto blockID = DBUtils::hgtxToHeight(blockkey);
+               BlockHeader* bhPtr;
+               try
+               {
+                  bhPtr = &blockchain_->getHeaderById(blockID);
+               }
+               catch (exception&)
+               {
+                  continue;
+               }
+
+               //get tx index
+               BinaryRefReader brr(outpointkey);
+               brr.advance(4);
+               auto txid = brr.get_uint16_t(BE);
+
+               //get block data
+               auto blockFileNum = bhPtr->getBlockFileNum();
+               auto& fileMap = getFileMap(blockFileNum);
+
+               auto getID = [bhPtr](void)->unsigned int
+               {
+                  return bhPtr->getThisID();
+               };
+
+               BlockData bdata;
+               bdata.deserialize(
+                  fileMap->get()->getPtr() + bhPtr->getOffset(),
+                  bhPtr->getBlockSize(),
+                  bhPtr, getID, false, false);
+
+               auto& txns = bdata.getTxns();
+               if (txid > txns.size())
+                  continue;
+
+               //check hash
+               auto txn = txns[txid];
+               txn->getHash();
+               if (hashref != txn->txHash_)
+                  continue;
+
+               //grab output
+               auto txoutcount = txn->txouts_.size();
+               if (*outputID > txoutcount)
+                  break;
+
+               BinaryDataRef output(txn->data_ + txn->txouts_[*outputID].first,
+                  txn->txouts_[*outputID].second);
+
+               UTXO utxo;
+               utxo.unserializeRaw(output);
+               auto& idmap = utxomap[hashref];
+               idmap[*outputID] = move(utxo);
+
+               foundtx = true;
+               break;
+            }
+
+            if (!foundtx)
+               throw UnresolvedHashException();
+         }
+
+         return utxomap;
+      };
+
+      unsigned thisHeight = 0;
+      unsigned failedVerifications = 0;
+
+      LMDBEnv::Transaction hintdbtx;
+      db_->beginDBTransaction(&hintdbtx, TXHINTS, LMDB::ReadOnly);
+
+      while (thisHeight <= blockchain_->top().getBlockHeight())
+      {
+         //grab blockheight
+         thisHeight = stateStruct->blockHeight_.fetch_add(1, memory_order_relaxed);
+
+         BlockData bdata;
+         BlockHeader* blockheader;
+
+         blockheader = &blockchain_->getHeaderByHeight(thisHeight);
+
+         auto& fileMap = getFileMap(blockheader->getBlockFileNum());
+
+         auto getID = [blockheader](void)->unsigned int
+         {
+            return blockheader->getThisID();
+         };
+
+         bdata.deserialize(
+            fileMap->get()->getPtr() + blockheader->getOffset(),
+            blockheader->getBlockSize(),
+            blockheader, getID, false, false);
+
+         auto& txns = bdata.getTxns();
+         for (unsigned i = 1; i < txns.size(); i++)
+         {
+            auto& txn = txns[i];
+
+            try
+            {
+               //gather utxos
+               auto&& utxomap = getUtxoMap(txn);
+
+               //verify tx
+               TransactionVerifier txV(*txn, utxomap);
+               auto flags = txV.getFlags();
+
+               if (blockheader->getTimestamp() > P2SH_TIMESTAMP)
+                  flags |= SCRIPT_VERIFY_P2SH;
+
+               if (txn->usesWitness_)
+                  flags |= SCRIPT_VERIFY_SEGWIT;
+
+               txV.setFlags(flags);
+
+               if (txV.verify())
+                  stateStruct->parsedCount_.fetch_add(1, memory_order_relaxed);
+               else
+                  ++failedVerifications;
+            }
+            catch (UnsupportedSigHashTypeException&)
+            {
+               stateStruct->unsupportedSigHash_.fetch_add(1, memory_order_relaxed);
+            }
+            catch (UnresolvedHashException&)
+            {
+               stateStruct->unresolvedHashes_.fetch_add(1, memory_order_relaxed);
+            }
+            catch (exception& e)
+            {
+               unique_lock<mutex> lock(stateStruct->mu_);
+               auto error = e.what();
+               LOGERR << "+++ error at #" << thisHeight << ":" << i;
+               LOGERR << "+++ strerr: " << e.what();
+               stateStruct->unknownErrors_.fetch_add(1, memory_order_relaxed);
+            }
+         }
+
+         if (thisHeight % 1000 == 0)
+         {
+            unique_lock<mutex> lock(stateStruct->mu_);
+            auto tE = TIMER_READ_SEC("10blocks");
+            TIMER_RESTART("10blocks");
+
+            LOGINFO << "=== time elapsed: " << tE << " ===";
+
+            LOGINFO << "current block: " << thisHeight;
+            LOGINFO << "--- verified " << 
+               stateStruct->parsedCount_.load(memory_order_relaxed) << " transactions";
+
+            LOGINFO << "--- *encountered " <<
+               stateStruct->unsupportedSigHash_.load(memory_order_relaxed) <<
+               " unknown sighashes";
+
+            LOGINFO << "--- *encountered " <<
+               stateStruct->unresolvedHashes_.load(memory_order_relaxed) <<
+               " unresolved hashes";
+
+            LOGINFO << "--- ***encountered " <<
+               stateStruct->unknownErrors_.load(memory_order_relaxed) <<
+               " unknown errors";
+         }
+      }
+
+      int abc = 0;
+   };
+
+   vector<thread> parserThrVec;
+   for (unsigned i = 1; i < bdmConfig_.threadCount_; i++)
+      parserThrVec.push_back(thread(verifyBlockTx));
+
+   verifyBlockTx();
+
+   for (auto& thr : parserThrVec)
+      if (thr.joinable())
+         thr.join();
+
+   if (stateStruct->unresolvedHashes_.load(memory_order_relaxed) > 0)
+      throw runtime_error("checkChain failed with unresolved hash errors");
+
+   if (stateStruct->unsupportedSigHash_.load(memory_order_relaxed) > 0)
+      throw runtime_error("checkChain failed with unsupported sig hash errors");
+
+   if (stateStruct->unknownErrors_.load(memory_order_relaxed) > 0)
+      throw runtime_error("checkChain failed with unknown errors");
+
+   LOGINFO << "Done checking chain";
+
+   checkedTransactions_ = stateStruct->parsedCount_.load(memory_order_relaxed);
 }
