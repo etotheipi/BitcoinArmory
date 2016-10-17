@@ -44,7 +44,9 @@ OBJS_UnitTests = UniversalTimer.o BinaryData.o lmdb_wrapper.o \
 	DatabaseBuilder.o BlockchainScanner.o BlockDataMap.o \
 	DataObject.o BitcoinP2P.o BDM_Server.o BDM_seder.o SocketObject.o \
 	fcgiapp.o os_unix.o FcgiMessage.o \
-	SwigClient.o StringSockets.o libcryptopp.a 
+	SwigClient.o StringSockets.o \
+	Transactions.o Script.o Signer.o \
+	libcryptopp.a 
 
 ALL_HEADERS_FOUND=$(wildcard $(USER_DIR)/*.h)
 FCGI_DIR= $(USER_DIR)/BlockDataManager/fcgi

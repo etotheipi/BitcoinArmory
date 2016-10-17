@@ -708,7 +708,7 @@ void StackInterpreter::checkState()
 void StackInterpreter::process_p2wpkh(const BinaryData& scriptHash)
 {
    //get witness data
-   auto& witnessData = txStubPtr_->getWitnessData(inputIndex_);
+   auto witnessData = txStubPtr_->getWitnessData(inputIndex_);
 
    //prepare stack
    BinaryRefReader brr(witnessData);
@@ -736,7 +736,7 @@ void StackInterpreter::process_p2wpkh(const BinaryData& scriptHash)
 void StackInterpreter::process_p2wsh(const BinaryData& scriptHash)
 {
    //get witness data
-   auto& witnessData = txStubPtr_->getWitnessData(inputIndex_);
+   auto witnessData = txStubPtr_->getWitnessData(inputIndex_);
 
    //prepare stack
    BinaryRefReader brr(witnessData);

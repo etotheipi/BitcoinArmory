@@ -21,10 +21,10 @@
 #include "BtcUtils.h"
 
 ////////////////////////////////////////////////////////////////////////////////
-class ScriptException : public exception
+class ScriptException : public runtime_error
 {
 public:
-   ScriptException(const char* what) : exception(what)
+   ScriptException(const string& what) : runtime_error(what)
    {}
 };
 

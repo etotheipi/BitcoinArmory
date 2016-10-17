@@ -23,10 +23,10 @@ enum SIGHASH_TYPE
    SIGHASH_ALL = 1
 };
 
-class UnsupportedSigHashTypeException : public exception
+class UnsupportedSigHashTypeException : public runtime_error
 {
 public:
-   UnsupportedSigHashTypeException(const char* what) : exception(what)
+   UnsupportedSigHashTypeException(const string& what) : runtime_error(what)
    {}
 };
 
@@ -42,16 +42,13 @@ struct TxInData
 class TransactionStub
 {
 protected:
-   unsigned flags_;
+   unsigned flags_ = 0;
    mutable shared_ptr<SigHashDataSegWit> sigHashDataObject_ = nullptr;
 
 public:
    mutable map<unsigned, size_t> lastCodeSeparatorMap_;
 
 public:
-   TransactionStub(void)
-   {}
-
    virtual ~TransactionStub(void) = 0;
 
    virtual BinaryDataRef getSerializedOutputScripts(void) const = 0;

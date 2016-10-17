@@ -18,11 +18,11 @@
 using namespace std;
 
 ////
-class TxMakerError : public exception
+class TxMakerError : public runtime_error
 {
 public:
-   TxMakerError(const char* err) :
-      exception(err)
+   TxMakerError(const string& err) :
+      runtime_error(err)
    {}
 };
 
@@ -165,7 +165,7 @@ public:
 
    virtual void sign(void);
    virtual BinaryDataRef serialize(void) const;
-   virtual bool verify(void);
+   virtual bool verify(void) {}
 
    ////
    BinaryDataRef getSerializedOutputScripts(void) const;
