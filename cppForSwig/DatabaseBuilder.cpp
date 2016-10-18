@@ -971,7 +971,7 @@ void DatabaseBuilder::verifyTransactions()
       LMDBEnv::Transaction hintdbtx;
       db_->beginDBTransaction(&hintdbtx, TXHINTS, LMDB::ReadOnly);
 
-      while (thisHeight <= blockchain_->top().getBlockHeight())
+      while (thisHeight < blockchain_->top().getBlockHeight())
       {
          //grab blockheight
          thisHeight = stateStruct->blockHeight_.fetch_add(1, memory_order_relaxed);
@@ -1063,8 +1063,6 @@ void DatabaseBuilder::verifyTransactions()
                " unknown errors";
          }
       }
-
-      int abc = 0;
    };
 
    vector<thread> parserThrVec;
@@ -1072,6 +1070,8 @@ void DatabaseBuilder::verifyTransactions()
       parserThrVec.push_back(thread(verifyBlockTx));
 
    verifyBlockTx();
+
+   checkedTransactions_ = stateStruct->parsedCount_.load(memory_order_relaxed);
 
    for (auto& thr : parserThrVec)
       if (thr.joinable())
@@ -1087,6 +1087,4 @@ void DatabaseBuilder::verifyTransactions()
       throw runtime_error("checkChain failed with unknown errors");
 
    LOGINFO << "Done checking chain";
-
-   checkedTransactions_ = stateStruct->parsedCount_.load(memory_order_relaxed);
 }

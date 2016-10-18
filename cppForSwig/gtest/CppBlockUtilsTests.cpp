@@ -5520,8 +5520,8 @@ TEST_F(TxRefTest, TxRefKeyParts)
 class TransactionsTest : public ::testing::Test
 {
 protected:
-   BlockDataManagerThread *theBDMt_;
-   Clients* clients_;
+   BlockDataManagerThread *theBDMt_ = nullptr;
+   Clients* clients_ = nullptr;
 
    void initBDM(void)
    {
@@ -5625,15 +5625,26 @@ protected:
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(TransactionsTest, CheckChain)
 {
+   /***this test fails because the p2sh tx in our unit test chain are botched
+   (the input script has opcode when it should only be push data)
+   ***/
+
    config.threadCount_ = 1;
    config.checkChain_ = true;
 
-   initBDM();
+   BlockDataManager bdm(config);
 
-   theBDMt_->start(config.initMode_);
-   theBDMt_->join();
+   try
+   {
+      bdm.doInitialSyncOnLoad(nullProgress);
+   }
+   catch (exception&)
+   {
+      //signify the failure
+      EXPECT_TRUE(false);
+   }
 
-   EXPECT_EQ(theBDMt_->bdm()->getCheckedTxCount(), 20);
+   EXPECT_EQ(bdm.getCheckedTxCount(), 20);
 }
 
 /*
