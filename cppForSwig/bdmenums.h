@@ -14,6 +14,14 @@
 #ifndef _BDM_ENUMS_H
 #define _BDM_ENUMS_H
 
+#define NODE_PORT_MAINNET 8333
+#define NODE_PORT_TESTNET 18333
+#define NODE_PORT_REGTEST 18444
+
+#define FCGI_PORT_MAINNET 9001
+#define FCGI_PORT_TESTNET 19001
+#define FCGI_PORT_REGTEST 19002
+
 enum BDMPhase
 {
    BDMPhase_DBHeaders = 1,

@@ -49,6 +49,7 @@ struct BlockDataManagerConfig
 
    NodeType nodeType_ = Node_BTC;
    string btcPort_;
+   string fcgiPort_;
 
 
    unsigned ramUsage_ = 4;
@@ -81,6 +82,7 @@ struct BlockDataManagerConfig
    void parseArgs(int argc, char* argv[]);
    void printHelp(void);
    string stripQuotes(const string& input);
+   static string portToString(unsigned);
 };
 
 #endif

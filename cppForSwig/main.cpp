@@ -28,7 +28,7 @@ int main(int argc, char* argv[])
 
 
    BlockDataManagerThread bdmThread(bdmConfig);
-   FCGI_Server server(&bdmThread);
+   FCGI_Server server(&bdmThread, bdmConfig.fcgiPort_);
    
    if (!bdmConfig.checkChain_)
    {
