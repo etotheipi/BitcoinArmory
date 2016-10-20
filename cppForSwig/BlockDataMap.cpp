@@ -44,54 +44,11 @@ void BlockData::deserialize(const uint8_t* data, size_t size,
    {
       //light tx deserialization, just figure out the offset and size of
       //txins and txouts
-      vector<size_t> offsetIns, offsetOuts, offsetsWitness;
-      auto txSize = BtcUtils::TxCalcLength(
-         brr.getCurrPtr(), brr.getSizeRemaining(),
-         &offsetIns, &offsetOuts, &offsetsWitness);
-
-      //create BCTX object and fill it up
-      shared_ptr<BCTX> tx = make_shared<BCTX>(brr.getCurrPtr(), txSize);
-      tx->version_ = READ_UINT32_LE(brr.getCurrPtr());
-
-      // Check the marker and flag for witness transaction
-      auto brrPtr = brr.getCurrPtr() + 4;
-      auto marker = (const uint16_t*)brrPtr;
-      if (*marker == 0x0100)
-         tx->usesWitness_ = true;
-
-      //first tx in block is always the coinbase
-      if (i == 0)
-         tx->isCoinbase_ = true;
-
-      //convert offsets to offset + size pairs
-      for (int y = 0; y < offsetIns.size() - 1; y++)
-         tx->txins_.push_back(
-         make_pair(
-         offsetIns[y],
-         offsetIns[y + 1] - offsetIns[y]));
-
-      for (int y = 0; y < offsetOuts.size() - 1; y++)
-         tx->txouts_.push_back(
-         make_pair(
-         offsetOuts[y],
-         offsetOuts[y + 1] - offsetOuts[y]));
-
-      if (tx->usesWitness_)
-      {
-         for (int y = 0; y < offsetsWitness.size() - 1; y++)
-            tx->witnesses_.push_back(
-            make_pair(
-            offsetsWitness[y],
-            offsetsWitness[y + 1] - offsetsWitness[y]));
-      }
-
-      tx->lockTime_ = READ_UINT32_LE(brr.getCurrPtr() + offsetsWitness.back());
+      auto tx = BCTX::parse(brr);
+      brr.advance(tx->size_);
 
       //move it to BlockData object vector
       txns_.push_back(move(tx));
-
-      //increment ptr offset
-      brr.advance(txSize);
    }
 
    data_ = data;

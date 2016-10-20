@@ -8,6 +8,7 @@
 
 #include "Signer.h"
 #include "Script.h"
+#include "Transactions.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -16,10 +17,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 BinaryDataRef ScriptSpender::getOutputScript(void) const
 {
-   BinaryRefReader brr(utxo_.script_.getRef());
-   brr.advance(8);
-   auto scriptSize = brr.get_var_int();
-   return brr.get_BinaryDataRef(scriptSize);
+   return utxo_.getScript();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -40,19 +38,32 @@ BinaryDataRef ScriptSpender::getOutpoint() const
 ////////////////////////////////////////////////////////////////////////////////
 BinaryDataRef ScriptSpender::getSerializedScript() const
 {
+   if (!resolved_)
+      throw runtime_error("unresolved stack");
+
    BinaryWriter bw;
+   bw.put_BinaryData(utxo_.getTxHash());
+   bw.put_uint32_t(utxo_.getTxOutIndex());
+
+   BinaryWriter stackItems;
    for (auto& stackItem : stackItems_)
    {
-      bw.put_var_int(stackItem.getSize());
-      bw.put_BinaryData(stackItem);
+      //TODO: use push data opcodes instead of varint
+      stackItems.put_BinaryData(BtcUtils::getPushDataHeader(stackItem));
+      stackItems.put_BinaryData(stackItem);
    }
 
-   return bw.getData();
+   bw.put_var_int(stackItems.getSize());
+   bw.put_BinaryData(stackItems.getData());
+   bw.put_uint32_t(sequence_);
+
+   serializedScript_ = move(bw.getData());
+   return serializedScript_.getRef();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-//// SegWitSigner
+//// Signer
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 BinaryDataRef Signer::getSerializedOutputScripts(void) const
@@ -262,6 +273,34 @@ shared_ptr<SigHashData> Signer::getSigHashDataForSpender(unsigned index) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+bool Signer::verify(void)
+{
+   //serialize signed tx
+   auto txdata = serialize();
+   auto bctx = BCTX::parse(txdata);
+
+   map<BinaryData, map<unsigned, UTXO>> utxoMap;
+
+   //gather utxos and spender flags
+   unsigned flags = 0;
+   for (auto& spender : spenders_)
+   {
+      auto& indexMap = utxoMap[spender->getOutputHash()];
+      indexMap[spender->getOutputIndex()] = spender->getUtxo();
+      
+      flags |= spender->getFlags();
+   }
+
+   //setup verifier
+   TransactionVerifier tsv(*bctx, utxoMap);
+   auto tsvFlags = tsv.getFlags();
+   tsvFlags |= flags;
+   tsv.setFlags(tsvFlags);
+
+   return tsv.verify();
+}
+
+////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 //// SignerProxy
 ////////////////////////////////////////////////////////////////////////////////
@@ -281,7 +320,15 @@ SignerProxyFromSigner::SignerProxyFromSigner(
       auto&& privKey = spender->getFeed()->getPrivKeyForPubkey(pubkey);
 
       //sign
-      return signer->sign(privKey, SHD, index);
+      auto&& sig = signer->sign(privKey, SHD, index);
+
+      //convert to DER
+      auto&& derSig = BtcUtils::rsToDerSig(sig.getRef());
+
+      //append sighash byte
+      derSig.append(spender->getSigHashByte());
+
+      return SecureBinaryData(derSig);
    };
 
    signerLambda_ = signerLBD;

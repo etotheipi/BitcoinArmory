@@ -41,9 +41,14 @@ enum SpendScriptType
 class ScriptSpender
 {
 private:
-   bool signed_ = false;
+   bool resolved_ = false;
+   
+   bool isP2SH_ = false;
+   bool isSegWit_ = false;
 
-   const SpendScriptType type_;
+   bool isCSV_ = false;
+   bool isCLTV_ = false;
+
    const UTXO utxo_;
    unsigned sequence_ = UINT32_MAX;
    SIGHASH_TYPE sigHashType_ = SIGHASH_ALL;
@@ -53,25 +58,24 @@ private:
 
    //
    vector<BinaryData> stackItems_;
-   SecureBinaryData signature_;
    shared_ptr<ResolverFeed> resolverFeed_;
-
-private:
-   virtual void serialize(void) const = 0;
+   mutable BinaryData serializedScript_;
 
 public:
-   ScriptSpender(SpendScriptType sst, const UTXO& utxo,
-      shared_ptr<ResolverFeed> feed) :
-      type_(sst), utxo_(utxo), resolverFeed_(feed)
+   ScriptSpender(const UTXO& utxo, shared_ptr<ResolverFeed> feed) :
+      utxo_(utxo), resolverFeed_(feed)
    {}
 
    bool isSegWit(void) const { return false; }
 
    //set
    void setSigHashType(SIGHASH_TYPE sht) { sigHashType_ = sht; }
-   void setSignature(SecureBinaryData& sig) { signature_ = move(sig); }
    void setSequence(unsigned s) { sequence_ = s; }
-   void setStack(vector<BinaryData> stack) { stackItems_ = move(stack); }
+   void setStack(vector<BinaryData> stack) 
+   { 
+      stackItems_ = move(stack); 
+      resolved_ = true;
+   }
 
    //get
    SIGHASH_TYPE getSigHashType(void) const { return sigHashType_; }
@@ -83,8 +87,43 @@ public:
    BinaryDataRef getOutpoint(void) const;
    uint64_t getValue(void) const { return utxo_.getValue(); }
    shared_ptr<ResolverFeed> getFeed(void) const { return resolverFeed_; }
+   const UTXO& getUtxo(void) const { return utxo_; }
+
+   unsigned getFlags(void) const
+   {
+      unsigned flags = 0;
+      if (isP2SH_)
+         flags |= SCRIPT_VERIFY_P2SH;
+
+      if (isSegWit_)
+         flags |= SCRIPT_VERIFY_SEGWIT & SCRIPT_VERIFY_P2SH_SHA256;
+
+      if (isCSV_)
+         flags |= SCRIPT_VERIFY_CHECKSEQUENCEVERIFY;
+
+      if (isCLTV_)
+         flags |= SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY;
+
+      return flags;
+   }
 
    BinaryDataRef getSerializedScript(void) const;
+
+   uint8_t getSigHashByte(void) const
+   {
+      uint8_t hashbyte;
+      switch (sigHashType_)
+      {
+      case SIGHASH_ALL:
+         hashbyte = 1;
+         break;
+
+      default:
+         throw ScriptException("unsupported sighash type");
+      }
+
+      return hashbyte;
+   }
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -118,7 +157,7 @@ class Recipient_P2PKH : public ScriptRecipient
 {
    const BinaryData address160_;
 public:
-   Recipient_P2PKH(BinaryData& a160, uint64_t val) :
+   Recipient_P2PKH(const BinaryData& a160, uint64_t val) :
       ScriptRecipient(SST_P2PKH, val), address160_(a160)
    {
       if (address160_.getSize() != 20)
@@ -144,6 +183,8 @@ public:
 ////////////////////////////////////////////////////////////////////////////////
 class Signer : public TransactionStub
 {
+   friend class SignerProxyFromSigner;
+
 protected:
    unsigned version_ = 1;
    unsigned lockTime_ = 0;
@@ -157,15 +198,20 @@ protected:
    mutable bool isSegWit_ = false;
 
 protected:
+   shared_ptr<SigHashData> getSigHashDataForSpender(unsigned) const;
+   SecureBinaryData sign(const SecureBinaryData& privKey, shared_ptr<SigHashData>,
+      unsigned index);
 
 public:
-  
-   void addSpender(shared_ptr<ScriptSpender>);
-   void addRecipient(shared_ptr<ScriptRecipient>);
+   void addSpender(shared_ptr<ScriptSpender> spender) 
+   { spenders_.push_back(spender); }
+   
+   void addRecipient(shared_ptr<ScriptRecipient> recipient) 
+   { recipients_.push_back(recipient); }
 
-   virtual void sign(void);
-   virtual BinaryDataRef serialize(void) const;
-   virtual bool verify(void) {}
+   void sign(void);
+   BinaryDataRef serialize(void) const;
+   bool verify(void);
 
    ////
    BinaryDataRef getSerializedOutputScripts(void) const;
@@ -184,11 +230,6 @@ public:
    BinaryDataRef getOutpoint(unsigned) const;
    uint64_t getOutpointValue(unsigned) const;
    unsigned getTxInSequence(unsigned) const;
-   
-   SecureBinaryData sign(const SecureBinaryData& privKey, shared_ptr<SigHashData>,
-      unsigned index);
-
-   shared_ptr<SigHashData> getSigHashDataForSpender(unsigned) const;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

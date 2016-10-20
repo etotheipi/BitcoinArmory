@@ -66,6 +66,10 @@ struct BCTX
       data_(data), size_(size)
    {}
 
+   BCTX(const BinaryDataRef& bdr) :
+      data_(bdr.getPtr()), size_(bdr.getSize())
+   {}
+
    const BinaryData& getHash(void) const
    {
       if(txHash_.getSize() == 0)
@@ -123,6 +127,70 @@ struct BCTX
 
       return BinaryDataRef(data_ + (*txoutIter).first,
          (*txoutIter).second);
+   }
+
+   static shared_ptr<BCTX> parse(
+      BinaryRefReader brr, unsigned id = UINT32_MAX)
+   {
+      return parse(brr.getCurrPtr(), brr.getSizeRemaining(), id);
+   }
+
+   static shared_ptr<BCTX> parse(
+      const uint8_t* data, size_t len, unsigned id=UINT32_MAX)
+   {
+      vector<size_t> offsetIns, offsetOuts, offsetsWitness;
+      auto txlen = BtcUtils::TxCalcLength(
+         data, len,
+         &offsetIns, &offsetOuts, &offsetsWitness);
+
+      auto txPtr = make_shared<BCTX>(data, txlen);
+
+      //create BCTX object and fill it up
+      txPtr->version_ = READ_UINT32_LE(data);
+
+      // Check the marker and flag for witness transaction
+      auto brrPtr = data + 4;
+      auto marker = (const uint16_t*)brrPtr;
+      if (*marker == 0x0100)
+         txPtr->usesWitness_ = true;
+
+      //convert offsets to offset + size pairs
+      for (int y = 0; y < offsetIns.size() - 1; y++)
+         txPtr->txins_.push_back(
+         make_pair(
+         offsetIns[y],
+         offsetIns[y + 1] - offsetIns[y]));
+
+      for (int y = 0; y < offsetOuts.size() - 1; y++)
+         txPtr->txouts_.push_back(
+         make_pair(
+         offsetOuts[y],
+         offsetOuts[y + 1] - offsetOuts[y]));
+
+      if (txPtr->usesWitness_)
+      {
+         for (int y = 0; y < offsetsWitness.size() - 1; y++)
+            txPtr->witnesses_.push_back(
+            make_pair(
+            offsetsWitness[y],
+            offsetsWitness[y + 1] - offsetsWitness[y]));
+      }
+
+      txPtr->lockTime_ = READ_UINT32_LE(data + offsetsWitness.back());
+
+      if (id != UINT32_MAX)
+      {
+         txPtr->isCoinbase_ = (id == 0);
+      }
+      else if (txPtr->txins_.size() == 1)
+      {
+         auto txinref = txPtr->getTxInRef(0);
+         auto bdr = txinref.getSliceRef(0, 32);
+         if (bdr == BtcUtils::EmptyHash_)
+            txPtr->isCoinbase_ = true;
+      }
+
+      return txPtr;
    }
 };
 

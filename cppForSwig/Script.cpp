@@ -899,8 +899,8 @@ void StackResolver::resolveStack(shared_ptr<ResolverFeed> feedPtr,
 
       //resolve the stack item value by reverting the effect of the opcodes 
       //it goes through
-      auto opcodeIter = stackItem->opcodes_.rbegin();
-      while (opcodeIter != stackItem->opcodes_.rend())
+      auto opcodeIter = stackItem->opcodes_.begin();
+      while (opcodeIter != stackItem->opcodes_.end())
       {
          auto opcodePtr = *opcodeIter++;
          switch (opcodePtr->opcode_)
@@ -909,31 +909,50 @@ void StackResolver::resolveStack(shared_ptr<ResolverFeed> feedPtr,
          case OP_EQUAL:
          case OP_EQUALVERIFY:
          {
+            //TODO: use something safer than a C style cast
             auto opcodeExPtr = (ExtendedOpCode*)opcodePtr.get();
-            if (opcodeExPtr == nullptr)
-               throw ScriptException(
-                  "expected extentded op code entry for op_equal resolution");
-
             if (opcodeExPtr->referenceStackItemVec_.size() != 1)
                throw ScriptException(
                   "invalid stack item reference count for op_equal resolution");
 
-            //OP_EQUAL style operations ignore the later state modification of 
-            //the entry. The StackValue object is thus constructed on the fly, 
-            //regardless of its previous state
             auto& stackItemRefPtr = opcodeExPtr->referenceStackItemVec_[0];
 
-            if (stackItemRefPtr->static_)
+            if (stackItem->resolvedValue_ == nullptr)
             {
-               //references a static item, just copy the value
-               stackItem->resolvedValue_ = 
-                  make_shared<StackValueStatic>(stackItemRefPtr->staticData_);
+               if (stackItemRefPtr->static_)
+               {
+                  //references a static item, just copy the value
+                  stackItem->resolvedValue_ =
+                     make_shared<StackValueStatic>(stackItemRefPtr->staticData_);
+               }
+               else
+               {
+                  //references a dynamic item, point to it
+                  stackItem->resolvedValue_ =
+                     make_shared<StackValueReference>(stackItemRefPtr);
+               }
             }
             else
             {
-               //references a dynamic item, point to it
-               stackItem->resolvedValue_ =
-                  make_shared<StackValueReference>(stackItemRefPtr);
+               auto vrPtr = dynamic_pointer_cast<StackValueReference>(
+                  stackItem->resolvedValue_);
+               if (vrPtr != nullptr)
+               {
+                  vrPtr->valueReference_ = stackItemRefPtr;
+                  break;
+               }
+
+               auto ffPtr = dynamic_pointer_cast<StackValueFromFeed>(
+                  stackItem->resolvedValue_);
+               if (ffPtr != nullptr)
+               {
+                  if (!stackItemRefPtr->static_)
+                     throw ScriptException("unexpected StackValue type in op_equal");
+                  ffPtr->requestString_ = stackItemRefPtr->staticData_;
+                  break;
+               }
+
+               throw ScriptException("unexpected StackValue type in op_equal");
             }
 
             break;
@@ -944,17 +963,20 @@ void StackResolver::resolveStack(shared_ptr<ResolverFeed> feedPtr,
          case OP_RIPEMD160:
          case OP_SHA256:
          {
-            //these opcodes only have an effect if the entry is 
-            //pegged to static value through a later op_2items operation
-            if (stackItem->resolvedValue_->type() == StackValue_Static)
+            auto stackItemValPtr =
+               dynamic_pointer_cast<StackValueStatic>(
+               stackItem->resolvedValue_);
+            if (stackItemValPtr != nullptr)
             {
-               auto stackItemValPtr = 
-                  dynamic_pointer_cast<StackValueStatic>(
-                  stackItem->resolvedValue_);
-              
-               stackItem->resolvedValue_ = 
+               stackItem->resolvedValue_ =
                   make_shared<StackValueFromFeed>(
                   stackItemValPtr->value_);
+            }
+            else
+            {
+               stackItem->resolvedValue_ =
+                  make_shared<StackValueFromFeed>(
+                  BinaryData());
             }
 
             break;
@@ -966,10 +988,10 @@ void StackResolver::resolveStack(shared_ptr<ResolverFeed> feedPtr,
             auto opcodeExPtr = (ExtendedOpCode*)opcodePtr.get();
             if (opcodeExPtr == nullptr)
                throw ScriptException(
-               "expected extentded op code entry for op_equal resolution");
+               "expected extended op code entry for op_equal resolution");
 
             //second item of checksigs are pubkeys, skip
-            if (opcodeExPtr->offset_ == 2)
+            if (opcodeExPtr->itemIndex_ == 2)
                break;
 
             if (opcodeExPtr->referenceStackItemVec_.size() != 1)
@@ -1008,7 +1030,7 @@ void StackResolver::resolveStack(shared_ptr<ResolverFeed> feedPtr,
             stackItem->resolvedValue_);
 
          auto&& pubkey = resolveReferenceValue(ref->pubkeyRef_);
-         ref->sig_ = signer->sign(pubkey);
+         ref->sig_ = move(signer->sign(pubkey));
          break;
       }
 
@@ -1079,7 +1101,7 @@ vector<BinaryData> StackResolver::getResolvedStack(
          auto val = dynamic_pointer_cast<StackValueSig>(
             stackItem->resolvedValue_);
 
-         resolvedStack.push_back(move(val->sig_));
+         resolvedStack.push_back(val->sig_);
          break;
       }
 

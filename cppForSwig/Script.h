@@ -842,7 +842,7 @@ struct StackValueReference : public StackValue
 ////
 struct StackValueFromFeed : public StackValue
 {
-   const BinaryData requestString_;
+   BinaryData requestString_;
    BinaryData value_;
 
    StackValueFromFeed(const BinaryData& bd) :
@@ -887,23 +887,16 @@ public:
       static_(true), staticData_(data)
    {}
 
-   bool push_opcode(const OpCode& oc)
-   {
-      if (static_ && parent_ == nullptr)
-         return false;
-
-      auto ocPtr = make_shared<OpCode>(oc);
-      push_opcode(ocPtr);
-      return true;
-   }
-
    bool push_opcode(shared_ptr<OpCode> ocptr)
    {
       if (static_ && parent_ == nullptr)
          return false;
 
       if (parent_ != nullptr)
-         return parent_->push_opcode(ocptr);
+      {
+         parent_->push_opcode(ocptr);
+         return false;
+      }
 
       opcodes_.push_back(ocptr);
       return true;
@@ -978,9 +971,14 @@ private:
 
    void op_1item(const OpCode& oc)
    {
-      auto item1 = pop_back();
-      if (item1->push_opcode(oc))
-         stack_.push_back(item1);
+      /***op_1item always preserves the item. 1 item operations only modify
+      the existing item, they do not establish a relationship between several 
+      items, such operations should not reduce the stack depth.
+      ***/
+
+      auto ocPtr = make_shared<OpCode>(oc);
+      auto item1 = getTopStackEntryPtr();
+      item1->push_opcode(ocPtr);
       
       push_int(1);
    }
@@ -993,21 +991,32 @@ private:
 
    void op_2items(const OpCode& oc)
    {
+      /***
+      op_2items will always link 2 items. static items and references 
+      are culled.
+      ***/
+
       auto item2 = pop_back();
       auto item1 = pop_back();
 
-      ExtendedOpCode eoc1(oc);
-      eoc1.itemIndex_ = 1;
-      eoc1.referenceStackItemVec_.push_back(item2);
-      if(item1->push_opcode(eoc1))
-         stack_.push_back(item1);
+      if (item1->parent_ != item2)
+      {
+         auto eoc1 = make_shared<ExtendedOpCode>(oc);
+         eoc1->itemIndex_ = 1;
+         eoc1->referenceStackItemVec_.push_back(item2);
+         if (item1->push_opcode(eoc1))
+            stack_.push_back(item1);
+      }
 
-      ExtendedOpCode eoc2(oc);
-      eoc2.itemIndex_ = 2;
-      eoc2.referenceStackItemVec_.push_back(item1);
-      if(item2->push_opcode(eoc2))
-         stack_.push_back(item2);
-      
+      if (item2->parent_ != item1)
+      {
+         auto eoc2 = make_shared<ExtendedOpCode>(oc);
+         eoc2->itemIndex_ = 2;
+         eoc2->referenceStackItemVec_.push_back(item1);
+         if (item2->push_opcode(eoc2))
+            stack_.push_back(item2);
+      }
+
       push_int(1);
    }
 

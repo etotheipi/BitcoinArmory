@@ -39,7 +39,8 @@
 #include "../txio.h"
 #include "../bdmenums.h"
 #include "../SwigClient.h"
-
+#include "../Script.h"
+#include "../Signer.h"
 
 
 
@@ -357,6 +358,18 @@ void pushNewZc(BlockDataManagerThread* bdmt, const ZcVector& zcVec)
 
    newzcstruct.setData(move(newzcmap));
    zcConf->newZcStack_.push_back(move(newzcstruct));
+}
+
+pair<BinaryData, BinaryData> getAddrAndPubKeyFromPrivKey(BinaryData privKey)
+{
+   auto&& pubkey = CryptoECDSA().ComputePublicKey(privKey);
+   auto&& h160 = BtcUtils::getHash160(pubkey);
+
+   pair<BinaryData, BinaryData> result;
+   result.second = pubkey;
+   result.first = h160;
+
+   return result;
 }
 
 
@@ -5513,7 +5526,6 @@ TEST_F(TxRefTest, TxRefKeyParts)
    EXPECT_EQ(txr.getBlockTxIndex(), 15);
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -5622,6 +5634,32 @@ protected:
    BinaryData LB2ID;
 };
 
+
+////////////////////////////////////////////////////////////////////////////////
+struct TestResolverFeed : public ResolverFeed
+{
+   map<BinaryData, BinaryData> h160ToPubKey_;
+   map<BinaryData, SecureBinaryData> pubKeyToPrivKey_;
+
+   BinaryData getByVal(const BinaryData& val)
+   {
+      auto iter = h160ToPubKey_.find(val);
+      if (iter == h160ToPubKey_.end())
+         throw runtime_error("invalid value");
+
+      return iter->second;
+   }
+
+   SecureBinaryData getPrivKeyForPubkey(const BinaryData& pubkey)
+   {
+      auto iter = pubKeyToPrivKey_.find(pubkey);
+      if (iter == pubKeyToPrivKey_.end())
+         throw runtime_error("invalid pubkey");
+
+      return iter->second;
+   }
+};
+
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(TransactionsTest, CheckChain)
 {
@@ -5645,6 +5683,105 @@ TEST_F(TransactionsTest, CheckChain)
    }
 
    EXPECT_EQ(bdm.getCheckedTxCount(), 20);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(TransactionsTest, Signer)
+{
+   setBlocks({ "0", "1", "2" }, blk0dat_);
+
+   initBDM();
+
+   theBDMt_->start(config.initMode_);
+   auto&& bdvID = registerBDV(clients_, magic_);
+
+   vector<BinaryData> scrAddrVec;
+   scrAddrVec.push_back(TestChain::scrAddrA);
+   scrAddrVec.push_back(TestChain::scrAddrB);
+   scrAddrVec.push_back(TestChain::scrAddrC);
+   scrAddrVec.push_back(TestChain::scrAddrD);
+   scrAddrVec.push_back(TestChain::scrAddrE);
+
+   const vector<BinaryData> lb1ScrAddrs
+   {
+      TestChain::lb1ScrAddr,
+      TestChain::lb1ScrAddrP2SH
+   };
+   const vector<BinaryData> lb2ScrAddrs
+   {
+      TestChain::lb2ScrAddr,
+      TestChain::lb2ScrAddrP2SH
+   };
+
+   regWallet(clients_, bdvID, scrAddrVec, "wallet1");
+   regLockbox(clients_, bdvID, lb1ScrAddrs, TestChain::lb1B58ID);
+   regLockbox(clients_, bdvID, lb2ScrAddrs, TestChain::lb2B58ID);
+
+   auto bdvPtr = getBDV(clients_, bdvID);
+
+   //wait on signals
+   goOnline(clients_, bdvID);
+   waitOnBDMReady(clients_, bdvID);
+   auto wlt = bdvPtr->getWalletOrLockbox(wallet1id);
+   auto wltLB1 = bdvPtr->getWalletOrLockbox(LB1ID);
+   auto wltLB2 = bdvPtr->getWalletOrLockbox(LB2ID);
+
+   //// spend 2 from wlt to scrAddrF, rest back to scrAddrA ////
+   auto spendVal = 2 * COIN;
+   Signer signer;
+
+   //instantiate resolver feed overloaded object
+   auto feed = make_shared<TestResolverFeed>();
+
+   auto addToFeed = [feed](const BinaryData& key)->void
+   {
+      auto&& datapair = getAddrAndPubKeyFromPrivKey(key);
+      feed->h160ToPubKey_.insert(datapair);
+      feed->pubKeyToPrivKey_[datapair.second] = key;
+   };
+
+   addToFeed(TestChain::privKeyAddrA);
+   addToFeed(TestChain::privKeyAddrB);
+   addToFeed(TestChain::privKeyAddrC);
+   addToFeed(TestChain::privKeyAddrD);
+   addToFeed(TestChain::privKeyAddrE);
+
+   //get utxo list for spend value
+   auto&& unspentVec = wlt->getSpendableTxOutListForValue(spendVal);
+
+   //create script spender objects
+   auto getSpenderPtr = [feed](
+      const UnspentTxOut& utxo)->shared_ptr<ScriptSpender>
+   {
+      UTXO entry(utxo.value_, utxo.txHeight_, utxo.txIndex_, utxo.txOutIndex_,
+         move(utxo.txHash_), move(utxo.script_));
+
+      return make_shared<ScriptSpender>(entry, feed);
+   };
+
+   uint64_t total = 0;
+   for (auto& utxo : unspentVec)
+   {
+      total += utxo.getValue();
+      signer.addSpender(getSpenderPtr(utxo));
+   }
+
+   //add spend to addr F, use P2PKH
+   auto recipientF = make_shared<Recipient_P2PKH>(
+      TestChain::scrAddrF.getSliceCopy(1, 20), spendVal);
+   signer.addRecipient(recipientF);
+   
+   if (total > spendVal)
+   {
+      //deal with change, no fee
+      auto changeVal = total - spendVal;
+      auto recipientA = make_shared<Recipient_P2PKH>(
+         TestChain::scrAddrA.getSliceCopy(1, 20), changeVal);
+      signer.addRecipient(recipientA);
+   }
+
+   signer.sign();
+   EXPECT_TRUE(signer.verify());
 }
 
 
