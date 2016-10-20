@@ -167,7 +167,7 @@ uint64_t BtcWallet::getFullBalanceFromDB() const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-map<BinaryData, uint32_t> BtcWallet::getAddrTxnCounts(uint32_t updateID) const
+map<BinaryData, uint32_t> BtcWallet::getAddrTxnCounts(int32_t updateID) const
 {
    map<BinaryData, uint32_t> countMap;
 
@@ -191,7 +191,7 @@ map<BinaryData, uint32_t> BtcWallet::getAddrTxnCounts(uint32_t updateID) const
 
 ////////////////////////////////////////////////////////////////////////////////
 map<BinaryData, tuple<uint64_t, uint64_t, uint64_t>> 
-   BtcWallet::getAddrBalances(uint32_t updateID) const
+   BtcWallet::getAddrBalances(int32_t updateID) const
 {
    //TODO: pass ZC filtering choice from bdmConfig
 
@@ -495,7 +495,7 @@ void BtcWallet::updateAfterReorg(uint32_t lastValidBlockHeight)
 
 ////////////////////////////////////////////////////////////////////////////////
 void BtcWallet::scanWalletZeroConf(const ScanWalletStruct& scanInfo,
-   uint32_t updateID)
+   int32_t updateID)
 {
    /***
    Scanning ZC will update the scrAddr ledger with the ZC txio. Ledgers require
@@ -529,7 +529,7 @@ void BtcWallet::scanWalletZeroConf(const ScanWalletStruct& scanInfo,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-bool BtcWallet::scanWallet(ScanWalletStruct& scanInfo, uint32_t updateID)
+bool BtcWallet::scanWallet(ScanWalletStruct& scanInfo, int32_t updateID)
 {
    if (scanInfo.action_ != BDV_ZC)
    {

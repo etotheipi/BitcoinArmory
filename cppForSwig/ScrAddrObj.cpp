@@ -117,7 +117,7 @@ void ScrAddrObj::updateTxIOMap(map<BinaryData, TxIOPair>& txio_map)
 
 ////////////////////////////////////////////////////////////////////////////////
 void ScrAddrObj::scanZC(const ScanAddressStruct& scanInfo,
-   function<bool(const BinaryDataRef)> isZcFromWallet, uint32_t updateID)
+   function<bool(const BinaryDataRef)> isZcFromWallet, int32_t updateID)
 {
    //Dont use a reference for this loop. We check and set the isFromSelf flag
    //in this operation, which is based on the wallet this scrAddr belongs to.
@@ -326,7 +326,7 @@ uint64_t ScrAddrObj::getTxioCountFromSSH(void) const
 
 ////////////////////////////////////////////////////////////////////////////////
 void ScrAddrObj::fetchDBScrAddrData(uint32_t startBlock,
-   uint32_t endBlock, uint32_t updateID)
+   uint32_t endBlock, int32_t updateID)
 {
    //maintains first page worth of TxIO in RAM. This call purges ZC, so you 
    //should rescan ZC right after

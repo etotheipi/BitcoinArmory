@@ -169,7 +169,7 @@ class BlockDataManager(object):
       if ARMORYDB_IP != ARMORYDB_DEFAULT_IP or ARMORYDB_PORT != ARMORYDB_DEFAULT_PORT:
          socketType = Cpp.SocketHttp 
          self.remoteDB = True
-         
+
       self.bdv_ = Cpp.BlockDataViewer_getNewBDV(ARMORYDB_IP, ARMORYDB_PORT, socketType)   
 
    #############################################################################

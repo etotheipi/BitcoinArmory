@@ -11,8 +11,6 @@
 
 #include <string>
 
-#define DEFAULT_FCGI_PORT 9001
-
 class DbErrorMsg
 {
    const std::string err_;

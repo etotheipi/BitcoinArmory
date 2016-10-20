@@ -322,7 +322,7 @@ namespace std
 		while(vectorIter != vectorObj.end())
 		{
 			PyObject* pyIntObj =
-				PyInt_FromLong(*vectorIter);
+				PyInt_FromSize_t(*vectorIter);
 
 			PyList_SET_ITEM(thisList, i, pyIntObj);
 

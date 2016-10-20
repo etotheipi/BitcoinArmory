@@ -59,7 +59,6 @@
 
 #define NUM_BLKS_IS_DIRTY 2016
 
-
 using namespace std;
 
 class BlockDataManager;
