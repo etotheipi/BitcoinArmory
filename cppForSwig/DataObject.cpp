@@ -20,8 +20,9 @@ void ErrorType::serialize(BinaryWriter& bw) const
 ///////////////////////////////////////////////////////////////////////////////
 ErrorType ErrorType::deserialize(BinaryRefReader& brr)
 {
-   if (brr.get_uint8_t() != ERRTYPE_CODE)
-      throw runtime_error("unexpected type");
+   auto type_code = brr.get_uint8_t();
+   if (type_code != ERRTYPE_CODE)
+      BtcUtils::throw_type_error(ERRTYPE_CODE, type_code);
 
    auto size = brr.get_var_int();
    if (size > brr.getSizeRemaining())
@@ -66,8 +67,9 @@ LedgerEntryVector LedgerEntryVector::deserialize(BinaryRefReader& brr)
 {
    LedgerEntryVector lev;
 
-   if (brr.get_uint8_t() != LEDGERENTRYVECTOR_CODE)
-      throw runtime_error("unexpected type");
+   auto type_code = brr.get_uint8_t();
+   if (type_code != LEDGERENTRYVECTOR_CODE)
+      BtcUtils::throw_type_error(LEDGERENTRYVECTOR_CODE, type_code);
 
 
    auto count = brr.get_var_int();
@@ -120,8 +122,9 @@ void BinaryDataObject::serialize(BinaryWriter& bw) const
 ///////////////////////////////////////////////////////////////////////////////
 BinaryDataObject BinaryDataObject::deserialize(BinaryRefReader& brr)
 {
-   if (brr.get_uint8_t() != BINARYDATAOBJECT_CODE)
-      throw runtime_error("unexpected type");
+   auto type_code = brr.get_uint8_t();
+   if (type_code != BINARYDATAOBJECT_CODE)
+      BtcUtils::throw_type_error(BINARYDATAOBJECT_CODE, type_code);
 
    auto size = brr.get_var_int();
    if (size > brr.getSizeRemaining())
@@ -151,8 +154,9 @@ void BinaryDataVector::serialize(BinaryWriter& bw) const
 ///////////////////////////////////////////////////////////////////////////////
 BinaryDataVector BinaryDataVector::deserialize(BinaryRefReader& brr)
 {
-   if (brr.get_uint8_t() != BINARYDATAVECTOR_CODE)
-      throw runtime_error("unexpected type");
+   auto type_code = brr.get_uint8_t();
+   if (type_code != BINARYDATAVECTOR_CODE)
+      BtcUtils::throw_type_error(BINARYDATAVECTOR_CODE, type_code);
 
    auto size = brr.get_var_int();
    if (size > brr.getSizeRemaining())
@@ -189,8 +193,9 @@ void ProgressData::serialize(BinaryWriter& bw) const
 ///////////////////////////////////////////////////////////////////////////////
 ProgressData ProgressData::deserialize(BinaryRefReader& brr)
 {
-   if(brr.get_var_int() != PROGRESSDATA_CODE)
-      throw runtime_error("unexpected type");
+   auto type_code = brr.get_uint8_t();
+   if (type_code != PROGRESSDATA_CODE)
+      BtcUtils::throw_type_error(PROGRESSDATA_CODE, type_code);
 
    ProgressData pd;
    pd.phase_ = (BDMPhase)brr.get_uint8_t();
@@ -211,8 +216,9 @@ void IntType::serialize(BinaryWriter& bw) const
 ///////////////////////////////////////////////////////////////////////////////
 IntType IntType::deserialize(BinaryRefReader& brr)
 {
-   if (brr.get_var_int() != INTTYPE_CODE)
-      throw runtime_error("unexpected type");
+   auto type_code = brr.get_uint8_t();
+   if (type_code != INTTYPE_CODE)
+      BtcUtils::throw_type_error(INTTYPE_CODE, type_code);
 
    return IntType(brr.get_var_int());
 }
