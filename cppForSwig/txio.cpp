@@ -240,7 +240,7 @@ bool TxIOPair::isSpendable(LMDBBlockDatabase *db, uint32_t currBlk, bool ignoreA
          return true;
    }
 
-   if (hasTxOutZC() && isTxOutFromSelf())
+   if (hasTxOutZC()/* && isTxOutFromSelf()*/)
       return !ignoreAllZeroConf;
 
    return false;

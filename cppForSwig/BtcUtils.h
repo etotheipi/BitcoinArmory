@@ -95,6 +95,7 @@ class LedgerEntryData;
 
 class BinaryData;
 class BinaryDataRef;
+class SecureBinaryData;
 
 typedef enum
 {
@@ -127,6 +128,8 @@ typedef enum
 {
   SCRIPT_PREFIX_HASH160=0x00,
   SCRIPT_PREFIX_P2SH=0x05,
+  SCRIPT_PREFIX_HASH160_TESTNET=0x6f,
+  SCRIPT_PREFIX_P2SH_TESTNET=0xc4,
   SCRIPT_PREFIX_MULTISIG=0xfe,
   SCRIPT_PREFIX_NONSTD=0xff,
 } SCRIPT_PREFIX;
@@ -2150,16 +2153,21 @@ public:
       return bw.getData();
    }
 
-   static void throw_type_error(unsigned expected, unsigned current)
-   {
-      stringstream ss;
-      ss << "ser/deser type error: " << endl;
-      ss << "expected type id: " << expected << endl;
-      ss << "got type id: " << current << " instead" << endl;
+   static BinaryData getWalletID(const SecureBinaryData& pubkey);
 
-      throw runtime_error(ss.str());
-   }
+   static BinaryData getHMAC256(
+      const SecureBinaryData& key,
+      const SecureBinaryData& message);
 
+   static BinaryData getHMAC256(
+      const BinaryData& key,
+      const string& message);
+
+   static void getHMAC256(const uint8_t* keyptr, size_t keylen,
+      const uint8_t* msg, size_t msglen, uint8_t* digest);
+
+   static SecureBinaryData computeChainCode_Armory135(
+      const SecureBinaryData& privateRoot);
 };
    
 static inline void suppressUnusedFunctionWarning()

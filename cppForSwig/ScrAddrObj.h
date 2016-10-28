@@ -163,8 +163,8 @@ private:
             if (txio.second.hasTxIn())
                continue;
 
-            if (!isFromWallet(txio.second.getDBKeyOfOutput().getSliceCopy(0, 6)))
-               continue;
+            /*if (!isFromWallet(txio.second.getDBKeyOfOutput().getSliceCopy(0, 6)))
+               continue;*/
 
             utxoList_.insert(txio);
          }

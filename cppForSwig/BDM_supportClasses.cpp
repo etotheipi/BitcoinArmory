@@ -1251,9 +1251,11 @@ ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
 
    auto insertNewZc = [&bulkData](BinaryData sa,
       BinaryData txiokey, TxIOPair txio,
-      set<string> flaggedBDVs)->void
+      set<string> flaggedBDVs, bool consumesTxOut)->void
    {
-      bulkData.txOutsSpentByZC_.insert(txiokey);
+      if (consumesTxOut)
+         bulkData.txOutsSpentByZC_.insert(txiokey);
+
       auto& key_txioPair = bulkData.scrAddrTxioMap_[sa];
 
       if (key_txioPair == nullptr)
@@ -1320,7 +1322,7 @@ ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
 
          auto&& txioKey = txio.getDBKeyOfOutput();
          insertNewZc(spentSA, move(txioKey), move(txio), 
-            move(flaggedBDVs.second));
+            move(flaggedBDVs.second), true);
 
          auto& updateSet = keytospendsaUpdate[ZCkey];
 
@@ -1367,7 +1369,8 @@ ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
                txio.setTxTime(txtime);
                txio.setRBF(isRBF);
 
-               insertNewZc(sa, move(opKey), move(txio), move(flaggedBDVs.second));
+               insertNewZc(
+                  sa, move(opKey), move(txio), move(flaggedBDVs.second), true);
 
                auto& updateSet = keytospendsaUpdate[ZCkey];
 
@@ -1403,7 +1406,7 @@ ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
 
          auto&& txioKey = txio.getDBKeyOfOutput();
          insertNewZc(move(scrAddr), move(txioKey), 
-            move(txio), move(flaggedBDVs.second));
+            move(txio), move(flaggedBDVs.second), false);
       }
    }
 

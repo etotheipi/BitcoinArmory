@@ -7,11 +7,16 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "BtcUtils.h"
+#include "hmac.h"
+#include "sha.h"
+#include "EncryptionUtils.h"
+
 
 const BinaryData BtcUtils::BadAddress_ = BinaryData::CreateFromHex("0000000000000000000000000000000000000000");
 const BinaryData BtcUtils::EmptyHash_  = BinaryData::CreateFromHex("0000000000000000000000000000000000000000000000000000000000000000");
 const string BtcUtils::base58Chars_ = string("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz");
 
+////////////////////////////////////////////////////////////////////////////////
 const map<char, uint8_t> BtcUtils::base58Vals_ = {
    { '1', 0 }, { '2', 1 }, { '3', 2 }, { '4', 3 }, { '5', 4 }, { '6', 5 },
    { '7', 6 }, { '8', 7 }, { '9', 8 }, { 'A', 9 }, { 'B', 10 }, { 'C', 11 },
@@ -25,3 +30,69 @@ const map<char, uint8_t> BtcUtils::base58Vals_ = {
    { 'w', 54 }, { 'x', 55 }, { 'y', 56 }, { 'z', 57 }
 };
 
+////////////////////////////////////////////////////////////////////////////////
+BinaryData BtcUtils::getWalletID(const SecureBinaryData& pubkey)
+{
+   BinaryDataRef bdr(pubkey);
+   auto&& h256 = getHash256(bdr);
+   auto h256_7bytes_ref = h256.getSliceRef(0, 7);
+   auto&& b58_7bytes = BtcUtils::base58_encode(h256_7bytes_ref);
+
+   return b58_7bytes;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData BtcUtils::getHMAC256(const SecureBinaryData& key,
+   const SecureBinaryData& message)
+{
+   BinaryData digest;
+   digest.resize(32);
+   
+   getHMAC256(key.getPtr(), key.getSize(), message.getPtr(), message.getSize(),
+      digest.getPtr());
+
+   return digest;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData BtcUtils::getHMAC256(const BinaryData& key,
+   const string& message)
+{
+   BinaryData digest;
+   digest.resize(32);
+   
+   getHMAC256(key.getPtr(), key.getSize(), 
+      (const uint8_t*)message.c_str(), message.size(),
+      digest.getPtr());
+
+   return digest;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+void BtcUtils::getHMAC256(const uint8_t* keyptr, size_t keylen,
+   const uint8_t* msgptr, size_t msglen, uint8_t* digest)
+{
+   CryptoPP::HMAC<CryptoPP::SHA256> hmac(keyptr, keylen);
+   hmac.CalculateDigest(digest, msgptr, msglen);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+SecureBinaryData BtcUtils::computeChainCode_Armory135(
+   const SecureBinaryData& privateRoot)
+{
+   /*
+   Armory 1.35c defines the chaincode as HMAC<SHA256> with:
+   key: double SHA256 of the root key
+   message: 'Derive Chaincode from Root Key'
+   */
+
+   auto&& hmacKey = BtcUtils::hash256(privateRoot);
+   string hmacMsg("Derive Chaincode from Root Key");
+   SecureBinaryData chainCode(32);
+
+   getHMAC256(hmacKey.getPtr(), hmacKey.getSize(),
+      (const uint8_t*)hmacMsg.c_str(), hmacMsg.size(), chainCode.getPtr());
+
+   return chainCode;
+}

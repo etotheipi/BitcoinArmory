@@ -21,6 +21,9 @@
 #include "BlockchainScanner.h"
 #include "DatabaseBuilder.h"
 
+uint8_t BlockDataManagerConfig::pubkeyHashPrefix_;
+uint8_t BlockDataManagerConfig::scriptHashPrefix_;
+
 static bool scanFor(std::istream &in, const uint8_t * bytes, const unsigned len)
 {
    std::vector<uint8_t> ahead(len); // the bytes matched
@@ -755,6 +758,8 @@ void BlockDataManagerConfig::selectNetwork(const string &netname)
       magicBytes_ = READHEX(MAINNET_MAGIC_BYTES);
       btcPort_ = portToString(NODE_PORT_MAINNET);
       fcgiPort_ = portToString(FCGI_PORT_MAINNET);
+      pubkeyHashPrefix_ = SCRIPT_PREFIX_HASH160;
+      scriptHashPrefix_ = SCRIPT_PREFIX_P2SH;
    }
    else if(netname == "Test")
    {
@@ -763,6 +768,8 @@ void BlockDataManagerConfig::selectNetwork(const string &netname)
       magicBytes_ = READHEX(TESTNET_MAGIC_BYTES);
       btcPort_ = portToString(NODE_PORT_TESTNET);
       fcgiPort_ = portToString(FCGI_PORT_TESTNET);
+      pubkeyHashPrefix_ = SCRIPT_PREFIX_HASH160_TESTNET;
+      scriptHashPrefix_ = SCRIPT_PREFIX_P2SH_TESTNET;
 
       testnet_ = true;
    }
@@ -773,6 +780,8 @@ void BlockDataManagerConfig::selectNetwork(const string &netname)
 	   magicBytes_ = READHEX(REGTEST_MAGIC_BYTES);
       btcPort_ = portToString(NODE_PORT_REGTEST);
       fcgiPort_ = portToString(FCGI_PORT_REGTEST);
+      pubkeyHashPrefix_ = SCRIPT_PREFIX_HASH160_TESTNET;
+      scriptHashPrefix_ = SCRIPT_PREFIX_P2SH_TESTNET;
 
       regtest_ = true;
    }

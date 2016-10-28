@@ -60,7 +60,15 @@ struct BlockDataManagerConfig
    bool reportProgress_ = true;
 
    bool checkChain_ = false;
-   
+
+   /////////////
+   static uint8_t pubkeyHashPrefix_;
+   static uint8_t scriptHashPrefix_;
+
+   /////////////
+   static uint8_t getPubkeyHashPrefix(void) { return pubkeyHashPrefix_; }
+   static uint8_t getScriptHashPrefix(void) { return scriptHashPrefix_; }
+
    /////////////
    void setGenesisBlockHash(const BinaryData &h)
    {

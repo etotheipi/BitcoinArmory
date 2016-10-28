@@ -207,7 +207,7 @@ map<BinaryData, tuple<uint64_t, uint64_t, uint64_t>>
       auto spendable = sa.second->getSpendableBalance();
       auto unconf = sa.second->getUnconfirmedBalance(true);
 
-      if (lastPulledBalancesID_ == 0)
+      if (lastPulledBalancesID_ <= 0)
       {
          if (full == 0 && spendable == 0 && unconf == 0)
             continue;
