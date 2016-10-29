@@ -401,6 +401,7 @@ void LMDBBlockDatabase::openDatabases(
    // Just in case this isn't the first time we tried to open it.
    closeDatabases();
 
+
    for (int i = 0; i < COUNT; i++)
    {
       DB_SELECT CURRDB = DB_SELECT(i);
@@ -416,6 +417,21 @@ void LMDBBlockDatabase::openDatabases(
       {
          if (armoryDbType_ != sdbi.armoryType_)
             armoryDbType_ = sdbi.armoryType_;
+      }
+   }
+ 
+   {
+      //sanity check: try to open older SDBI version
+      LMDBEnv::Transaction tx(dbEnv_[HEADERS].get(), LMDB::ReadOnly);
+      BinaryData key;
+      key.append(DB_PREFIX_DBINFO);
+      auto valueRef = getValueNoCopy(HEADERS, key.getRef());
+
+      if (valueRef.getSize() != 0)
+      {
+         //old style db, fail
+         LOGERR << "DB version mismatch. Use another dbdir!";
+         throw DbErrorMsg("DB version mismatch. Use another dbdir!");
       }
    }
 
