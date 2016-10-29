@@ -250,7 +250,7 @@ class SelectWalletFrame(ArmoryFrame):
             self.lblCoinCtrl.setText('Source: None selected')
          elif nUtxo == 1:
             utxo = self.customUtxoList[0]
-            aStr = hash160_to_addrStr(utxo.getRecipientHash160)
+            aStr = hash160_to_addrStr(utxo.getRecipientHash160())
             self.lblCoinCtrl.setText('Source: %s...' % aStr[:12])
          elif nUtxo > 1:
             self.lblCoinCtrl.setText('Source: %d Outputs' % nUtxo)
