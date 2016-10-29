@@ -1965,7 +1965,7 @@ public:
          throw range_error("empty BinaryData");
 
       unsigned zero_count = 0;
-      unsigned offset = 0;
+      int offset = 0;
       auto ptr = b58.getPtr();
       while (offset < b58.getSize())
       {
