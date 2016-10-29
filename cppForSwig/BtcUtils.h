@@ -2153,6 +2153,16 @@ public:
       return bw.getData();
    }
 
+   static void throw_type_error(unsigned expected, unsigned current)
+   {
+      stringstream ss;
+      ss << "ser/deser type error: " << endl;
+      ss << "expected type id: " << expected << endl;
+      ss << "got type id: " << current << " instead" << endl;
+
+      throw runtime_error(ss.str());
+   }
+
    static BinaryData getWalletID(const SecureBinaryData& pubkey);
 
    static BinaryData getHMAC256(

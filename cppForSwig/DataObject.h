@@ -278,6 +278,15 @@ public:
    ///////////////////////////////////////////////////////////////////////////////
    template<typename T> auto get() -> T
    {
+      //peak at rawRefReader_ first byte
+      auto objectTypePtr = rawRefReader_.getCurrPtr();
+      
+      if (*objectTypePtr == ERRTYPE_CODE)
+      {
+         auto errObj = ErrorType::deserialize(rawRefReader_);
+         throw DbErrorMsg(errObj.what());
+      }
+
       if (rawRefReader_.getSizeRemaining() == 0)
       {
          LOGERR << "exhausted entries in Arguments object";
