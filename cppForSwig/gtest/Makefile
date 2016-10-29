@@ -45,7 +45,7 @@ OBJS_UnitTests = UniversalTimer.o BinaryData.o lmdb_wrapper.o \
 	DataObject.o BitcoinP2P.o BDM_Server.o BDM_seder.o SocketObject.o \
 	fcgiapp.o os_unix.o FcgiMessage.o \
 	SwigClient.o StringSockets.o \
-	Transactions.o Script.o Signer.o \
+	Transactions.o Script.o Signer.o Wallets.o \
 	libcryptopp.a 
 
 ALL_HEADERS_FOUND=$(wildcard $(USER_DIR)/*.h)

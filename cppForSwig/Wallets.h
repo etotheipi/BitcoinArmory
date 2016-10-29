@@ -399,7 +399,7 @@ public:
       if (iter == pubkey_to_privkeyAsset_.end())
          throw runtime_error("invalid value");
 
-      auto& privkeyAsset = iter->second->getPrivKey();
+      const auto& privkeyAsset = iter->second->getPrivKey();
       return privkeyAsset->getData();
    }
 };
