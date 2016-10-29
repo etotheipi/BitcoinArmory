@@ -1980,7 +1980,7 @@ public:
       CryptoPP::Integer exponent = CryptoPP::Integer::One();
       CryptoPP::Integer five_eight(58);
       CryptoPP::Integer value = CryptoPP::Integer::Zero();
-      for (unsigned i = b58.getSize() - 1; i >= offset; i--)
+      for (int i = b58.getSize() - 1; i >= offset; i--)
       {
          auto b58Iter = base58Vals_.find(ptr[i]);
          if (b58Iter == base58Vals_.end())
