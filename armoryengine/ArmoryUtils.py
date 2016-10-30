@@ -290,7 +290,11 @@ IGNOREZC  = CLI_OPTIONS.ignoreAllZC
 
 #db address
 ARMORYDB_IP = CLI_OPTIONS.armorydb_ip
+
+usesDefaultDbPort = True
 ARMORYDB_PORT = CLI_OPTIONS.armorydb_port
+if ARMORYDB_PORT != ARMORYDB_DEFAULT_PORT:
+   usesDefaultDbPort = False
 
 ARMORY_RAM_USAGE = CLI_OPTIONS.ram_usage
 ARMORY_THREAD_COUNT = CLI_OPTIONS.thread_count
@@ -517,7 +521,9 @@ else:
       GENESIS_TX_HASH_HEX     = '3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a'
       GENESIS_TX_HASH         = ';\xa3\xed\xfdz{\x12\xb2z\xc7,>gv\x8fa\x7f\xc8\x1b\xc3\x88\x8aQ2:\x9f\xb8\xaaK\x1e^J'
       ARMORYDB_DEFAULT_PORT = "19001"
-      ARMORYDB_PORT = "19001"
+      
+      if usesDefaultDbPort:
+         ARMORYDB_PORT = "19001"
    else:
       MAGIC_BYTES  = '\xfa\xbf\xb5\xda'
       GENESIS_BLOCK_HASH_HEX  = '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f'
@@ -525,7 +531,10 @@ else:
       GENESIS_TX_HASH_HEX     = '3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a'
       GENESIS_TX_HASH         = ';\xa3\xed\xfdz{\x12\xb2z\xc7,>gv\x8fa\x7f\xc8\x1b\xc3\x88\x8aQ2:\x9f\xb8\xaaK\x1e^J'
       ARMORYDB_DEFAULT_PORT = "19002"
-      ARMORYDB_PORT = "19002"
+   
+      if usesDefaultDbPort:   
+         ARMORYDB_PORT = "19002"
+   
    ADDRBYTE = '\x6f'
    P2SHBYTE = '\xc4'
    PRIVKEYBYTE = '\xef'
