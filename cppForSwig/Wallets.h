@@ -17,6 +17,7 @@
 #include "EncryptionUtils.h"
 #include "lmdbpp.h"
 #include "Script.h"
+#include "Signer.h"
 
 using namespace std;
 
@@ -252,11 +253,15 @@ public:
       type_(aetype)
    {}
 
+   AddressEntryType getType(void) const { return type_; }
+
+   //
    virtual ~AddressEntry(void) = 0;
    virtual const BinaryData& getAddress(void) const = 0;
    virtual int getIndex(void) const = 0;
 
-   AddressEntryType getType(void) const { return type_; }
+   //
+   virtual shared_ptr<ScriptRecipient> getRecipient(uint64_t) const = 0;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -273,6 +278,7 @@ public:
 
    int getIndex(void) const { return asset_->getId(); }
    const BinaryData& getAddress(void) const;
+   shared_ptr<ScriptRecipient> getRecipient(uint64_t) const;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -345,7 +351,7 @@ public:
       entries_.clear();
    }
 
-   shared_ptr<AddressEntry> getNewAddress(AddressEntryType);
+   shared_ptr<AddressEntry> getNewAddress(AddressEntryType aet);
    static shared_ptr<AssetWallet> openWalletFile(const string& path);
    static shared_ptr<AssetWallet> createWalletFromPrivateRoot(
       shared_ptr<DerivationScheme>,

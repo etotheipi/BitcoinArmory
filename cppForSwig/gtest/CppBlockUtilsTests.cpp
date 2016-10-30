@@ -5896,15 +5896,13 @@ TEST_F(TransactionsTest, Wallet_Test)
          signer.addSpender(getSpenderPtr(utxo, feed));
       }
 
-      //spend 12 to addr 0, use P2PKH
-      auto recipient0 = make_shared<Recipient_P2PKH>(
-         addrVec[0].getSliceCopy(1, 20), 12 * COIN);
-      signer.addRecipient(recipient0);
+      //spend 12 to first address
+      auto addr0 = assetWlt->getNewAddress(AddressEntryType_P2PKH);
+      signer.addRecipient(addr0->getRecipient(12 * COIN));
 
       //spend 15 to addr 1, use P2PKH
-      auto recipient1 = make_shared<Recipient_P2PKH>(
-         addrVec[1].getSliceCopy(1, 20), 15 * COIN);
-      signer.addRecipient(recipient1);
+      auto addr1 = assetWlt->getNewAddress(AddressEntryType_P2PKH);
+      signer.addRecipient(addr1->getRecipient(15 * COIN));
 
       if (total > spendVal)
       {
@@ -5976,9 +5974,8 @@ TEST_F(TransactionsTest, Wallet_Test)
       {
          //deal with change, no fee
          auto changeVal = total - spendVal;
-         auto recipientChange = make_shared<Recipient_P2PKH>(
-            addrVec[2].getSliceCopy(1, 20), changeVal);
-         signer2.addRecipient(recipientChange);
+         auto addr2 = assetWlt->getNewAddress(AddressEntryType_P2PKH);
+         signer2.addRecipient(addr2->getRecipient(changeVal));
       }
 
       //sign, verify & broadcast
