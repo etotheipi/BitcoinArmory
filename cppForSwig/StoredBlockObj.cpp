@@ -43,8 +43,10 @@ void StoredDBInfo::unserializeDBValue(BinaryRefReader & brr)
    armoryVer_  =                 bitunpack.getBits(16);
    if (armoryVer_ != ARMORY_DB_VERSION)
    {
-      LOGERR << "DB version mismatch. Use another dbdir!";
-      throw DbErrorMsg("DB version mismatch. Use another dbdir!");
+      stringstream ss;
+      ss << "DB version mismatch. Use another dbdir or empty the current one!";
+      LOGERR << ss.str();
+      throw DbErrorMsg(ss.str());
    }
 
    armoryType_ = (ARMORY_DB_TYPE)bitunpack.getBits(4);

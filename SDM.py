@@ -484,7 +484,7 @@ class SatoshiDaemonManager(object):
       callback()
 
    #############################################################################
-   def spawnDB(self, dbDir):
+   def spawnDB(self, dataDir, dbDir):
       pargs = [self.dbExecutable]
 
       pargs.append('--db-type="' + ARMORY_DB_TYPE + '"')
@@ -503,6 +503,7 @@ class SatoshiDaemonManager(object):
 
       pargs.append('--spawnId="' + spawnId + '"')
       pargs.append('--satoshi-datadir="' + blocksdir + '"')
+      pargs.append('--datadir="' + dataDir + '"')
       pargs.append('--dbdir="' + dbDir + '"')
 
       if CLI_OPTIONS.rebuild:

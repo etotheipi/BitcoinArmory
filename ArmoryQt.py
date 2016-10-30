@@ -2195,7 +2195,7 @@ class ArmoryMainWindow(QMainWindow):
             #If we got this far we are using default settings and expecting
             #a local db process which is missing. Let's spawn it.
             self.setSatoshiPaths()
-            spawnId = TheSDM.spawnDB(TheBDM.armoryDBDir)
+            spawnId = TheSDM.spawnDB(ARMORY_HOME_DIR, TheBDM.armoryDBDir)
             TheBDM.setSpawnId(spawnId)
    
             #test if db has started
