@@ -1,10 +1,14 @@
 v0.95.1
 
+== Added ==
+   - Pass client datadir to auto spawned DB
+
 == Fixed ==
    - Fixed coin control GUI
    - Fixed base58 decode edge case
    - Fixed db version detection
    - Fixed db error message reporting in GUI
+   - Fixed explicit db port overwrite in testnet
 
 v0.95.0, released October 23rd 2016
 

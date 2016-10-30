@@ -10437,7 +10437,8 @@ class DlgCoinControl(ArmoryDialog):
             h160 = pyutxo.getRecipientHash160()
             if h160 not in selectedUtxos:
                selectedUtxos[h160] = []
-            selectedUtxos[h160].append(pyutxo.txOutIndex)
+            selectedUtxos[h160].append(
+               [pyutxo.txHeight, pyutxo.txIndex, pyutxo.txOutIndex])
                
       totalBal = wlt.getBalance('Spendable')
 
@@ -10455,6 +10456,8 @@ class DlgCoinControl(ArmoryDialog):
          utxo = self.utxoList[i]
          a160 = utxo.getRecipientHash160()
          bal  = utxo.getValue()
+         txHeight = utxo.txHeight
+         txIndex  = utxo.txIndex
          txoIndex = utxo.txOutIndex
          
          fullcmt = self.wlt.getCommentForAddress(a160)
@@ -10473,10 +10476,14 @@ class DlgCoinControl(ArmoryDialog):
          
          isSelected = False
          try:
-            selectedutxo = selectedUtxos[a160]
+            selectedUtxoIndexes = selectedUtxos[a160]
             
-            if txoIndex in selectedutxo:
-               isSelected = True
+            for utxoIds in selectedUtxoIndexes:
+               if txHeight == utxoIds[0] and \
+                  txIndex == utxoIds[1] and \
+                  txoIndex == utxoIds[2]:
+                  isSelected = True
+                  break
          except:
             pass
          
