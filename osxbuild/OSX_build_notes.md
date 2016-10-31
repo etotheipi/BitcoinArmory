@@ -1,5 +1,12 @@
+# macOS (OS X) BUILD NOTES
 These notes describe what had to be done on fresh installs of OS X 10.7 - 10.12 in order to compile Armory.
 
+## Requirements / Caveats
+At the present time, **Armory cannot be compiled using XCode 8 or later versions**. This is due to issues with C++11 support under OS X 10.7, which Armory still supports (although this will change eventually). If compiling Armory, it is highly recommended that the user runs the latest versions of XCode 7 (7.3.1 as of Oct. 2016). Armory may be compiled under OS X 10.12.
+
+Because C++11 support is shaky on OS X 10.7, *Armory developers may not fix bugs found under 10.7*. If a bug is found, please consult the [Bitcoin Forum](https://bitcointalk.org/index.php?board=97.0) or *bitcoin-armory* IRC channel on Freenode for further instructions.
+
+## Instructions
  1. Install the latest version of [Xcode](https://itunes.apple.com/us/app/xcode/id497799835).
 
  2. Open a terminal and install the Xcode commandline tools.
