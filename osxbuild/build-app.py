@@ -27,6 +27,10 @@ psutilVer     = '4.3.0'
 psutilSubdir  = '22/a8/6ab3f0b3b74a36104785808ec874d24203c6a511ffd2732dd215cf32d689'
 zopeVer       = '4.2.0'
 zopeSubdir    = 'ea/a3/38bdc8e8bd068ea5b4d21a2d80eca1547cd8509318e8d7c875f7247abe43'
+pyasn1Ver     = '0.1.9'
+pyasn1Subdir  = 'f7/83/377e3dd2e95f9020dbd0dfd3c47aaa7deebe3c68d3857a4e51917146ae8b'
+siVer         = '16.0.0'
+siSubdir      = 'f3/2a/7c04e7ab74f9f2be026745a9ffa81fd9d56139fa6f5f4b4c8a8c07b2bfba'
 twistedVer    = '16.3.0'
 libpngVer     = '1.6.25'
 qtVer         = '4.8.7'  # NB: ArmoryMac.pro must also be kept up to date!!!
@@ -125,6 +129,8 @@ def main():
       compile_zope()
       compile_twisted()
       compile_psutil()
+      compile_pyasn1()
+      compile_service_identity()
       make_resources()
 
    compile_armory()
@@ -335,6 +341,16 @@ distfiles.append( [ 'libpng', \
                     "https://dl.bintray.com/homebrew/mirror/libpng-%s.tar.xz" % libpngVer, \
                     "fb471b7732d886b5adf10b4d689a90c88f005aa5" ] )
 
+distfiles.append( [ 'service_identity', \
+                    "service_identity-%s.tar.gz" % siVer, \
+                    "https://pypi.python.org/packages/%s/service_identity-%s.tar.gz" % (siSubdir, siVer), \
+                    "42617f5abbd917c663aea58c4628b82e80d245ce" ] )
+
+distfiles.append( [ 'pyasn1', \
+                    "pyasn1-%s.tar.gz" % pyasn1Ver, \
+                    "https://pypi.python.org/packages/%s/pyasn1-%s.tar.gz" % (pyasn1Subdir, pyasn1Ver), \
+                    "d19599c5d9d039ead21ffcd1a2392c29a838ae03" ] )
+
 # When we upgrade to Qt5....
 #distfiles.append( [ "Qt", \
 #                    "qt-everywhere-opensource-src-5.2.1.tar.gz", \
@@ -388,9 +404,12 @@ def compile_python():
    logprint('Installing python.')
    bldPath = unpack(tarfilesToDL['Python'])
 
-   # ./configure
+   # ./configure - Force Python to link against a brew-ed version of OpenSSL
+   # due to Python not liking the ancient (0.9.8) version of OpenSSL Apple
+   # includes with OS X. (For whatever reasons, Python can't follow HTTPS links
+   # when attempting to DL files unless you use an updated version.)
    frameDir = path.join(APPDIR, 'Contents/Frameworks')
-   execAndWait('./configure --enable-ipv6 --prefix=%s --enable-framework="%s"' % \
+   execAndWait('env CPPFLAGS=\'-I/usr/local/opt/openssl/include\' LDFLAGS=\'-L/usr/local/opt/openssl/lib\' ./configure --enable-ipv6 --prefix=%s --enable-framework="%s"' % \
                                              (INSTALLDIR, frameDir), cwd=bldPath)
 
    # make
@@ -473,12 +492,17 @@ def compile_qt():
 
    # Configure Qt. http://wiki.phisys.com/index.php/Compiling_Phi has an example
    # that can be checked for ideas.
+   # NB: -no-phonon, despite supposedly being Windows-only, is required when
+   #     building under OS X 10.12, otherwise compilation fails.
+   # NB: To be safe, force compilation against a brew-ed version of OpenSSL, not
+   #     the ancient version provided by Apple.
    # NB: Qt5 apparently requires the "-c++11" flag, which isn't in Qt4.
    #     "-platform macx-clang-libc++" will also probably be required.
    command  = './configure -prefix "%s" -system-zlib -confirm-license -opensource '
    command += '-nomake demos -nomake examples -nomake docs -cocoa -fast -release -no-webkit '
    command += '-no-javascript-jit -nomake tools -nomake tests -no-qt3support -arch x86_64 -no-3dnow '
-   command += '-platform unsupported/macx-clang-libc++'
+   command += '-no-phonon -I /usr/local/opt/openssl/include '
+   command += '-L /usr/local/opt/openssl/lib -platform unsupported/macx-clang-libc++'
    execAndWait(command % qtInstDir, cwd=qtBuildDir)
 
    # Make
@@ -580,6 +604,28 @@ def compile_psutil():
       command = 'python -s setup.py --no-user-cfg install --force --verbose'
       psPath = unpack(tarfilesToDL['psutil'])
       execAndWait(command, cwd=psPath)
+
+########################################################
+def compile_service_identity():
+   logprint('Installing service_identity')
+
+   if glob.glob(PYSITEPKGS + '/service_identity*'):
+      logprint('service_identity already installed')
+   else:
+      command = 'python -s setup.py --no-user-cfg install --force --verbose'
+      siPath = unpack(tarfilesToDL['service_identity'])
+      execAndWait(command, cwd=siPath)
+
+########################################################
+def compile_pyasn1():
+   logprint('Installing pyasn1')
+
+   if glob.glob(PYSITEPKGS + '/pyasn1*'):
+      logprint('pyasn1 already installed')
+   else:
+      command = 'python -s setup.py --no-user-cfg install --force --verbose'
+      pyasn1Path = unpack(tarfilesToDL['pyasn1'])
+      execAndWait(command, cwd=pyasn1Path)
 
 ########################################################
 def compile_armory():
