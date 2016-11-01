@@ -994,7 +994,7 @@ public:
       size_t sz = s.getSize();
       if (sz < 21)
          return TXOUT_SCRIPT_NONSTANDARD;
-      else if (sz == 21 &&
+      else if (sz == 22 &&
          s[0] == 0x00 &&
 		 s[1] == 0x14)
          return TXOUT_SCRIPT_P2WPKH;
@@ -2178,6 +2178,36 @@ public:
 
    static SecureBinaryData computeChainCode_Armory135(
       const SecureBinaryData& privateRoot);
+
+   static BinaryData getP2WPKHScript(const BinaryData& scriptHash)
+   {
+      if (scriptHash.getSize() != 20)
+         throw runtime_error("invalid P2WPKH hash size");
+
+      BinaryWriter bw;
+      bw.put_uint8_t(OP_DUP);
+      bw.put_uint8_t(OP_HASH160);
+      bw.put_uint8_t(20);
+      bw.put_BinaryData(scriptHash);
+      bw.put_uint8_t(OP_EQUALVERIFY);
+      bw.put_uint8_t(OP_CHECKSIG);
+
+      return bw.getData();
+   }
+
+   static BinaryData getP2WSHScript(const BinaryData& scriptHash)
+   {
+      if (scriptHash.getSize() != 32)
+         throw runtime_error("invalid P2WPKH hash size");
+
+      BinaryWriter bw;
+      bw.put_uint8_t(OP_SHA256);
+      bw.put_uint8_t(32);
+      bw.put_BinaryData(scriptHash);
+      bw.put_uint8_t(OP_EQUAL);
+
+      return bw.getData();
+   }
 };
    
 static inline void suppressUnusedFunctionWarning()

@@ -310,14 +310,31 @@ void AssetWallet::putData(BinaryWriter& key, BinaryWriter& data)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-shared_ptr<AddressEntry> AssetWallet::getNewAddress(AddressEntryType aet)
+unsigned AssetWallet::getAndBumpHighestUsedIndex()
+{
+   LMDBEnv::Transaction tx(dbEnv_, LMDB::ReadWrite);
+
+   auto index = highestUsedAddressIndex_.fetch_add(1, memory_order_relaxed);
+
+   BinaryWriter bwKey;
+   bwKey.put_uint32_t(TOPUSEDINDEX_KEY);
+
+   BinaryWriter bwData;
+   bwData.put_var_int(4);
+   bwData.put_int32_t(highestUsedAddressIndex_.load(memory_order_relaxed));
+
+   putData(bwKey, bwData);
+
+   return index;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+shared_ptr<AddressEntry> AssetWallet::getNewAddress()
 {
    shared_ptr<AddressEntry> aePtr = nullptr;
 
    //increment top used address counter & update
-   auto index = highestUsedAddressIndex_.fetch_add(1, memory_order_relaxed);
-
-   //TODO: update top used index on disk
+   auto index = getAndBumpHighestUsedIndex();
 
    //lock
    unique_lock<mutex> walletLock(walletMutex_);
@@ -330,7 +347,7 @@ shared_ptr<AddressEntry> AssetWallet::getNewAddress(AddressEntryType aet)
       if (addrIter != addresses_.end())
          return addrIter->second;
 
-      aePtr = getAddressEntryForAsset(entryIter->second, aet);
+      aePtr = getAddressEntryForAsset(entryIter->second, default_aet_);
    }
    else
    {
@@ -349,7 +366,7 @@ shared_ptr<AddressEntry> AssetWallet::getNewAddress(AddressEntryType aet)
          topEntry = newEntry;
       }
 
-      aePtr = getAddressEntryForAsset(topEntry, aet);
+      aePtr = getAddressEntryForAsset(topEntry, default_aet_);
    }
 
    //insert new entry
@@ -368,6 +385,10 @@ shared_ptr<AddressEntry> AssetWallet::getAddressEntryForAsset(
    {
    case AddressEntryType_P2PKH:
       aePtr = make_shared<AddressEntryP2PKH>(assetPtr);
+      break;
+
+   case AddressEntryType_P2WPKH:
+      aePtr = make_shared<AddressEntryP2WPKH>(assetPtr);
       break;
 
    default:
@@ -556,6 +577,27 @@ shared_ptr<ScriptRecipient> AddressEntryP2PKH::getRecipient(
    auto& h160 = asset_->getHash160();
    return make_shared<Recipient_P2PKH>(h160, value);
 }
+
+////////////////////////////////////////////////////////////////////////////////
+const BinaryData& AddressEntryP2WPKH::getAddress() const
+{
+   if (address_.getSize() == 0)
+   {
+      //no address standard for SW yet, consider BIP142
+      address_ = asset_->getHash160();
+   }
+
+   return address_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+shared_ptr<ScriptRecipient> AddressEntryP2WPKH::getRecipient(
+   uint64_t value) const
+{
+   auto& h160 = asset_->getHash160();
+   return make_shared<Recipient_P2WPKH>(h160, value);
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////

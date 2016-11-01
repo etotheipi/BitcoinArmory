@@ -245,12 +245,13 @@ public:
 ////////////////////////////////////////////////////////////////////////////////
 class AddressEntry
 {
-private:
+protected:
    const AddressEntryType type_;
+   const shared_ptr<AssetEntry> asset_;
 
 public:
-   AddressEntry(AddressEntryType aetype) :
-      type_(aetype)
+   AddressEntry(AddressEntryType aetype, shared_ptr<AssetEntry> asset) :
+      asset_(asset), type_(aetype)
    {}
 
    AddressEntryType getType(void) const { return type_; }
@@ -258,7 +259,7 @@ public:
    //
    virtual ~AddressEntry(void) = 0;
    virtual const BinaryData& getAddress(void) const = 0;
-   virtual int getIndex(void) const = 0;
+   virtual int getIndex(void) const { return asset_->getId(); }
 
    //
    virtual shared_ptr<ScriptRecipient> getRecipient(uint64_t) const = 0;
@@ -268,15 +269,28 @@ public:
 class AddressEntryP2PKH : public AddressEntry
 {
 private:
-   const shared_ptr<AssetEntry> asset_;
    mutable BinaryData address_;
 
 public:
    AddressEntryP2PKH(shared_ptr<AssetEntry> asset) :
-      AddressEntry(AddressEntryType_P2PKH), asset_(asset)
+      AddressEntry(AddressEntryType_P2PKH, asset)
    {}
 
-   int getIndex(void) const { return asset_->getId(); }
+   const BinaryData& getAddress(void) const;
+   shared_ptr<ScriptRecipient> getRecipient(uint64_t) const;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+class AddressEntryP2WPKH : public AddressEntry
+{
+private:
+   mutable BinaryData address_;
+
+public:
+   AddressEntryP2WPKH(shared_ptr<AssetEntry> asset) :
+      AddressEntry(AddressEntryType_P2WPKH, asset)
+   {}
+
    const BinaryData& getAddress(void) const;
    shared_ptr<ScriptRecipient> getRecipient(uint64_t) const;
 };
@@ -319,6 +333,8 @@ private:
    void putData(const BinaryData& key, const BinaryData& data);
    void putData(BinaryWriter& key, BinaryWriter& data);
 
+   unsigned getAndBumpHighestUsedIndex(void);
+
 public:
    AssetWallet(LMDBEnv* env) :
       dbEnv_(env)
@@ -351,7 +367,7 @@ public:
       entries_.clear();
    }
 
-   shared_ptr<AddressEntry> getNewAddress(AddressEntryType aet);
+   shared_ptr<AddressEntry> getNewAddress();
    static shared_ptr<AssetWallet> openWalletFile(const string& path);
    static shared_ptr<AssetWallet> createWalletFromPrivateRoot(
       shared_ptr<DerivationScheme>,

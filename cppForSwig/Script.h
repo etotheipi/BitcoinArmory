@@ -915,10 +915,65 @@ public:
 class SignerProxy;
 
 ////////////////////////////////////////////////////////////////////////////////
+class ResolvedStack
+{
+   friend class StackResolver;
+
+protected:
+   bool isValid_ = false;
+
+public:
+   virtual ~ResolvedStack(void) = 0;
+
+   bool isValid(void) const { return isValid_; }
+};
+
+////
+class ResolvedStackLegacy : public ResolvedStack
+{
+private:
+   vector<BinaryData> stack_;
+
+public:
+   void setStack(vector<BinaryData> stack) { stack_ = move(stack); }
+
+   const vector<BinaryData>& getStack(void) const { return stack_; }
+   BinaryData serializeStack(void) const;
+};
+
+////
+class ResolvedStackWitness : public ResolvedStackLegacy
+{
+private:
+   vector<BinaryData> witnessStack_;
+
+public:
+   ResolvedStackWitness(shared_ptr<ResolvedStack> stackptr)
+   {
+      if (stackptr == nullptr)
+         return;
+
+      auto stackptrLegacy = dynamic_pointer_cast<ResolvedStackLegacy>(stackptr);
+      if (stackptrLegacy == nullptr)
+         throw runtime_error("unexpected resolved stack ptr type");
+
+      setStack(stackptrLegacy->getStack());
+   }
+
+   void setWitnessStack(vector<BinaryData> stack) { witnessStack_ = move(stack); }
+   const vector<BinaryData>& getWitnessStack(void) const { return witnessStack_; }
+   BinaryData serializeWitnessStack(void) const;
+
+};
+
+////////////////////////////////////////////////////////////////////////////////
 class StackResolver : ScriptParser
 {
 private:
    deque<shared_ptr<ReversedStackEntry>> stack_;
+   unsigned flags_ = 0;
+
+   shared_ptr<ResolvedStack> resolvedStack_ = nullptr;
 
 private:
    shared_ptr<ReversedStackEntry> pop_back(void)
@@ -1030,10 +1085,13 @@ private:
    void resolveStack(shared_ptr<ResolverFeed>, shared_ptr<SignerProxy>);
 
 public:
-   vector<BinaryData> getResolvedStack(
+   shared_ptr<ResolvedStack> getResolvedStack(
       const BinaryData& script,
       shared_ptr<ResolverFeed>, 
       shared_ptr<SignerProxy>);
+
+   unsigned getFlags(void) const { return flags_; }
+   void setFlags(unsigned flags) { flags_ = flags; }
 };
 
 #endif

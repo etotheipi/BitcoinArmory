@@ -41,8 +41,6 @@ enum SpendScriptType
 class ScriptSpender
 {
 private:
-   bool resolved_ = false;
-   
    bool isP2SH_ = false;
    bool isSegWit_ = false;
 
@@ -54,12 +52,17 @@ private:
    SIGHASH_TYPE sigHashType_ = SIGHASH_ALL;
 
    mutable BinaryData outpoint_;
-   BinaryData witness_;
 
    //
-   vector<BinaryData> stackItems_;
    shared_ptr<ResolverFeed> resolverFeed_;
-   mutable BinaryData serializedScript_;
+   BinaryData serializedScript_;
+   mutable BinaryData serializedInput_;
+   BinaryData witnessData_;
+   bool resolved_ = false;
+
+private:
+   BinaryData ScriptSpender::getSerializedScript(
+      const vector<BinaryData>& stack) const;
 
 public:
    ScriptSpender(const UTXO& utxo, shared_ptr<ResolverFeed> feed) :
@@ -71,11 +74,8 @@ public:
    //set
    void setSigHashType(SIGHASH_TYPE sht) { sigHashType_ = sht; }
    void setSequence(unsigned s) { sequence_ = s; }
-   void setStack(vector<BinaryData> stack) 
-   { 
-      stackItems_ = move(stack); 
-      resolved_ = true;
-   }
+   void setStack(const vector<BinaryData>& stack);
+   void setWitnessData(const vector<BinaryData>& stack);
 
    //get
    SIGHASH_TYPE getSigHashType(void) const { return sigHashType_; }
@@ -83,7 +83,8 @@ public:
    BinaryDataRef getOutputScript(void) const;
    BinaryDataRef getOutputHash(void) const { return utxo_.getTxHash().getRef(); }
    unsigned getOutputIndex(void) const { return utxo_.getTxOutIndex(); }
-   BinaryDataRef getWitnessData(void) const { return witness_.getRef(); }
+   BinaryDataRef getSerializedInput(void) const;
+   BinaryDataRef getWitnessData(void) const { return witnessData_.getRef(); }
    BinaryDataRef getOutpoint(void) const;
    uint64_t getValue(void) const { return utxo_.getValue(); }
    shared_ptr<ResolverFeed> getFeed(void) const { return resolverFeed_; }
@@ -96,7 +97,7 @@ public:
          flags |= SCRIPT_VERIFY_P2SH;
 
       if (isSegWit_)
-         flags |= SCRIPT_VERIFY_SEGWIT & SCRIPT_VERIFY_P2SH_SHA256;
+         flags |= SCRIPT_VERIFY_SEGWIT | SCRIPT_VERIFY_P2SH_SHA256;
 
       if (isCSV_)
          flags |= SCRIPT_VERIFY_CHECKSEQUENCEVERIFY;
@@ -106,8 +107,6 @@ public:
 
       return flags;
    }
-
-   BinaryDataRef getSerializedScript(void) const;
 
    uint8_t getSigHashByte(void) const
    {
@@ -135,8 +134,6 @@ protected:
 
    BinaryData script_;
 
-private:
-   virtual void serialize(void) = 0;
 
 public:
    ScriptRecipient(SpendScriptType sst, uint64_t value) :
@@ -150,12 +147,17 @@ public:
 
       return script_;
    }
+   
+   virtual ~ScriptRecipient(void) = 0;
+   virtual void serialize(void) = 0;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
 class Recipient_P2PKH : public ScriptRecipient
 {
+private:
    const BinaryData address160_;
+
 public:
    Recipient_P2PKH(const BinaryData& a160, uint64_t val) :
       ScriptRecipient(SST_P2PKH, val), address160_(a160)
@@ -163,7 +165,7 @@ public:
       if (address160_.getSize() != 20)
          throw TxMakerError("a160 is not 20 bytes long!");
    }
-
+   
    void serialize(void)
    {
       BinaryWriter bw;
@@ -175,6 +177,33 @@ public:
       bw.put_BinaryData(address160_);
       bw.put_uint8_t(OP_EQUALVERIFY);
       bw.put_uint8_t(OP_CHECKSIG);
+
+      script_ = move(bw.getData());
+   }
+};
+
+////////////////////////////////////////////////////////////////////////////////
+class Recipient_P2WPKH : public ScriptRecipient
+{
+private:
+   const BinaryData address160_;
+
+public:
+   Recipient_P2WPKH(const BinaryData& a160, uint64_t val) :
+      ScriptRecipient(SST_P2WPKH, val), address160_(a160)
+   {
+      if (address160_.getSize() != 20)
+         throw TxMakerError("a160 is not 20 bytes long!");
+   }
+
+   void serialize(void)
+   {
+      BinaryWriter bw;
+      bw.put_uint64_t(value_);
+      bw.put_uint8_t(22);
+      bw.put_uint8_t(0);
+      bw.put_uint8_t(20);
+      bw.put_BinaryData(address160_);
 
       script_ = move(bw.getData());
    }

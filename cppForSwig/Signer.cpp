@@ -10,6 +10,9 @@
 #include "Script.h"
 #include "Transactions.h"
 
+ScriptRecipient::~ScriptRecipient() 
+{}
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 //// ScriptSpender
@@ -36,29 +39,58 @@ BinaryDataRef ScriptSpender::getOutpoint() const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-BinaryDataRef ScriptSpender::getSerializedScript() const
+BinaryData ScriptSpender::getSerializedScript(
+   const vector<BinaryData>& stack) const
 {
-   if (!resolved_)
-      throw runtime_error("unresolved stack");
-
-   BinaryWriter bw;
-   bw.put_BinaryData(utxo_.getTxHash());
-   bw.put_uint32_t(utxo_.getTxOutIndex());
-
    BinaryWriter stackItems;
-   for (auto& stackItem : stackItems_)
+   for (auto& stackItem : stack)
    {
-      //TODO: use push data opcodes instead of varint
       stackItems.put_BinaryData(BtcUtils::getPushDataHeader(stackItem));
       stackItems.put_BinaryData(stackItem);
    }
 
-   bw.put_var_int(stackItems.getSize());
-   bw.put_BinaryData(stackItems.getData());
+   return stackItems.getData();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryDataRef ScriptSpender::getSerializedInput() const
+{
+   if (!resolved_)
+      throw ScriptException("unresolved spender");
+   
+   BinaryWriter bw;
+   bw.put_BinaryData(utxo_.getTxHash());
+   bw.put_uint32_t(utxo_.getTxOutIndex());
+
+
+   bw.put_var_int(serializedScript_.getSize());
+   bw.put_BinaryData(serializedScript_);
    bw.put_uint32_t(sequence_);
 
-   serializedScript_ = move(bw.getData());
-   return serializedScript_.getRef();
+   serializedInput_ = move(bw.getData());
+   return serializedInput_.getRef();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void ScriptSpender::setStack(const vector<BinaryData>& stack)
+{
+   serializedScript_ = move(getSerializedScript(stack));
+   resolved_ = true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void ScriptSpender::setWitnessData(const vector<BinaryData>& stack)
+{
+   BinaryWriter bw;
+   bw.put_var_int(stack.size());
+   for (auto& stackItem : stack)
+   {
+      bw.put_var_int(stackItem.getSize());
+      bw.put_BinaryData(stackItem);
+   }
+   
+   witnessData_ = move(bw.getData());
+   isSegWit_ = true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -166,13 +198,32 @@ void Signer::sign(void)
 
       //resolve spender script
       StackResolver resolver;
+      resolver.setFlags(flags_);
 
       auto proxy = make_shared<SignerProxyFromSigner>(this, i);
 
-      spender->setStack(move(resolver.getResolvedStack(
+      auto resolvedStack = resolver.getResolvedStack(
          spender->getOutputScript(),
          spender->getFeed(),
-         proxy)));
+         proxy);
+
+
+      auto resolvedStackLegacy = 
+         dynamic_pointer_cast<ResolvedStackLegacy>(resolvedStack);
+
+      if (resolvedStackLegacy == nullptr)
+         throw runtime_error("invalid resolved stack ptr type");
+
+      spender->setStack(resolvedStackLegacy->getStack());
+
+      auto resolvedStackWitness =
+         dynamic_pointer_cast<ResolvedStackWitness>(resolvedStack);
+
+      if (resolvedStackWitness == nullptr)
+         continue;
+
+      spender->setWitnessData(resolvedStackWitness->getWitnessStack());
+      isSegWit_ = true;
    }
 }
 
@@ -223,7 +274,7 @@ BinaryDataRef Signer::serialize(void) const
 
    //txins
    for (auto& spender : spenders_)
-      bw.put_BinaryDataRef(spender->getSerializedScript());
+      bw.put_BinaryDataRef(spender->getSerializedInput());
 
    //txout count
    bw.put_var_int(recipients_.size());
@@ -234,7 +285,7 @@ BinaryDataRef Signer::serialize(void) const
 
    if (isSegWit_)
    {
-      //witnesses
+      //witness data
       for (auto& spender : spenders_)
          bw.put_BinaryDataRef(spender->getWitnessData());
    }

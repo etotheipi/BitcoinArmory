@@ -93,7 +93,7 @@ bool TransactionVerifier::checkSig(unsigned inputId) const
    }
 
    if ((flags_ & SCRIPT_VERIFY_SEGWIT) &&
-      outputScript.getSize() == 0)
+      inputScript.getSize() == 0)
    {
       sstack.processSW(outputScript);
    }

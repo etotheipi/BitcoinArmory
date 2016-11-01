@@ -11,8 +11,11 @@
 #include "Signer.h"
 #include "oids.h"
 
+//dtors
+StackValue::~StackValue()
+{}
 
-StackValue::~StackValue(void)
+ResolvedStack::~ResolvedStack()
 {}
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -714,7 +717,7 @@ void StackInterpreter::process_p2wpkh(const BinaryData& scriptHash)
    BinaryRefReader brr(witnessData);
    auto itemCount = brr.get_uint8_t();
    if (itemCount != 2)
-      throw ScriptException("v0 P2PKH witness has to be 2 items");
+      throw ScriptException("v0 P2WPKH witness has to be 2 items");
 
    auto len = brr.get_var_int();
    stack_.push_back(move(brr.get_BinaryData(len)));
@@ -722,14 +725,8 @@ void StackInterpreter::process_p2wpkh(const BinaryData& scriptHash)
    stack_.push_back(move(brr.get_BinaryData(len)));
 
    //construct output script
-   BinaryWriter bw;
-   bw.put_uint8_t(OP_DUP);
-   bw.put_uint8_t(OP_HASH160);
-   bw.put_uint8_t(20);
-   bw.put_BinaryData(scriptHash);
-   bw.put_uint8_t(OP_EQUALVERIFY);
-   bw.put_uint8_t(OP_CHECKSIG);
-   processScript(bw.getData(), true);
+   auto&& swScript = BtcUtils::getP2WPKHScript(scriptHash);
+   processScript(swScript, true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -754,12 +751,8 @@ void StackInterpreter::process_p2wsh(const BinaryData& scriptHash)
    flags_ |= SCRIPT_VERIFY_P2SH_SHA256;
 
    //construct output script
-   BinaryWriter bw;
-   bw.put_uint8_t(OP_SHA256);
-   bw.put_uint8_t(32);
-   bw.put_BinaryData(scriptHash);
-   bw.put_uint8_t(OP_EQUAL);
-   processScript(bw.getData(), true);
+   auto&& swScript = BtcUtils::getP2WSHScript(scriptHash);
+   processScript(swScript, true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -888,14 +881,18 @@ void StackResolver::resolveStack(shared_ptr<ResolverFeed> feedPtr,
       }
    };
 
+   unsigned static_count = 0;
+
    auto stackIter = stack_.rbegin();
    while (stackIter != stack_.rend())
    {
       auto stackItem = *stackIter++;
 
       if (stackItem->static_)
+      {
+         static_count++;
          continue;
-
+      }
 
       //resolve the stack item value by reverting the effect of the opcodes 
       //it goes through
@@ -1048,14 +1045,72 @@ void StackResolver::resolveStack(shared_ptr<ResolverFeed> feedPtr,
          continue;
       }
    }
+
+   if (flags_ & SCRIPT_VERIFY_SEGWIT)
+   {
+      if (static_count == 2 && stack_.size() == 2)
+      {
+         auto stackIter = stack_.begin();
+         auto firstStackItem = *stackIter;
+
+         auto header = rawBinaryToInt(firstStackItem->staticData_);
+
+         if (header == 0)
+         {
+            ++stackIter;
+            auto secondStackItem = *stackIter;
+
+            BinaryData swScript;
+
+            if (secondStackItem->staticData_.getSize() == 20)
+            {
+               //resolve P2WPKH script
+               swScript =
+                  BtcUtils::getP2WPKHScript(secondStackItem->staticData_);
+            }
+            else if (secondStackItem->staticData_.getSize() == 32)
+            {
+               //resolve P2WSH script
+               swScript =
+                  BtcUtils::getP2WSHScript(secondStackItem->staticData_);
+            }
+            else
+            {
+               throw ScriptException("invalid SW script format");
+            }
+            
+            StackResolver resolver;
+            resolver.setFlags(flags_);
+
+            auto stackptr = move(resolver.getResolvedStack(
+               swScript, feedPtr, signer));
+
+            auto stackptrLegacy = dynamic_pointer_cast<ResolvedStackLegacy>(stackptr);
+            if (stackptrLegacy == nullptr)
+               throw runtime_error("unexpected resolved stack ptr type");
+
+            auto newResolvedStack = make_shared<ResolvedStackWitness>(resolvedStack_);
+            newResolvedStack->setWitnessStack(
+               stackptrLegacy->getStack());
+
+            resolvedStack_ = newResolvedStack;
+         }
+      }
+   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-vector<BinaryData> StackResolver::getResolvedStack(
+shared_ptr<ResolvedStack> StackResolver::getResolvedStack(
    const BinaryData& script,
    shared_ptr<ResolverFeed> feed, 
    shared_ptr<SignerProxy> proxy)
 {
+   if (resolvedStack_ != nullptr)
+   {
+      if (resolvedStack_->isValid())
+         return resolvedStack_;
+   }
+
    BinaryRefReader brr(script.getRef());
    processScript(brr);
    resolveStack(feed, proxy);
@@ -1109,6 +1164,16 @@ vector<BinaryData> StackResolver::getResolvedStack(
          break;
       }
    }
+   
+   if (resolvedStack_ == nullptr)
+      resolvedStack_ = make_shared<ResolvedStackLegacy>();
 
-   return resolvedStack;
+   auto resolvedStackPtr = dynamic_pointer_cast<ResolvedStackLegacy>(resolvedStack_);
+   if (resolvedStackPtr == nullptr)
+      throw runtime_error("unexpected resolved stack ptr type");
+
+   resolvedStackPtr->setStack(move(resolvedStack));
+   resolvedStackPtr->isValid_ = true;
+
+   return resolvedStack_;
 }
