@@ -61,7 +61,7 @@ private:
    bool resolved_ = false;
 
 private:
-   BinaryData ScriptSpender::getSerializedScript(
+   BinaryData getSerializedScript(
       const vector<BinaryData>& stack) const;
 
 public:
