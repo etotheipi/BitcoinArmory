@@ -9,11 +9,11 @@ Because C++11 support is shaky on OS X 10.7, *Armory developers may not fix bugs
 ## Instructions
  1. Install the latest version of [Xcode](https://itunes.apple.com/us/app/xcode/id497799835).
 
- 2. Open a terminal and install the Xcode commandline tools.
+ 2. Open a terminal and install the Xcode commandline tools. Follow any prompts that appear.
 
-        sudo xcode-select --install
+        xcode-select --install
 
- 3. Install and update [Homebrew](http://brew.sh). Warnings can probably be ignored, although environment differences and changes Apple makes to the OS between major releases make it impossible to provide definitive guidance.
+ 3. Install and update [Homebrew](http://brew.sh). Warnings can probably be ignored, although environment differences and changes Apple makes to the OS between major releases make it impossible to provide definitive guidance. Any instructions given by Homebrew must be followed. (Exact directions seem to change depending on which version of Xcode is installed.)
 
         /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
         touch ~/.bashrc
@@ -25,10 +25,12 @@ Because C++11 support is shaky on OS X 10.7, *Armory developers may not fix bugs
 
  4. Install and link dependencies required by the Armory build process but not by included Armory binaries. Note that the `zlib` and `openssl` dependencies are required only for OS X 10.12 and beyond.
 
-        brew install xz swig gettext openssl homebrew/dupes/zlib
+        brew install python xz swig gettext openssl automake homebrew/dupes/zlib
         brew link gettext --force
 
- 5. Compile Armory.
+ 5. Restart your Mac. (This is necessary due to issues related to the Python install.)
+
+ 6. Compile Armory.
 
         cd osxbuild
         python build-app.py > /dev/null
