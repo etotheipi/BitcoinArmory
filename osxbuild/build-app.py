@@ -97,7 +97,7 @@ for var in ['PATH','DYLD_FRAMEWORK_PATH', 'QTDIR', 'QMAKESPEC']:
    logprint('   %s: \n      %s' % (var, os.environ[var]))
 
 # Build requires a "brew"ed OpenSSL. Need to get the header location.
-opensslPath = subprocess.check_output(["brew", "--prefix", "openssl"])
+opensslPath = subprocess.check_output(["brew", "--prefix", "openssl"]).rstrip('\n')
 if opensslPath.startswith("Error"):
    print 'ERROR: You must use brew to install OpenSSL. Exiting build process.'
    sys.exit()
