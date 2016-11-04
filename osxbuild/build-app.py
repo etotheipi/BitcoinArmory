@@ -11,6 +11,7 @@ import time
 import datetime
 import optparse
 import tarfile
+import subprocess
 
 from subprocess import Popen, PIPE
 from tempfile import mkstemp
@@ -94,6 +95,12 @@ os.environ['QMAKESPEC'] = path.join(os.environ['QTDIR'], 'mkspecs/unsupported/ma
 logprint('All the following ENV vars are now set:')
 for var in ['PATH','DYLD_FRAMEWORK_PATH', 'QTDIR', 'QMAKESPEC']:
    logprint('   %s: \n      %s' % (var, os.environ[var]))
+
+# Build requires a "brew"ed OpenSSL. Need to get the header location.
+opensslPath = subprocess.check_output(["brew", "--prefix", "openssl"])
+if opensslPath.startswith("Error"):
+   print 'ERROR: You must use brew to install OpenSSL. Exiting build process.'
+   sys.exit()
 
 ########################################################
 # Now actually start the download&build process
@@ -409,8 +416,8 @@ def compile_python():
    # includes with OS X. (For whatever reasons, Python can't follow HTTPS links
    # when attempting to DL files unless you use an updated version.)
    frameDir = path.join(APPDIR, 'Contents/Frameworks')
-   execAndWait('env CPPFLAGS=\'-I/usr/local/opt/openssl/include\' LDFLAGS=\'-L/usr/local/opt/openssl/lib\' ./configure --enable-ipv6 --prefix=%s --enable-framework="%s"' % \
-                                             (INSTALLDIR, frameDir), cwd=bldPath)
+   execAndWait('env CFLAGS=\'-I%s/include\' CPPFLAGS=\'-I%s/include\' LDFLAGS=\'-L%s/lib\' ./configure --enable-ipv6 --prefix=%s --enable-framework="%s"' % \
+                                             (opensslPath, opensslPath, opensslPath, INSTALLDIR, frameDir), cwd=bldPath)
 
    # make
    execAndWait('make %s' % MAKEFLAGS, cwd=bldPath)
@@ -498,12 +505,12 @@ def compile_qt():
    #     the ancient version provided by Apple.
    # NB: Qt5 apparently requires the "-c++11" flag, which isn't in Qt4.
    #     "-platform macx-clang-libc++" will also probably be required.
-   command  = './configure -prefix "%s" -system-zlib -confirm-license -opensource '
-   command += '-nomake demos -nomake examples -nomake docs -cocoa -fast -release -no-webkit '
-   command += '-no-javascript-jit -nomake tools -nomake tests -no-qt3support -arch x86_64 -no-3dnow '
-   command += '-no-phonon -I /usr/local/opt/openssl/include '
-   command += '-L /usr/local/opt/openssl/lib -platform unsupported/macx-clang-libc++'
-   execAndWait(command % qtInstDir, cwd=qtBuildDir)
+   command  = './configure -prefix "%s" -system-zlib -confirm-license '
+   command += ' -opensource -nomake demos -nomake examples -nomake docs -cocoa '
+   command += '-fast -release -no-webkit -no-javascript-jit -nomake tools '
+   command += '-nomake tests -no-qt3support -arch x86_64 -no-3dnow -no-phonon '
+   command += '-I %s/include -L %s/lib -platform unsupported/macx-clang-libc++'
+   execAndWait(command % (qtInstDir, opensslPath, opensslPath), cwd=qtBuildDir)
 
    # Make
    execAndWait('make %s' % MAKEFLAGS, cwd=qtBuildDir)
