@@ -94,6 +94,7 @@ parser.add_option("--satoshi-rpcport", dest="satoshiRpcport",default=DEFAULT,typ
 #parser.add_option("--bitcoind-path",   dest="bitcoindPath",default='DEFAULT', type="str",         help="Path to the location of bitcoind on your system")
 parser.add_option("--dbdir",           dest="armoryDBDir",  default=DEFAULT, type='str',          help="Location to store blocks database (defaults to --datadir)")
 parser.add_option("--rpcport",         dest="rpcport",     default=DEFAULT, type="str",          help="RPC port for running armoryd.py")
+parser.add_option("--rpcbindaddr",     dest="rpcBindAddr", default="127.0.0.1", type="str",      help="IP Address to bind to for RPC.")
 parser.add_option("--testnet",         dest="testnet",     default=False,     action="store_true", help="Use the testnet protocol")
 parser.add_option("--regtest",         dest="regtest",     default=False,     action="store_true", help="Use the Regression Test Network protocol")
 parser.add_option("--offline",         dest="offline",     default=False,     action="store_true", help="Force Armory to run in offline mode")
@@ -521,7 +522,7 @@ else:
       GENESIS_TX_HASH_HEX     = '3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a'
       GENESIS_TX_HASH         = ';\xa3\xed\xfdz{\x12\xb2z\xc7,>gv\x8fa\x7f\xc8\x1b\xc3\x88\x8aQ2:\x9f\xb8\xaaK\x1e^J'
       ARMORYDB_DEFAULT_PORT = "19001"
-      
+
       if usesDefaultDbPort:
          ARMORYDB_PORT = "19001"
    else:
@@ -531,10 +532,10 @@ else:
       GENESIS_TX_HASH_HEX     = '3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a'
       GENESIS_TX_HASH         = ';\xa3\xed\xfdz{\x12\xb2z\xc7,>gv\x8fa\x7f\xc8\x1b\xc3\x88\x8aQ2:\x9f\xb8\xaaK\x1e^J'
       ARMORYDB_DEFAULT_PORT = "19002"
-   
-      if usesDefaultDbPort:   
+
+      if usesDefaultDbPort:
          ARMORYDB_PORT = "19002"
-   
+
    ADDRBYTE = '\x6f'
    P2SHBYTE = '\xc4'
    PRIVKEYBYTE = '\xef'

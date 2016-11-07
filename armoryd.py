@@ -3157,7 +3157,7 @@ class Armory_Daemon(object):
             # This is LISTEN call for armory RPC server
             reactor.listenTCP(ARMORY_RPC_PORT, \
                               server.Site(secured_resource), \
-                              interface="127.0.0.1")
+                              interface=CLI_OPTIONS.rpcBindAddr)
 
             # Setup the heartbeat function to run every
             reactor.callLater(3, self.Heartbeat)
