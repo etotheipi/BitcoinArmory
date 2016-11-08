@@ -694,15 +694,8 @@ class DlgLockboxManager(ArmoryDialog):
       self.txtLockboxInfo.setReadOnly(True)
       self.txtLockboxInfo.setFont(GETFONT('Fixed', 9))
 
-
-      lbGuideURL = "https://bitcoinarmory.com/about/using-lockboxes/"
-      lblLinkToMSWebpage = QRichLabel(tr("""Consult our 
-         <a href="%s">lockbox documentation</a> for lockbox usage 
-         examples and info""") % lbGuideURL, doWrap=False)
-      lblLinkToMSWebpage.setOpenExternalLinks(True)
-
       btnDone = QPushButton(tr('Done'))
-      frmDone = makeHorizFrame([lblLinkToMSWebpage, 'Stretch', btnDone])
+      frmDone = makeHorizFrame(['Stretch', btnDone])
       self.connect(btnDone, SIGNAL('clicked()'), self.accept)
 
 
