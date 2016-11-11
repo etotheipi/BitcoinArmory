@@ -253,14 +253,14 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
 
 
    auto addblocks = [&](uint16_t fileID, size_t startOffset, 
-      shared_ptr<BlockOffset> bo, bool verbose)->void
+      shared_ptr<BlockOffset> bo, bool _verbose)->void
    {
       while (1)
       {
          if (!addBlocksToDB(bdl, fileID, startOffset, bo, fullHints))
             return;
 
-         if (verbose)
+         if (_verbose)
          {
             unique_lock<mutex> lock(progressMutex, defer_lock);
             if (lock.try_lock() && fileID >= baseID)
@@ -942,18 +942,18 @@ void DatabaseBuilder::verifyTransactions()
                   continue;
 
                //check hash
-               auto txn = txns[txid];
-               txn->getHash();
-               if (hashref != txn->txHash_)
+               auto _txn = txns[txid];
+               _txn->getHash();
+               if (hashref != _txn->txHash_)
                   continue;
 
                //grab output
-               auto txoutcount = txn->txouts_.size();
+               auto txoutcount = _txn->txouts_.size();
                if (*outputID > txoutcount)
                   break;
 
-               BinaryDataRef output(txn->data_ + txn->txouts_[*outputID].first,
-                  txn->txouts_[*outputID].second);
+               BinaryDataRef output(_txn->data_ + _txn->txouts_[*outputID].first,
+                  _txn->txouts_[*outputID].second);
 
                UTXO utxo;
                utxo.unserializeRaw(output);

@@ -271,7 +271,7 @@ public:
             }
          };
 
-         bool foundTopBlock = false;
+         bool _foundTopBlock = false;
          int32_t fnum = blkFiles_.size();
          if (fnum > 0)
             fnum--;
@@ -283,11 +283,11 @@ public:
          }
          catch (StopReading&)
          {
-            foundTopBlock = true;
+            _foundTopBlock = true;
             // we're fine
          }
 
-         if (!foundTopBlock)
+         if (!_foundTopBlock)
          {
             //can't find the top header, let's just rescan all headers
             LOGERR << "Failed to find last known top block hash in "
@@ -930,12 +930,12 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
                string argstr;
                getline(ss, argstr, '=');
 
-               auto&& str = stripQuotes(argstr);
-               if (str == "DB_BARE")
+               auto&& _str = stripQuotes(argstr);
+               if (_str == "DB_BARE")
                   armoryDbType_ = ARMORY_DB_BARE;
-               else if (str == "DB_FULL")
+               else if (_str == "DB_FULL")
                   armoryDbType_ = ARMORY_DB_FULL;
-               else if (str == "DB_SUPER")
+               else if (_str == "DB_SUPER")
                   armoryDbType_ = ARMORY_DB_SUPER;
                else
                {

@@ -163,8 +163,8 @@ void KdfRomix::computeKdfParams(double targetComputeSec, uint32_t maxMemReqts)
       TIMER_RESTART("KDF_Time_Search");
       for(uint32_t i=0; i<numTest; i++)
       {
-         SecureBinaryData testKey("This is an example key to test KDF iteration speed");
-         testKey = DeriveKey_OneIter(testKey);
+         SecureBinaryData _testKey("This is an example key to test KDF iteration speed");
+         _testKey = DeriveKey_OneIter(_testKey);
       }
       TIMER_STOP("KDF_Time_Search");
       allItersSec = TIMER_READ_SEC("KDF_Time_Search");

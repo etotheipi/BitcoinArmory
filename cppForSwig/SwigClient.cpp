@@ -401,7 +401,6 @@ map<BinaryData, uint32_t> SwigClient::BtcWallet::getAddrTxnCountsFromDB()
    for (unsigned i = 0; i < count; i++)
    {
       auto&& addr = arg.get<BinaryDataObject>();
-      auto&& count = arg.get<IntType>().getVal();
 
       countMap[addr.get()] = count;
    }
@@ -568,9 +567,9 @@ vector<UTXO> ScrAddrObj::getSpendableTxOutList(bool ignoreZC)
    vector<UTXO> utxovec;
    for (unsigned i = 0; i < count; i++)
    {
-      auto&& bdo = arg.get<BinaryDataObject>();
+      auto&& _bdo = arg.get<BinaryDataObject>();
       UTXO utxo;
-      utxo.unserialize(bdo.get());
+      utxo.unserialize(_bdo.get());
 
       utxovec.push_back(move(utxo));
    }

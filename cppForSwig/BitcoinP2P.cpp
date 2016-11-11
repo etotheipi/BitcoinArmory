@@ -1047,8 +1047,8 @@ void BitcoinP2P::processGetData(unique_ptr<Payload> payload)
       if (payloadIter == getdatamap->end())
          continue;
 
-      auto&& payload = *payloadIter->second.payload_.get();
-      sendMessage(move(payload));
+      auto&& _payload = *payloadIter->second.payload_.get();
+      sendMessage(move(_payload));
       
       try
       {

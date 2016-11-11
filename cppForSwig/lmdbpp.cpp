@@ -64,11 +64,11 @@ inline void LMDB::Iterator::checkOk() const
 void LMDB::Iterator::openCursor()
 {
    auto tID = std::this_thread::get_id();
-   LMDBEnv *const env = db_->env;
-   std::unique_lock<std::mutex> lock(env->threadTxMutex_);
+   LMDBEnv *const _env = db_->env;
+   std::unique_lock<std::mutex> lock(_env->threadTxMutex_);
    
-   auto txnIter = env->txForThreads_.find(tID);
-   if (txnIter == env->txForThreads_.end())
+   auto txnIter = _env->txForThreads_.find(tID);
+   if (txnIter == _env->txForThreads_.end())
       throw std::runtime_error("Iterator must be created within Transaction");
    
    lock.unlock();
@@ -359,8 +359,8 @@ void LMDBEnv::close()
    }
 }
 
-LMDBEnv::Transaction::Transaction(LMDBEnv *env, LMDB::Mode mode)
-   : env(env), mode_(mode)
+LMDBEnv::Transaction::Transaction(LMDBEnv *_env, LMDB::Mode mode)
+   : env(_env), mode_(mode)
 {
    begin();
 }
@@ -427,12 +427,12 @@ void LMDBEnv::Transaction::begin()
    }
 }
 
-void LMDBEnv::Transaction::open(LMDBEnv *env, LMDB::Mode mode)
+void LMDBEnv::Transaction::open(LMDBEnv *_env, LMDB::Mode mode)
 {
    if (env)
       commit();
    
-   this->env = env;
+   this->env = _env;
    this->mode_ = mode;
    
    begin();
@@ -511,20 +511,20 @@ void LMDB::close()
    }
 }
 
-void LMDB::open(LMDBEnv *env, const std::string &name)
+void LMDB::open(LMDBEnv *_env, const std::string &name)
 {
    if (this->env)
    {
       throw std::runtime_error("LMDB already open");
    }
-   this->env = env;
+   this->env = _env;
    
-   LMDBEnv::Transaction tx(env);
+   LMDBEnv::Transaction tx(_env);
    auto tID = std::this_thread::get_id();
-   std::unique_lock<std::mutex> lock(env->threadTxMutex_);
-   auto txnIter = env->txForThreads_.find(tID);
+   std::unique_lock<std::mutex> lock(_env->threadTxMutex_);
+   auto txnIter = _env->txForThreads_.find(tID);
 
-   if (txnIter == env->txForThreads_.end())
+   if (txnIter == _env->txForThreads_.end())
       throw LMDBException("Failed to insert: need transaction");
    lock.unlock();
       

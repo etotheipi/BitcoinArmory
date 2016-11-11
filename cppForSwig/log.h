@@ -179,7 +179,6 @@ public:
       else
       {
          // Otherwise, seek to <maxSize> before end of log file
-         ifstream is(OS_TranslatePath(logfile.c_str()), ios::in|ios::binary);
          is.seekg(fsize - maxSizeInBytes);
 
          // Allocate buffer to hold the rest of the file (about maxSizeInBytes)

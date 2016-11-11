@@ -45,17 +45,17 @@ public:
    const size_t len;
    const char *data;
    
-   CharacterArrayRef(const size_t len, const char *data)
-      : len(len), data(data)
+   CharacterArrayRef(const size_t _len, const char *_data)
+      : len(_len), data(_data)
    { }
-   CharacterArrayRef(const size_t len, const unsigned char *data)
-      : len(len), data(reinterpret_cast<const char*>(data))
+   CharacterArrayRef(const size_t _len, const unsigned char *_data)
+      : len(_len), data(reinterpret_cast<const char*>(_data))
    { }
-   CharacterArrayRef(const std::string &data)
-      : len(data.size()), data(&data[0])
+   CharacterArrayRef(const std::string &_data)
+      : len(_data.size()), data(&_data[0])
    { }
-   CharacterArrayRef(const std::vector<char> &data)
-      : len(data.size()), data(&data.front())
+   CharacterArrayRef(const std::vector<char> &_data)
+      : len(_data.size()), data(&_data.front())
    { }
 };
 
@@ -172,9 +172,9 @@ public:
    };
    
    LMDB() { }
-   LMDB(LMDBEnv *env, const std::string &name=std::string())
+   LMDB(LMDBEnv *_env, const std::string &name=std::string())
    {
-      open(env, name);
+      open(_env, name);
    }
    
    ~LMDB();

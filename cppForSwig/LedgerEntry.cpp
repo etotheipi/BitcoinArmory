@@ -190,8 +190,8 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
       {
          auto txInDBKey = txio.second.getDBKeyOfInput().getSliceCopy(0, 6);
 
-         auto& txioVec = TxnTxIOMap[txInDBKey];
-         txioVec.push_back(&txio.second);
+         auto& _txioVec = TxnTxIOMap[txInDBKey];
+         _txioVec.push_back(&txio.second);
       }
    }
 

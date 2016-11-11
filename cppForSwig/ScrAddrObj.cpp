@@ -180,13 +180,13 @@ void ScrAddrObj::scanZC(const ScanAddressStruct& scanInfo,
    for (auto& txiopair : zcTxIOMap)
    {
       auto& newtxio = txiopair.second;
-      auto keyIter = relevantTxIO_.find(txiopair.first);
-      if (keyIter != relevantTxIO_.end())
+      auto _keyIter = relevantTxIO_.find(txiopair.first);
+      if (_keyIter != relevantTxIO_.end())
       {
          
          //dont replace a zc that is spent with a zc that is unspent. zc revocation
          //is handled in the purge segment         
-         auto& txio = keyIter->second;
+         auto& txio = _keyIter->second;
          if (txio.hasTxIn())
          {
             if (txio.getDBKeyOfInput() == newtxio.getDBKeyOfInput())

@@ -2,11 +2,11 @@ CXX = g++
 CC = gcc
 
 ifdef DEBUG
-CFLAGS=-g3 -Wall -pipe -fPIC
-CXXFLAGS=-g3 -Wall -pipe -fPIC
+CFLAGS=-g3 -Wall -pipe -fPIC -Wshadow
+CXXFLAGS=-g3 -Wall -pipe -fPIC -Wshadow
 else
-CFLAGS = -O2 -pipe -fPIC
-CXXFLAGS = -O2 -pipe -fPIC
+CFLAGS = -O2 -pipe -fPIC -Wshadow
+CXXFLAGS = -O2 -pipe -fPIC -Wshadow
 endif
 
 ifdef STATIC_LINK

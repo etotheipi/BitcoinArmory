@@ -1153,15 +1153,15 @@ void StackResolver::resolveStack()
    {
       if (static_count == 2 && stack_.size() == 2)
       {
-         auto stackIter = stack_.begin();
-         auto firstStackItem = *stackIter;
+         auto _stackIter = stack_.begin();
+         auto firstStackItem = *_stackIter;
 
          auto header = rawBinaryToInt(firstStackItem->staticData_);
 
          if (header == 0)
          {
-            ++stackIter;
-            auto secondStackItem = *stackIter;
+            ++_stackIter;
+            auto secondStackItem = *_stackIter;
 
             BinaryData swScript;
 

@@ -25,7 +25,7 @@ class IterateSecond
 public:
    typedef typename Container::value_type::second_type value_type;
 
-   IterateSecond(Container &c) : c(c) { }
+   IterateSecond(Container &_c) : c(_c) { }
 
    class Iterator
    {

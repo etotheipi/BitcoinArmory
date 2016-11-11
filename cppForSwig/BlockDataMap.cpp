@@ -287,11 +287,11 @@ shared_future<shared_ptr<BlockDataFileMap>>
 {
    string filename = move(intIDToName(fileid));
 
-   auto blockdataasync = [](string filename, bool preload)->
+   auto blockdataasync = [](string _filename, bool preload)->
       shared_ptr<BlockDataFileMap>
    {
       shared_ptr<BlockDataFileMap> blockptr = make_shared<BlockDataFileMap>(
-         filename, preload);
+         _filename, preload);
 
       return blockptr;
    };

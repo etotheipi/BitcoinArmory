@@ -1231,10 +1231,10 @@ StoredTx & StoredTx::createFromTx(Tx & tx, bool doFrag, bool withTxOuts)
       BinaryRefReader brr(tx.getPtr(), tx.getSize());
       uint32_t firstOut  = tx.getTxOutOffset(0);
       uint32_t afterLast = tx.getTxOutOffset(numTxOut_);
-      uint32_t span = afterLast - firstOut;
-      dataCopy_.resize(tx.getSize() - span);
+      uint32_t _span = afterLast - firstOut;
+      dataCopy_.resize(tx.getSize() - _span);
       brr.get_BinaryData(dataCopy_.getPtr(), firstOut);
-      brr.advance(span);
+      brr.advance(_span);
       brr.get_BinaryData(dataCopy_.getPtr()+firstOut, 4);
    }
 
@@ -1895,14 +1895,14 @@ void StoredSubHistory::pprintFullSubSSH(uint32_t indent)
          cout << " ";
 
       TxIOPair & txio = iter->second;
-      uint32_t hgt;
-      uint8_t  dup;
+      uint32_t _hgt;
+      uint8_t  _dup;
       uint16_t txi;
       uint16_t txo = txio.getIndexOfOutput();
       BinaryData txoKey = txio.getDBKeyOfOutput();
       BinaryRefReader brrTxOut(txoKey);
-      DBUtils::readBlkDataKeyNoPrefix(brrTxOut, hgt, dup, txi);
-      cout << "TXIO: (" << hgt << "," << (uint32_t)dup 
+      DBUtils::readBlkDataKeyNoPrefix(brrTxOut, _hgt, _dup, txi);
+      cout << "TXIO: (" << _hgt << "," << (uint32_t)_dup 
                           << "," << txi << "," << txo << ")";
 
       
@@ -1914,12 +1914,12 @@ void StoredSubHistory::pprintFullSubSSH(uint32_t indent)
 
       if(txio.hasTxIn())
       {
-         uint16_t txo = txio.getIndexOfInput();
+         uint16_t _txo = txio.getIndexOfInput();
          BinaryData txiKey = txio.getDBKeyOfInput();
          BinaryRefReader brrTxIn(txiKey);
-         DBUtils::readBlkDataKeyNoPrefix(brrTxIn, hgt, dup, txi);
-         cout << "  SPENT: (" << hgt << "," << (uint32_t)dup 
-                       << "," << txi << "," << txo << ")";
+         DBUtils::readBlkDataKeyNoPrefix(brrTxIn, _hgt, _dup, txi);
+         cout << "  SPENT: (" << _hgt << "," << (uint32_t)_dup 
+                       << "," << txi << "," << _txo << ")";
       }
       cout << endl;
    }

@@ -112,8 +112,8 @@ class OnFinish
 {
    const function<void()> fn;
 public:
-   OnFinish(const function<void()> &fn)
-      : fn(fn) { }
+   OnFinish(const function<void()> &_fn)
+      : fn(_fn) { }
    ~OnFinish()
    {
       fn();

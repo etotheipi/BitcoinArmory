@@ -889,13 +889,13 @@ bool LMDBBlockDatabase::readStoredScriptHistoryAtIter(LDBIter & ldbIter,
    size_t numTxioRead = 0;
    do
    {
-      size_t sz = subsshIter.getKeyRef().getSize();
-      BinaryDataRef keyNoPrefix= subsshIter.getKeyRef().getSliceRef(1,sz-1);
+      size_t _sz = subsshIter.getKeyRef().getSize();
+      BinaryDataRef keyNoPrefix= subsshIter.getKeyRef().getSliceRef(1,_sz-1);
       if(!keyNoPrefix.startsWith(ssh.uniqueKey_))
          break;
 
       pair<BinaryData, StoredSubHistory> keyValPair;
-      keyValPair.first = keyNoPrefix.getSliceCopy(sz-5, 4);
+      keyValPair.first = keyNoPrefix.getSliceCopy(_sz-5, 4);
       keyValPair.second.unserializeDBKey(subsshIter.getKeyRef());
 
       //iter is at the right ssh, make sure hgtX <= endBlock
