@@ -254,6 +254,7 @@ public:
 
 private:
    MDB_env *dbenv=nullptr;
+   unsigned dbCount_ = 1;
 
    std::mutex threadTxMutex_;
    std::unordered_map<std::thread::id, LMDBThreadTxInfo> txForThreads_;
@@ -297,6 +298,7 @@ public:
    };
 
    LMDBEnv() { }
+   LMDBEnv(unsigned dbCount) { dbCount_ = dbCount; }
    ~LMDBEnv();
    
    // open a database by filename

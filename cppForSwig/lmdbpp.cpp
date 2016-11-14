@@ -341,7 +341,7 @@ void LMDBEnv::open(const char *filename)
    if (rc != MDB_SUCCESS)
       throw LMDBException("Failed to load mdb env (" + errorString(rc) + ")");
    
-   rc = mdb_env_set_maxdbs(dbenv, 3);
+   rc = mdb_env_set_maxdbs(dbenv, dbCount_);
    if (rc != MDB_SUCCESS)
       throw LMDBException("Failed to set max dbs (" + errorString(rc) + ")");
    

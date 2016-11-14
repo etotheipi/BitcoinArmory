@@ -48,6 +48,7 @@ private:
    bool isCLTV_ = false;
 
    const UTXO utxo_;
+   BinaryDataRef p2shScript_;
    unsigned sequence_ = UINT32_MAX;
    SIGHASH_TYPE sigHashType_ = SIGHASH_ALL;
 
@@ -62,7 +63,7 @@ private:
 
 private:
    BinaryData getSerializedScript(
-      const vector<BinaryData>& stack) const;
+      const vector<shared_ptr<StackItem>>& stack) const;
 
 public:
    ScriptSpender(const UTXO& utxo, shared_ptr<ResolverFeed> feed) :
@@ -74,8 +75,9 @@ public:
    //set
    void setSigHashType(SIGHASH_TYPE sht) { sigHashType_ = sht; }
    void setSequence(unsigned s) { sequence_ = s; }
-   void setStack(const vector<BinaryData>& stack);
-   void setWitnessData(const vector<BinaryData>& stack);
+   void setStack(const vector<shared_ptr<StackItem>>& stack);
+   void setWitnessData(const vector<shared_ptr<StackItem>>& stack);
+   void flagP2SH(bool flag) { isP2SH_ = flag; }
 
    //get
    SIGHASH_TYPE getSigHashType(void) const { return sigHashType_; }
@@ -156,13 +158,13 @@ public:
 class Recipient_P2PKH : public ScriptRecipient
 {
 private:
-   const BinaryData address160_;
+   const BinaryData h160_;
 
 public:
-   Recipient_P2PKH(const BinaryData& a160, uint64_t val) :
-      ScriptRecipient(SST_P2PKH, val), address160_(a160)
+   Recipient_P2PKH(const BinaryData& h160, uint64_t val) :
+      ScriptRecipient(SST_P2PKH, val), h160_(h160)
    {
-      if (address160_.getSize() != 20)
+      if (h160_.getSize() != 20)
          throw TxMakerError("a160 is not 20 bytes long!");
    }
    
@@ -174,7 +176,7 @@ public:
       bw.put_uint8_t(OP_DUP);
       bw.put_uint8_t(OP_HASH160);
       bw.put_uint8_t(20);
-      bw.put_BinaryData(address160_);
+      bw.put_BinaryData(h160_);
       bw.put_uint8_t(OP_EQUALVERIFY);
       bw.put_uint8_t(OP_CHECKSIG);
 
@@ -186,13 +188,13 @@ public:
 class Recipient_P2WPKH : public ScriptRecipient
 {
 private:
-   const BinaryData address160_;
+   const BinaryData h160_;
 
 public:
-   Recipient_P2WPKH(const BinaryData& a160, uint64_t val) :
-      ScriptRecipient(SST_P2WPKH, val), address160_(a160)
+   Recipient_P2WPKH(const BinaryData& h160, uint64_t val) :
+      ScriptRecipient(SST_P2WPKH, val), h160_(h160)
    {
-      if (address160_.getSize() != 20)
+      if (h160_.getSize() != 20)
          throw TxMakerError("a160 is not 20 bytes long!");
    }
 
@@ -203,7 +205,62 @@ public:
       bw.put_uint8_t(22);
       bw.put_uint8_t(0);
       bw.put_uint8_t(20);
-      bw.put_BinaryData(address160_);
+      bw.put_BinaryData(h160_);
+
+      script_ = move(bw.getData());
+   }
+};
+
+////////////////////////////////////////////////////////////////////////////////
+class Recipient_P2SH : public ScriptRecipient
+{
+private:
+   const BinaryData h160_;
+
+public:
+   Recipient_P2SH(const BinaryData& h160, uint64_t val) :
+      ScriptRecipient(SST_P2SH, val), h160_(h160)
+   {
+      if (h160_.getSize() != 20)
+         throw TxMakerError("a160 is not 20 bytes long!");
+   }
+
+   void serialize(void)
+   {
+      BinaryWriter bw;
+      bw.put_uint64_t(value_);
+      bw.put_uint8_t(23);
+      bw.put_uint8_t(OP_HASH160);
+      bw.put_uint8_t(20);
+      bw.put_BinaryData(h160_);
+      bw.put_uint8_t(OP_EQUAL);
+
+      script_ = move(bw.getData());
+   }
+};
+
+////////////////////////////////////////////////////////////////////////////////
+class Recipient_PW2SH : public ScriptRecipient
+{
+private:
+   const BinaryData h256_;
+
+public:
+   Recipient_PW2SH(const BinaryData& h256, uint64_t val) :
+      ScriptRecipient(SST_P2WSH, val), h256_(h256)
+   {
+      if (h256_.getSize() != 32)
+         throw TxMakerError("a256 is not 32 bytes long!");
+   }
+
+   void serialize(void)
+   {
+      BinaryWriter bw;
+      bw.put_uint64_t(value_);
+      bw.put_uint8_t(34);
+      bw.put_uint8_t(0);
+      bw.put_uint8_t(32);
+      bw.put_BinaryData(h256_);
 
       script_ = move(bw.getData());
    }
@@ -227,8 +284,11 @@ protected:
    mutable bool isSegWit_ = false;
 
 protected:
-   shared_ptr<SigHashData> getSigHashDataForSpender(unsigned) const;
-   SecureBinaryData sign(const SecureBinaryData& privKey, shared_ptr<SigHashData>,
+   shared_ptr<SigHashData> getSigHashDataForSpender(unsigned, bool) const;
+   SecureBinaryData sign(
+      BinaryDataRef script,
+      const SecureBinaryData& privKey, 
+      shared_ptr<SigHashData>,
       unsigned index);
 
 public:
@@ -265,14 +325,18 @@ public:
 class SignerProxy
 {
 protected:
-   function<SecureBinaryData(const BinaryData&)> signerLambda_;
+   function<SecureBinaryData(
+      BinaryDataRef, const BinaryData&, bool)> signerLambda_;
 
 public:
    virtual ~SignerProxy(void) = 0;
 
-   SecureBinaryData sign(const BinaryData& bd)
+   SecureBinaryData sign(
+      BinaryDataRef script,
+      const BinaryData& pubkey,
+      bool sw)
    {
-      return move(signerLambda_(bd));
+      return move(signerLambda_(script, pubkey, sw));
    }
 };
 

@@ -796,10 +796,11 @@ struct ReversedStackEntry;
 ////
 enum StackValueEnum
 {
-   StackValue_Static,
-   StackValue_FromFeed,
-   StackValue_Sig,
-   StackValue_Reference
+   StackValueType_Static,
+   StackValueType_FromFeed,
+   StackValueType_Sig,
+   StackValueType_Multisig,
+   StackValueType_Reference
 };
 
 ////
@@ -819,45 +820,58 @@ public:
 };
 
 ////
-struct StackValueStatic : public StackValue
+struct StackValue_Static : public StackValue
 {
-   const BinaryData value_;
+   BinaryData value_;
 
-   StackValueStatic(BinaryData val) :
-      StackValue(StackValue_Static), value_(val)
+   StackValue_Static(BinaryData val) :
+      StackValue(StackValueType_Static), value_(val)
    {}
 };
 
 ////
-struct StackValueReference : public StackValue
+struct StackValue_Reference : public StackValue
 {
    shared_ptr<ReversedStackEntry> valueReference_;
    BinaryData value_;
 
-   StackValueReference(shared_ptr<ReversedStackEntry> rsePtr) :
-      StackValue(StackValue_Reference), valueReference_(rsePtr)
+   StackValue_Reference(shared_ptr<ReversedStackEntry> rsePtr) :
+      StackValue(StackValueType_Reference), valueReference_(rsePtr)
    {}
 };
 
 ////
-struct StackValueFromFeed : public StackValue
+struct StackValue_FromFeed : public StackValue
 {
    BinaryData requestString_;
    BinaryData value_;
 
-   StackValueFromFeed(const BinaryData& bd) :
-      StackValue(StackValue_FromFeed), requestString_(bd)
+   StackValue_FromFeed(const BinaryData& bd) :
+      StackValue(StackValueType_FromFeed), requestString_(bd)
    {}
 };
 
 ////
-struct StackValueSig : public StackValue
+struct StackValue_Sig : public StackValue
 {
    shared_ptr<ReversedStackEntry> pubkeyRef_;
    SecureBinaryData sig_;
 
-   StackValueSig(shared_ptr<ReversedStackEntry> ref) :
-      StackValue(StackValue_Sig), pubkeyRef_(ref)
+   StackValue_Sig(shared_ptr<ReversedStackEntry> ref) :
+      StackValue(StackValueType_Sig), pubkeyRef_(ref)
+   {}
+};
+
+////
+struct StackValue_Multisig : public StackValue
+{
+   const vector<BinaryDataRef> pubkeyVec_;
+   vector<SecureBinaryData> sig_;
+   const unsigned m_;
+
+   StackValue_Multisig(vector<BinaryDataRef> pubkeyVec, unsigned m) :
+      StackValue(StackValueType_Multisig), 
+      pubkeyVec_(move(pubkeyVec)), m_(m)
    {}
 };
 
@@ -912,6 +926,66 @@ public:
    virtual SecureBinaryData getPrivKeyForPubkey(const BinaryData&) = 0;
 };
 
+enum StackItemType
+{
+   StackItemType_PushData,
+   StackItemType_OpCode,
+   StackItemType_Sig,
+   StackItemType_SerializedScript
+};
+
+////////////////////////////////////////////////////////////////////////////////
+struct StackItem
+{
+   const StackItemType type_;
+
+   StackItem(StackItemType type) :
+      type_(type)
+   {}
+
+   virtual ~StackItem(void) = 0;
+};
+
+////
+struct StackItem_PushData : public StackItem
+{
+   const BinaryData data_;
+
+   StackItem_PushData(BinaryData&& data) :
+      StackItem(StackItemType_PushData), data_(move(data))
+   {}
+};
+
+////
+struct StackItem_Sig : public StackItem
+{
+   const SecureBinaryData data_;
+
+   StackItem_Sig(SecureBinaryData&& data) :
+      StackItem(StackItemType_Sig), data_(move(data))
+   {}
+};
+
+////
+struct StackItem_OpCode : public StackItem
+{
+   const uint8_t opcode_;
+
+   StackItem_OpCode(uint8_t opcode) :
+      StackItem(StackItemType_OpCode), opcode_(opcode)
+   {}
+};
+
+////
+struct StackItem_SerializedScript : public StackItem
+{
+   const BinaryData data_;
+
+   StackItem_SerializedScript(BinaryData&& data) :
+      StackItem(StackItemType_SerializedScript), data_(move(data))
+   {}
+};
+
 class SignerProxy;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -921,23 +995,33 @@ class ResolvedStack
 
 protected:
    bool isValid_ = false;
+   bool isP2SH_ = false;
 
 public:
    virtual ~ResolvedStack(void) = 0;
 
    bool isValid(void) const { return isValid_; }
+   bool isP2SH(void) const { return isP2SH_; }
+   void flagP2SH(bool flag) { isP2SH_ = flag; }
 };
 
 ////
 class ResolvedStackLegacy : public ResolvedStack
 {
 private:
-   vector<BinaryData> stack_;
+   vector<shared_ptr<StackItem>> stack_;
 
 public:
-   void setStack(vector<BinaryData> stack) { stack_ = move(stack); }
+   void setStack(vector<shared_ptr<StackItem>> stack) 
+   { 
+      stack_.insert(stack_.end(), stack.begin(), stack.end());
+   }
 
-   const vector<BinaryData>& getStack(void) const { return stack_; }
+   const vector<shared_ptr<StackItem>>& getStack(void) const 
+   { 
+      return stack_; 
+   }
+
    BinaryData serializeStack(void) const;
 };
 
@@ -945,7 +1029,7 @@ public:
 class ResolvedStackWitness : public ResolvedStackLegacy
 {
 private:
-   vector<BinaryData> witnessStack_;
+   vector<shared_ptr<StackItem>> witnessStack_;
 
 public:
    ResolvedStackWitness(shared_ptr<ResolvedStack> stackptr)
@@ -960,8 +1044,12 @@ public:
       setStack(stackptrLegacy->getStack());
    }
 
-   void setWitnessStack(vector<BinaryData> stack) { witnessStack_ = move(stack); }
-   const vector<BinaryData>& getWitnessStack(void) const { return witnessStack_; }
+   void setWitnessStack(vector<shared_ptr<StackItem>> stack) 
+   { witnessStack_ = move(stack); }
+   
+   const vector<shared_ptr<StackItem>>& getWitnessStack(void) const 
+   { return witnessStack_; }
+
    BinaryData serializeWitnessStack(void) const;
 
 };
@@ -974,6 +1062,14 @@ private:
    unsigned flags_ = 0;
 
    shared_ptr<ResolvedStack> resolvedStack_ = nullptr;
+   unsigned opCodeCount_ = 0;
+   bool opHash_ = false;
+   bool isP2SH_ = false;
+   bool isSW_ = false;
+
+   const BinaryDataRef script_;
+   shared_ptr<ResolverFeed> feed_;
+   shared_ptr<SignerProxy> proxy_;
 
 private:
    shared_ptr<ReversedStackEntry> pop_back(void)
@@ -995,7 +1091,7 @@ private:
    {
       if (stack_.size() == 0)
          stack_.push_back(make_shared<ReversedStackEntry>());
-      
+
       return stack_.back();
    }
 
@@ -1024,17 +1120,26 @@ private:
       stack_.push_back(rseDup);
    }
 
+   void push_op_code(const OpCode& oc)
+   {
+      auto rsePtr = make_shared<ReversedStackEntry>();
+      auto ocPtr = make_shared<OpCode>(oc);
+
+      rsePtr->push_opcode(ocPtr);
+      stack_.push_back(rsePtr);
+   }
+
    void op_1item(const OpCode& oc)
    {
       /***op_1item always preserves the item. 1 item operations only modify
-      the existing item, they do not establish a relationship between several 
+      the existing item, they do not establish a relationship between several
       items, such operations should not reduce the stack depth.
       ***/
 
       auto ocPtr = make_shared<OpCode>(oc);
       auto item1 = getTopStackEntryPtr();
       item1->push_opcode(ocPtr);
-      
+
       push_int(1);
    }
 
@@ -1047,7 +1152,7 @@ private:
    void op_2items(const OpCode& oc)
    {
       /***
-      op_2items will always link 2 items. static items and references 
+      op_2items will always link 2 items. static items and references
       are culled.
       ***/
 
@@ -1080,16 +1185,18 @@ private:
       op_2items(oc);
       pop_back();
    }
-   
+
    void processScript(BinaryRefReader&);
-   void resolveStack(shared_ptr<ResolverFeed>, shared_ptr<SignerProxy>);
+   void resolveStack(void);
 
 public:
-   shared_ptr<ResolvedStack> getResolvedStack(
-      const BinaryData& script,
-      shared_ptr<ResolverFeed>, 
-      shared_ptr<SignerProxy>);
-
+   StackResolver(BinaryDataRef script,
+      shared_ptr<ResolverFeed> feed,
+      shared_ptr<SignerProxy> proxy) :
+      script_(script), feed_(feed), proxy_(proxy)
+   {}
+   
+   shared_ptr<ResolvedStack> getResolvedStack();
    unsigned getFlags(void) const { return flags_; }
    void setFlags(unsigned flags) { flags_ = flags; }
 };

@@ -48,7 +48,8 @@ BinaryData BtcUtils::getHMAC256(const SecureBinaryData& key,
    BinaryData digest;
    digest.resize(32);
    
-   getHMAC256(key.getPtr(), key.getSize(), message.getPtr(), message.getSize(),
+   getHMAC256(key.getPtr(), key.getSize(), 
+      message.getCharPtr(), message.getSize(),
       digest.getPtr());
 
    return digest;
@@ -62,7 +63,7 @@ BinaryData BtcUtils::getHMAC256(const BinaryData& key,
    digest.resize(32);
    
    getHMAC256(key.getPtr(), key.getSize(), 
-      (const uint8_t*)message.c_str(), message.size(),
+      message.c_str(), message.size(),
       digest.getPtr());
 
    return digest;
@@ -71,10 +72,10 @@ BinaryData BtcUtils::getHMAC256(const BinaryData& key,
 
 ////////////////////////////////////////////////////////////////////////////////
 void BtcUtils::getHMAC256(const uint8_t* keyptr, size_t keylen,
-   const uint8_t* msgptr, size_t msglen, uint8_t* digest)
+   const char* msgptr, size_t msglen, uint8_t* digest)
 {
    CryptoPP::HMAC<CryptoPP::SHA256> hmac(keyptr, keylen);
-   hmac.CalculateDigest(digest, msgptr, msglen);
+   hmac.CalculateDigest(digest, (const byte*)msgptr, msglen);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -92,7 +93,7 @@ SecureBinaryData BtcUtils::computeChainCode_Armory135(
    SecureBinaryData chainCode(32);
 
    getHMAC256(hmacKey.getPtr(), hmacKey.getSize(),
-      (const uint8_t*)hmacMsg.c_str(), hmacMsg.size(), chainCode.getPtr());
+      hmacMsg.c_str(), hmacMsg.size(), chainCode.getPtr());
 
    return chainCode;
 }

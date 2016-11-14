@@ -42,8 +42,28 @@ bool TransactionVerifier::checkSigs() const
 {
    for (unsigned i = 0; i < theTx_.txins_.size(); i++)
    {
-      if (!checkSig(i))
-         return false;
+      try
+      {
+         if (checkSig(i))
+            continue;
+      }
+      catch (ScriptException &e)
+      {
+         LOGERR << "tx verification failed with error: ";
+         LOGERR << e.what();
+
+      }
+      catch (exception &e)
+      {
+         LOGERR << "tx verification failed with error: ";
+         LOGERR << e.what();
+      }
+      catch (...)
+      {
+         LOGERR << "tx verification failed with unkown error";
+      }
+         
+      return false;
    }
 
    return true;

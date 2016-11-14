@@ -2174,7 +2174,7 @@ public:
       const string& message);
 
    static void getHMAC256(const uint8_t* keyptr, size_t keylen,
-      const uint8_t* msg, size_t msglen, uint8_t* digest);
+      const char* msg, size_t msglen, uint8_t* digest);
 
    static SecureBinaryData computeChainCode_Armory135(
       const SecureBinaryData& privateRoot);

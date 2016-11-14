@@ -21,21 +21,28 @@
 
 using namespace std;
 
-#define PUBKEY_PLAINTEXT_BYTE 0x80
-#define PRIVKEY_PLAINTEXT_BYTE 0x81
+#define PUBKEY_UNCOMPRESSED_BYTE 0x80
+#define PUBKEY_COMPRESSED_BYTE 0x81
+#define PRIVKEY_BYTE 0x82
 
-#define PARENTID_KEY          0x00000001
-#define WALLETID_KEY          0x00000002
-#define DERIVATIONSCHEME_KEY  0x00000003
-#define ADDRESSTYPEENTRY_KEY  0x00000004
-#define TOPUSEDINDEX_KEY      0x00000005
-#define ROOTASSET_KEY         0x00000006
+#define WALLETTYPE_KEY        0x00000001
+#define PARENTID_KEY          0x00000002
+#define WALLETID_KEY          0x00000003
+#define DERIVATIONSCHEME_KEY  0x00000004
+#define ADDRESSENTRYTYPE_KEY  0x00000005
+#define TOPUSEDINDEX_KEY      0x00000006
+#define ROOTASSET_KEY         0x00000007
 #define ASSETENTRY_PREFIX     0xAA
 
-#define DERIVATIONSCHEME_LEGACY  0xA0
-#define DERIVATIONSCHEME_BIP32   0xA1
+#define WALLETTYPE_SINGLE     0x01
+#define WALLETTYPE_MULTISIG   0x02
 
-#define DERIVATION_LOOKUP 100
+#define DERIVATIONSCHEME_LEGACY     0xA0
+#define DERIVATIONSCHEME_BIP32      0xA1
+#define DERIVATIONSCHEME_MULTISIG   0xA2
+#define DERIVATION_LOOKUP           100
+
+#define CYPHER_BYTE  0x90
  
 class WalletException : public runtime_error
 {
@@ -48,12 +55,6 @@ class NoEntryInWalletException
 {};
 
 class AssetUnavailableException
-{};
-
-class AssetEncryptedException
-{};
-
-class NeedsDecrypted
 {};
 
 class AssetDeserException : public runtime_error
@@ -70,22 +71,26 @@ public:
    {}
 };
 
+class CypherException : public runtime_error
+{
+public:
+   CypherException(const string& msg) : runtime_error(msg)
+   {}
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 enum AssetType
 {
-   Asset_PlainText,
-   Asset_Encrypted
+   AssetType_PublicKey,
+   AssetType_PrivateKey,
+   AssetType_MetaData
 };
 
 ////
 enum AssetEntryType
 {
-   AssetEntryType_PubPub = 0x01, //plain text pubkey, plain text priv key
-   AssetEntryType_PubEnc, //plain text pubkey, encrypted priv key
-   AssetEntryType_EncEnc, //both encrypted
-   AssetEntryType_PubOff, //plain text pubkey, offline priv key
-   AssetEntryType_EncOff  //encrypted pubkey, offline priv key
+   AssetEntryType_Single = 0x01,
+   AssetEntryType_Multisig
 };
 
 ////
@@ -93,14 +98,70 @@ enum AddressEntryType
 {
    AddressEntryType_P2PKH,
    AddressEntryType_P2SH,
-   AddressEntryType_P2WP2SH,
+   AddressEntryType_P2WSH,
    AddressEntryType_P2WPKH,
 };
 
-////////////////////////////////////////////////////////////////////////////////
-struct Cypher
+enum CypherType
 {
+   CypherType_AES,
+   CypherType_Serpent
+};
 
+////////////////////////////////////////////////////////////////////////////////
+class Cypher
+{
+private:
+   const CypherType type_;
+
+protected:
+   SecureBinaryData iv_;
+   //TODO: add kdf
+
+public:
+
+   //tors
+   Cypher(CypherType type) :
+      type_(type)
+   {}
+
+   virtual ~Cypher(void) = 0;
+
+   //locals
+   CypherType getType(void) const { return type_; }
+
+   //virtuals
+   virtual BinaryData serialize(void) const = 0;
+   virtual unique_ptr<Cypher> getCopy(void) const = 0;
+
+   //statics
+   static unique_ptr<Cypher> deserialize(BinaryRefReader& brr);
+};
+
+////
+class Cypher_AES : public Cypher
+{
+public:
+   //tors
+   Cypher_AES() :
+      Cypher(CypherType_AES)
+   {
+      //init IV
+      iv_ = move(SecureBinaryData().GenerateRandom(BTC_AES::BLOCKSIZE));
+   }
+
+   Cypher_AES(SecureBinaryData&& iv) :
+      Cypher(CypherType_AES)
+   {
+      if (iv.getSize() != BTC_AES::BLOCKSIZE)
+         throw CypherException("invalid iv length");
+
+      iv_ = move(iv);
+   }
+
+   //virtuals
+   BinaryData serialize(void) const;
+   unique_ptr<Cypher> getCopy(void) const;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -112,40 +173,84 @@ struct Asset
       type_(type)
    {}
 
+   /*TODO: create a mlocked binarywriter class*/
+
    virtual ~Asset(void) = 0;
-   virtual const SecureBinaryData& getData(void) const = 0;
+   virtual BinaryData serialize(void) const = 0;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-struct PlainTextAsset : public Asset
+struct Asset_PublicKey : public Asset
 {
 public:
-   const SecureBinaryData data_;
+   SecureBinaryData uncompressed_;
+   SecureBinaryData compressed_;
 
 public:
-   PlainTextAsset(SecureBinaryData&& data) :
-     Asset(Asset_PlainText), data_(move(data))
-   {}
+   Asset_PublicKey(SecureBinaryData&& pubkey) :
+      Asset(AssetType_PublicKey)
+   {
+      switch (pubkey.getSize())
+      {
+      case 33:
+      {
+         uncompressed_ = move(CryptoECDSA().UncompressPoint(pubkey));
+         compressed_ = move(pubkey);
+         break;
+      }
 
-   const SecureBinaryData& getData(void) const { return data_; }
+      case 65:
+      {
+         compressed_ = move(CryptoECDSA().CompressPoint(pubkey));
+         uncompressed_ = move(pubkey);
+         break;
+      }
+
+      default:
+         throw WalletException("cannot compress/decompress pubkey of that size");
+      }
+   }
+
+   Asset_PublicKey(SecureBinaryData&& uncompressedKey, 
+      SecureBinaryData&& compressedKey) :
+      Asset(AssetType_PublicKey), 
+      uncompressed_(move(uncompressedKey)),
+      compressed_(move(compressedKey))
+   {
+      if (uncompressed_.getSize() != 65 ||
+         compressed_.getSize() != 33)
+         throw WalletException("invalid pubkey size");
+   }
+
+   const SecureBinaryData& getUncompressedKey(void) const { return uncompressed_; }
+   const SecureBinaryData& getCompressedKey(void) const { return compressed_; }
+
+   BinaryData serialize(void) const;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-struct EncryptedAsset : public Asset
+struct Asset_PrivateKey : public Asset
 {
 public:
    SecureBinaryData data_;
-   SecureBinaryData iv_;
-   shared_ptr<Cypher> cypher_;
+   unique_ptr<Cypher> cypher_;
 
 public:
-   EncryptedAsset(SecureBinaryData&& data, SecureBinaryData&& iv, 
-      shared_ptr<Cypher> cypher) :
-      Asset(Asset_Encrypted), data_(move(data)), iv_(move(iv)), cypher_(cypher)
-   {}
+   Asset_PrivateKey(SecureBinaryData&& data, unique_ptr<Cypher> cypher) :
+      Asset(AssetType_PrivateKey), data_(move(data))
+   {
+      if (data_.getSize() == 0)
+         return;
+      
+      if(cypher == nullptr)
+         throw WalletException("null cypher for privkey");
+
+      cypher_ = move(cypher);
+   }
    
-   const SecureBinaryData& getData(void) const { return data_; }
-   void Decrypt(const SecureBinaryData& passphrase);
+   const SecureBinaryData& getKey(void) const { return data_; }
+
+   BinaryData serialize(void) const;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -156,74 +261,133 @@ protected:
    AssetEntryType type_;
 
 public:
+   //tors
    AssetEntry(AssetEntryType type, int id) :
       type_(type), index_(id)
    {}
 
    virtual ~AssetEntry(void) = 0;
 
+   //local
    int getId(void) const { return index_; }
    const AssetEntryType getType(void) const { return type_; }
-
-   virtual shared_ptr<Asset> getPubKey(void) const = 0;
-   virtual shared_ptr<Asset> getPrivKey(void) const = 0;
-   virtual const BinaryData& getHash160(void) const = 0;
-   virtual shared_ptr<AssetEntry> getNewAsset(
-      SecureBinaryData&& pubKey, SecureBinaryData&& privKey) const = 0;
-
-   ////
-   virtual BinaryData serialize(void) const = 0;
    BinaryData getDbKey(void) const;
 
-   static shared_ptr<AssetEntry> createFromRawData(AssetEntryType,
-      SecureBinaryData&& pub, SecureBinaryData&& priv, int index = -1);
+   //virtual
+   virtual BinaryData serialize(void) const = 0;
+
+   //static
    static shared_ptr<AssetEntry> deserialize(
       BinaryDataRef key, BinaryDataRef value);
-   static shared_ptr<AssetEntry> deserDBValue(int index, BinaryDataRef value);
+   static shared_ptr<AssetEntry> deserDBValue(
+      int index, BinaryDataRef value);
 };
 
-////////////////////////////////////////////////////////////////////////////////
-class AssetEntry_PubPub : public AssetEntry
+////
+class AssetEntry_Single : public AssetEntry
 {
 private:
-   shared_ptr<PlainTextAsset> pubkey_;
-   shared_ptr<PlainTextAsset> privkey_;
+   shared_ptr<Asset_PublicKey> pubkey_;
+   shared_ptr<Asset_PrivateKey> privkey_;
 
-   mutable BinaryData h160_;
+   mutable BinaryData h160Uncompressed_;
+   mutable BinaryData h160Compressed_;
+   mutable BinaryData h256Compressed_;
 
 public:
-   AssetEntry_PubPub(int id,
-      SecureBinaryData&& pubkey, SecureBinaryData&& privkey) :
-      AssetEntry(AssetEntryType_PubPub, id)
+   //tors
+   AssetEntry_Single(int id,
+      SecureBinaryData&& pubkey, SecureBinaryData&& privkey,
+      unique_ptr<Cypher> cypher) :
+      AssetEntry(AssetEntryType_Single, id)
    {
-      pubkey_ = make_shared<PlainTextAsset>(move(pubkey));
-      privkey_ = make_shared<PlainTextAsset>(move(privkey));
+      pubkey_ = make_shared<Asset_PublicKey>(move(pubkey));
+      privkey_ = make_shared<Asset_PrivateKey>(move(privkey), move(cypher));
    }
 
-   shared_ptr<Asset> getPubKey(void) const { return pubkey_; }
-   shared_ptr<Asset> getPrivKey(void) const { return privkey_; }
-
-   virtual shared_ptr<AssetEntry> getNewAsset(
-      SecureBinaryData&& pubKey, SecureBinaryData&& privKey) const
+   AssetEntry_Single(int id,
+      SecureBinaryData&& pubkeyUncompressed,
+      SecureBinaryData&& pubkeyCompressed, 
+      SecureBinaryData&& privkey,
+      unique_ptr<Cypher> cypher) :
+      AssetEntry(AssetEntryType_Single, id)
    {
-      return make_shared<AssetEntry_PubPub>(
-         index_ + 1, move(pubKey), move(privKey));
+      pubkey_ = make_shared<Asset_PublicKey>(
+         move(pubkeyUncompressed), move(pubkeyCompressed));
+      privkey_ = make_shared<Asset_PrivateKey>(move(privkey), move(cypher));
    }
 
-   const BinaryData& getHash160(void) const;
+   AssetEntry_Single(int id,
+      shared_ptr<Asset_PublicKey> pubkey,
+      shared_ptr<Asset_PrivateKey> privkey) :
+      AssetEntry(AssetEntryType_Single, id),
+      pubkey_(pubkey), privkey_(privkey)
+   {}
 
-   ////
+   //local
+   shared_ptr<Asset_PublicKey> getPubKey(void) const { return pubkey_; }
+   shared_ptr<Asset_PrivateKey> getPrivKey(void) const { return privkey_; }
+
+   const BinaryData& getHash160Uncompressed(void) const;
+   const BinaryData& getHash160Compressed(void) const;
+   const BinaryData& getHash256Compressed(void) const;
+
+   //virtual
    BinaryData serialize(void) const;
+};
+
+////
+class AssetEntry_Multisig : public AssetEntry
+{
+   friend class ResolvedFeed_AssetWalletMS;
+
+private:
+   const map<BinaryData, shared_ptr<AssetEntry>> assetMap_;
+   const unsigned m_;
+   const unsigned n_;
+
+   mutable BinaryData multisigScript_;
+   mutable BinaryData h160_;
+   mutable BinaryData h256_;
+
+public:
+   //tors
+   AssetEntry_Multisig(int id,
+      const map<BinaryData, shared_ptr<AssetEntry>>& assetMap,
+      unsigned m, unsigned n) :
+      AssetEntry(AssetEntryType_Multisig, id), 
+      assetMap_(assetMap), m_(m), n_(n)
+   {
+      if (assetMap.size() != n)
+         throw WalletException("asset count mismatch in multisig entry");
+   }
+   
+   //local
+   const BinaryData& getScript(void) const;
+   const BinaryData& getHash160(void) const;
+   const BinaryData& getHash256(void) const;
+
+   //virtual
+   BinaryData serialize(void) const 
+   { 
+      throw AssetDeserException("no serialization for MS assets"); 
+   }
+
 };
 
 ////////////////////////////////////////////////////////////////////////////////
 struct DerivationScheme
 {
 public:
+   //tors
    virtual ~DerivationScheme(void) = 0;
-   virtual shared_ptr<AssetEntry> getNextAsset(shared_ptr<AssetEntry>) = 0;
 
+   //virtual
+   virtual vector<shared_ptr<AssetEntry>> extendChain(
+      shared_ptr<AssetEntry>, unsigned) = 0;
    virtual BinaryData serialize(void) const = 0;
+
+   //static
    static shared_ptr<DerivationScheme> deserialize(BinaryDataRef);
 };
 
@@ -234,12 +398,58 @@ private:
    SecureBinaryData chainCode_;
 
 public:
+   //tors
    DerivationScheme_ArmoryLegacy(SecureBinaryData&& chainCode) :
       chainCode_(move(chainCode))
    {}
 
-   shared_ptr<AssetEntry> getNextAsset(shared_ptr<AssetEntry>);
+   //virtuals
+   vector<shared_ptr<AssetEntry>> extendChain(
+      shared_ptr<AssetEntry>, unsigned);
    BinaryData serialize(void) const;
+};
+
+class AssetWallet;
+class AssetWallet_Single;
+
+////
+struct DerivationScheme_Multisig : public DerivationScheme
+{
+private:
+   const unsigned n_;
+   const unsigned m_;
+
+   set<BinaryData> walletIDs_;
+   map<BinaryData, shared_ptr<AssetWallet_Single>> wallets_;
+
+
+public:
+   //tors
+   DerivationScheme_Multisig(
+      const map<BinaryData, shared_ptr<AssetWallet_Single>>& wallets,
+      unsigned n, unsigned m) :
+      n_(n), m_(m), wallets_(wallets)
+   {
+      for (auto& wallet : wallets)
+         walletIDs_.insert(wallet.first);
+   }
+
+   DerivationScheme_Multisig(const set<BinaryData>& walletIDs,
+      unsigned n, unsigned m) :
+      n_(n), m_(m), walletIDs_(walletIDs)
+   {}
+
+   //local
+   shared_ptr<AssetEntry_Multisig> getAssetForIndex(unsigned) const;
+   unsigned getN(void) const { return n_; }
+   const set<BinaryData>& getWalletIDs(void) const { return walletIDs_; }
+   void setSubwalletPointers(
+      map<BinaryData, shared_ptr<AssetWallet_Single>> ptrMap);
+
+   //virtual
+   BinaryData serialize(void) const;
+   vector<shared_ptr<AssetEntry>> extendChain(
+      shared_ptr<AssetEntry>, unsigned);
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -250,47 +460,86 @@ protected:
    const shared_ptr<AssetEntry> asset_;
 
 public:
+   //tors
    AddressEntry(AddressEntryType aetype, shared_ptr<AssetEntry> asset) :
       asset_(asset), type_(aetype)
    {}
 
-   AddressEntryType getType(void) const { return type_; }
-
-   //
    virtual ~AddressEntry(void) = 0;
-   virtual const BinaryData& getAddress(void) const = 0;
-   virtual int getIndex(void) const { return asset_->getId(); }
 
-   //
+   //local
+   AddressEntryType getType(void) const { return type_; }
+   int getIndex(void) const { return asset_->getId(); }
+
+   //virtual
+   virtual const BinaryData& getAddress(void) const = 0;
    virtual shared_ptr<ScriptRecipient> getRecipient(uint64_t) const = 0;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-class AddressEntryP2PKH : public AddressEntry
+class AddressEntry_P2PKH : public AddressEntry
 {
 private:
    mutable BinaryData address_;
 
 public:
-   AddressEntryP2PKH(shared_ptr<AssetEntry> asset) :
+   //tors
+   AddressEntry_P2PKH(shared_ptr<AssetEntry> asset) :
       AddressEntry(AddressEntryType_P2PKH, asset)
    {}
 
+   //virtual
    const BinaryData& getAddress(void) const;
    shared_ptr<ScriptRecipient> getRecipient(uint64_t) const;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-class AddressEntryP2WPKH : public AddressEntry
+class AddressEntry_P2WPKH : public AddressEntry
 {
 private:
    mutable BinaryData address_;
 
 public:
-   AddressEntryP2WPKH(shared_ptr<AssetEntry> asset) :
+   //tors
+   AddressEntry_P2WPKH(shared_ptr<AssetEntry> asset) :
       AddressEntry(AddressEntryType_P2WPKH, asset)
    {}
 
+   //virtual
+   const BinaryData& getAddress(void) const;
+   shared_ptr<ScriptRecipient> getRecipient(uint64_t) const;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+class AddressEntry_P2SH : public AddressEntry
+{
+private:
+   mutable BinaryData address_;
+
+public:
+   //tors
+   AddressEntry_P2SH(shared_ptr<AssetEntry> asset) :
+      AddressEntry(AddressEntryType_P2SH, asset)
+   {}
+
+   //virtual
+   const BinaryData& getAddress(void) const;
+   shared_ptr<ScriptRecipient> getRecipient(uint64_t) const;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+class AddressEntry_P2WSH : public AddressEntry
+{
+private:
+   mutable BinaryData address_;
+
+public:
+   //tors
+   AddressEntry_P2WSH(shared_ptr<AssetEntry> asset) :
+      AddressEntry(AddressEntryType_P2WSH, asset)
+   {}
+
+   //virtual
    const BinaryData& getAddress(void) const;
    shared_ptr<ScriptRecipient> getRecipient(uint64_t) const;
 };
@@ -298,36 +547,49 @@ public:
 ////////////////////////////////////////////////////////////////////////////////
 class AssetWallet
 {
-   friend class AssetWalletSigner;
+   friend class ResolvedFeed_AssetWalletSingle;
+   friend class ResolvedFeed_AssetWalletMS;
 
-private:
-   static const string walletDbName_;
-
+protected:
    LMDBEnv* dbEnv_ = nullptr;
    LMDB* db_ = nullptr;
+   const string dbName_;
+   static const string mainWalletDbName_;
 
    ////
    mutex walletMutex_;
    atomic<int> highestUsedAddressIndex_;
 
    shared_ptr<AssetEntry> root_;
-   map<int, shared_ptr<AssetEntry>> entries_;
+   map<int, shared_ptr<AssetEntry>> assets_;
    map<int, shared_ptr<AddressEntry>> addresses_;
 
    shared_ptr<DerivationScheme> derScheme_;
-   AddressEntryType default_aet_ = AddressEntryType_P2PKH;
+   AddressEntryType default_aet_;
 
    ////
    BinaryData parentID_;
    BinaryData walletID_;
    
-private:
-   shared_ptr<AddressEntry> getAddressEntryForAsset(shared_ptr<AssetEntry>,
-      AddressEntryType);
-   shared_ptr<AssetEntry> getNextAsset(shared_ptr<AssetEntry>);
+protected:
+   //tors
+   AssetWallet(LMDBEnv* env, const string& walletDbName) :
+      dbEnv_(env), dbName_(walletDbName)
+   {
+      LMDBEnv::Transaction tx(env, LMDB::ReadWrite);
+      db_ = new LMDB(env, walletDbName);
+   }
 
+   static LMDBEnv* getEnvFromFile(const string& path, unsigned dbCount = 3)
+   {
+      LMDBEnv* env = new LMDBEnv(dbCount);
+      env->open(path);
+
+      return env;
+   }
+
+   //local
    void writeAssetEntry(shared_ptr<AssetEntry>);
-   void readFromFile(void);
    BinaryDataRef getDataRefForKey(const BinaryData& key) const;
 
    void putData(const BinaryData& key, const BinaryData& data);
@@ -335,20 +597,23 @@ private:
 
    unsigned getAndBumpHighestUsedIndex(void);
 
+   //virtual
+   virtual void putHeaderData(const BinaryData& parentID,
+      const BinaryData& walletID,
+      shared_ptr<DerivationScheme>,
+      AddressEntryType,
+      int topUsedIndex);
+
+   virtual shared_ptr<AddressEntry> getAddressEntryForAsset(
+      shared_ptr<AssetEntry>, 
+      AddressEntryType) = 0;
+
 public:
-   AssetWallet(LMDBEnv* env) :
-      dbEnv_(env)
-   {
-      {
-         LMDBEnv::Transaction tx(env, LMDB::ReadWrite);
-         db_ = new LMDB(env, walletDbName_);
-      }
-
-      readFromFile();
-   }
-
+   //tors
    ~AssetWallet()
    {
+      derScheme_.reset();
+
       if (db_ != nullptr)
       {
          db_->close();
@@ -356,7 +621,8 @@ public:
          db_ = nullptr;
       }
 
-      if (dbEnv_ != nullptr)
+      if (dbEnv_ != nullptr && 
+          dbName_ == mainWalletDbName_)
       {
          dbEnv_->close();
          delete dbEnv_;
@@ -364,51 +630,152 @@ public:
       }
 
       addresses_.clear();
-      entries_.clear();
+      assets_.clear();
    }
 
+   //local
    shared_ptr<AddressEntry> getNewAddress();
-   static shared_ptr<AssetWallet> openWalletFile(const string& path);
-   static shared_ptr<AssetWallet> createWalletFromPrivateRoot(
+   string getID(void) const;   
+   
+   shared_ptr<AssetEntry> getAssetForIndex(unsigned) const;
+   unsigned getAssetCount(void) const { return assets_.size(); }
+   void extendChain(unsigned);
+   void extendChain(shared_ptr<AssetEntry>, unsigned);
+
+   //virtual
+   virtual vector<BinaryData> getAddrHashVec(void) const = 0;
+};
+
+////
+class AssetWallet_Single : public AssetWallet
+{
+   friend class AssetWallet_Multisig;
+
+protected:
+   //locals
+   void readFromFile(void);
+
+   //virtual
+   void putHeaderData(const BinaryData& parentID,
+      const BinaryData& walletID,
       shared_ptr<DerivationScheme>,
-      AssetEntryType,
+      AddressEntryType,
+      int topUsedIndex);
+
+   shared_ptr<AddressEntry> getAddressEntryForAsset(
+      shared_ptr<AssetEntry>,
+      AddressEntryType);
+
+   //static
+   static void initWalletDb(shared_ptr<AssetWallet_Single>, 
+      unique_ptr<Cypher>,
+      const BinaryData& parentID,
+      AddressEntryType, 
+      SecureBinaryData&& privateRoot,
+      unsigned lookup);
+
+public:
+   //tors
+   AssetWallet_Single(LMDBEnv* env) :
+      AssetWallet(env, mainWalletDbName_)
+   {}
+
+   AssetWallet_Single(LMDBEnv* env, const string& db) :
+      AssetWallet(env, db)
+   {}
+
+   //virtual
+   vector<BinaryData> getAddrHashVec(void) const;
+
+   //static
+   static shared_ptr<AssetWallet_Single> createFromPrivateRoot_Armory135(
       AddressEntryType,
       SecureBinaryData&& privateRoot,
-      BinaryData parentID = BinaryData(),
       unsigned lookup = UINT32_MAX);
 
-   vector<BinaryData> getHash160Vec(void) const;
-   string getID(void) const;
+   vector<BinaryData> getHash160VecUncompressed(void) const;
+   vector<BinaryData> getHash160VecCompressed(void) const;
+};
+
+////
+class AssetWallet_Multisig : public AssetWallet
+{
+private:
+   atomic<unsigned> chainLength_;
+
+private:
+   //local
+   void readFromFile(void);
+
+public:
+   //tors
+   AssetWallet_Multisig(LMDBEnv* env) :
+      AssetWallet(env, "MainWallet")
+   {}
+
+   //virtual
+   vector<BinaryData> getAddrHashVec(void) const;
+
+   shared_ptr<AddressEntry> getAddressEntryForAsset(
+      shared_ptr<AssetEntry>,
+      AddressEntryType);
+
+   //static
+   static shared_ptr<AssetWallet_Multisig> createFromPrivateRoot(
+      AddressEntryType aet,
+      unsigned M, unsigned N,
+      SecureBinaryData&& privateRoot,
+      unsigned lookup = UINT32_MAX
+      );
+
+   static shared_ptr<AssetWallet> createFromWallets(
+      vector<shared_ptr<AssetWallet>> wallets,
+      unsigned M,
+      unsigned loopup = UINT32_MAX);
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-class AssetWalletSigner : public ResolverFeed
+class ResolvedFeed_AssetWalletSingle : public ResolverFeed
 {
 private:
    shared_ptr<AssetWallet> wltPtr_;
 
-   map<BinaryDataRef, BinaryDataRef> h160_to_pubkey_;
-   map<BinaryDataRef, shared_ptr<AssetEntry>> pubkey_to_privkeyAsset_;
+   map<BinaryDataRef, BinaryDataRef> hash_to_pubkey_;
+   map<BinaryDataRef, shared_ptr<AssetEntry_Single>> pubkey_to_privkeyAsset_;
 
 public:
-   AssetWalletSigner(shared_ptr<AssetWallet> wltPtr) :
+   //tors
+   ResolvedFeed_AssetWalletSingle(shared_ptr<AssetWallet_Single> wltPtr) :
       wltPtr_(wltPtr)
    {
-      for (auto& entry : wltPtr->entries_)
+      for (auto& entry : wltPtr->assets_)
       {
-         auto h160Ref = BinaryDataRef(entry.second->getHash160());
-         auto pubkeyRef = BinaryDataRef(entry.second->getPubKey()->getData());
+         auto assetSingle = 
+            dynamic_pointer_cast<AssetEntry_Single>(entry.second);
+         if (assetSingle == nullptr)
+            throw WalletException("unexpected asset entry type in single wallet");
 
-         h160_to_pubkey_.insert(make_pair(h160Ref, pubkeyRef));
-         pubkey_to_privkeyAsset_.insert(make_pair(pubkeyRef, entry.second));
+         auto h160UncompressedRef = BinaryDataRef(assetSingle->getHash160Uncompressed());
+         auto h160CompressedRef = BinaryDataRef(assetSingle->getHash160Compressed());
+         auto pubkeyUncompressedRef = 
+            BinaryDataRef(assetSingle->getPubKey()->getUncompressedKey());
+         auto pubkeyCompressedRef =
+            BinaryDataRef(assetSingle->getPubKey()->getCompressedKey());
+
+         hash_to_pubkey_.insert(make_pair(h160UncompressedRef, pubkeyUncompressedRef));
+         hash_to_pubkey_.insert(make_pair(h160CompressedRef, pubkeyCompressedRef));
+         
+         pubkey_to_privkeyAsset_.insert(make_pair(pubkeyUncompressedRef, assetSingle));
+         pubkey_to_privkeyAsset_.insert(make_pair(pubkeyCompressedRef, assetSingle));
       }
    }
 
+   //virtual
    BinaryData getByVal(const BinaryData& key)
    {
       auto keyRef = BinaryDataRef(key);
-      auto iter = h160_to_pubkey_.find(keyRef);
-      if (iter == h160_to_pubkey_.end())
+      auto iter = hash_to_pubkey_.find(keyRef);
+      if (iter == hash_to_pubkey_.end())
          throw runtime_error("invalid value");
 
       return iter->second;
@@ -422,6 +789,83 @@ public:
          throw runtime_error("invalid value");
 
       const auto& privkeyAsset = iter->second->getPrivKey();
-      return privkeyAsset->getData();
+      return privkeyAsset->getKey();
+   }
+};
+
+////////////////////////////////////////////////////////////////////////////////
+class ResolvedFeed_AssetWalletMS : public ResolverFeed
+{
+private:
+   shared_ptr<AssetWallet> wltPtr_;
+
+   map<BinaryDataRef, BinaryDataRef> hash_to_script_;
+   map<BinaryDataRef, shared_ptr<AssetEntry_Single>> pubkey_to_privKeyasset_;
+
+public:
+   //tors
+   ResolvedFeed_AssetWalletMS(shared_ptr<AssetWallet_Multisig> wltPtr) :
+      wltPtr_(wltPtr)
+   {
+      for (auto& entry : wltPtr->assets_)
+      {
+         auto assetMS =
+            dynamic_pointer_cast<AssetEntry_Multisig>(entry.second);
+         if (assetMS == nullptr)
+            throw WalletException("unexpected asset entry type in ms wallet");
+
+         BinaryDataRef hash;
+         switch (wltPtr->default_aet_)
+         {
+         case AddressEntryType_P2SH:
+            hash = assetMS->getHash160().getRef();
+            break;
+
+         case AddressEntryType_P2WSH:
+            hash = assetMS->getHash256().getRef();
+            break;
+
+         default:
+            throw WalletException("unexpected AddressEntryType for MS wallet");
+         }
+
+         auto script = assetMS->getScript().getRef();
+         hash_to_script_.insert(make_pair(hash, script));
+
+         for (auto assetptr : assetMS->assetMap_)
+         {
+            auto assetSingle = 
+               dynamic_pointer_cast<AssetEntry_Single>(assetptr.second);
+            if (assetSingle == nullptr)
+               throw WalletException("unexpected asset entry type in ms wallet");
+
+            auto pubkeyCpr = 
+               assetSingle->getPubKey()->getCompressedKey().getRef();
+
+            pubkey_to_privKeyasset_.insert(make_pair(pubkeyCpr, assetSingle));
+         }
+      }
+   }
+
+   //virtual
+   BinaryData getByVal(const BinaryData& key)
+   {
+      auto keyRef = BinaryDataRef(key);
+      auto iter = hash_to_script_.find(keyRef);
+      if (iter == hash_to_script_.end())
+         throw runtime_error("invalid value");
+
+      return iter->second;
+   }
+
+   SecureBinaryData getPrivKeyForPubkey(const BinaryData& pubkey)
+   {
+      auto pubkeyref = BinaryDataRef(pubkey);
+      auto iter = pubkey_to_privKeyasset_.find(pubkeyref);
+      if (iter == pubkey_to_privKeyasset_.end())
+         throw runtime_error("invalid value");
+
+      const auto& privkeyAsset = iter->second->getPrivKey();
+      return privkeyAsset->getKey();
    }
 };
