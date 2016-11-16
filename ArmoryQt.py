@@ -6626,11 +6626,9 @@ class ArmoryMainWindow(QMainWindow):
       if not OS_MACOSX:
          self.sysTray.showMessage(dispTitle, dispText, dispIconType, dispTime)
       else:
-         if self.notifCtr == ArmoryMac.MacNotificationHandler.BuiltIn:
-            self.macNotifHdlr.showNotification(dispTitle, dispText)
-         elif (self.notifCtr == ArmoryMac.MacNotificationHandler.Growl12) or \
-              (self.notifCtr == ArmoryMac.MacNotificationHandler.Growl13):
-            self.macNotifHdlr.notifyGrowl(dispTitle, dispText, QIcon(self.iconfile))
+         # Code supporting Growl (OSX 10.7) is buggy, and no one seems to care.
+         # Just jump straight to 10.8.
+         self.macNotifHdlr.showNotification(dispTitle, dispText)
 
    #############################################################################
    def method_signal(self, method):
