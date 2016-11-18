@@ -2129,23 +2129,23 @@ public:
 
       if (data.getSize() <= 75)
       {
-         bw.put_uint8_t(data.getSize());
+         bw.put_uint8_t((uint8_t)data.getSize());
       }
       else if (data.getSize() < UINT8_MAX)
       {
          bw.put_uint8_t(OP_PUSHDATA1);
-         bw.put_uint8_t(data.getSize());
+         bw.put_uint8_t((uint8_t)data.getSize());
       }
       else if (data.getSize() < UINT16_MAX)
       {
          bw.put_uint8_t(OP_PUSHDATA2);
-         bw.put_uint16_t(data.getSize());
+         bw.put_uint16_t((uint16_t)data.getSize());
 
       }
       else if (data.getSize() < UINT32_MAX)
       {
          bw.put_uint8_t(OP_PUSHDATA4);
-         bw.put_uint32_t(data.getSize());
+         bw.put_uint32_t((uint32_t)data.getSize());
       }
       else
          throw runtime_error("pushdata exceeds size limit");

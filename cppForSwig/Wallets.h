@@ -6,6 +6,9 @@
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
+#ifndef _WALLETS_H
+#define _WALLETS_H
+
 #include <atomic>
 #include <mutex>
 #include <memory>
@@ -32,10 +35,12 @@ using namespace std;
 #define ADDRESSENTRYTYPE_KEY  0x00000005
 #define TOPUSEDINDEX_KEY      0x00000006
 #define ROOTASSET_KEY         0x00000007
-#define ASSETENTRY_PREFIX     0xAA
 
-#define WALLETTYPE_SINGLE     0x01
-#define WALLETTYPE_MULTISIG   0x02
+#define MASTERID_KEY          0x000000A0
+#define MAINWALLET_KEY        0x000000A1
+
+#define WALLETMETA_PREFIX     0xB0
+#define ASSETENTRY_PREFIX     0xAA
 
 #define DERIVATIONSCHEME_LEGACY     0xA0
 #define DERIVATIONSCHEME_BIP32      0xA1
@@ -43,6 +48,8 @@ using namespace std;
 #define DERIVATION_LOOKUP           100
 
 #define CYPHER_BYTE  0x90
+
+#define WALLETMETA_DBNAME "WalletHeader"
  
 class WalletException : public runtime_error
 {
@@ -77,6 +84,91 @@ public:
    CypherException(const string& msg) : runtime_error(msg)
    {}
 };
+
+////////////////////////////////////////////////////////////////////////////////
+enum WalletMetaType
+{
+   WalletMetaType_Single,
+   WalletMetaType_Multisig,
+   WalletMetaType_Subwallet
+};
+
+////
+struct WalletMeta
+{
+   LMDBEnv* dbEnv_;
+   WalletMetaType type_;
+   BinaryData parentID_;
+   BinaryData walletID_;
+   string dbName_;
+
+   //tors
+   WalletMeta(LMDBEnv* env, WalletMetaType type) :
+      dbEnv_(env), type_(type)
+   {}
+
+   virtual ~WalletMeta(void) = 0;
+   
+   //local
+   BinaryData getDbKey(void);
+   const BinaryData& getWalletID(void) const { return walletID_; }
+   string getWalletIDStr(void) const
+   {
+      if (walletID_.getSize() == 0)
+         throw WalletException("empty wallet id");
+
+      string idStr(walletID_.getCharPtr(), walletID_.getSize());
+      return idStr;
+   }
+
+   //virtual
+   virtual BinaryData serialize(void) const = 0;
+   virtual bool shouldLoad(void) const = 0;
+
+   //static
+   static shared_ptr<WalletMeta> deserialize(LMDBEnv* env,
+      BinaryDataRef key, BinaryDataRef val);
+};
+
+////
+struct WalletMeta_Single : public WalletMeta
+{
+   //tors
+   WalletMeta_Single(LMDBEnv* dbEnv) :
+      WalletMeta(dbEnv, WalletMetaType_Single)
+   {}
+
+   //virtual
+   BinaryData serialize(void) const;
+   bool shouldLoad(void) const;
+};
+
+////
+struct WalletMeta_Multisig : public WalletMeta
+{
+   //tors
+   WalletMeta_Multisig(LMDBEnv* dbEnv) :
+      WalletMeta(dbEnv, WalletMetaType_Multisig)
+   {}
+
+   //virtual
+   BinaryData serialize(void) const;
+   bool shouldLoad(void) const;
+};
+
+////
+struct WalletMeta_Subwallet : public WalletMeta
+{
+   //tors
+   WalletMeta_Subwallet(LMDBEnv* dbEnv) :
+      WalletMeta(dbEnv, WalletMetaType_Subwallet)
+   {}
+
+   //virtual
+   BinaryData serialize(void) const;
+   bool shouldLoad(void) const;
+};
+
 
 ////////////////////////////////////////////////////////////////////////////////
 enum AssetType
@@ -554,7 +646,7 @@ protected:
    LMDBEnv* dbEnv_ = nullptr;
    LMDB* db_ = nullptr;
    const string dbName_;
-   static const string mainWalletDbName_;
+   bool ownsEnv_ = false;
 
    ////
    mutex walletMutex_;
@@ -573,11 +665,10 @@ protected:
    
 protected:
    //tors
-   AssetWallet(LMDBEnv* env, const string& walletDbName) :
-      dbEnv_(env), dbName_(walletDbName)
+   AssetWallet(shared_ptr<WalletMeta> metaPtr) :
+      dbEnv_(metaPtr->dbEnv_), dbName_(metaPtr->dbName_)
    {
-      LMDBEnv::Transaction tx(env, LMDB::ReadWrite);
-      db_ = new LMDB(env, walletDbName);
+      db_ = new LMDB(dbEnv_, dbName_);
    }
 
    static LMDBEnv* getEnvFromFile(const string& path, unsigned dbCount = 3)
@@ -608,6 +699,18 @@ protected:
       shared_ptr<AssetEntry>, 
       AddressEntryType) = 0;
 
+   //static
+   static BinaryDataRef getDataRefForKey(const BinaryData& key, LMDB* db);
+   static unsigned getDbCountAndNames(
+      LMDBEnv* dbEnv, 
+      map<BinaryData, shared_ptr<WalletMeta>>&, 
+      BinaryData& masterID, 
+      BinaryData& mainWalletID);
+   static void putDbName(LMDB* db, shared_ptr<WalletMeta>);
+   static void setMainWallet(LMDB* db, shared_ptr<WalletMeta>);
+   static void putData(LMDB* db, const BinaryData& key, const BinaryData& data);
+   static void initWalletMetaDB(LMDBEnv*, const string&);
+
 public:
    //tors
    ~AssetWallet()
@@ -622,7 +725,7 @@ public:
       }
 
       if (dbEnv_ != nullptr && 
-          dbName_ == mainWalletDbName_)
+          ownsEnv_)
       {
          dbEnv_->close();
          delete dbEnv_;
@@ -644,11 +747,15 @@ public:
 
    //virtual
    virtual vector<BinaryData> getAddrHashVec(void) const = 0;
+
+   //static
+   static shared_ptr<AssetWallet> loadMainWalletFromFile(const string& path);
 };
 
 ////
 class AssetWallet_Single : public AssetWallet
 {
+   friend class AssetWallet;
    friend class AssetWallet_Multisig;
 
 protected:
@@ -667,21 +774,17 @@ protected:
       AddressEntryType);
 
    //static
-   static void initWalletDb(shared_ptr<AssetWallet_Single>, 
+   static shared_ptr<AssetWallet_Single> initWalletDb(
+      shared_ptr<WalletMeta>,
       unique_ptr<Cypher>,
-      const BinaryData& parentID,
       AddressEntryType, 
       SecureBinaryData&& privateRoot,
       unsigned lookup);
 
 public:
    //tors
-   AssetWallet_Single(LMDBEnv* env) :
-      AssetWallet(env, mainWalletDbName_)
-   {}
-
-   AssetWallet_Single(LMDBEnv* env, const string& db) :
-      AssetWallet(env, db)
+   AssetWallet_Single(shared_ptr<WalletMeta> metaPtr) :
+      AssetWallet(metaPtr)
    {}
 
    //virtual
@@ -689,6 +792,7 @@ public:
 
    //static
    static shared_ptr<AssetWallet_Single> createFromPrivateRoot_Armory135(
+      const string& folder,
       AddressEntryType,
       SecureBinaryData&& privateRoot,
       unsigned lookup = UINT32_MAX);
@@ -700,17 +804,19 @@ public:
 ////
 class AssetWallet_Multisig : public AssetWallet
 {
+   friend class AssetWallet;
+
 private:
    atomic<unsigned> chainLength_;
 
-private:
+protected:
    //local
    void readFromFile(void);
 
 public:
    //tors
-   AssetWallet_Multisig(LMDBEnv* env) :
-      AssetWallet(env, "MainWallet")
+   AssetWallet_Multisig(shared_ptr<WalletMeta> metaPtr) :
+      AssetWallet(metaPtr)
    {}
 
    //virtual
@@ -722,6 +828,7 @@ public:
 
    //static
    static shared_ptr<AssetWallet_Multisig> createFromPrivateRoot(
+      const string& folder,
       AddressEntryType aet,
       unsigned M, unsigned N,
       SecureBinaryData&& privateRoot,
@@ -869,3 +976,5 @@ public:
       return privkeyAsset->getKey();
    }
 };
+
+#endif

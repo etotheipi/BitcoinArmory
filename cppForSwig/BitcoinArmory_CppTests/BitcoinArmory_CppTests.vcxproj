@@ -194,6 +194,7 @@
     <ClInclude Include="..\TxClasses.h" />
     <ClInclude Include="..\txio.h" />
     <ClInclude Include="..\UniversalTimer.h" />
+    <ClInclude Include="..\WalletManager.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\BDM_mainthread.cpp" />
@@ -204,6 +205,7 @@
     <ClCompile Include="..\BitcoinP2P.cpp" />
     <ClCompile Include="..\Blockchain.cpp" />
     <ClCompile Include="..\BlockchainScanner.cpp" />
+    <ClCompile Include="..\BlockDataManagerConfig.cpp" />
     <ClCompile Include="..\BlockDataManager\fcgi\libfcgi\fcgiapp.c" />
     <ClCompile Include="..\BlockDataManager\fcgi\libfcgi\os_win32.c" />
     <ClCompile Include="..\BlockDataMap.cpp" />
@@ -239,6 +241,7 @@
     <ClCompile Include="..\TxClasses.cpp" />
     <ClCompile Include="..\txio.cpp" />
     <ClCompile Include="..\UniversalTimer.cpp" />
+    <ClCompile Include="..\WalletManager.cpp" />
     <ClCompile Include="..\Wallets.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

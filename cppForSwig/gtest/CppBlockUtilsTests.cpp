@@ -42,6 +42,7 @@
 #include "../Script.h"
 #include "../Signer.h"
 #include "../Wallets.h"
+#include "../WalletManager.h"
 
 
 
@@ -5530,6 +5531,81 @@ TEST_F(TxRefTest, TxRefKeyParts)
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
+class WalletsTest : public ::testing::Test
+{
+protected:
+   string homedir_;
+
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void SetUp()
+   {
+      LOGDISABLESTDOUT();
+      homedir_ = string("./fakehomedir");
+      rmdir(homedir_);
+      mkdir(homedir_);
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void TearDown(void)
+   {
+      rmdir(homedir_);
+   }
+};
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(WalletsTest, CreateCloseOpen_Test)
+{
+   map<string, vector<BinaryData>> addrMap;
+
+   //create 3 wallets
+   for (unsigned i = 0; i < 3; i++)
+   {
+      auto&& wltRoot = SecureBinaryData().GenerateRandom(32);
+      auto assetWlt = AssetWallet_Single::createFromPrivateRoot_Armory135(
+         homedir_,
+         AddressEntryType_P2PKH, //legacy P2PKH addresses
+         move(wltRoot), //root as a r value
+         4); //set lookup computation to 5 entries
+
+      //get AddrVec
+      auto&& addrVecCmp = assetWlt->getHash160VecCompressed();
+      auto&& addrVecUnc = assetWlt->getHash160VecUncompressed();
+
+      auto id = assetWlt->getID();
+      auto& vec = addrMap[id];
+
+      vec.insert(vec.end(), addrVecCmp.begin(), addrVecCmp.end());
+      vec.insert(vec.end(), addrVecUnc.begin(), addrVecUnc.end());
+
+      //close wallet 
+      assetWlt.reset();
+   }
+
+   //load all wallets in homedir
+   WalletManager wltMgr(homedir_);
+
+   for (auto& addrVecPair : addrMap)
+   {
+      auto wltPtr = wltMgr.getWalletPtr(addrVecPair.first);
+      ASSERT_NE(wltPtr, nullptr);
+
+      auto wltSingle = dynamic_pointer_cast<AssetWallet_Single>(wltPtr);
+      ASSERT_NE(wltSingle, nullptr);
+
+      auto&& addrVecCmp = wltSingle->getHash160VecCompressed();
+      auto&& addrVecUnc = wltSingle->getHash160VecUncompressed();
+
+      vector<BinaryData> addrVec;
+      addrVec.insert(addrVec.end(), addrVecCmp.begin(), addrVecCmp.end());
+      addrVec.insert(addrVec.end(), addrVecUnc.begin(), addrVecUnc.end());
+
+      ASSERT_EQ(addrVec, addrVecPair.second);
+   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 class TransactionsTest : public ::testing::Test
 {
 protected:
@@ -5805,6 +5881,7 @@ TEST_F(TransactionsTest, Wallet_SpendTest_P2PKH)
    //create a root private key
    auto&& wltRoot = SecureBinaryData().GenerateRandom(32);
    auto assetWlt = AssetWallet_Single::createFromPrivateRoot_Armory135(
+      homedir_,
       AddressEntryType_P2PKH, //legacy P2PKH addresses
       move(wltRoot), //root as a r value
       5); //set lookup computation to 5 entries
@@ -6042,6 +6119,7 @@ TEST_F(TransactionsTest, Wallet_SpendTest_P2WPKH)
    //create a root private key
    auto&& wltRoot = SecureBinaryData().GenerateRandom(32);
    auto assetWlt = AssetWallet_Single::createFromPrivateRoot_Armory135(
+      homedir_,
       AddressEntryType_P2WPKH, //legacy P2PKH addresses
       move(wltRoot), //root as a rvalue
       3); //set lookup computation to 3 entries
@@ -6280,6 +6358,7 @@ TEST_F(TransactionsTest, Wallet_SpendTest_P2SH)
    //create a root private key
    auto&& wltRoot = SecureBinaryData().GenerateRandom(32);
    auto assetWlt = AssetWallet_Multisig::createFromPrivateRoot(
+      homedir_,
       AddressEntryType_P2SH,
       2, 3, //2-of-3
       move(wltRoot), //root as a r value
@@ -6520,6 +6599,7 @@ TEST_F(TransactionsTest, Wallet_SpendTest_P2WSH)
    //create a root private key
    auto&& wltRoot = SecureBinaryData().GenerateRandom(32);
    auto assetWlt = AssetWallet_Multisig::createFromPrivateRoot(
+      homedir_,
       AddressEntryType_P2WSH,
       2, 3, //2-of-3
       move(wltRoot), //root as a r value

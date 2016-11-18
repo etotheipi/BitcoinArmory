@@ -143,6 +143,7 @@
     <ClCompile Include="..\BitcoinP2P.cpp" />
     <ClCompile Include="..\Blockchain.cpp" />
     <ClCompile Include="..\BlockchainScanner.cpp" />
+    <ClCompile Include="..\BlockDataManagerConfig.cpp" />
     <ClCompile Include="..\BlockDataMap.cpp" />
     <ClCompile Include="..\BlockDataViewer.cpp" />
     <ClCompile Include="..\BlockObj.cpp" />

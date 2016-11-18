@@ -129,6 +129,9 @@
     <ClCompile Include="..\Script.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\BlockDataManagerConfig.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="fcgi\include\fcgiapp.h">
