@@ -340,9 +340,16 @@ public:
       cypher_ = move(cypher);
    }
    
-   const SecureBinaryData& getKey(void) const { return data_; }
+   const SecureBinaryData& getKey(void) const 
+   { 
+      if (!hasKey())
+         throw AssetUnavailableException();
+
+      return data_; 
+   }
 
    BinaryData serialize(void) const;
+   bool hasKey(void) const { return (data_.getSize() == 32); }
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -499,6 +506,8 @@ public:
    vector<shared_ptr<AssetEntry>> extendChain(
       shared_ptr<AssetEntry>, unsigned);
    BinaryData serialize(void) const;
+
+   const SecureBinaryData& getChainCode(void) const { return chainCode_; }
 };
 
 class AssetWallet;
@@ -781,6 +790,13 @@ protected:
       SecureBinaryData&& privateRoot,
       unsigned lookup);
 
+   static shared_ptr<AssetWallet_Single> initWalletDbFromPubRoot(
+      shared_ptr<WalletMeta>,
+      AddressEntryType,
+      SecureBinaryData&& pubRoot,
+      SecureBinaryData&& chainCode,
+      unsigned lookup);
+
 public:
    //tors
    AssetWallet_Single(shared_ptr<WalletMeta> metaPtr) :
@@ -797,8 +813,19 @@ public:
       SecureBinaryData&& privateRoot,
       unsigned lookup = UINT32_MAX);
 
+   static shared_ptr<AssetWallet_Single> createFromPublicRoot_Armory135(
+      const string& folder,
+      AddressEntryType,
+      SecureBinaryData&& privateRoot,
+      SecureBinaryData&& chainCode,
+      unsigned lookup = UINT32_MAX);
+
+   //local
    vector<BinaryData> getHash160VecUncompressed(void) const;
    vector<BinaryData> getHash160VecCompressed(void) const;
+
+   const SecureBinaryData& getPublicRoot(void) const;
+   const SecureBinaryData& getChainCode(void) const;
 };
 
 ////

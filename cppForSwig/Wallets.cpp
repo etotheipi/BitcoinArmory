@@ -184,6 +184,55 @@ createFromPrivateRoot_Armory135(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+shared_ptr<AssetWallet_Single> AssetWallet_Single::
+createFromPublicRoot_Armory135(
+   const string& folder,
+   AddressEntryType defaultAddressType,
+   SecureBinaryData&& pubRoot,
+   SecureBinaryData&& chainCode,
+   unsigned lookup)
+{
+   //compute master ID as hmac256(root pubkey, "MetaEntry")
+   string hmacMasterMsg("MetaEntry");
+   auto&& masterID_long = BtcUtils::getHMAC256(
+      pubRoot, SecureBinaryData(hmacMasterMsg));
+   auto&& masterID = BtcUtils::getWalletID(masterID_long);
+   string masterIDStr(masterID.getCharPtr(), masterID.getSize());
+
+   //create wallet file and dbenv
+   stringstream pathSS;
+   pathSS << folder << "/armory_" << masterIDStr << "_wallet.lmdb";
+   auto dbenv = getEnvFromFile(pathSS.str(), 2);
+
+   initWalletMetaDB(dbenv, masterIDStr);
+
+   auto wltMetaPtr = make_shared<WalletMeta_Single>(dbenv);
+   wltMetaPtr->parentID_ = masterID;
+
+   auto walletPtr = initWalletDbFromPubRoot(
+      wltMetaPtr,
+      defaultAddressType,
+      move(pubRoot), move(chainCode), 
+      lookup);
+
+   //set as main
+   {
+      LMDB dbMeta;
+
+      {
+         dbMeta.open(dbenv, WALLETMETA_DBNAME);
+
+         LMDBEnv::Transaction metatx(dbenv, LMDB::ReadWrite);
+         setMainWallet(&dbMeta, wltMetaPtr);
+      }
+
+      dbMeta.close();
+   }
+
+   return walletPtr;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 shared_ptr<AssetWallet> AssetWallet::loadMainWalletFromFile(const string& path)
 {
    auto dbenv = getEnvFromFile(path.c_str(), 1);
@@ -446,6 +495,77 @@ shared_ptr<AssetWallet_Single> AssetWallet_Single::initWalletDb(
       walletPtr->putData(bwKey.getData(), data);
    }
    
+   //init walletptr from file
+   walletPtr->readFromFile();
+
+   {
+      //asset lookup
+      auto topEntryPtr = rootAssetEntry;
+
+      if (lookup == UINT32_MAX)
+         lookup = DERIVATION_LOOKUP;
+
+      walletPtr->extendChain(rootAssetEntry, lookup);
+   }
+
+   return walletPtr;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+shared_ptr<AssetWallet_Single> AssetWallet_Single::initWalletDbFromPubRoot(
+   shared_ptr<WalletMeta> metaPtr,
+   AddressEntryType addressType,
+   SecureBinaryData&& pubRoot,
+   SecureBinaryData&& chainCode,
+   unsigned lookup)
+{
+   //compute wallet ID
+   if (metaPtr->walletID_.getSize() == 0)
+      metaPtr->walletID_ = move(BtcUtils::getWalletID(pubRoot));
+
+   if (metaPtr->dbName_.size() == 0)
+   {
+      string walletIDStr(metaPtr->getWalletIDStr());
+      metaPtr->dbName_ = walletIDStr;
+   }
+
+   auto walletPtr = make_shared<AssetWallet_Single>(metaPtr);
+
+   {
+      LMDB metadb;
+
+      {
+         metadb.open(walletPtr->dbEnv_, WALLETMETA_DBNAME);
+
+         LMDBEnv::Transaction tx(walletPtr->dbEnv_, LMDB::ReadWrite);
+         putDbName(&metadb, metaPtr);
+      }
+
+      metadb.close();
+   }
+
+   //derScheme
+   auto derScheme = make_shared<DerivationScheme_ArmoryLegacy>(move(chainCode));
+
+   //create root AssetEntry
+   auto rootAssetEntry = make_shared<AssetEntry_Single>(-1,
+      move(pubRoot), move(SecureBinaryData()), nullptr);
+
+   /**insert the original entries**/
+   LMDBEnv::Transaction tx(walletPtr->dbEnv_, LMDB::ReadWrite);
+   walletPtr->putHeaderData(
+      metaPtr->parentID_, metaPtr->walletID_, derScheme, addressType, 0);
+
+   {
+      //root asset
+      BinaryWriter bwKey;
+      bwKey.put_uint32_t(ROOTASSET_KEY);
+
+      auto&& data = rootAssetEntry->serialize();
+
+      walletPtr->putData(bwKey.getData(), data);
+   }
+
    //init walletptr from file
    walletPtr->readFromFile();
 
@@ -1121,6 +1241,24 @@ vector<BinaryData> AssetWallet_Single::getHash160VecCompressed() const
    }
 
    return h160Vec;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+const SecureBinaryData& AssetWallet_Single::getPublicRoot() const
+{
+   auto rootEntry = dynamic_pointer_cast<AssetEntry_Single>(root_);
+   auto pubEntry = rootEntry->getPubKey();
+
+   return pubEntry->getUncompressedKey();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+const SecureBinaryData& AssetWallet_Single::getChainCode() const
+{
+   auto derSchemeA135 =
+      dynamic_pointer_cast<DerivationScheme_ArmoryLegacy>(derScheme_);
+
+   return derSchemeA135->getChainCode();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1932,7 +2070,8 @@ BinaryData AssetEntry_Single::serialize() const
    bw.put_uint8_t(getType());
 
    bw.put_BinaryData(pubkey_->serialize());
-   bw.put_BinaryData(privkey_->serialize());
+   if (privkey_->hasKey())
+      bw.put_BinaryData(privkey_->serialize());
    
    BinaryWriter finalBw;
 

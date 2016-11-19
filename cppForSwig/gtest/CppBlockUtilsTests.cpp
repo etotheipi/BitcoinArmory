@@ -5604,6 +5604,51 @@ TEST_F(WalletsTest, CreateCloseOpen_Test)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+TEST_F(WalletsTest, CreateWOCopy_Test)
+{
+   vector<BinaryData> addrVec;
+
+   //create 1 wallet from priv key
+   auto&& wltRoot = SecureBinaryData().GenerateRandom(32);
+   auto assetWlt = AssetWallet_Single::createFromPrivateRoot_Armory135(
+      homedir_,
+      AddressEntryType_P2PKH, //legacy P2PKH addresses
+      move(wltRoot), //root as a r value
+      4); //set lookup computation to 5 entries
+
+   //get AddrVec
+   auto&& addrVecCmp = assetWlt->getHash160VecCompressed();
+   auto&& addrVecUnc = assetWlt->getHash160VecUncompressed();
+
+   addrVec.insert(addrVec.end(), addrVecCmp.begin(), addrVecCmp.end());
+   addrVec.insert(addrVec.end(), addrVecUnc.begin(), addrVecUnc.end());
+
+   //get pub root and chaincode
+   auto pubRoot = assetWlt->getPublicRoot();
+   auto chainCode = assetWlt->getChainCode();
+
+   //close wallet 
+   assetWlt.reset();
+
+   auto woWallet = AssetWallet_Single::createFromPublicRoot_Armory135(
+      homedir_,
+      AddressEntryType_P2PKH,
+      move(pubRoot),
+      move(chainCode),
+      4);
+
+   //get AddrVec
+   auto&& addrVecCmpWO = woWallet->getHash160VecCompressed();
+   auto&& addrVecUncWO = woWallet->getHash160VecUncompressed();
+
+   vector<BinaryData> addrVecWO;
+   addrVecWO.insert(addrVecWO.end(), addrVecCmpWO.begin(), addrVecCmpWO.end());
+   addrVecWO.insert(addrVecWO.end(), addrVecUncWO.begin(), addrVecUncWO.end());
+
+   ASSERT_EQ(addrVec, addrVecWO);
+}
+
+////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 class TransactionsTest : public ::testing::Test
@@ -6848,7 +6893,6 @@ protected:
       CLEANUP_ALL_TIMERS();
    }
 };
-
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockDir, HeadersFirst)
