@@ -2163,7 +2163,7 @@ public:
       throw runtime_error(ss.str());
    }
 
-   static BinaryData getWalletID(const SecureBinaryData& pubkey);
+   static BinaryData computeID(const SecureBinaryData& pubkey);
 
    static BinaryData getHMAC256(
       const SecureBinaryData& key,

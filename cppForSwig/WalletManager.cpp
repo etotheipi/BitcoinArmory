@@ -15,8 +15,17 @@
 #endif
 
 ////////////////////////////////////////////////////////////////////////////////
+////
+//// WalletManager
+////
+////////////////////////////////////////////////////////////////////////////////
 void WalletManager::loadWallets()
 {
+   auto getBDVLambda = [this](void)->SwigClient::BlockDataViewer&
+   {
+      return this->getBDVObj();
+   };
+
    //list .lmdb files in folder
    DIR *dir;
    dir = opendir(path_.c_str());
@@ -54,7 +63,7 @@ void WalletManager::loadWallets()
       try
       {
          auto wltPtr = AssetWallet::loadMainWalletFromFile(wltPath);
-         WalletContainer wltCont(wltPtr->getID());
+         WalletContainer wltCont(wltPtr->getID(), getBDVLambda);
          wltCont.wallet_ = wltPtr;
 
          wallets_.insert(make_pair(wltPtr->getID(), wltCont));
@@ -66,4 +75,94 @@ void WalletManager::loadWallets()
          LOGERR << ss.str();
       }
    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void WalletManager::duplicateWOWallet(
+   const SecureBinaryData& pubRoot,
+   const SecureBinaryData& chainCode,
+   unsigned chainLength)
+{
+   auto root = pubRoot;
+   auto cc = chainCode;
+
+   auto newWO = AssetWallet_Single::createFromPublicRoot_Armory135(
+      path_, AddressEntryType_P2PKH, move(root), move(cc), chainLength);
+
+   auto getBDVLambda = [this](void)->SwigClient::BlockDataViewer&
+   {
+      return this->getBDVObj();
+   };
+
+   WalletContainer wltCont(newWO->getID(), getBDVLambda);
+   wltCont.wallet_ = newWO;
+
+   unique_lock<mutex> lock(mu_);
+   wallets_.insert(make_pair(newWO->getID(), wltCont));
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void WalletManager::synchronizeWallet(const string& id, unsigned chainLength)
+{
+   WalletContainer* wltCtr;
+
+   {
+      unique_lock<mutex> lock(mu_);
+
+      auto wltIter = wallets_.find(id);
+      if (wltIter == wallets_.end())
+         throw runtime_error("invalid id");
+
+      wltCtr = &wltIter->second;
+   }
+
+   auto wltSingle = dynamic_pointer_cast<AssetWallet_Single>(wltCtr->wallet_);
+   if (wltSingle == nullptr)
+      throw runtime_error("invalid wallet ptr");
+
+   wltSingle->extendChainTo(chainLength);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+SwigClient::BlockDataViewer& WalletManager::getBDVObj(void)
+{
+   if (!bdv_.isValid())
+      throw runtime_error("bdv object is not valid");
+
+   return bdv_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+WalletContainer& WalletManager::getCppWallet(const string& id)
+{
+   unique_lock<mutex> lock(mu_);
+
+   auto wltIter = wallets_.find(id);
+   if (wltIter == wallets_.end())
+      throw runtime_error("invalid id");
+
+   return wltIter->second;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+////
+//// WalletContainer
+////
+////////////////////////////////////////////////////////////////////////////////
+void WalletContainer::registerWithBDV(bool useMainnetPrefix, bool isNew)
+{
+   /*Oddly enough, Armory Python wallets force the use of mainnet prefixes for
+   all script hashes, regardless of network. The first bool arg lets you respect
+   that model.
+   */
+
+   auto wltSingle = dynamic_pointer_cast<AssetWallet_Single>(wallet_);
+   if (wltSingle == nullptr)
+      throw runtime_error("invalid wallet ptr");
+
+   auto addrVec = wltSingle->getAddrHashVec(useMainnetPrefix);
+   auto& bdv = getBDVlambda_();
+   auto&& swigWlt = bdv.registerWallet(wltSingle->getID(), addrVec, isNew);
+
+   swigWallet_ = make_shared<SwigClient::BtcWallet>(swigWlt);
 }

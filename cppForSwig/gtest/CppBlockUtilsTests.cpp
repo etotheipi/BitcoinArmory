@@ -5584,12 +5584,20 @@ TEST_F(WalletsTest, CreateCloseOpen_Test)
    //load all wallets in homedir
    WalletManager wltMgr(homedir_);
 
+   class WalletContainerEx : public WalletContainer
+   {
+   public:
+      shared_ptr<AssetWallet> getWalletPtr(void) const
+      {
+         return WalletContainer::getWalletPtr();
+      }
+   };
+
    for (auto& addrVecPair : addrMap)
    {
-      auto wltPtr = wltMgr.getWalletPtr(addrVecPair.first);
-      ASSERT_NE(wltPtr, nullptr);
-
-      auto wltSingle = dynamic_pointer_cast<AssetWallet_Single>(wltPtr);
+      auto wltCtr = (WalletContainerEx*)&wltMgr.getCppWallet(addrVecPair.first);
+      auto wltSingle = 
+         dynamic_pointer_cast<AssetWallet_Single>(wltCtr->getWalletPtr());
       ASSERT_NE(wltSingle, nullptr);
 
       auto&& addrVecCmp = wltSingle->getHash160VecCompressed();

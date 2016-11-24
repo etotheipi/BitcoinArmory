@@ -86,7 +86,9 @@ void BlockDataViewer::goOnline()
 ///////////////////////////////////////////////////////////////////////////////
 BlockDataViewer::BlockDataViewer(const shared_ptr<BinarySocket> sock) :
    sock_(sock)
-{}
+{
+   txMap_ = make_shared<map<BinaryData, Tx>>();
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 BlockDataViewer::~BlockDataViewer()
@@ -206,7 +208,7 @@ BroadcastStatus BlockDataViewer::broadcastZC(const BinaryData& rawTx)
 {
    auto&& txHash = BtcUtils::getHash256(rawTx.getRef());
    Tx tx(rawTx);
-   txMap_.insert(make_pair(txHash, tx));
+   txMap_->insert(make_pair(txHash, tx));
 
    Command cmd;
 
@@ -235,8 +237,8 @@ BroadcastStatus BlockDataViewer::broadcastZC(const BinaryData& rawTx)
 ///////////////////////////////////////////////////////////////////////////////
 Tx BlockDataViewer::getTxByHash(const BinaryData& txHash)
 {
-   auto iter = txMap_.find(txHash);
-   if (iter != txMap_.end())
+   auto iter = txMap_->find(txHash);
+   if (iter != txMap_->end())
       return iter->second;
 
    Command cmd;
@@ -253,7 +255,7 @@ Tx BlockDataViewer::getTxByHash(const BinaryData& txHash)
 
    Tx tx;
    tx.unserializeWithMetaData(rawtx.get());
-   txMap_.insert(make_pair(txHash, tx));
+   txMap_->insert(make_pair(txHash, tx));
    return tx;
 }
 
@@ -401,8 +403,9 @@ map<BinaryData, uint32_t> SwigClient::BtcWallet::getAddrTxnCountsFromDB()
    for (unsigned i = 0; i < count; i++)
    {
       auto&& addr = arg.get<BinaryDataObject>();
+      auto&& txcount = arg.get<IntType>().getVal();
 
-      countMap[addr.get()] = count;
+      countMap[addr.get()] = txcount;
    }
 
    return countMap;

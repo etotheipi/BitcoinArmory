@@ -22,6 +22,8 @@
 #include "SwigClient.h"
 #include "bdmenums.h"
 #include "TxClasses.h"
+#include "WalletManager.h"
+#include "BlockDataManagerConfig.h"
 %}
 
 %include "std_string.i"
@@ -346,3 +348,6 @@ namespace std
 %include "bdmenums.h"
 %include "LedgerEntryData.h"
 %include "TxClasses.h"
+%include "WalletManager.h"
+%include "BlockDataManagerConfig.h"
+

@@ -2525,6 +2525,7 @@ class ArmoryMainWindow(QMainWindow):
       self.walletMap = {}
       self.walletIndices = {}
       self.walletIDSet = set()
+      self.walletManager = None
 
       # I need some linear lists for accessing by index
       self.walletIDList = []
@@ -2545,6 +2546,8 @@ class ArmoryMainWindow(QMainWindow):
       if len(wltPaths) > 0:
          ratioPerWallet = 100 / float(len(wltPaths))
 
+      self.walletManager = Cpp.WalletManager(ARMORY_HOME_DIR)
+
       i = 0
       for fpath in wltPaths:
          currentProgress = float(i) * ratioPerWallet
@@ -2561,6 +2564,7 @@ class ArmoryMainWindow(QMainWindow):
             if fpath in wltExclude or wltID in wltExclude:
                continue
 
+            wltLoaded = True
             if wltID in self.walletIDSet:
                LOGWARN('***WARNING: Duplicate wallet detected, %s', wltID)
                wo1 = self.walletMap[wltID].watchingOnly
@@ -2572,6 +2576,7 @@ class ArmoryMainWindow(QMainWindow):
                   LOGWARN('     Wallet 1 (loaded):  %s', fpath)
                   LOGWARN('     Wallet 2 (skipped): %s', prevWltPath)
                else:
+                  wltLoaded = False
                   LOGWARN('Second wallet is more useful than the first one...')
                   LOGWARN('     Wallet 1 (skipped): %s', fpath)
                   LOGWARN('     Wallet 2 (loaded):  %s', self.walletMap[wltID].walletPath)
@@ -2588,6 +2593,21 @@ class ArmoryMainWindow(QMainWindow):
                defaultVisible = self.getWltSetting(wltID, 'LedgerShow', notWatch)
                self.walletVisibleList.append(defaultVisible)
                wltLoad.mainWnd = self
+               
+            if wltLoaded is False:
+               continue
+            
+            if self.walletManager.hasWallet(wltID):
+               self.walletManager.synchronizeWallet(
+                  wltID, wltLoad.lastComputedChainIndex)
+            else:
+               rootEntry = wltLoad.addrMap['ROOT']
+               self.walletManager.duplicateWOWallet(
+                  rootEntry.binPublicKey65, rootEntry.chaincode, 
+                  wltLoad.lastComputedChainIndex)
+               
+            wltLoad.cppWallet = self.walletManager.getCppWallet(wltID)
+            
          except:
             LOGEXCEPT( '***WARNING: Wallet could not be loaded: %s (skipping)',
                                                                            fpath)
@@ -6645,6 +6665,7 @@ class ArmoryMainWindow(QMainWindow):
 
       try:
          TheBDM.registerBDV()
+         self.walletManager.setBDVObject(TheBDM.bdv())
       except:
          self.switchNetworkMode(NETWORKMODE.Offline)
          return

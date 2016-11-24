@@ -657,8 +657,43 @@ protected:
    const string dbName_;
    bool ownsEnv_ = false;
 
-   ////
    mutex walletMutex_;
+   size_t mutexTID_ = SIZE_MAX;
+
+   ////
+   struct LockStruct
+   {
+      AssetWallet* wltPtr_;
+      unique_ptr<unique_lock<mutex>> lock_;
+
+      LockStruct(AssetWallet* wltPtr) :
+         wltPtr_(wltPtr)
+      {
+         if (wltPtr == nullptr)
+            throw WalletException("empty wlt ptr");
+
+         lock_ = 
+            make_unique<unique_lock<mutex>>(wltPtr->walletMutex_, defer_lock);
+         if (wltPtr->mutexTID_ != this_thread::get_id().hash())
+         { 
+            lock_->lock();
+            wltPtr->mutexTID_ = this_thread::get_id().hash();
+         }
+      }
+
+      ~LockStruct(void)
+      {
+         if (lock_ == nullptr)
+            return;
+
+         if (lock_->owns_lock())
+         {
+            if (wltPtr_ != nullptr)
+               wltPtr_->mutexTID_ = SIZE_MAX;
+         }
+      }
+   };
+
    atomic<int> highestUsedAddressIndex_;
 
    shared_ptr<AssetEntry> root_;
@@ -720,6 +755,8 @@ protected:
    static void putData(LMDB* db, const BinaryData& key, const BinaryData& data);
    static void initWalletMetaDB(LMDBEnv*, const string&);
 
+   //locking local
+
 public:
    //tors
    ~AssetWallet()
@@ -752,10 +789,11 @@ public:
    shared_ptr<AssetEntry> getAssetForIndex(unsigned) const;
    unsigned getAssetCount(void) const { return assets_.size(); }
    void extendChain(unsigned);
+   void extendChainTo(unsigned);
    void extendChain(shared_ptr<AssetEntry>, unsigned);
 
    //virtual
-   virtual vector<BinaryData> getAddrHashVec(void) const = 0;
+   virtual vector<BinaryData> getAddrHashVec(bool forceMainnetPrefix) const = 0;
 
    //static
    static shared_ptr<AssetWallet> loadMainWalletFromFile(const string& path);
@@ -797,6 +835,10 @@ protected:
       SecureBinaryData&& chainCode,
       unsigned lookup);
 
+   static BinaryData computeWalletID(
+      shared_ptr<DerivationScheme>,
+      shared_ptr<AssetEntry>);
+
 public:
    //tors
    AssetWallet_Single(shared_ptr<WalletMeta> metaPtr) :
@@ -804,7 +846,7 @@ public:
    {}
 
    //virtual
-   vector<BinaryData> getAddrHashVec(void) const;
+   vector<BinaryData> getAddrHashVec(bool forceMainnetPrefix) const;
 
    //static
    static shared_ptr<AssetWallet_Single> createFromPrivateRoot_Armory135(
@@ -821,6 +863,9 @@ public:
       unsigned lookup = UINT32_MAX);
 
    //local
+
+   /*These methods for getting hash vectors do not allow for prefix
+   forcing as they are mostly there for unit tests*/
    vector<BinaryData> getHash160VecUncompressed(void) const;
    vector<BinaryData> getHash160VecCompressed(void) const;
 
@@ -847,7 +892,7 @@ public:
    {}
 
    //virtual
-   vector<BinaryData> getAddrHashVec(void) const;
+   vector<BinaryData> getAddrHashVec(bool forceMainnetPrefix) const;
 
    shared_ptr<AddressEntry> getAddressEntryForAsset(
       shared_ptr<AssetEntry>,

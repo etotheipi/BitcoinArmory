@@ -512,6 +512,11 @@ if not USE_TESTNET and not USE_REGTEST:
    BLOCKEXPLORE_URL_TX   = 'https://blockchain.info/tx/%s'
    BLOCKEXPLORE_URL_ADDR = 'https://blockchain.info/address/%s'
 else:
+   #set static members of BDMconfig for address generation on C++ side
+   from CppBlockUtils import BlockDataManagerConfig
+   bdmConfig = BlockDataManagerConfig()
+   bdmConfig.selectNetwork("Test")
+   
    BITCOIN_PORT = 18444 if USE_REGTEST else 18333
    BITCOIN_RPC_PORT = 18332
    ARMORY_RPC_PORT     = 18225

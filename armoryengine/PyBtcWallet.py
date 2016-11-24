@@ -272,22 +272,15 @@ class PyBtcWallet(object):
       
    #############################################################################
    def registerWallet(self, isNew=False):
-      if len(self.uniqueIDB58) == 0:
-         raise('cannot register a wallet with an empty uniqueIDB58')
-      prefixedKeys = []
-      for key in self.linearAddr160List:
-         prefixedKeys.append(Hash160ToScrAddr(key))
+      if self.cppWallet == None:
+         raise('invalid cppWallet object')
       
-      #this returns a pointer to the BtcWallet C++ object. This object is
+      #this returns a copy of a BtcWallet C++ object. This object is
       #instantiated at registration and is unique for the BDV object, so we
       #should only ever set the cppWallet member here 
-      self.cppWallet = TheBDM.registerWallet(prefixedKeys, self.uniqueIDB58, isNew)
       
-   #############################################################################
-   def unregisterWallet(self):
-      TheBDM.unregisterWallet(self.uniqueIDB58)
-      self.cppWallet = None
-      
+      self.cppWallet.registerWithBDV(True, isNew)
+            
    #############################################################################
    def isWltSigningAnyLockbox(self, lockboxList):
       for lockbox in lockboxList:
@@ -2148,8 +2141,6 @@ class PyBtcWallet(object):
                self.lastComputedChainIndex   = newAddr.chainIndex
                self.lastComputedChainAddr160 = newAddr.getAddr160()
                
-            if newAddr.chainIndex == -2:
-               abc = 1
             if newAddr.chainIndex < -2:
                newAddr.chainIndex = -2
                self.hasNegativeImports = True

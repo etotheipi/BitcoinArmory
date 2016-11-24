@@ -145,7 +145,7 @@ createFromPrivateRoot_Armory135(
    string hmacMasterMsg("MetaEntry");
    auto&& masterID_long = BtcUtils::getHMAC256(
       pubkey, SecureBinaryData(hmacMasterMsg));
-   auto&& masterID = BtcUtils::getWalletID(masterID_long);
+   auto&& masterID = BtcUtils::computeID(masterID_long);
    string masterIDStr(masterID.getCharPtr(), masterID.getSize());
 
    //create wallet file and dbenv
@@ -196,7 +196,7 @@ createFromPublicRoot_Armory135(
    string hmacMasterMsg("MetaEntry");
    auto&& masterID_long = BtcUtils::getHMAC256(
       pubRoot, SecureBinaryData(hmacMasterMsg));
-   auto&& masterID = BtcUtils::getWalletID(masterID_long);
+   auto&& masterID = BtcUtils::computeID(masterID_long);
    string masterIDStr(masterID.getCharPtr(), masterID.getSize());
 
    //create wallet file and dbenv
@@ -439,6 +439,22 @@ unsigned AssetWallet::getDbCountAndNames(LMDBEnv* dbEnv,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+BinaryData AssetWallet_Single::computeWalletID(
+   shared_ptr<DerivationScheme> derScheme,
+   shared_ptr<AssetEntry> rootEntry)
+{
+   auto&& addrVec = derScheme->extendChain(rootEntry, 1);
+   if (addrVec.size() != 1)
+      throw WalletException("unexpected chain derivation output");
+
+   auto firstEntry = dynamic_pointer_cast<AssetEntry_Single>(addrVec[0]);
+   if (firstEntry == nullptr)
+      throw WalletException("unexpected asset entry type");
+
+   return BtcUtils::computeID(firstEntry->getPubKey()->getUncompressedKey());
+}
+
+////////////////////////////////////////////////////////////////////////////////
 shared_ptr<AssetWallet_Single> AssetWallet_Single::initWalletDb(
    shared_ptr<WalletMeta> metaPtr,
    unique_ptr<Cypher> cypher,
@@ -446,10 +462,18 @@ shared_ptr<AssetWallet_Single> AssetWallet_Single::initWalletDb(
    SecureBinaryData&& privateRoot,
    unsigned lookup)
 {
-   //compute wallet ID
+   //chaincode
+   auto&& chaincode = BtcUtils::computeChainCode_Armory135(privateRoot);
+   auto derScheme = make_shared<DerivationScheme_ArmoryLegacy>(move(chaincode));
+
+   //create root AssetEntry
    auto&& pubkey = CryptoECDSA().ComputePublicKey(privateRoot);
+   auto rootAssetEntry = make_shared<AssetEntry_Single>(-1,
+      move(pubkey), move(privateRoot), move(cypher));
+
+   //compute wallet ID if it is missing
    if (metaPtr->walletID_.getSize() == 0)
-      metaPtr->walletID_ = move(BtcUtils::getWalletID(pubkey));
+      metaPtr->walletID_ = move(computeWalletID(derScheme, rootAssetEntry));
    
    if (metaPtr->dbName_.size() == 0)
    {
@@ -472,13 +496,6 @@ shared_ptr<AssetWallet_Single> AssetWallet_Single::initWalletDb(
       metadb.close();
    }
 
-   //chaincode
-   auto&& chaincode = BtcUtils::computeChainCode_Armory135(privateRoot);
-   auto derScheme = make_shared<DerivationScheme_ArmoryLegacy>(move(chaincode));
-
-   //create root AssetEntry
-   auto rootAssetEntry = make_shared<AssetEntry_Single>(-1,
-      move(pubkey), move(privateRoot), move(cypher));
 
    /**insert the original entries**/
    LMDBEnv::Transaction tx(walletPtr->dbEnv_, LMDB::ReadWrite);
@@ -519,9 +536,16 @@ shared_ptr<AssetWallet_Single> AssetWallet_Single::initWalletDbFromPubRoot(
    SecureBinaryData&& chainCode,
    unsigned lookup)
 {
+   //derScheme
+   auto derScheme = make_shared<DerivationScheme_ArmoryLegacy>(move(chainCode));
+
+   //create root AssetEntry
+   auto rootAssetEntry = make_shared<AssetEntry_Single>(-1,
+      move(pubRoot), move(SecureBinaryData()), nullptr);
+
    //compute wallet ID
    if (metaPtr->walletID_.getSize() == 0)
-      metaPtr->walletID_ = move(BtcUtils::getWalletID(pubRoot));
+      metaPtr->walletID_ = move(computeWalletID(derScheme, rootAssetEntry));
 
    if (metaPtr->dbName_.size() == 0)
    {
@@ -543,13 +567,6 @@ shared_ptr<AssetWallet_Single> AssetWallet_Single::initWalletDbFromPubRoot(
 
       metadb.close();
    }
-
-   //derScheme
-   auto derScheme = make_shared<DerivationScheme_ArmoryLegacy>(move(chainCode));
-
-   //create root AssetEntry
-   auto rootAssetEntry = make_shared<AssetEntry_Single>(-1,
-      move(pubRoot), move(SecureBinaryData()), nullptr);
 
    /**insert the original entries**/
    LMDBEnv::Transaction tx(walletPtr->dbEnv_, LMDB::ReadWrite);
@@ -623,7 +640,7 @@ shared_ptr<AssetWallet_Multisig> AssetWallet_Multisig::createFromPrivateRoot(
    string hmacMasterMsg("MetaEntry");
    auto&& masterID_long = BtcUtils::getHMAC256(
       pubkey, SecureBinaryData(hmacMasterMsg));
-   auto&& masterID = BtcUtils::getWalletID(masterID_long);
+   auto&& masterID = BtcUtils::computeID(masterID_long);
    string masterIDStr(masterID.getCharPtr(), masterID.getSize());
 
    //create wallet file
@@ -641,7 +658,7 @@ shared_ptr<AssetWallet_Multisig> AssetWallet_Multisig::createFromPrivateRoot(
    stringstream mofn;
    mofn << M << "_of_" << N;
    auto&& longID = BtcUtils::getHMAC256(pubkey, SecureBinaryData(mofn.str()));
-   auto&& walletID = BtcUtils::getWalletID(longID);
+   auto&& walletID = BtcUtils::computeID(longID);
    
    mainWltMetaPtr->walletID_ = walletID;
    string walletIDStr(walletID.getCharPtr(), walletID.getSize());
@@ -676,10 +693,9 @@ shared_ptr<AssetWallet_Multisig> AssetWallet_Multisig::createFromPrivateRoot(
       subWalletMeta->parentID_ = walletID;
       subWalletMeta->dbName_ = hmacMsg.str();
 
-      auto subWalletPtr = make_shared<AssetWallet_Single>(subWalletMeta);
       auto cypher = make_unique<Cypher_AES>();
-
-      AssetWallet_Single::initWalletDb(subWalletMeta, move(cypher),
+      auto subWalletPtr = AssetWallet_Single::initWalletDb(
+         subWalletMeta, move(cypher),
          AddressEntryType_P2PKH, move(subRoot), lookup);
 
       subWallets[subWalletPtr->getID()] = subWalletPtr;
@@ -1097,8 +1113,8 @@ shared_ptr<AddressEntry> AssetWallet::getNewAddress()
    auto index = getAndBumpHighestUsedIndex();
 
    //lock
-   unique_lock<mutex> walletLock(walletMutex_);
-   
+   LockStruct lock(this);
+
    auto addrIter = addresses_.find(index);
    if (addrIter != addresses_.end())
       return addrIter->second;
@@ -1184,19 +1200,24 @@ void AssetWallet::writeAssetEntry(shared_ptr<AssetEntry> entryPtr)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-vector<BinaryData> AssetWallet_Single::getAddrHashVec() const
+vector<BinaryData> AssetWallet_Single::getAddrHashVec(
+   bool forceMainnetPrefix) const
 {
    vector<BinaryData> h160Vec;
+
+   uint8_t pubkeyprefix = BlockDataManagerConfig::getPubkeyHashPrefix();
+   if (forceMainnetPrefix)
+      pubkeyprefix = SCRIPT_PREFIX_HASH160;
 
    for (auto& entry : assets_)
    {
       auto assetSingle = dynamic_pointer_cast<AssetEntry_Single>(entry.second);
       BinaryWriter bwUnc;
-      bwUnc.put_uint8_t(BlockDataManagerConfig::getPubkeyHashPrefix());
+      bwUnc.put_uint8_t(pubkeyprefix);
       bwUnc.put_BinaryData(assetSingle->getHash160Uncompressed());
 
       BinaryWriter bwCmp;
-      bwCmp.put_uint8_t(BlockDataManagerConfig::getPubkeyHashPrefix());
+      bwCmp.put_uint8_t(pubkeyprefix);
       bwCmp.put_BinaryData(assetSingle->getHash160Compressed());
 
       h160Vec.push_back(move(bwUnc.getData()));
@@ -1262,9 +1283,14 @@ const SecureBinaryData& AssetWallet_Single::getChainCode() const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-vector<BinaryData> AssetWallet_Multisig::getAddrHashVec(void) const
+vector<BinaryData> AssetWallet_Multisig::getAddrHashVec(
+   bool forceMainnetPrefix) const
 {
    vector<BinaryData> hashVec;
+
+   uint8_t scriptHashPrefix = BlockDataManagerConfig::getScriptHashPrefix();
+   if (forceMainnetPrefix)
+      scriptHashPrefix = SCRIPT_PREFIX_P2SH;
 
    switch (default_aet_)
    {
@@ -1324,22 +1350,40 @@ string AssetWallet::getID(void) const
 ////////////////////////////////////////////////////////////////////////////////
 void AssetWallet::extendChain(unsigned count)
 {
+   LockStruct lock(this);
+
+   //add *count* entries to address chain
    if (assets_.size() == 0)
       throw WalletException("empty asset map");
-
-   unique_lock<mutex> walletLock(walletMutex_, defer_lock);
-   if (!walletLock.owns_lock())
-      walletLock.lock();
+   
+   if (count == 0)
+      return;
 
    extendChain(assets_.rbegin()->second, count);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+void AssetWallet::extendChainTo(unsigned count)
+{
+   //make address chain at least *count* long
+   auto total = getAssetCount();
+   if (total > count)
+      return;
+
+   auto toCompute = count - total;
+   if (toCompute == 0)
+      return;
+
+   extendChain(toCompute);
+}
+
+////////////////////////////////////////////////////////////////////////////////
 void AssetWallet::extendChain(shared_ptr<AssetEntry> assetPtr, unsigned count)
 {
-   unique_lock<mutex> walletLock(walletMutex_, defer_lock);
-   if (!walletLock.owns_lock())
-      walletLock.lock();
+   if (count == 0)
+      return;
+
+   LockStruct lock(this);
 
    auto&& assetVec = derScheme_->extendChain(assetPtr, count);
 

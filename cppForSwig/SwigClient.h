@@ -20,6 +20,8 @@ and handle the data transmission with the BDM server
 #include "log.h"
 #include "TxClasses.h"
 
+class WalletManager;
+
 namespace SwigClient
 {
 
@@ -109,8 +111,7 @@ namespace SwigClient
       vector<UTXO> getSpendableTxOutListForValue(
          uint64_t val = UINT64_MAX, bool ignoreZC = true);
       map<BinaryData, uint32_t> getAddrTxnCountsFromDB(void);
-      map<BinaryData, vector<uint64_t> >
-         getAddrBalancesFromDB(void);
+      map<BinaryData, vector<uint64_t>> getAddrBalancesFromDB(void);
 
       vector<LedgerEntryData> getHistoryPage(uint32_t id);
       LedgerEntryData getLedgerEntryForTxHash(
@@ -270,16 +271,28 @@ namespace SwigClient
       friend class PythonCallback;
       friend class LedgerDelegate;
       friend class Blockchain;
+      friend class ::WalletManager;
 
    private:
       string bdvID_;
-      const shared_ptr<BinarySocket> sock_;
+      shared_ptr<BinarySocket> sock_;
 
       //save all tx we fetch by hash to reduce resource cost on redundant fetches
-      map<BinaryData, Tx> txMap_;
+      shared_ptr<map<BinaryData, Tx>> txMap_;
 
    private:
+      BlockDataViewer(void) { txMap_ = make_shared<map<BinaryData, Tx>>(); }
       BlockDataViewer(const shared_ptr<BinarySocket> sock);
+      bool isValid(void) const { return sock_ != nullptr; }
+
+      const BlockDataViewer& operator=(const BlockDataViewer& rhs)
+      {
+         bdvID_ = rhs.bdvID_;
+         sock_ = rhs.sock_;
+         txMap_ = rhs.txMap_;
+
+         return *this;
+      }
 
    public:
       ~BlockDataViewer(void);

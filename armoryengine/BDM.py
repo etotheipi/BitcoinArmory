@@ -247,11 +247,6 @@ class BlockDataManager(object):
 
    #############################################################################
    @ActLikeASingletonBDM
-   def unregisterWallet(self, uniqueIDB58):
-      self.bdv().unregisterWallet(uniqueIDB58)
-
-   #############################################################################
-   @ActLikeASingletonBDM
    def registerLockbox(self, uniqueIDB58, addressList, isNew=False):
       #this returns a pointer to the BtcWallet C++ object. This object is
       #instantiated at registration and is unique for the BDV object, so we

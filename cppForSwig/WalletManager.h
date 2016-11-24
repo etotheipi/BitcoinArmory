@@ -30,15 +30,68 @@ private:
    const string id_;
    shared_ptr<AssetWallet> wallet_;
    shared_ptr<SwigClient::BtcWallet> swigWallet_;
+   function<SwigClient::BlockDataViewer&(void)> getBDVlambda_;
 
-public:
-   WalletContainer(const string& id) :
-      id_(id)
+private:
+   WalletContainer(const string& id,
+      function<SwigClient::BlockDataViewer&(void)> bdvLbd) :
+      id_(id), getBDVlambda_(bdvLbd)
    {}
 
-   shared_ptr<AssetWallet> getWalletPtr(void) const
+protected:
+   //need this for unit test, but can't have it exposed to SWIG for backwards
+   //compatiblity with 2.x (because of the shared_ptr return type)
+   virtual shared_ptr<AssetWallet> getWalletPtr(void) const
    {
       return wallet_;
+   }
+
+public:
+   void registerWithBDV(bool prefix, bool isNew);
+
+   vector<uint64_t> getBalancesAndCount(
+      uint32_t topBlockHeight, bool IGNOREZC)
+   {
+      return swigWallet_->getBalancesAndCount(topBlockHeight, IGNOREZC);
+   }
+
+   vector<UTXO> getSpendableTxOutListForValue(
+      uint64_t val = UINT64_MAX, bool ignoreZC = true)
+   {
+      return swigWallet_->getSpendableTxOutListForValue(val, ignoreZC);
+   }
+   
+   map<BinaryData, uint32_t> getAddrTxnCountsFromDB(void)
+   {
+      return swigWallet_->getAddrTxnCountsFromDB();
+   }
+   
+   map<BinaryData, vector<uint64_t>> getAddrBalancesFromDB(void)
+   {
+      return swigWallet_->getAddrBalancesFromDB();
+   }
+
+   vector<LedgerEntryData> getHistoryPage(uint32_t id)
+   {
+      return swigWallet_->getHistoryPage(id);
+   }
+
+   LedgerEntryData getLedgerEntryForTxHash(
+      const BinaryData& txhash)
+   {
+      return swigWallet_->getLedgerEntryForTxHash(txhash);
+   }
+
+   SwigClient::ScrAddrObj getScrAddrObjByKey(const BinaryData& scrAddr,
+      uint64_t full, uint64_t spendable, uint64_t unconf, uint32_t count)
+   {
+      return swigWallet_->getScrAddrObjByKey(
+         scrAddr, full, spendable, unconf, count);
+   }
+
+   vector<AddressBookEntry> createAddressBook(void) const
+   {
+      return swigWallet_->createAddressBook();
    }
 };
 
@@ -50,9 +103,11 @@ private:
 
    const string path_;
    map<string, WalletContainer> wallets_;
+   SwigClient::BlockDataViewer bdv_;
 
 private:
    void loadWallets();
+   SwigClient::BlockDataViewer& getBDVObj(void);
 
 public:
    WalletManager(const string& path) :
@@ -61,7 +116,7 @@ public:
       loadWallets();
    }
 
-   bool haveWallet(const string& id)
+   bool hasWallet(const string& id)
    {
       unique_lock<mutex> lock(mu_);
       auto wltIter = wallets_.find(id);
@@ -69,23 +124,19 @@ public:
       return wltIter != wallets_.end();
    }
 
-   void mirrorWatchOnlyWallet(
+   void setBDVObject(const SwigClient::BlockDataViewer& bdv)
+   {
+      bdv_ = bdv;
+   }
+
+   void synchronizeWallet(const string& id, unsigned chainLength);
+
+   void duplicateWOWallet(
       const SecureBinaryData& pubRoot,
       const SecureBinaryData& chainCode,
       unsigned chainLength);
 
-   void synchronizeWallet(const string& id, unsigned chainLength);
-
-   shared_ptr<AssetWallet> getWalletPtr(const string& id) const
-   {
-      unique_lock<mutex> lock(mu_);
-
-      auto iter = wallets_.find(id);
-      if (iter == wallets_.end())
-         throw runtime_error("invalid wallet id");
-
-      return iter->second.getWalletPtr();
-   }
+   WalletContainer& getCppWallet(const string& id);
 };
 
 #endif

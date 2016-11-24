@@ -10,6 +10,7 @@
 #include "hmac.h"
 #include "sha.h"
 #include "EncryptionUtils.h"
+#include "BlockDataManagerConfig.h"
 
 
 const BinaryData BtcUtils::BadAddress_ = BinaryData::CreateFromHex("0000000000000000000000000000000000000000");
@@ -31,14 +32,27 @@ const map<char, uint8_t> BtcUtils::base58Vals_ = {
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-BinaryData BtcUtils::getWalletID(const SecureBinaryData& pubkey)
+BinaryData BtcUtils::computeID(const SecureBinaryData& pubkey)
 {
    BinaryDataRef bdr(pubkey);
-   auto&& h256 = getHash256(bdr);
-   auto h256_7bytes_ref = h256.getSliceRef(0, 7);
-   auto&& b58_7bytes = BtcUtils::base58_encode(h256_7bytes_ref);
+   auto&& h160 = getHash160(bdr);
+   
+   BinaryWriter bw;
+   bw.put_uint8_t(BlockDataManagerConfig::getPubkeyHashPrefix());
+   bw.put_BinaryDataRef(h160.getSliceRef(0, 5));
 
-   return b58_7bytes;
+   //now reverse it
+   auto& data = bw.getData();
+   auto ptr = data.getPtr();
+   BinaryWriter bwReverse;
+   for (unsigned i = 0; i < data.getSize(); i++)
+   {
+      bwReverse.put_uint8_t(ptr[data.getSize() - 1 - i]);
+   }
+
+   auto&& b58_5bytes = BtcUtils::base58_encode(bwReverse.getDataRef());
+
+   return b58_5bytes;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
