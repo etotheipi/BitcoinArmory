@@ -584,7 +584,7 @@ public:
    int getIndex(void) const { return asset_->getId(); }
 
    //virtual
-   virtual const BinaryData& getAddress(void) const = 0;
+   virtual const BinaryData& getAddress(bool forceMainnet) const = 0;
    virtual shared_ptr<ScriptRecipient> getRecipient(uint64_t) const = 0;
 };
 
@@ -601,7 +601,7 @@ public:
    {}
 
    //virtual
-   const BinaryData& getAddress(void) const;
+   const BinaryData& getAddress(bool forceMainnet) const;
    shared_ptr<ScriptRecipient> getRecipient(uint64_t) const;
 };
 
@@ -618,7 +618,7 @@ public:
    {}
 
    //virtual
-   const BinaryData& getAddress(void) const;
+   const BinaryData& getAddress(bool forceMainnet) const;
    shared_ptr<ScriptRecipient> getRecipient(uint64_t) const;
 };
 
@@ -635,7 +635,7 @@ public:
    {}
 
    //virtual
-   const BinaryData& getAddress(void) const;
+   const BinaryData& getAddress(bool forceMainnet) const;
    shared_ptr<ScriptRecipient> getRecipient(uint64_t) const;
 };
 
@@ -652,7 +652,7 @@ public:
    {}
 
    //virtual
-   const BinaryData& getAddress(void) const;
+   const BinaryData& getAddress(bool forceMainnet) const;
    shared_ptr<ScriptRecipient> getRecipient(uint64_t) const;
 };
 
@@ -669,7 +669,7 @@ public:
    {}
 
    //virtual
-   const BinaryData& getAddress(void) const;
+   const BinaryData& getAddress(bool forceMainnet) const;
    shared_ptr<ScriptRecipient> getRecipient(uint64_t) const;
 };
 
@@ -685,16 +685,16 @@ protected:
    const string dbName_;
    bool ownsEnv_ = false;
 
-   mutex walletMutex_;
-   size_t mutexTID_ = SIZE_MAX;
+   mutable mutex walletMutex_;
+   mutable size_t mutexTID_ = SIZE_MAX;
 
    ////
    struct LockStruct
    {
-      AssetWallet* wltPtr_;
+      const AssetWallet* wltPtr_;
       unique_ptr<unique_lock<mutex>> lock_;
 
-      LockStruct(AssetWallet* wltPtr) :
+      LockStruct(const AssetWallet* wltPtr) :
          wltPtr_(wltPtr)
       {
          if (wltPtr == nullptr)
@@ -727,6 +727,7 @@ protected:
    shared_ptr<AssetEntry> root_;
    map<int, shared_ptr<AssetEntry>> assets_;
    map<int, shared_ptr<AddressEntry>> addresses_;
+   mutable set<BinaryData> addrHashSet_;
 
    shared_ptr<DerivationScheme> derScheme_;
    AddressEntryType default_aet_;
@@ -769,7 +770,7 @@ protected:
 
    virtual shared_ptr<AddressEntry> getAddressEntryForAsset(
       shared_ptr<AssetEntry>, 
-      AddressEntryType) = 0;
+      AddressEntryType) const = 0;
 
    //static
    static BinaryDataRef getDataRefForKey(const BinaryData& key, LMDB* db);
@@ -782,8 +783,6 @@ protected:
    static void setMainWallet(LMDB* db, shared_ptr<WalletMeta>);
    static void putData(LMDB* db, const BinaryData& key, const BinaryData& data);
    static void initWalletMetaDB(LMDBEnv*, const string&);
-
-   //locking local
 
 public:
    //tors
@@ -815,13 +814,15 @@ public:
    string getID(void) const;   
    
    shared_ptr<AssetEntry> getAssetForIndex(unsigned) const;
+   BinaryData getNestedAddressForIndex(unsigned chainIndex, bool forceMainnet) const;
    unsigned getAssetCount(void) const { return assets_.size(); }
    void extendChain(unsigned);
-   void extendChainTo(unsigned);
+   bool extendChainTo(unsigned);
    void extendChain(shared_ptr<AssetEntry>, unsigned);
+   bool hasScrAddr(const BinaryData& scrAddr) const;
 
    //virtual
-   virtual vector<BinaryData> getAddrHashVec(bool forceMainnetPrefix) const = 0;
+   virtual const set<BinaryData>& getAddrHashVec(bool forceMainnetPrefix) const = 0;
 
    //static
    static shared_ptr<AssetWallet> loadMainWalletFromFile(const string& path);
@@ -846,7 +847,7 @@ protected:
 
    shared_ptr<AddressEntry> getAddressEntryForAsset(
       shared_ptr<AssetEntry>,
-      AddressEntryType);
+      AddressEntryType) const;
 
    //static
    static shared_ptr<AssetWallet_Single> initWalletDb(
@@ -874,7 +875,7 @@ public:
    {}
 
    //virtual
-   vector<BinaryData> getAddrHashVec(bool forceMainnetPrefix) const;
+   const set<BinaryData>& getAddrHashVec(bool forceMainnetPrefix) const;
 
    //static
    static shared_ptr<AssetWallet_Single> createFromPrivateRoot_Armory135(
@@ -921,11 +922,11 @@ public:
    {}
 
    //virtual
-   vector<BinaryData> getAddrHashVec(bool forceMainnetPrefix) const;
+   const set<BinaryData>& getAddrHashVec(bool forceMainnetPrefix) const;
 
    shared_ptr<AddressEntry> getAddressEntryForAsset(
       shared_ptr<AssetEntry>,
-      AddressEntryType);
+      AddressEntryType) const;
 
    //static
    static shared_ptr<AssetWallet_Multisig> createFromPrivateRoot(

@@ -477,7 +477,7 @@ void ScrAddrFilter::scanScrAddrThread()
    addToMergePile(topScannedBlockHash);
 
    for (const auto& wID : wltIDs)
-      LOGINFO << "Done with side scan of wallet " << wID;
+      LOGINFO << "Completed scan of wallet " << wID;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

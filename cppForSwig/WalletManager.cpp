@@ -160,8 +160,13 @@ void WalletContainer::registerWithBDV(bool useMainnetPrefix, bool isNew)
    if (wltSingle == nullptr)
       throw runtime_error("invalid wallet ptr");
 
-   auto addrVec = wltSingle->getAddrHashVec(useMainnetPrefix);
+   auto addrSet = wltSingle->getAddrHashVec(useMainnetPrefix);
    auto& bdv = getBDVlambda_();
+
+   //convert set to vector
+   vector<BinaryData> addrVec;
+   addrVec.insert(addrVec.end(), addrSet.begin(), addrSet.end());
+
    auto&& swigWlt = bdv.registerWallet(wltSingle->getID(), addrVec, isNew);
 
    swigWallet_ = make_shared<SwigClient::BtcWallet>(swigWlt);

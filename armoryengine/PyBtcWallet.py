@@ -526,7 +526,7 @@ class PyBtcWallet(object):
       Wallets currently only hold P2PKH scraddrs, so if it's not that, False
       """
       if not scrAddr[0] == SCRADDR_P2PKH_BYTE or not len(scrAddr)==21:
-         return False
+         return self.cppWallet.hasScrAddr(scrAddr)
 
       # For P2PKH scraddrs, the first byte is prefix, next 20 bytes is addr160
       return self.hasAddr(scrAddr[1:])
@@ -1016,12 +1016,14 @@ class PyBtcWallet(object):
 
       self.linearAddr160List.append(new160)
       self.chainIndexMap[newAddr.chainIndex] = new160
+      
+      needsRegistered = \
+         self.cppWallet.extendAddressChainTo(self.lastComputedChainIndex)
 
       # In the future we will enable first/last seen, but not yet
       time0,blk0 = getCurrTimeAndBlock() if isActuallyNew else (0,0)
-      if doRegister and self.isRegistered():
-            self.cppWallet.addScrAddress_5_(Hash160ToScrAddr(new160), \
-                                   time0,blk0,time0,blk0)
+      if doRegister and self.isRegistered() and needsRegistered:
+         self.cppWallet.registerWithBDV(True, isActuallyNew)
 
       # For recovery rescans, this method will be called directly by
       # the BDM, which may cause a deadlock if we go through the 
@@ -1055,6 +1057,9 @@ class PyBtcWallet(object):
                                  isActuallyNew=isActuallyNew, \
                                  doRegister=False))) 
          
+      #extend mirror wallet address chain
+      self.cppWallet.extendAddressChain(numToCreate)
+         
       #add addresses in bulk once they are all computed   
       if doRegister and self.isRegistered() and numToCreate > 0:
          #isEnabled will be flagged back to True by the callback once it notifies
@@ -1062,9 +1067,12 @@ class PyBtcWallet(object):
          
          wltNAddr = {}
          wltNAddr[self.uniqueIDB58] = newAddrList
-         TheBDM.bdv().registerWallet(self.uniqueIDB58, newAddrList, isActuallyNew)
-         self.actionsToTakeAfterScan.append([self.detectHighestUsedIndex, \
+         try:
+            self.cppWallet.registerWithBDV(True, isActuallyNew)
+            self.actionsToTakeAfterScan.append([self.detectHighestUsedIndex, \
                                           [lastComputedIndex, True]])
+         except:
+            pass
          
       return self.lastComputedChainIndex
 
@@ -3236,6 +3244,13 @@ class PyBtcWallet(object):
          fullBalance, spendableBalance, unconfirmedBalance, txioCount)
       return scraddrobj
 
+   ###############################################################################
+   def getNestedAddrForEntry(self, pybtcaddr):
+      chainIndex = pybtcaddr.chainIndex
+      if chainIndex < 0:
+         raise('Nested addresses are no available for imports')
+      
+      return self.cppWallet.getNestedAddressForIndex(chainIndex, True)
       
 ###############################################################################
 def getSuffixedPath(walletPath, nameSuffix):

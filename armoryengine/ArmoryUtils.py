@@ -1655,17 +1655,17 @@ def scrAddr_to_hash160(scrAddr):
 
 
 ################################################################################
-def addrStr_to_scrAddr(addrStr):
+def addrStr_to_scrAddr(addrStr, p2pkhByte = ADDRBYTE, p2shByte = P2SHBYTE):
    if addrStr == '':
       return '';
 
-   if not checkAddrStrValid(addrStr):
+   if not checkAddrStrValid(addrStr, [p2pkhByte, p2shByte]):
       BadAddressError('Invalid address: "%s"' % addrStr)
 
-   atype, a160 = addrStr_to_hash160(addrStr)
-   if atype==ADDRBYTE:
+   atype, a160 = addrStr_to_hash160(addrStr, True, p2pkhByte, p2shByte)
+   if atype==p2pkhByte:
       return SCRADDR_P2PKH_BYTE + a160
-   elif atype==P2SHBYTE:
+   elif atype==p2shByte:
       return SCRADDR_P2SH_BYTE + a160
    else:
       BadAddressError('Invalid address: "%s"' % addrStr)
@@ -2202,9 +2202,10 @@ def addrStr_is_p2sh(b58Str):
 # As of version 0.90.1, this returns the prefix byte with the hash160.  This is
 # because we need to handle/distinguish regular addresses from P2SH.  All code
 # using this method must be updated to expect 2 outputs and check the prefix.
-def addrStr_to_hash160(b58Str, p2shAllowed=True):
+def addrStr_to_hash160(b58Str, p2shAllowed=True, \
+                       addrByte = ADDRBYTE, p2shByte = P2SHBYTE):
    binStr = base58_to_binary(b58Str)
-   if not p2shAllowed and binStr[0]==P2SHBYTE:
+   if not p2shAllowed and binStr[0]==p2shByte:
       raise P2SHNotSupportedError
    if not len(binStr) == 25:
       raise BadAddressError('Address string is %d bytes' % len(binStr))
@@ -2212,7 +2213,7 @@ def addrStr_to_hash160(b58Str, p2shAllowed=True):
    if not hash256(binStr[:21])[:4] == binStr[-4:]:
       raise ChecksumError('Address string has invalid checksum')
 
-   if not binStr[0] in (ADDRBYTE, P2SHBYTE):
+   if not binStr[0] in (addrByte, p2shByte):
       raise BadAddressError('Unknown addr prefix: %s' % binary_to_hex(binStr[0]))
 
    return (binStr[0], binStr[1:-4])
@@ -2837,17 +2838,18 @@ def checkAddrBinValid(addrBin, validPrefixes=None):
 
    if not isinstance(validPrefixes, list):
       validPrefixes = [validPrefixes]
-
-   return (checkAddrType(addrBin) in validPrefixes)
+      
+   prefix = checkAddrType(addrBin)
+   return (prefix in validPrefixes)
 
 
 
 ################################################################################
-def checkAddrStrValid(addrStr):
+def checkAddrStrValid(addrStr, validPrefixes=[ADDRBYTE, P2SHBYTE]):
    """ Check that a Base58 address-string is valid on this network """
    if(addrStr == ''):
       return False
-   return checkAddrBinValid(base58_to_binary(addrStr))
+   return checkAddrBinValid(base58_to_binary(addrStr), validPrefixes)
 
 
 ################################################################################

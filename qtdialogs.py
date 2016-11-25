@@ -2691,11 +2691,18 @@ class DlgNewAddressDisp(ArmoryDialog):
       self.lblIsCopied = QLabel(' or ')
       self.lblIsCopied.setTextFormat(Qt.RichText)
       self.connect(btnClipboard, SIGNAL(CLICKED), self.setClipboard)
+      
+      #address selection radio buttons
+      self.radio_P2PKH = QRadioButton("P2PKH Address (default)")
+      self.radio_P2PKH.setChecked(True)      
+      self.radio_Nested_P2WPKH = QRadioButton("Nested P2WPKH Address (SegWit)")
+
 
       def openPaymentRequest():
          msgTxt = str(self.edtComm.toPlainText())
          msgTxt = msgTxt.split('\n')[0][:128]
-         dlg = DlgRequestPayment(self, self.main, addrStr, msg=msgTxt)
+         addrTxt = str(self.edtNewAddr.text())
+         dlg = DlgRequestPayment(self, self.main, addrTxt, msg=msgTxt)
          dlg.exec_()
 
       btnLink = QPushButton('Create Clickable Link')
@@ -2738,7 +2745,37 @@ class DlgNewAddressDisp(ArmoryDialog):
 
       frmNewAddrLayout.addWidget(frmCopy, 2, 0, 1, 2)
       frmNewAddr.setLayout(frmNewAddrLayout)
-
+      
+      #radio button selection for address type
+      P2PKH_tooltip = self.main.createToolTipWidget(\
+         '<b>Pay To Public Key Hash (P2PKH)</b> is the standard non SegWit '
+         'payment address format. Any standard wallet can pay ' 
+         'to and spend from these addresses.'
+         )
+      
+      Nested_PW2PKH_tooltip = self.main.createToolTipWidget(\
+         '<b>Nested Pay To Witness Public Key Hash (Nested P2WPKH)</b> '
+         'is a type of "universal" SegWit address. It ' 
+         'embeds a P2WPKH SegWit script in a BIP16 P2SH address '
+         'scheme.'
+         '<br><br>Nested P2WPKH addresses '
+         'can be funded by any wallet software, regardless of SegWit '
+         'compliance. Only SegWit compliant wallets can spend from SegWit '
+         'outputs.'                                    
+         '<br><br> Segregated Witness (SegWit or SW) transactions '
+         'are more space efficient and resilient to maleability attacks. '
+         'Using them results in lower transaction fees and improved '
+         'unconfirmed transaction history consistency.'                
+         )
+      
+      frmAddrTypeRadio = QFrame()
+      frmAddrTypeRadio.setFrameStyle(STYLE_RAISED)
+      frmAddrTypeRadioLayout = QGridLayout()
+      frmAddrTypeRadioLayout.addWidget(self.radio_P2PKH, 0, 0, 1, 1)
+      frmAddrTypeRadioLayout.addWidget(P2PKH_tooltip, 0, 1, 1, 1)
+      frmAddrTypeRadioLayout.addWidget(self.radio_Nested_P2WPKH, 1, 0, 1, 1)
+      frmAddrTypeRadioLayout.addWidget(Nested_PW2PKH_tooltip, 1, 1, 1, 1)      
+      frmAddrTypeRadio.setLayout(frmAddrTypeRadioLayout)
 
       lblCommDescr = QLabel(\
             '(Optional) Add a label to this address, which will '
@@ -2786,24 +2823,39 @@ class DlgNewAddressDisp(ArmoryDialog):
       qrdescr = QRichLabel('<b>Scan QR code with phone or other barcode reader</b>'
                            '<br><br><font size=2>(Double-click to expand)</font>')
       qrdescr.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-      qrcode = QRCodeWidget(addrStr, parent=self)
+      self.qrcode = QRCodeWidget(addrStr, parent=self)
       smLabel = QRichLabel('<font size=2>%s</font>' % addrStr)
       smLabel.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
-      frmQRsub2 = makeHorizFrame([STRETCH, qrcode, STRETCH ])
+      frmQRsub2 = makeHorizFrame([STRETCH, self.qrcode, STRETCH ])
       frmQRsub3 = makeHorizFrame([STRETCH, smLabel, STRETCH ])
       frmQR = makeVertFrame([STRETCH, qrdescr, frmQRsub2, frmQRsub3, STRETCH ], STYLE_SUNKEN)
 
       layout = QGridLayout()
       layout.addWidget(frmNewAddr, 0, 0, 1, 1)
-      layout.addWidget(frmComment, 2, 0, 1, 1)
-      layout.addWidget(frmWlt, 3, 0, 1, 1)
-      layout.addWidget(buttonBox, 4, 0, 1, 2)
-      layout.addWidget(frmQR, 0, 1, 4, 1)
+      layout.addWidget(frmAddrTypeRadio, 2, 0, 1, 1)
+      layout.addWidget(frmComment, 4, 0, 1, 1)
+      layout.addWidget(frmWlt, 5, 0, 1, 1)
+      layout.addWidget(buttonBox, 6, 0, 1, 2)
+      layout.addWidget(frmQR, 0, 1, 6, 1)
       if loading is not None:
          loading.reject()
       self.setLayout(layout)
       self.setWindowTitle('New Receiving Address')
       self.setFocus()
+      
+      def setAddressType():
+         addrStr = ""
+         if self.radio_P2PKH.isChecked() == True:
+            addrStr = self.addr.getAddrStr()
+         elif self.radio_Nested_P2WPKH.isChecked() == True:
+            addrStr = self.wlt.getNestedAddrForEntry(self.addr)
+            
+         self.edtNewAddr.setText(addrStr)     
+         self.qrcode.setAsciiData(addrStr)
+         self.qrcode.repaint()       
+
+      self.connect(self.radio_P2PKH, SIGNAL('clicked()'), setAddressType)
+      self.connect(self.radio_Nested_P2WPKH, SIGNAL('clicked()'), setAddressType)      
 
       try:
          self.parent.wltAddrModel.reset()
@@ -2829,7 +2881,7 @@ class DlgNewAddressDisp(ArmoryDialog):
    def setClipboard(self):
       clipb = QApplication.clipboard()
       clipb.clear()
-      clipb.setText(self.addr.getAddrStr())
+      clipb.setText(self.edtNewAddr.text())
       self.lblIsCopied.setText('<i>Copied!</i>')
 
 
@@ -8093,8 +8145,49 @@ class DlgAddressBook(ArmoryDialog):
                    SIGNAL('currentChanged(const QModelIndex &, const QModelIndex &)'), \
                    self.wltTableClicked)
 
-
-
+      #radio button selection for address type
+      
+      Nested_PW2PKH_tooltip = self.main.createToolTipWidget(\
+         '<b>Pay To Public Key Hash (P2PKH)</b> is the standard non SegWit '
+         'payment address format. Any standard wallet can pay ' 
+         'to and spend from these addresses. <br><br><br>'
+         '<b>Nested Pay To Witness Public Key Hash (Nested P2WPKH)</b> '
+         'is a type of "universal" SegWit address. It ' 
+         'embeds a P2WPKH SegWit script in a BIP16 P2SH address '
+         'scheme.'
+         '<br><br>Nested P2WPKH addresses '
+         'can be funded by any wallet software, regardless of SegWit '
+         'compliance. Only SegWit compliant wallets can spend from SegWit '
+         'outputs.'                                    
+         '<br><br> Segregated Witness (SegWit or SW) transactions '
+         'are more space efficient and resilient to maleability attacks. '
+         'Using them results in lower transaction fees and improved '
+         'unconfirmed transaction history consistency.'                
+         )
+      
+      self.useSW = False
+      self.radio_P2PKH = QRadioButton("P2PKH address (default)")
+      self.radio_P2PKH.setChecked(True)
+      self.radio_Nested_P2WPKH = QRadioButton("Nested P2WPKH address (SW)")
+      
+      def toggleSW():
+         if self.radio_P2PKH.isChecked() == True:
+            self.useSW = False
+         elif self.radio_Nested_P2WPKH.isChecked() == True:
+            self.useSW = True
+            
+         self.wltTableClicked(self.wltDispView.selectionModel().currentIndex())
+         
+      self.connect(self.radio_P2PKH, SIGNAL('clicked()'), toggleSW)
+      self.connect(self.radio_Nested_P2WPKH, SIGNAL('clicked()'), toggleSW)
+      
+      SWFrame = QFrame()
+      SWFrame.setFrameStyle(STYLE_RAISED)
+      SWFrameLayout = QGridLayout()    
+      SWFrameLayout.addWidget(self.radio_P2PKH, 0, 0, 1, 2)     
+      SWFrameLayout.addWidget(self.radio_Nested_P2WPKH, 0, 2, 1, 3)
+      SWFrameLayout.addWidget(Nested_PW2PKH_tooltip, 0, 6, 1, 1)  
+      SWFrame.setLayout(SWFrameLayout)
 
       # DISPLAY sent-to addresses
       self.addrBookTxModel = None
@@ -8203,14 +8296,15 @@ class DlgAddressBook(ArmoryDialog):
       dlgLayout.addWidget(lblToWlt, 2, 0)
       dlgLayout.addWidget(self.wltDispView, 3, 0)
       dlgLayout.addWidget(makeHorizFrame([self.lblSelectWlt, STRETCH, self.btnSelectWlt]), 4, 0)
-      dlgLayout.addWidget(HLINE(), 5, 0)
-      dlgLayout.addWidget(lblToAddr, 6, 0)
-      dlgLayout.addWidget(self.tabWidget, 7, 0)
-      dlgLayout.addWidget(makeHorizFrame([STRETCH, self.useBareMultiSigCheckBox, self.ttipBareMS, self.btnSelectAddr]), 8, 0)
-      dlgLayout.addWidget(HLINE(), 9, 0)
-      dlgLayout.addWidget(makeHorizFrame([btnCancel, STRETCH]), 10, 0)
+      dlgLayout.addWidget(SWFrame, 5, 0)
+      dlgLayout.addWidget(HLINE(), 6, 0)
+      dlgLayout.addWidget(lblToAddr, 7, 0)
+      dlgLayout.addWidget(self.tabWidget, 8, 0)
+      dlgLayout.addWidget(makeHorizFrame([STRETCH, self.useBareMultiSigCheckBox, self.ttipBareMS, self.btnSelectAddr]), 9, 0)
+      dlgLayout.addWidget(HLINE(), 10, 0)
+      dlgLayout.addWidget(makeHorizFrame([btnCancel, STRETCH]), 11, 0)
       dlgLayout.setRowStretch(3, 1)
-      dlgLayout.setRowStretch(7, 2)
+      dlgLayout.setRowStretch(8, 2)
 
       self.setLayout(dlgLayout)
       self.sizeHint = lambda: QSize(760, 500)
@@ -8363,9 +8457,15 @@ class DlgAddressBook(ArmoryDialog):
       if not self.isBrowsingOnly:
          wlt = self.main.walletMap[self.selectedWltID]
          self.btnSelectWlt.setText('%s Wallet: %s' % (self.actStr, self.selectedWltID))
-         nextAddr160 = wlt.peekNextUnusedAddr160()
+         nextAddr = wlt.peekNextUnusedAddr()
+         
+         addrStr = ""
+         if not self.useSW:
+            addrStr = nextAddr.getAddrStr()
+         else:
+            addrStr = wlt.getNestedAddrForEntry(nextAddr)
          self.lblSelectWlt.setText('Will create new address: %s...' % \
-                                    hash160_to_addrStr(nextAddr160)[:10])
+                                    addrStr[:10])
 
          # If switched wallet selection, de-select address so it doesn't look
          # like the currently-selected address is for this different wallet
@@ -8472,11 +8572,15 @@ class DlgAddressBook(ArmoryDialog):
    #############################################################################
    def acceptWltSelection(self):
       wltID = self.selectedWltID
-      addr160 = self.main.walletMap[wltID].getNextUnusedAddress().getAddr160()
+      addrObj = self.main.walletMap[wltID].getNextUnusedAddress()
       if not self.returnPubKey:
-         self.target.setText(hash160_to_addrStr(addr160))
+         if not self.useSW:
+            self.target.setText(addrObj.getAddrStr())
+         else:
+            self.target.setText(\
+               self.main.walletMap[wltID].getNestedAddrForEntry(addrObj))
       else:
-         pubKeyHash = self.getPubKeyForAddr160(addr160)
+         pubKeyHash = addrObj.getPubKey().toHexStr()
          if pubKeyHash is None:
             return
          self.target.setText(pubKeyHash)

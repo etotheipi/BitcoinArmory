@@ -93,6 +93,26 @@ public:
    {
       return swigWallet_->createAddressBook();
    }
+
+   BinaryData getNestedAddressForIndex(unsigned chainIndex, bool forceMainnet)
+   {
+      return wallet_->getNestedAddressForIndex(chainIndex, forceMainnet);
+   }
+
+   void extendAddressChain(unsigned count)
+   {
+      wallet_->extendChain(count);
+   }
+
+   bool extendAddressChainTo(unsigned count)
+   {
+      return wallet_->extendChainTo(count);
+   }
+
+   bool hasScrAddr(const BinaryData& scrAddr)
+   {
+      return wallet_->hasScrAddr(scrAddr);
+   }
 };
 
 ////////////////////////////////////////////////////////////////////////////////
