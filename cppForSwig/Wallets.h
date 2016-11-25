@@ -822,7 +822,7 @@ public:
    bool hasScrAddr(const BinaryData& scrAddr) const;
 
    //virtual
-   virtual const set<BinaryData>& getAddrHashVec(bool forceMainnetPrefix) const = 0;
+   virtual const set<BinaryData>& getAddrHashSet(bool forceMainnetPrefix) const = 0;
 
    //static
    static shared_ptr<AssetWallet> loadMainWalletFromFile(const string& path);
@@ -875,7 +875,7 @@ public:
    {}
 
    //virtual
-   const set<BinaryData>& getAddrHashVec(bool forceMainnetPrefix) const;
+   const set<BinaryData>& getAddrHashSet(bool forceMainnetPrefix) const;
 
    //static
    static shared_ptr<AssetWallet_Single> createFromPrivateRoot_Armory135(
@@ -892,15 +892,13 @@ public:
       unsigned lookup = UINT32_MAX);
 
    //local
+   const SecureBinaryData& getPublicRoot(void) const;
+   const SecureBinaryData& getChainCode(void) const;
 
-   /*These methods for getting hash vectors do not allow for prefix
-   forcing as they are mostly there for unit tests*/
+   //for unit tests
    vector<BinaryData> getHash160VecUncompressed(void) const;
    vector<BinaryData> getHash160VecCompressed(void) const;
    vector<BinaryData> getWitnessScriptHash160Vec(void) const;
-
-   const SecureBinaryData& getPublicRoot(void) const;
-   const SecureBinaryData& getChainCode(void) const;
 };
 
 ////
@@ -922,7 +920,7 @@ public:
    {}
 
    //virtual
-   const set<BinaryData>& getAddrHashVec(bool forceMainnetPrefix) const;
+   const set<BinaryData>& getAddrHashSet(bool forceMainnetPrefix) const;
 
    shared_ptr<AddressEntry> getAddressEntryForAsset(
       shared_ptr<AssetEntry>,
@@ -941,6 +939,11 @@ public:
       vector<shared_ptr<AssetWallet>> wallets,
       unsigned M,
       unsigned loopup = UINT32_MAX);
+
+   //local
+
+   //for unit tests
+   BinaryData getPrefixedHashForIndex(unsigned) const;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

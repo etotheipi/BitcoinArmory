@@ -1217,7 +1217,7 @@ void AssetWallet::writeAssetEntry(shared_ptr<AssetEntry> entryPtr)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-const set<BinaryData>& AssetWallet_Single::getAddrHashVec(
+const set<BinaryData>& AssetWallet_Single::getAddrHashSet(
    bool forceMainnetPrefix) const
 {
    LockStruct lock(this);
@@ -1336,7 +1336,7 @@ const SecureBinaryData& AssetWallet_Single::getChainCode() const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-const set<BinaryData>& AssetWallet_Multisig::getAddrHashVec(
+const set<BinaryData>& AssetWallet_Multisig::getAddrHashSet(
    bool forceMainnetPrefix) const
 {
    LockStruct lock(this);
@@ -1386,6 +1386,34 @@ const set<BinaryData>& AssetWallet_Multisig::getAddrHashVec(
    return addrHashSet_;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+BinaryData AssetWallet_Multisig::getPrefixedHashForIndex(
+   unsigned index) const
+{
+   auto assetPtr = getAssetForIndex(index);
+   auto assetMS = dynamic_pointer_cast<AssetEntry_Multisig>(assetPtr);
+   if (assetMS == nullptr)
+      throw WalletException("unexpected asset type");
+
+   BinaryWriter bw;
+   bw.put_uint8_t(BlockDataManagerConfig::getScriptHashPrefix());
+
+   switch (default_aet_)
+   {
+   case AddressEntryType_P2SH:
+      bw.put_BinaryData(assetMS->getHash160());
+      break;
+
+   case AddressEntryType_P2WSH:
+      bw.put_BinaryData(assetMS->getHash256());
+      break;
+
+   default:
+      throw WalletException("invalid aet");
+   }
+
+   return bw.getData();
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 shared_ptr<AssetEntry> AssetWallet::getAssetForIndex(unsigned index) const

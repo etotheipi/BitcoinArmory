@@ -6418,7 +6418,10 @@ TEST_F(TransactionsTest, Wallet_SpendTest_P2SH)
       3); //set lookup computation to 3 entries
 
    //register with db
-   auto&& addrVec = assetWlt->getAddrHashVec(false);
+   vector<BinaryData> addrVec;
+   addrVec.push_back(assetWlt->getPrefixedHashForIndex(0));
+   addrVec.push_back(assetWlt->getPrefixedHashForIndex(1));
+   addrVec.push_back(assetWlt->getPrefixedHashForIndex(2));
 
    regWallet(clients_, bdvID, addrVec, assetWlt->getID());
    regWallet(clients_, bdvID, scrAddrVec, "wallet1");
@@ -6659,7 +6662,10 @@ TEST_F(TransactionsTest, Wallet_SpendTest_P2WSH)
       3); //set lookup computation to 3 entries
 
    //register with db
-   auto&& addrVec = assetWlt->getAddrHashVec(false);
+   vector<BinaryData> addrVec;
+   addrVec.push_back(assetWlt->getPrefixedHashForIndex(0));
+   addrVec.push_back(assetWlt->getPrefixedHashForIndex(1));
+   addrVec.push_back(assetWlt->getPrefixedHashForIndex(2));
 
    regWallet(clients_, bdvID, addrVec, assetWlt->getID());
    regWallet(clients_, bdvID, scrAddrVec, "wallet1");

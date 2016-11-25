@@ -160,7 +160,7 @@ void WalletContainer::registerWithBDV(bool useMainnetPrefix, bool isNew)
    if (wltSingle == nullptr)
       throw runtime_error("invalid wallet ptr");
 
-   auto addrSet = wltSingle->getAddrHashVec(useMainnetPrefix);
+   auto addrSet = wltSingle->getAddrHashSet(useMainnetPrefix);
    auto& bdv = getBDVlambda_();
 
    //convert set to vector
