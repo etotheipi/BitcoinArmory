@@ -190,8 +190,9 @@ enum AddressEntryType
 {
    AddressEntryType_P2PKH,
    AddressEntryType_P2SH,
-   AddressEntryType_P2WSH,
    AddressEntryType_P2WPKH,
+   AddressEntryType_P2WSH,
+   AddressEntryType_Nested_P2SH
 };
 
 enum CypherType
@@ -391,7 +392,9 @@ private:
 
    mutable BinaryData h160Uncompressed_;
    mutable BinaryData h160Compressed_;
-   mutable BinaryData h256Compressed_;
+
+   mutable BinaryData witnessScript_;
+   mutable BinaryData witnessScriptH160_;
 
 public:
    //tors
@@ -429,7 +432,9 @@ public:
 
    const BinaryData& getHash160Uncompressed(void) const;
    const BinaryData& getHash160Compressed(void) const;
-   const BinaryData& getHash256Compressed(void) const;
+
+   const BinaryData& getWitnessScript(void) const;
+   const BinaryData& getWitnessScriptH160(void) const;
 
    //virtual
    BinaryData serialize(void) const;
@@ -449,6 +454,9 @@ private:
    mutable BinaryData h160_;
    mutable BinaryData h256_;
 
+   mutable BinaryData p2wshScript_;
+   mutable BinaryData p2wshScriptH160_;
+
 public:
    //tors
    AssetEntry_Multisig(int id,
@@ -465,6 +473,9 @@ public:
    const BinaryData& getScript(void) const;
    const BinaryData& getHash160(void) const;
    const BinaryData& getHash256(void) const;
+
+   const BinaryData& getP2WSHScript(void) const;
+   const BinaryData& getP2WSHScriptH160(void) const;
 
    //virtual
    BinaryData serialize(void) const 
@@ -638,6 +649,23 @@ public:
    //tors
    AddressEntry_P2WSH(shared_ptr<AssetEntry> asset) :
       AddressEntry(AddressEntryType_P2WSH, asset)
+   {}
+
+   //virtual
+   const BinaryData& getAddress(void) const;
+   shared_ptr<ScriptRecipient> getRecipient(uint64_t) const;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+class AddressEntry_Nested_P2SH : public AddressEntry
+{
+private:
+   mutable BinaryData address_;
+
+public:
+   //tors
+   AddressEntry_Nested_P2SH(shared_ptr<AssetEntry> asset) :
+      AddressEntry(AddressEntryType_Nested_P2SH, asset)
    {}
 
    //virtual
@@ -868,6 +896,7 @@ public:
    forcing as they are mostly there for unit tests*/
    vector<BinaryData> getHash160VecUncompressed(void) const;
    vector<BinaryData> getHash160VecCompressed(void) const;
+   vector<BinaryData> getWitnessScriptHash160Vec(void) const;
 
    const SecureBinaryData& getPublicRoot(void) const;
    const SecureBinaryData& getChainCode(void) const;
@@ -943,6 +972,11 @@ public:
 
          hash_to_pubkey_.insert(make_pair(h160UncompressedRef, pubkeyUncompressedRef));
          hash_to_pubkey_.insert(make_pair(h160CompressedRef, pubkeyCompressedRef));
+
+         auto witnessScript = BinaryDataRef(assetSingle->getWitnessScript());
+         auto&& witnessScriptH160 = BinaryDataRef(assetSingle->getWitnessScriptH160());
+
+         hash_to_pubkey_.insert(make_pair(witnessScriptH160, witnessScript));
          
          pubkey_to_privkeyAsset_.insert(make_pair(pubkeyUncompressedRef, assetSingle));
          pubkey_to_privkeyAsset_.insert(make_pair(pubkeyCompressedRef, assetSingle));

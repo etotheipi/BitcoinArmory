@@ -1156,6 +1156,10 @@ shared_ptr<AddressEntry> AssetWallet_Single::getAddressEntryForAsset(
       aePtr = make_shared<AddressEntry_P2WPKH>(assetPtr);
       break;
 
+   case AddressEntryType_Nested_P2SH:
+      aePtr = make_shared<AddressEntry_Nested_P2SH>(assetPtr);
+      break;
+
    default:
       throw WalletException("unsupported address entry type");
    }
@@ -1257,6 +1261,25 @@ vector<BinaryData> AssetWallet_Single::getHash160VecCompressed() const
       BinaryWriter bwCmp;
       bwCmp.put_uint8_t(BlockDataManagerConfig::getPubkeyHashPrefix());
       bwCmp.put_BinaryData(assetSingle->getHash160Compressed());
+
+      h160Vec.push_back(move(bwCmp.getData()));
+   }
+
+   return h160Vec;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+vector<BinaryData> AssetWallet_Single::getWitnessScriptHash160Vec() const
+{
+   vector<BinaryData> h160Vec;
+
+   for (auto& entry : assets_)
+   {
+      auto assetSingle = dynamic_pointer_cast<AssetEntry_Single>(entry.second);
+
+      BinaryWriter bwCmp;
+      bwCmp.put_uint8_t(BlockDataManagerConfig::getScriptHashPrefix());
+      bwCmp.put_BinaryData(assetSingle->getWitnessScriptH160());
 
       h160Vec.push_back(move(bwCmp.getData()));
    }
@@ -1698,7 +1721,6 @@ const BinaryData& AddressEntry_P2SH::getAddress() const
          if (assetSingle == nullptr)
             throw WalletException("unexpected asset entry type");
 
-         //no address standard for SW yet, consider BIP142
          address_.append(BlockDataManagerConfig::getScriptHashPrefix());
          address_.append(assetSingle->getHash160Compressed());
          break;
@@ -1773,8 +1795,10 @@ const BinaryData& AddressEntry_P2WSH::getAddress() const
             throw WalletException("unexpected asset entry type");
 
          //no address standard for SW yet, consider BIP142
+         auto& script = assetSingle->getWitnessScript();
+
          address_.append(BlockDataManagerConfig::getScriptHashPrefix());
-         address_.append(assetSingle->getHash256Compressed());
+         address_.append(BtcUtils::getSha256(script));
          break;
       }
 
@@ -1794,7 +1818,6 @@ const BinaryData& AddressEntry_P2WSH::getAddress() const
       }
 
       //no address scheme for SW outputs yet
-      //address_ = move(BtcUtils::scrAddrToBase58(address_));
    }
 
    return address_;
@@ -1804,7 +1827,7 @@ const BinaryData& AddressEntry_P2WSH::getAddress() const
 shared_ptr<ScriptRecipient> AddressEntry_P2WSH::getRecipient(
    uint64_t value) const
 {
-   BinaryDataRef h160;
+   BinaryDataRef scriptHash;
    switch (asset_->getType())
    {
    case AssetEntryType_Single:
@@ -1813,7 +1836,12 @@ shared_ptr<ScriptRecipient> AddressEntry_P2WSH::getRecipient(
       if (assetSingle == nullptr)
          throw WalletException("unexpected asset entry type");
 
-      h160 = assetSingle->getHash256Compressed().getRef();
+      auto& script = assetSingle->getWitnessScript();
+
+      //this will fail miserable since the hash val is bound to the case scope
+      //this part cannot complete correctly until sha256 for AssetEntry_Single
+      //p2wsh is saved in the asset
+      scriptHash = BtcUtils::getSha256(script);
       break;
    }
 
@@ -1823,7 +1851,7 @@ shared_ptr<ScriptRecipient> AddressEntry_P2WSH::getRecipient(
       if (assetMS == nullptr)
          throw WalletException("unexpected asset entry type");
 
-      h160 = assetMS->getHash256();
+      scriptHash = assetMS->getHash256();
       break;
    }
 
@@ -1831,7 +1859,85 @@ shared_ptr<ScriptRecipient> AddressEntry_P2WSH::getRecipient(
       throw WalletException("unexpected asset type");
    }
 
-   return make_shared<Recipient_PW2SH>(h160, value);
+   return make_shared<Recipient_PW2SH>(scriptHash, value);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+const BinaryData& AddressEntry_Nested_P2SH::getAddress() const
+{
+   if (address_.getSize() == 0)
+   {
+      switch (asset_->getType())
+      {
+      case AssetEntryType_Single:
+      {
+         auto assetSingle = dynamic_pointer_cast<AssetEntry_Single>(asset_);
+         if (assetSingle == nullptr)
+            throw WalletException("unexpected asset entry type");
+
+         address_.append(BlockDataManagerConfig::getScriptHashPrefix());
+         address_.append(assetSingle->getWitnessScriptH160());
+
+         break;
+      }
+
+      case AssetEntryType_Multisig:
+      {
+         auto assetMS = dynamic_pointer_cast<AssetEntry_Multisig>(asset_);
+         if (assetMS == nullptr)
+            throw WalletException("unexpected asset entry type");
+
+         address_.append(BlockDataManagerConfig::getScriptHashPrefix());
+         address_.append(assetMS->getP2WSHScriptH160());
+
+         break;
+      }
+
+      default:
+         throw WalletException("unexpected asset type");
+      }
+
+      address_ = move(BtcUtils::scrAddrToBase58(address_));
+   }
+
+   return address_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+shared_ptr<ScriptRecipient> AddressEntry_Nested_P2SH::getRecipient(
+   uint64_t value) const
+{
+   BinaryDataRef scriptHash;
+
+   switch (asset_->getType())
+   {
+   case AssetEntryType_Single:
+   {
+      auto assetSingle = dynamic_pointer_cast<AssetEntry_Single>(asset_);
+      if (assetSingle == nullptr)
+         throw WalletException("unexpected asset entry type");
+
+      scriptHash = assetSingle->getWitnessScriptH160();
+      
+      break;
+   }
+
+   case AssetEntryType_Multisig:
+   {
+      auto assetMS = dynamic_pointer_cast<AssetEntry_Multisig>(asset_);
+      if (assetMS == nullptr)
+         throw WalletException("unexpected asset entry type");
+
+      scriptHash = assetMS->getP2WSHScriptH160();
+
+      break;
+   }
+
+   default:
+      throw WalletException("unexpected asset type");
+   }
+
+   return make_shared<Recipient_P2SH>(scriptHash, value);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1897,21 +2003,36 @@ const BinaryData& AssetEntry_Single::getHash160Compressed() const
 {
    if (h160Compressed_.getSize() == 0)
       h160Compressed_ =
-      move(BtcUtils::getHash160(pubkey_->getCompressedKey()));
+         move(BtcUtils::getHash160(pubkey_->getCompressedKey()));
 
    return h160Compressed_;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-const BinaryData& AssetEntry_Single::getHash256Compressed() const
+const BinaryData& AssetEntry_Single::getWitnessScript() const
 {
-   if (h256Compressed_.getSize() == 0)
-      h256Compressed_ =
-      move(BtcUtils::getHash256(pubkey_->getCompressedKey()));
+   if (witnessScript_.getSize() == 0)
+   {
+      auto& hash = getHash160Compressed();
+      Recipient_P2WPKH recipient(hash, 0);
 
-   return h256Compressed_;
+      auto& script = recipient.getSerializedScript();
+
+      witnessScript_ = move(script.getSliceCopy(9, script.getSize() - 9));
+   }
+
+   return witnessScript_;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+const BinaryData& AssetEntry_Single::getWitnessScriptH160() const
+{
+   if (witnessScriptH160_.getSize() == 0)
+      witnessScriptH160_ =
+         move(BtcUtils::getHash160(getWitnessScript()));
+
+   return witnessScriptH160_;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 const BinaryData& AssetEntry_Multisig::getScript() const
@@ -1963,7 +2084,6 @@ const BinaryData& AssetEntry_Multisig::getHash160() const
    if (assetMap_.size() != n_)
       throw WalletException("asset count mismatch in multisig entry");
 
-
    if (h160_.getSize() == 0)
    {
       auto& msScript = getScript();
@@ -1979,7 +2099,6 @@ const BinaryData& AssetEntry_Multisig::getHash256() const
    if (assetMap_.size() != n_)
       throw WalletException("asset count mismatch in multisig entry");
 
-
    if (h256_.getSize() == 0)
    {
       auto& msScript = getScript();
@@ -1987,6 +2106,35 @@ const BinaryData& AssetEntry_Multisig::getHash256() const
    }
 
    return h256_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+const BinaryData& AssetEntry_Multisig::getP2WSHScript() const
+{
+   if (p2wshScript_.getSize() == 0)
+   {
+      auto& hash256 = getHash256();
+
+      Recipient_PW2SH recipient(hash256, 0);
+      auto& script = recipient.getSerializedScript();
+
+      p2wshScript_ = move(script.getSliceCopy(9, script.getSize() - 9));
+   }
+
+   return p2wshScript_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+const BinaryData& AssetEntry_Multisig::getP2WSHScriptH160() const
+{
+   if (p2wshScriptH160_.getSize() == 0)
+   {
+      auto& script = getP2WSHScript();
+
+      p2wshScriptH160_ = move(BtcUtils::getHash160(script));
+   }
+
+   return p2wshScriptH160_;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

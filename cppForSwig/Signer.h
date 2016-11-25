@@ -136,12 +136,13 @@ protected:
 
    BinaryData script_;
 
-
 public:
+   //tors
    ScriptRecipient(SpendScriptType sst, uint64_t value) :
       type_(sst), value_(value)
    {}
 
+   //virtuals
    virtual const BinaryData& getSerializedScript(void)
    {
       if (script_.getSize() == 0)
