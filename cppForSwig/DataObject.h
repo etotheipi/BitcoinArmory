@@ -147,7 +147,7 @@ public:
    IntType(bool val) : val_(val)
    {}
 
-#ifdef __clang__
+#if defined(__APPLE__) && defined(__MACH__)
    IntType(size_t val) : val_(val)
    {}
 #endif
