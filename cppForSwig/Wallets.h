@@ -674,6 +674,23 @@ public:
 };
 
 ////////////////////////////////////////////////////////////////////////////////
+struct HashMaps
+{
+   map<BinaryDataRef, int> hashCompressed_;
+   map<BinaryDataRef, int> hashUncompressed_;
+   map<BinaryDataRef, int> hashP2SH_;
+   map<BinaryDataRef, int> hashP2WSH_;
+
+   void clear(void)
+   {
+      hashCompressed_.clear();
+      hashUncompressed_.clear();
+      hashP2SH_.clear();
+      hashP2WSH_.clear();
+   }
+};
+
+////////////////////////////////////////////////////////////////////////////////
 class AssetWallet
 {
    friend class ResolvedFeed_AssetWalletSingle;
@@ -727,7 +744,8 @@ protected:
    shared_ptr<AssetEntry> root_;
    map<int, shared_ptr<AssetEntry>> assets_;
    map<int, shared_ptr<AddressEntry>> addresses_;
-   mutable set<BinaryData> addrHashSet_;
+   HashMaps hashMaps_;
+   mutable int lastKnownIndex_ = -1;
 
    shared_ptr<DerivationScheme> derScheme_;
    AddressEntryType default_aet_;
@@ -771,6 +789,8 @@ protected:
    virtual shared_ptr<AddressEntry> getAddressEntryForAsset(
       shared_ptr<AssetEntry>, 
       AddressEntryType) const = 0;
+
+   virtual void fillHashIndexMap(void) = 0;
 
    //static
    static BinaryDataRef getDataRefForKey(const BinaryData& key, LMDB* db);
@@ -819,10 +839,12 @@ public:
    void extendChain(unsigned);
    bool extendChainTo(unsigned);
    void extendChain(shared_ptr<AssetEntry>, unsigned);
-   bool hasScrAddr(const BinaryData& scrAddr) const;
+   bool hasScrAddr(const BinaryData& scrAddr);
+   unsigned getAssetIndexForAddr(const BinaryData& scrAddr);
 
    //virtual
-   virtual const set<BinaryData>& getAddrHashSet(bool forceMainnetPrefix) const = 0;
+   virtual set<BinaryData> getAddrHashSet(bool forceMainnetPrefix) = 0;
+   const BinaryData& getP2SHScriptForHash(const BinaryData&);
 
    //static
    static shared_ptr<AssetWallet> loadMainWalletFromFile(const string& path);
@@ -848,6 +870,8 @@ protected:
    shared_ptr<AddressEntry> getAddressEntryForAsset(
       shared_ptr<AssetEntry>,
       AddressEntryType) const;
+
+   void fillHashIndexMap();
 
    //static
    static shared_ptr<AssetWallet_Single> initWalletDb(
@@ -875,7 +899,7 @@ public:
    {}
 
    //virtual
-   const set<BinaryData>& getAddrHashSet(bool forceMainnetPrefix) const;
+   set<BinaryData> getAddrHashSet(bool forceMainnetPrefix);
 
    //static
    static shared_ptr<AssetWallet_Single> createFromPrivateRoot_Armory135(
@@ -913,6 +937,9 @@ protected:
    //local
    void readFromFile(void);
 
+   //virtual
+   void fillHashIndexMap(void);
+
 public:
    //tors
    AssetWallet_Multisig(shared_ptr<WalletMeta> metaPtr) :
@@ -920,7 +947,7 @@ public:
    {}
 
    //virtual
-   const set<BinaryData>& getAddrHashSet(bool forceMainnetPrefix) const;
+   set<BinaryData> getAddrHashSet(bool forceMainnetPrefix);
 
    shared_ptr<AddressEntry> getAddressEntryForAsset(
       shared_ptr<AssetEntry>,
@@ -952,6 +979,7 @@ class ResolvedFeed_AssetWalletSingle : public ResolverFeed
 private:
    shared_ptr<AssetWallet> wltPtr_;
 
+protected:
    map<BinaryDataRef, BinaryDataRef> hash_to_pubkey_;
    map<BinaryDataRef, shared_ptr<AssetEntry_Single>> pubkey_to_privkeyAsset_;
 
@@ -998,7 +1026,7 @@ public:
       return iter->second;
    }
 
-   SecureBinaryData getPrivKeyForPubkey(const BinaryData& pubkey)
+   virtual const SecureBinaryData& getPrivKeyForPubkey(const BinaryData& pubkey)
    {
       auto pubkeyref = BinaryDataRef(pubkey);
       auto iter = pubkey_to_privkeyAsset_.find(pubkeyref);
@@ -1075,7 +1103,7 @@ public:
       return iter->second;
    }
 
-   SecureBinaryData getPrivKeyForPubkey(const BinaryData& pubkey)
+   const SecureBinaryData& getPrivKeyForPubkey(const BinaryData& pubkey)
    {
       auto pubkeyref = BinaryDataRef(pubkey);
       auto iter = pubkey_to_privKeyasset_.find(pubkeyref);

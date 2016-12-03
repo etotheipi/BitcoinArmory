@@ -435,7 +435,7 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
       //now for the regular test, let it throw if it fails
       testPath(dbDir_, 6);
 
-      testPath(blkFileLocation_, 4);
+      testPath(blkFileLocation_, 2);
    }
    catch (...)
    {

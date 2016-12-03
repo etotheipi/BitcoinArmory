@@ -923,7 +923,7 @@ class ResolverFeed
 public:
 
    virtual BinaryData getByVal(const BinaryData&) = 0;
-   virtual SecureBinaryData getPrivKeyForPubkey(const BinaryData&) = 0;
+   virtual const SecureBinaryData& getPrivKeyForPubkey(const BinaryData&) = 0;
 };
 
 enum StackItemType

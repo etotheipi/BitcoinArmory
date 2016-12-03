@@ -111,3 +111,70 @@ SecureBinaryData BtcUtils::computeChainCode_Armory135(
 
    return chainCode;
 }
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData BtcUtils::rsToDerSig(BinaryDataRef bdr)
+{
+   if (bdr.getSize() != 64)
+      throw runtime_error("unexpected rs sig length");
+
+   //split r and s
+   auto r_bdr = bdr.getSliceRef(0, 32);
+   auto s_bdr = bdr.getSliceRef(32, 32);
+
+   //trim r
+   unsigned trim = 0;
+   auto ptr = r_bdr.getPtr();
+   while (trim < r_bdr.getSize())
+   {
+      if (ptr[trim] != 0)
+         break;
+
+      trim++;
+   }
+
+   auto r_trim = bdr.getSliceRef(trim, 32 - trim);
+   
+   //prepend 0 for negative values
+   BinaryWriter bwR;
+   if (*r_trim.getPtr() > 0x7f)
+      bwR.put_uint8_t(0);
+   bwR.put_BinaryDataRef(r_trim);
+
+   //get lowS
+   auto&& lowS = CryptoECDSA::computeLowS(s_bdr);
+
+   //prepend 0 for negative values
+   BinaryWriter bwS;
+   if (*lowS.getPtr() > 0x7f)
+      bwS.put_uint8_t(0);
+   bwS.put_BinaryData(lowS);
+
+   BinaryWriter bw;
+
+   //code byte
+   bw.put_uint8_t(0x30);
+
+   //size
+   bw.put_uint8_t(4 + bwR.getSize() + bwS.getSize());
+
+   //r code byte
+   bw.put_uint8_t(0x02);
+
+   //r size
+   bw.put_uint8_t(bwR.getSize());
+
+   //r
+   bw.put_BinaryDataRef(bwR.getDataRef());
+
+   //s code byte
+   bw.put_uint8_t(0x02);
+
+   //s size
+   bw.put_uint8_t(bwS.getSize());
+
+   //s
+   bw.put_BinaryDataRef(bwS.getDataRef());
+
+   return bw.getData();
+}

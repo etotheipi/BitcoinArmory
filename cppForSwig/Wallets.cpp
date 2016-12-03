@@ -1141,12 +1141,95 @@ shared_ptr<AddressEntry> AssetWallet::getNewAddress()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-bool AssetWallet::hasScrAddr(const BinaryData& scrAddr) const
+bool AssetWallet::hasScrAddr(const BinaryData& scrAddr)
 {
+   return getAssetIndexForAddr(scrAddr) != UINT32_MAX;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+unsigned AssetWallet::getAssetIndexForAddr(const BinaryData& scrAddr)
+{
+   auto getIndexForAddr = [&](BinaryDataRef scriptHash)->unsigned
+   {
+      auto prefix = scriptHash.getPtr();
+      auto hashRef = scriptHash.getSliceRef(1, scriptHash.getSize() - 1);
+
+      switch (*prefix)
+      {
+      case SCRIPT_PREFIX_HASH160:
+      case SCRIPT_PREFIX_HASH160_TESTNET:
+      {
+         auto iter = hashMaps_.hashCompressed_.find(hashRef);
+         if (iter != hashMaps_.hashCompressed_.end())
+            return iter->second;
+
+         auto iter2 = hashMaps_.hashUncompressed_.find(hashRef);
+         if (iter2 != hashMaps_.hashUncompressed_.end())
+            return iter->second;
+
+         break;
+      }
+
+        
+      case SCRIPT_PREFIX_P2SH:
+      case SCRIPT_PREFIX_P2SH_TESTNET:
+      {
+         auto iter = hashMaps_.hashP2SH_.find(hashRef);
+         if (iter != hashMaps_.hashP2SH_.end())
+            return iter->second;
+
+         break;
+      }
+
+      default:
+         throw runtime_error("invalid script hash prefix");
+      }
+
+      return UINT32_MAX;
+   };
+
+   auto getIndexForAddrNoPrefix = [&](BinaryDataRef scriptHash)->unsigned
+   {
+      auto iter = hashMaps_.hashCompressed_.find(scrAddr);
+      if (iter != hashMaps_.hashCompressed_.end())
+         return iter->second;
+
+      auto iter2 = hashMaps_.hashUncompressed_.find(scrAddr);
+      if (iter2 != hashMaps_.hashUncompressed_.end())
+         return iter2->second;
+
+      auto iter3 = hashMaps_.hashP2SH_.find(scrAddr);
+      if (iter3 != hashMaps_.hashP2SH_.end())
+         return iter3->second;
+
+      return UINT32_MAX;
+   };
+
    LockStruct lock(this);
 
-   auto hashIter = addrHashSet_.find(scrAddr);
-   return hashIter != addrHashSet_.end();
+   fillHashIndexMap();
+
+   if (scrAddr.getSize() == 21)
+   {
+      try
+      {
+         return getIndexForAddr(scrAddr.getRef());
+      }
+      catch (...)
+      {
+      }
+   }
+   else if (scrAddr.getSize() == 20)
+   {
+      return getIndexForAddrNoPrefix(scrAddr.getRef());
+   }
+
+   auto&& scriptHash = BtcUtils::base58toScriptAddr(scrAddr);
+   if (scriptHash.getSize() < 4)
+      throw WalletException("invalid scrAddr");
+
+   auto hashRef = scrAddr.getSliceRef(0, scriptHash.getSize() - 4);
+   return getIndexForAddr(hashRef);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1217,42 +1300,73 @@ void AssetWallet::writeAssetEntry(shared_ptr<AssetEntry> entryPtr)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-const set<BinaryData>& AssetWallet_Single::getAddrHashSet(
-   bool forceMainnetPrefix) const
+void AssetWallet_Single::fillHashIndexMap()
 {
    LockStruct lock(this);
 
-   addrHashSet_.clear();
+   if (assets_.size() > 0 && lastKnownIndex_ != assets_.rbegin()->first)
+   {
+      hashMaps_.clear();
 
-   uint8_t pubkeyprefix = BlockDataManagerConfig::getPubkeyHashPrefix();
-   uint8_t scripthashprefix = BlockDataManagerConfig::getScriptHashPrefix();
+      for (auto& entry : assets_)
+      {
+         auto assetSingle = dynamic_pointer_cast<AssetEntry_Single>(entry.second);
+         
+         hashMaps_.hashUncompressed_.insert(make_pair(
+            assetSingle->getHash160Uncompressed().getRef(), assetSingle->getId()));
+         
+         hashMaps_.hashCompressed_.insert(make_pair(
+            assetSingle->getHash160Compressed().getRef(), assetSingle->getId()));
+         
+         hashMaps_.hashP2SH_.insert(make_pair(
+            assetSingle->getWitnessScriptH160().getRef(), assetSingle->getId()));
+      }
+
+      lastKnownIndex_ = assets_.rbegin()->first;
+   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+set<BinaryData> AssetWallet_Single::getAddrHashSet(bool forceMainnetPrefix)
+{
+   LockStruct lock(this);
+
+   fillHashIndexMap();
+
+   set<BinaryData> addrHashSet;
+   uint8_t prefix = BlockDataManagerConfig::getPubkeyHashPrefix();
    if (forceMainnetPrefix)
+      prefix = SCRIPT_PREFIX_HASH160;
+
+   for (auto& hashIndexPair : hashMaps_.hashUncompressed_)
    {
-      pubkeyprefix = SCRIPT_PREFIX_HASH160;
-      scripthashprefix = SCRIPT_PREFIX_P2SH;
+      BinaryWriter bw;
+      bw.put_uint8_t(prefix);
+      bw.put_BinaryDataRef(hashIndexPair.first);
+      addrHashSet.insert(bw.getData());
    }
 
-   for (auto& entry : assets_)
+   for (auto& hashIndexPair : hashMaps_.hashCompressed_)
    {
-      auto assetSingle = dynamic_pointer_cast<AssetEntry_Single>(entry.second);
-      BinaryWriter bwUnc;
-      bwUnc.put_uint8_t(pubkeyprefix);
-      bwUnc.put_BinaryData(assetSingle->getHash160Uncompressed());
-
-      BinaryWriter bwCmp;
-      bwCmp.put_uint8_t(pubkeyprefix);
-      bwCmp.put_BinaryData(assetSingle->getHash160Compressed());
-
-      BinaryWriter bwNested;
-      bwNested.put_uint8_t(scripthashprefix);
-      bwNested.put_BinaryData(assetSingle->getWitnessScriptH160());
-
-      addrHashSet_.insert(bwUnc.getData());
-      addrHashSet_.insert(bwCmp.getData());
-      addrHashSet_.insert(bwNested.getData());
+      BinaryWriter bw;
+      bw.put_uint8_t(prefix);
+      bw.put_BinaryDataRef(hashIndexPair.first);
+      addrHashSet.insert(bw.getData());
    }
 
-   return addrHashSet_;
+   prefix = BlockDataManagerConfig::getScriptHashPrefix();
+   if (forceMainnetPrefix)
+      prefix = SCRIPT_PREFIX_P2SH;
+
+   for (auto& hashIndexPair : hashMaps_.hashP2SH_)
+   {
+      BinaryWriter bw;
+      bw.put_uint8_t(prefix);
+      bw.put_BinaryDataRef(hashIndexPair.first);
+      addrHashSet.insert(bw.getData());
+   }
+
+   return addrHashSet;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1336,54 +1450,75 @@ const SecureBinaryData& AssetWallet_Single::getChainCode() const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-const set<BinaryData>& AssetWallet_Multisig::getAddrHashSet(
-   bool forceMainnetPrefix) const
+void AssetWallet_Multisig::fillHashIndexMap()
 {
    LockStruct lock(this);
 
-   addrHashSet_.clear();
+   if (assets_.size() > 0 && lastKnownIndex_ != assets_.rbegin()->first)
+   {
+      hashMaps_.clear();
 
-   uint8_t scriptHashPrefix = BlockDataManagerConfig::getScriptHashPrefix();
+      switch (default_aet_)
+      {
+      case AddressEntryType_P2SH:
+      {
+         for (auto& entry : assets_)
+         {
+            auto assetMS = dynamic_pointer_cast<AssetEntry_Multisig>(entry.second);
+            hashMaps_.hashP2SH_.insert(
+               make_pair(assetMS->getHash160().getRef(), assetMS->getId()));
+         }
+
+         break;
+      }
+
+      case AddressEntryType_P2WSH:
+      {
+         for (auto& entry : assets_)
+         {
+            auto assetMS = dynamic_pointer_cast<AssetEntry_Multisig>(entry.second);
+            hashMaps_.hashP2WSH_.insert(
+               make_pair(assetMS->getHash256().getRef(), assetMS->getId()));
+         }
+
+         break;
+      }
+
+      default:
+         throw WalletException("unexpected AddressEntryType for MS wallet");
+      }
+
+      lastKnownIndex_ = assets_.rbegin()->first;
+   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+set<BinaryData> AssetWallet_Multisig::getAddrHashSet(
+   bool forceMainnetPrefix)
+{
+   LockStruct lock(this);
+
+   fillHashIndexMap();
+
+   set<BinaryData> addrHashSet;
+   uint8_t prefix = BlockDataManagerConfig::getScriptHashPrefix();
    if (forceMainnetPrefix)
-      scriptHashPrefix = SCRIPT_PREFIX_P2SH;
-
-   switch (default_aet_)
-   {
-   case AddressEntryType_P2SH:
-   {
-      for (auto& entry : assets_)
-      {
-         auto assetMS = dynamic_pointer_cast<AssetEntry_Multisig>(entry.second);
-         BinaryWriter bw;
-         bw.put_uint8_t(scriptHashPrefix);
-         bw.put_BinaryData(assetMS->getHash160());
-
-         addrHashSet_.insert(bw.getData());
-      }
-      
-      break;
-   }
-
-   case AddressEntryType_P2WSH:
-   {
-      for (auto& entry : assets_)
-      {
-         auto assetMS = dynamic_pointer_cast<AssetEntry_Multisig>(entry.second);
-         BinaryWriter bw;
-         bw.put_uint8_t(scriptHashPrefix);
-         bw.put_BinaryData(assetMS->getHash256());
-
-         addrHashSet_.insert(bw.getData());
-      }
-
-      break;
-   }
-
-   default:
-      throw WalletException("unexpected AddressEntryType for MS wallet");
-   }
+      prefix = SCRIPT_PREFIX_HASH160;
    
-   return addrHashSet_;
+   for (auto& hashIndexPair : hashMaps_.hashP2SH_)
+   {
+      BinaryWriter bw;
+      bw.put_uint8_t(prefix);
+      bw.put_BinaryDataRef(hashIndexPair.first);
+      addrHashSet.insert(bw.getData());
+   }
+
+   for (auto& hashIndexPair : hashMaps_.hashP2WSH_)
+   {
+      addrHashSet.insert(hashIndexPair.first);
+   }
+
+   return addrHashSet;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1425,6 +1560,41 @@ shared_ptr<AssetEntry> AssetWallet::getAssetForIndex(unsigned index) const
       throw WalletException("invalid asset index");
 
    return iter->second;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+const BinaryData& AssetWallet::getP2SHScriptForHash(const BinaryData& script)
+{
+   fillHashIndexMap();
+
+   auto&& hash = BtcUtils::getTxOutRecipientAddr(script);
+
+   shared_ptr<AssetEntry> entryPtr;
+
+   auto iter = hashMaps_.hashP2SH_.find(hash);
+   if (iter != hashMaps_.hashP2SH_.end())
+   {
+      entryPtr = getAssetForIndex(iter->second);
+   }
+   else
+   {
+      auto nextIter = hashMaps_.hashP2WSH_.find(hash);
+      if (nextIter != hashMaps_.hashP2WSH_.end())
+         entryPtr = getAssetForIndex(iter->second);
+   }
+
+   if (entryPtr == nullptr)
+      throw WalletException("unkonwn hash");
+
+   auto assetSingle = dynamic_pointer_cast<AssetEntry_Single>(entryPtr);
+   if (assetSingle != nullptr)
+      return assetSingle->getWitnessScript();
+
+   auto assetMS = dynamic_pointer_cast<AssetEntry_Multisig>(entryPtr);
+   if (assetMS == nullptr)
+      throw WalletException("unexpected entry type");
+
+   return assetMS->getScript();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

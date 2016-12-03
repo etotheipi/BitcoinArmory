@@ -2738,7 +2738,7 @@ class PyBtcWallet(object):
       if not hashcode==1:
          LOGERROR('hashcode!=1 is not supported at this time!')
          return
-
+      
       # If the wallet is locked, we better bail now
       if self.isLocked is True and self.kdfKey is None:
          raise WalletLockError('Cannot sign tx without unlocking wallet')
@@ -2748,8 +2748,9 @@ class PyBtcWallet(object):
       for iin,ustxi in enumerate(ustx.ustxInputs):
          for isig,scrAddr in enumerate(ustxi.scrAddrs):
             addr160 = scrAddr_to_hash160(scrAddr)[1]
-            if self.hasAddr(addr160) and self.addrMap[addr160].hasPrivKey():
-               wltAddr.append((self.addrMap[addr160], iin, isig))
+            addrObj = self.getAddrObjectForHash(addr160)
+            if addrObj.hasPrivKey():
+               wltAddr.append((addrObj, iin, isig))
 
       # WltAddr now contains a list of every input we can sign for, and the
       # PyBtcAddress object that can be used to sign it.  Let's do it.
@@ -2779,9 +2780,32 @@ class PyBtcWallet(object):
 
 
          ##### MAGIC #####
-         ustx.createAndInsertSignatureForInput(idx, addrObj.binPrivKey32_Plain)
+         if not ustx.isSW:
+            ustx.createAndInsertSignatureForInput(idx, addrObj.binPrivKey32_Plain)
          ##### MAGIC #####
-                                               
+          
+      if ustx.isSW:
+         
+         #create cpp signer
+         from armoryengine.CppSignerDirector import PythonSignerDirector
+         cppsigner = PythonSignerDirector(self)
+         
+         #set spenders
+         for ustxi in ustx.ustxInputs:
+            cppsigner.addSpender(ustxi.getUnspentTxOut())
+            
+         #set recipients
+         for txout in ustx.decorTxOuts:
+            cppsigner.addRecipient(txout.binScript, txout.value)
+         
+         #sign
+         cppsigner.signTx()
+         
+         #get fully serialized tx  
+         finalTx = cppsigner.getSignedTx()
+         
+         #set in ustx object
+         ustx.setFinalTx(finalTx)                                  
 
       if self.useEncryption:
          self.lock()
@@ -3251,6 +3275,22 @@ class PyBtcWallet(object):
          raise('Nested addresses are no available for imports')
       
       return self.cppWallet.getNestedAddressForIndex(chainIndex, True)
+   
+   ###############################################################################
+   def getPrivateKeyForIndex(self, index):
+      addr160 = self.chainIndexMap[index]
+      addrObj = self.addrMap[addr160]
+      
+      return addrObj.binPrivKey32_Plain
+   
+   ###############################################################################
+   def getAddrObjectForHash(self, hashVal):
+      assetIndex = self.cppWallet.getAssetIndexForAddr(hashVal)
+      if assetIndex == 2**32:
+         raise("unknown hash")
+      
+      addr160 = self.chainIndexMap[assetIndex]
+      return self.addrMap[addr160] 
       
 ###############################################################################
 def getSuffixedPath(walletPath, nameSuffix):

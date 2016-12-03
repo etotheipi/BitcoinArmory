@@ -2546,7 +2546,7 @@ class ArmoryMainWindow(QMainWindow):
       if len(wltPaths) > 0:
          ratioPerWallet = 100 / float(len(wltPaths))
 
-      self.walletManager = Cpp.WalletManager(ARMORY_HOME_DIR)
+      self.walletManager = Cpp.WalletManager(str(ARMORY_HOME_DIR))
 
       i = 0
       for fpath in wltPaths:

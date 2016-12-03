@@ -13,6 +13,7 @@
 
 %module(directors="1") CppBlockUtils
 %feature("director") PythonCallback;
+%feature("director") PythonSigner;
 
 %{
 #define SWIG_PYTHON_EXTRA_NATIVE_CONTAINERS

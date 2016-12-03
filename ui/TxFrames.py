@@ -20,7 +20,7 @@ from armoryengine.MultiSigUtils import \
       calcLockboxID, readLockboxEntryStr, createLockboxEntryStr, isBareLockbox,\
    isP2SHLockbox
 from armoryengine.ArmoryUtils import MAX_COMMENT_LENGTH, getAddrByte
- 
+
 
 
 class SendBitcoinsFrame(ArmoryFrame):
@@ -776,6 +776,10 @@ class SendBitcoinsFrame(ArmoryFrame):
       random.shuffle(scriptValPairs)
 
 
+      isSW = False
+      p2shMap = {}
+      pubKeyMap = {}
+      
       # In order to create the USTXI objects, need to make we supply a
       # map of public keys that can be included
       if self.lbox:
@@ -795,7 +799,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       else:
          # If this has nothing to do with lockboxes, we need to make sure
          # we're providing a key map for the inputs
-         pubKeyMap = {}
+         
          for utxo in utxoSelect:
             scrType = getTxOutScriptType(utxo.getScript())
             if scrType in CPP_TXOUT_STDSINGLESIG:
@@ -804,10 +808,29 @@ class SendBitcoinsFrame(ArmoryFrame):
                addrObj = self.wlt.getAddrByHash160(a160)
                if addrObj:
                   pubKeyMap[scrAddr] = addrObj.binPublicKey65.toBinStr()
+            elif scrType == CPP_TXOUT_P2WPKH:
+               isSW = True
+               break
+            elif scrType == CPP_TXOUT_P2SH:
+               p2shScript = self.wlt.cppWallet.getP2SHScriptForHash(utxo.getScript())
+               p2shKey = binary_to_hex(script_to_scrAddr(script_to_p2sh_script(
+                  p2shScript)))
+               p2shMap[p2shKey]  = p2shScript               
+               
+               p2shScriptType = getTxOutScriptType(p2shScript)
+               if p2shScriptType == CPP_TXOUT_P2WPKH or \
+                  p2shScriptType == CPP_TXOUT_P2WSH:
+                  isSW = True               
 
+         '''
+         If we are consuming any number of SegWit utxos, pass the utxo selection
+         and outputs to the new signer for processing instead of creating the
+         unsigned tx in Python.
+         '''
+         
          # Now create the unsigned USTX
-         ustx = UnsignedTransaction().createFromTxOutSelection( \
-                                       utxoSelect, scriptValPairs, pubKeyMap)
+         ustx = UnsignedTransaction().createFromTxOutSelection(\
+            utxoSelect, scriptValPairs, pubKeyMap, p2shMap=p2shMap, isSW=isSW)
 
       #ustx.pprint()
 
@@ -825,30 +848,35 @@ class SendBitcoinsFrame(ArmoryFrame):
    
   
    def createTxAndBroadcast(self):
+      
+      def unlockWallet():
+         if self.wlt.isLocked:
+            Passphrase = None  
+                  
+            unlockdlg = DlgUnlockWallet(self.wlt, self, self.main, 'Send Transaction', returnPassphrase=True)
+            if unlockdlg.exec_():
+               if unlockdlg.Accepted == 1:
+                  Passphrase = unlockdlg.securePassphrase.copy()
+                  unlockdlg.securePassphrase.destroy()
+                     
+            if Passphrase is None or self.wlt.kdf is None:
+               QMessageBox.critical(self.parent(), 'Wallet is Locked', \
+                  'Cannot sign transaction while your wallet is locked. ', \
+                  QMessageBox.Ok)
+               return
+            else:
+               self.wlt.kdfKey = self.wlt.kdf.DeriveKey(Passphrase)
+               Passphrase.destroy()                     
+      
       # The Send! button is clicked validate and broadcast tx
       ustx = self.validateInputsGetUSTX()
+            
       if ustx:
          if self.createUnsignedTxCallback and self.unsignedCheckbox.isChecked():
             self.createUnsignedTxCallback(ustx)
          else:
             try:
-               if self.wlt.isLocked:
-                  Passphrase = None  
-                  
-                  unlockdlg = DlgUnlockWallet(self.wlt, self, self.main, 'Send Transaction', returnPassphrase=True)
-                  if unlockdlg.exec_():
-                     if unlockdlg.Accepted == 1:
-                        Passphrase = unlockdlg.securePassphrase.copy()
-                        unlockdlg.securePassphrase.destroy()
-                     
-                  if Passphrase is None or self.wlt.kdf is None:
-                     QMessageBox.critical(self.parent(), 'Wallet is Locked', \
-                        'Cannot sign transaction while your wallet is locked. ', \
-                        QMessageBox.Ok)
-                     return
-                  else:
-                     self.wlt.kdfKey = self.wlt.kdf.DeriveKey(Passphrase)
-                     Passphrase.destroy()                                     
+               unlockWallet()
                
                self.wlt.mainWnd = self.main
                self.wlt.parent = self

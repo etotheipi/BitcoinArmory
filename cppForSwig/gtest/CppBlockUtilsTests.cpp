@@ -5780,7 +5780,7 @@ struct TestResolverFeed : public ResolverFeed
       return iter->second;
    }
 
-   SecureBinaryData getPrivKeyForPubkey(const BinaryData& pubkey)
+   const SecureBinaryData& getPrivKeyForPubkey(const BinaryData& pubkey)
    {
       auto iter = pubKeyToPrivKey_.find(pubkey);
       if (iter == pubKeyToPrivKey_.end())

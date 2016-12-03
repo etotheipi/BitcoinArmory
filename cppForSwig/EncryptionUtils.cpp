@@ -1057,11 +1057,28 @@ SecureBinaryData CryptoECDSA::UncompressPoint(SecureBinaryData const & pubKey33)
 
 }
 
+////////////////////////////////////////////////////////////////////////////////
+BinaryData CryptoECDSA::computeLowS(BinaryDataRef s)
+{
+   static SecureBinaryData SECP256K1_ORDER_BE = SecureBinaryData().CreateFromHex(
+      "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
 
+   CryptoPP::Integer ecOrder, sInteger;
+   ecOrder.Decode(SECP256K1_ORDER_BE.getPtr(), SECP256K1_ORDER_BE.getSize(), UNSIGNED);
 
+   //divide by 2
+   auto&& halfOrder = ecOrder >> 1;
 
+   sInteger.Decode(s.getPtr(), s.getSize(), UNSIGNED);
+   if (sInteger > halfOrder)
+      sInteger = ecOrder - sInteger;
 
+   auto len = sInteger.ByteCount();
+   BinaryData lowS(len);
+   sInteger.Encode(lowS.getPtr(), len, UNSIGNED);
 
+   return lowS;
+}
 
 
 

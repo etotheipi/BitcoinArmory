@@ -685,7 +685,7 @@ class PyTxWitness(BlockComponent):
       return binOut.getBinaryString()
 
    def pprint(self, nIndent=0, endian=BIGENDIAN):
-      print self.toString(self, nIndent, endian)
+      print self.toString(nIndent, endian)
 
    def toString(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
@@ -713,7 +713,7 @@ class PyTx(BlockComponent):
    def serialize(self):
       binOut = BinaryPacker()
       binOut.put(UINT32, self.version)
-      if armoryengine.ArmoryUtils.WITNESS and self.useWitness:
+      if self.useWitness:
          binOut.put(UINT8, WITNESS_MARKER)
          binOut.put(UINT8, WITNESS_FLAG)
       binOut.put(VAR_INT, len(self.inputs))
@@ -722,7 +722,7 @@ class PyTx(BlockComponent):
       binOut.put(VAR_INT, len(self.outputs))
       for txout in self.outputs:
          binOut.put(BINARY_CHUNK, txout.serialize())
-      if armoryengine.ArmoryUtils.WITNESS and self.useWitness:
+      if self.useWitness:
          for witItem in self.witnesses:
             binOut.put(BINARY_CHUNK, witItem.serialize())
       binOut.put(UINT32, self.lockTime)
@@ -1165,6 +1165,14 @@ class UnsignedTxInput(AsciiSerializable):
          self.pubKeys     = [pubKeyMap[scrAddr]]
          self.signatures  = ['']
          self.wltLocators = ['']
+      elif self.scriptType==CPP_TXOUT_P2WPKH:
+         scrAddr = script_to_scrAddr(baseScript)
+         self.sigsNeeded  = 1
+         self.keysListed  = 1
+         self.scrAddrs    = [scrAddr]
+         self.pubKeys     = {}
+         self.signatures  = ['']
+         self.wltLocators = ['']         
       elif self.scriptType==CPP_TXOUT_MULTISIG:
          M, N, a160s, pubs = getMultisigScriptInfo(baseScript)
          self.sigsNeeded   = M
@@ -1271,7 +1279,8 @@ class UnsignedTxInput(AsciiSerializable):
       if self.scriptType in [CPP_TXOUT_STDPUBKEY33, CPP_TXOUT_STDPUBKEY65]:
          # Only need the signature to complete coinbase TxOut
          outScript = scriptPushData(self.signatures[0])
-      elif self.scriptType==CPP_TXOUT_STDHASH160:
+      elif self.scriptType==CPP_TXOUT_STDHASH160 or \
+         self.scriptType==CPP_TXOUT_P2WPKH:
          # Gotta include the public key, too, for standard TxOuts
          serSig    = scriptPushData(self.signatures[0])
          serPubKey = scriptPushData(self.pubKeys[0])
@@ -1666,7 +1675,14 @@ class UnsignedTxInput(AsciiSerializable):
 
       print 'UnsignedTxInput --  %s:%d (%s)' % (txHashStr, txoIdx, scrType)
 
-
+   #############################################################################
+   def getUnspentTxOut(self):
+      from CoinSelection import PyUnspentTxOut
+      return PyUnspentTxOut(
+            txHash = self.outpoint.txHash,
+            txoIdx = self.outpoint.txOutIndex,
+            val=self.value,
+            fullScript=self.txoScript)
 
    #############################################################################
    """
@@ -2068,6 +2084,7 @@ class UnsignedTransaction(AsciiSerializable):
       self.lockTime        = 0
       self.ustxInputs  = []
       self.decorTxOuts = []
+      self.isSW = False
 
       txMap   = {} if txMap   is None else txMap
       p2shMap = {} if p2shMap is None else p2shMap
@@ -2208,8 +2225,11 @@ class UnsignedTransaction(AsciiSerializable):
 
    #############################################################################
    def createFromTxOutSelection(self, utxoSelection, scriptValuePairs,
-                                pubKeyMap=None, txMap=None, p2shMap=None):
+                                pubKeyMap=None, txMap=None, p2shMap=None, 
+                                isSW=False):
 
+      self.isSW = isSW
+      
       totalUtxoSum = sumTxOutList(utxoSelection)
       totalOutputSum = sum([a[1] for a in scriptValuePairs])
       if not totalUtxoSum >= totalOutputSum:
@@ -2517,29 +2537,34 @@ class UnsignedTransaction(AsciiSerializable):
       if not self.verifyInputsMatchPyTxObj():
          LOGERROR('Invalid USTXI set or ordering')
          return None
-
+      
       finalTx = self.pytxObj.copy()
-
-      # Check signatures are valid (if not skipped)
-      # TODO: I would've used PyScriptProcessor since it evaluates the scripts
-      #       as a whole, instead of just verifying the individual signatures,
-      #       but it doesn't currently handle P2SH scripts properly, so it
-      #       wouldn't be reliable for P2SH scripts
-      if doVerifySigs:
-         if not self.verifySigsAllInputs():
-            LOGERROR('Attempted to prepare final tx, but not all sigs available')
-            raise SignatureError('Invalid signature while preparing final tx')
-
-      # Iterate through the lists
-      for iin in range(len(self.ustxInputs)):
-         ustxi = self.ustxInputs[iin]
-         sigScript = ustxi.createSigScript(stripExtraSigs=stripExtraSigs)
-         if not sigScript:
-            return None
-         finalTx.inputs[iin].binScript = sigScript
+      
+      if not self.isSW:   
+         # Check signatures are valid (if not skipped)
+         # TODO: I would've used PyScriptProcessor since it evaluates the scripts
+         #       as a whole, instead of just verifying the individual signatures,
+         #       but it doesn't currently handle P2SH scripts properly, so it
+         #       wouldn't be reliable for P2SH scripts
+         if doVerifySigs:
+            if not self.verifySigsAllInputs():
+               LOGERROR('Attempted to prepare final tx, but not all sigs available')
+               raise SignatureError('Invalid signature while preparing final tx')
+   
+         # Iterate through the lists
+         for iin in range(len(self.ustxInputs)):
+            ustxi = self.ustxInputs[iin]
+            sigScript = ustxi.createSigScript(stripExtraSigs=stripExtraSigs)
+            if not sigScript:
+               return None
+            finalTx.inputs[iin].binScript = sigScript
 
       return finalTx
 
+   #############################################################################
+   def setFinalTx(self, finalTx):
+      self.pytxObj = PyTx()
+      self.pytxObj.unserialize(finalTx)
 
    #############################################################################
    def getPyTxSignedIfPossible(self, doVerifySigs=True):
@@ -2600,6 +2625,8 @@ class UnsignedTransaction(AsciiSerializable):
       try:
          return self.getSignedPyTx(verifySigs)
       except SignatureError, msg:
+         return None
+      except KeyError:
          return None
 
 

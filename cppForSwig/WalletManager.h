@@ -20,11 +20,13 @@ using namespace std;
 #include "log.h"
 #include "Wallets.h"
 #include "SwigClient.h"
+#include "Signer.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 class WalletContainer
 {
    friend class WalletManager;
+   friend class PythonSigner;
 
 private:
    const string id_;
@@ -112,6 +114,123 @@ public:
    bool hasScrAddr(const BinaryData& scrAddr)
    {
       return wallet_->hasScrAddr(scrAddr);
+   }
+
+   unsigned getAssetIndexForAddr(const BinaryData& scrAddr)
+   {
+      return wallet_->getAssetIndexForAddr(scrAddr);
+   }
+
+   const BinaryData& getP2SHScriptForHash(const BinaryData& script)
+   {
+      return wallet_->getP2SHScriptForHash(script);
+   }
+};
+
+////////////////////////////////////////////////////////////////////////////////
+class PythonSigner
+{
+   friend class ResolvedFeed_PythonWalletSingle;
+
+private:
+   unique_ptr<Signer> signer_;
+   shared_ptr<AssetWallet> walletPtr_;
+   shared_ptr<ResolvedFeed_PythonWalletSingle> feedPtr_;
+
+public:
+   PythonSigner(WalletContainer& wltContainer)
+   {
+      walletPtr_ = wltContainer.wallet_;
+      signer_ = make_unique<Signer>();
+      signer_->setFlags(SCRIPT_VERIFY_SEGWIT);
+
+      //create feed
+      auto walletSingle = dynamic_pointer_cast<AssetWallet_Single>(walletPtr_);
+      if (walletSingle == nullptr)
+         throw WalletException("unexpected wallet type");
+
+      feedPtr_ = make_shared<ResolvedFeed_PythonWalletSingle>(
+         walletSingle, this);
+
+   }
+
+   void addSpender(
+      uint64_t value, 
+      uint32_t height, uint16_t txindex, uint16_t outputIndex, 
+      const BinaryData& txHash, const BinaryData& script)
+   {
+      UTXO utxo(value, height, txindex, outputIndex, txHash, script);
+
+      //set spenders
+      signer_->addSpender(make_shared<ScriptSpender>(utxo, feedPtr_));
+   }
+
+   void addRecipient(const BinaryData& script, uint64_t value)
+   {
+      auto txOutRef = BtcUtils::getTxOutScrAddrNoCopy(script);
+
+      shared_ptr<ScriptRecipient> recipient;
+      switch (txOutRef.type_)
+      {
+      case SCRIPT_PREFIX_HASH160:
+         recipient = make_shared<Recipient_P2PKH>(txOutRef.scriptRef_, value);
+         break;
+
+      case SCRIPT_PREFIX_P2SH:
+         recipient = make_shared<Recipient_P2SH>(txOutRef.scriptRef_, value);
+         break;
+
+      default:
+         throw WalletException("unexpected output type");
+      }
+
+      signer_->addRecipient(recipient);
+   }
+
+   void signTx(void)
+   {
+      signer_->sign();
+      if (!signer_->verify())
+         throw runtime_error("failed signature");
+   }
+
+   BinaryData getSignedTx(void)
+   {
+      BinaryData finalTx(signer_->serialize());
+
+      return finalTx;
+   }
+
+   virtual ~PythonSigner(void) = 0;
+   virtual const SecureBinaryData& getPrivateKeyForIndex(unsigned) = 0;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+class ResolvedFeed_PythonWalletSingle : public ResolvedFeed_AssetWalletSingle
+{
+private:
+   PythonSigner* signerPtr_ = nullptr;
+
+public:
+   ResolvedFeed_PythonWalletSingle(
+      shared_ptr<AssetWallet_Single> walletPtr,
+      PythonSigner* signerptr) :
+      ResolvedFeed_AssetWalletSingle(walletPtr),
+      signerPtr_(signerptr)
+   {
+      if (signerPtr_ == nullptr)
+         throw WalletException("null signer ptr");
+   }
+
+   const SecureBinaryData& getPrivKeyForPubkey(const BinaryData& pubkey)
+   {
+      auto pubkeyref = BinaryDataRef(pubkey);
+      auto iter = pubkey_to_privkeyAsset_.find(pubkeyref);
+      if (iter == pubkey_to_privkeyAsset_.end())
+         throw runtime_error("invalid value");
+
+
+      return signerPtr_->getPrivateKeyForIndex(iter->second->getId());
    }
 };
 

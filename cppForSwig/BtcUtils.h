@@ -2059,69 +2059,7 @@ public:
       return output.getData();
    }
 
-   static BinaryData rsToDerSig(BinaryDataRef bdr)
-   {
-      if (bdr.getSize() != 64)
-         throw runtime_error("unexpected rs sig length");
-      
-      //split r and s
-      auto r_bdr = bdr.getSliceRef(0, 32);
-      auto s_bdr = bdr.getSliceRef(32, 32);
-
-      //trim r
-      unsigned trim = 0;
-      auto ptr = r_bdr.getPtr();
-      while (trim < r_bdr.getSize())
-      {
-         if (ptr[trim] != 0)
-            break;
-
-         trim++;
-      }
-
-      auto r_trim = bdr.getSliceRef(trim, 32 - trim);
-     
-      //trim s
-      trim = 0;
-      ptr += 32;
-      while (trim < s_bdr.getSize())
-      {
-         if (ptr[trim] != 0)
-            break;
-
-         trim++;
-      }
-
-      auto s_trim = bdr.getSliceRef(32 + trim, 32 - trim);
-
-      BinaryWriter bw;
-
-      //code byte
-      bw.put_uint8_t(0x30);
-
-      //size
-      bw.put_uint8_t(4 + r_trim.getSize() + s_trim.getSize());
-
-      //r code byte
-      bw.put_uint8_t(0x02);
-
-      //r size
-      bw.put_uint8_t(r_trim.getSize());
-
-      //r
-      bw.put_BinaryDataRef(r_trim);
-
-      //s code byte
-      bw.put_uint8_t(0x02);
-
-      //s size
-      bw.put_uint8_t(s_trim.getSize());
-
-      //s
-      bw.put_BinaryDataRef(s_trim);
-
-      return bw.getData();
-   }
+   static BinaryData rsToDerSig(BinaryDataRef bdr);
 
    static BinaryData getPushDataHeader(const BinaryData& data)
    {

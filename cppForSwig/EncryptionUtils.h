@@ -449,6 +449,9 @@ public:
                         BinaryData const & Ay);
 
    /////////////////////////////////////////////////////////////////////////////
+   static BinaryData computeLowS(BinaryDataRef s);
+
+   /////////////////////////////////////////////////////////////////////////////
    // For Point-compression
    SecureBinaryData CompressPoint(SecureBinaryData const & pubKey65);
    SecureBinaryData UncompressPoint(SecureBinaryData const & pubKey33);
