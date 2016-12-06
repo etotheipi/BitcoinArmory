@@ -10564,6 +10564,9 @@ class DlgCoinControl(ArmoryDialog):
          txIndex  = utxo.txIndex
          txoIndex = utxo.txOutIndex
          
+         addrPrefix = utxo.getRecipientScrAddr()[0]
+         scrAddr = hash160_to_addrStr(a160, addrPrefix)
+         
          fullcmt = self.wlt.getCommentForAddress(a160)
          shortcmt = fullcmt
          if shortcmt == CHANGE_ADDR_DESCR_STRING:
@@ -10573,7 +10576,7 @@ class DlgCoinControl(ArmoryDialog):
             shortcmt = fullcmt[:20] + '...'
             
          self.dispTable.append([None, None, None, None, i])
-         self.dispTable[-1][0] = QCheckBox(hash160_to_addrStr(a160))
+         self.dispTable[-1][0] = QCheckBox(scrAddr)
          self.dispTable[-1][1] = QRichLabel(utxo.shortLabel(), doWrap = False)
          self.dispTable[-1][2] = QMoneyLabel(bal)
          self.dispTable[-1][3] = QRichLabel(shortcmt, doWrap=False)

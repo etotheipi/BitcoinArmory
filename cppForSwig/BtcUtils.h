@@ -1165,85 +1165,19 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
+   // We use this for LevelDB keys, to return same key if the same priv/pub 
+   // pair is used, and also saving a few bytes for common script types
+   static BinaryData getTxOutScrAddrWithPrefix(BinaryDataRef script);
+
+   /////////////////////////////////////////////////////////////////////////////
    //no copy version, the regular one is too slow for scanning operations
-   static TxOutScriptRef getTxOutScrAddrNoCopy(BinaryDataRef script)
-   {
-      TxOutScriptRef outputRef;
-      auto type = getTxOutScriptType(script);
-      switch (type)
-      {
-      case(TXOUT_SCRIPT_STDHASH160) :
-      {
-         outputRef.type_ = SCRIPT_PREFIX_HASH160;
-         outputRef.scriptRef_ = move(script.getSliceRef(3, 20));
-         break;
-      }
-
-      case(TXOUT_SCRIPT_P2WPKH) :
-      {
-         outputRef.type_ = SCRIPT_PREFIX_HASH160;
-         outputRef.scriptRef_ = move(script.getSliceRef(2, 20));
-         break;
-      }
-
-      case(TXOUT_SCRIPT_P2WSH) :
-      {
-         outputRef.type_ = SCRIPT_PREFIX_P2SH;
-         outputRef.scriptRef_ = move(script.getSliceRef(2, 32));
-         break;
-      }
-
-      case(TXOUT_SCRIPT_STDPUBKEY65) :
-      {
-         outputRef.type_ = SCRIPT_PREFIX_HASH160;
-         outputRef.scriptCopy_ = move(getHash160(script.getSliceRef(1, 65)));
-         outputRef.scriptRef_.setRef(outputRef.scriptCopy_);
-         break;
-      }
-
-      case(TXOUT_SCRIPT_STDPUBKEY33) :
-      {
-         outputRef.type_ = SCRIPT_PREFIX_HASH160;
-         outputRef.scriptCopy_ = move(getHash160(script.getSliceRef(1, 33)));
-         outputRef.scriptRef_.setRef(outputRef.scriptCopy_);
-         break;
-      }
-
-      case(TXOUT_SCRIPT_P2SH) :
-      {
-         outputRef.type_ = SCRIPT_PREFIX_P2SH;
-         outputRef.scriptRef_ = move(script.getSliceRef(2, 20));
-         break;
-      }
-
-      case(TXOUT_SCRIPT_NONSTANDARD) :
-      {
-         outputRef.type_ = SCRIPT_PREFIX_NONSTD;
-         outputRef.scriptCopy_ = move(getHash160(script));
-         outputRef.scriptRef_.setRef(outputRef.scriptCopy_);
-         break;
-      }
-
-      case(TXOUT_SCRIPT_MULTISIG) :
-      {         
-         outputRef.type_ = SCRIPT_PREFIX_MULTISIG;
-         outputRef.scriptCopy_ = move(getMultisigUniqueKey(script));
-         outputRef.scriptRef_.setRef(outputRef.scriptCopy_);
-         break;
-      }
-
-      default:
-         LOGERR << "What kind of TxOutScript did we get?";
-      }
-
-      return outputRef;
-   }
+   static TxOutScriptRef getTxOutScrAddrNoCopy(BinaryDataRef script);
 
    /////////////////////////////////////////////////////////////////////////////
    // This is basically just for SWIG to access via python
    static BinaryData getScrAddrForScript(BinaryData const & script)
    {
-      return getTxOutScrAddr(script.getRef());
+      return getTxOutScrAddrWithPrefix(script.getRef());
    }
 
    /////////////////////////////////////////////////////////////////////////////

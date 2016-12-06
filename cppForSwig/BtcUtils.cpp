@@ -178,3 +178,133 @@ BinaryData BtcUtils::rsToDerSig(BinaryDataRef bdr)
 
    return bw.getData();
 }
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData BtcUtils::getTxOutScrAddrWithPrefix(BinaryDataRef script)
+{
+   BinaryWriter bw;
+   auto type = getTxOutScriptType(script);
+
+   auto h160Prefix = BlockDataManagerConfig::getPubkeyHashPrefix();
+   auto scriptPrefix = BlockDataManagerConfig::getScriptHashPrefix();
+
+   switch (type)
+   {
+      case(TXOUT_SCRIPT_STDHASH160) :
+         bw.put_uint8_t(h160Prefix);
+         bw.put_BinaryData(script.getSliceCopy(3, 20));
+         return bw.getData();
+      case(TXOUT_SCRIPT_P2WPKH) :
+         bw.put_uint8_t(h160Prefix);
+         bw.put_BinaryData(script.getSliceCopy(2, 20));
+         return bw.getData();
+      case(TXOUT_SCRIPT_P2WSH) :
+         bw.put_uint8_t(scriptPrefix);
+         bw.put_BinaryData(script.getSliceCopy(2, 32));
+         return bw.getData();
+      case(TXOUT_SCRIPT_STDPUBKEY65) :
+         bw.put_uint8_t(h160Prefix);
+         bw.put_BinaryData(getHash160(script.getSliceRef(1, 65)));
+         return bw.getData();
+      case(TXOUT_SCRIPT_STDPUBKEY33) :
+         bw.put_uint8_t(h160Prefix);
+         bw.put_BinaryData(getHash160(script.getSliceRef(1, 33)));
+         return bw.getData();
+      case(TXOUT_SCRIPT_P2SH) :
+         bw.put_uint8_t(scriptPrefix);
+         bw.put_BinaryData(script.getSliceCopy(2, 20));
+         return bw.getData();
+      case(TXOUT_SCRIPT_NONSTANDARD) :
+         bw.put_uint8_t(SCRIPT_PREFIX_NONSTD);
+         bw.put_BinaryData(getHash160(script));
+         return bw.getData();
+      case(TXOUT_SCRIPT_MULTISIG) :
+         bw.put_uint8_t(SCRIPT_PREFIX_MULTISIG);
+         bw.put_BinaryData(getMultisigUniqueKey(script));
+         return bw.getData();
+      default:
+         LOGERR << "What kind of TxOutScript did we get?";
+         return BinaryData(0);
+   }
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//no copy version, the regular one is too slow for scanning operations
+TxOutScriptRef BtcUtils::getTxOutScrAddrNoCopy(BinaryDataRef script)
+{
+   TxOutScriptRef outputRef;
+
+   auto p2pkh_prefix = 
+      SCRIPT_PREFIX(BlockDataManagerConfig::getPubkeyHashPrefix());
+   auto p2sh_prefix = 
+      SCRIPT_PREFIX(BlockDataManagerConfig::getScriptHashPrefix());
+
+      auto type = getTxOutScriptType(script);
+   switch (type)
+   {
+   case(TXOUT_SCRIPT_STDHASH160) :
+   {
+      outputRef.type_ = p2pkh_prefix;
+      outputRef.scriptRef_ = move(script.getSliceRef(3, 20));
+      break;
+   }
+
+   case(TXOUT_SCRIPT_P2WPKH) :
+   {
+      outputRef.type_ = p2pkh_prefix;
+      outputRef.scriptRef_ = move(script.getSliceRef(2, 20));
+      break;
+   }
+
+   case(TXOUT_SCRIPT_P2WSH) :
+   {
+      outputRef.type_ = p2sh_prefix;
+      outputRef.scriptRef_ = move(script.getSliceRef(2, 32));
+      break;
+   }
+
+   case(TXOUT_SCRIPT_STDPUBKEY65) :
+   {
+      outputRef.type_ = p2pkh_prefix;
+      outputRef.scriptCopy_ = move(getHash160(script.getSliceRef(1, 65)));
+      outputRef.scriptRef_.setRef(outputRef.scriptCopy_);
+      break;
+   }
+
+   case(TXOUT_SCRIPT_STDPUBKEY33) :
+   {
+      outputRef.type_ = p2pkh_prefix;
+      outputRef.scriptCopy_ = move(getHash160(script.getSliceRef(1, 33)));
+      outputRef.scriptRef_.setRef(outputRef.scriptCopy_);
+      break;
+   }
+
+   case(TXOUT_SCRIPT_P2SH) :
+   {
+      outputRef.type_ = p2sh_prefix;
+      outputRef.scriptRef_ = move(script.getSliceRef(2, 20));
+      break;
+   }
+
+   case(TXOUT_SCRIPT_NONSTANDARD) :
+   {
+      outputRef.type_ = SCRIPT_PREFIX_NONSTD;
+      outputRef.scriptCopy_ = move(getHash160(script));
+      outputRef.scriptRef_.setRef(outputRef.scriptCopy_);
+      break;
+   }
+
+   case(TXOUT_SCRIPT_MULTISIG) :
+   {
+      outputRef.type_ = SCRIPT_PREFIX_MULTISIG;
+      outputRef.scriptCopy_ = move(getMultisigUniqueKey(script));
+      outputRef.scriptRef_.setRef(outputRef.scriptCopy_);
+      break;
+   }
+
+   default:
+      LOGERR << "What kind of TxOutScript did we get?";
+   }
+
+   return outputRef;
+}

@@ -1165,7 +1165,7 @@ unsigned AssetWallet::getAssetIndexForAddr(const BinaryData& scrAddr)
 
          auto iter2 = hashMaps_.hashUncompressed_.find(hashRef);
          if (iter2 != hashMaps_.hashUncompressed_.end())
-            return iter->second;
+            return iter2->second;
 
          break;
       }

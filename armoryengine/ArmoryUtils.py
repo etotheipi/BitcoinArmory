@@ -556,8 +556,8 @@ SCRADDR_P2PKH_BYTE    = '\x00'
 SCRADDR_P2SH_BYTE     = '\x05'
 SCRADDR_MULTISIG_BYTE = '\xfe'
 SCRADDR_NONSTD_BYTE   = '\xff'
-SCRADDR_BYTE_LIST     = [SCRADDR_P2PKH_BYTE, \
-                         SCRADDR_P2SH_BYTE, \
+SCRADDR_BYTE_LIST     = [ADDRBYTE, \
+                         P2SHBYTE, \
                          SCRADDR_MULTISIG_BYTE, \
                          SCRADDR_NONSTD_BYTE]
 
@@ -1609,9 +1609,9 @@ def scrAddr_to_script(scraddr):
       LOGERROR('Bad scraddr: "%s"' % binary_to_hex(scraddr))
       raise BadAddressError('Invalid ScrAddress')
 
-   if prefix==SCRADDR_P2PKH_BYTE:
+   if prefix==ADDRBYTE:
       return hash160_to_p2pkhash_script(scraddr[1:])
-   elif prefix==SCRADDR_P2SH_BYTE:
+   elif prefix==P2SHBYTE:
       return hash160_to_p2sh_script(scraddr[1:])
    else:
       LOGERROR('Unsupported scraddr type: "%s"' % binary_to_hex(scraddr))
@@ -1637,9 +1637,9 @@ def scrAddr_to_addrStr(scrAddr):
    if not prefix in SCRADDR_BYTE_LIST or not len(scrAddr)==21:
       raise BadAddressError('Invalid ScrAddress')
 
-   if prefix==SCRADDR_P2PKH_BYTE:
+   if prefix==ADDRBYTE:
       return hash160_to_addrStr(scrAddr[1:])
-   elif prefix==SCRADDR_P2SH_BYTE:
+   elif prefix==P2SHBYTE:
       return hash160_to_p2shAddrStr(scrAddr[1:])
    else:
       LOGERROR('Unsupported scrAddr type: "%s"' % binary_to_hex(scrAddr))
@@ -1664,9 +1664,9 @@ def addrStr_to_scrAddr(addrStr, p2pkhByte = ADDRBYTE, p2shByte = P2SHBYTE):
 
    atype, a160 = addrStr_to_hash160(addrStr, True, p2pkhByte, p2shByte)
    if atype==p2pkhByte:
-      return SCRADDR_P2PKH_BYTE + a160
+      return p2pkhByte + a160
    elif atype==p2shByte:
-      return SCRADDR_P2SH_BYTE + a160
+      return p2shByte + a160
    else:
       BadAddressError('Invalid address: "%s"' % addrStr)
 
@@ -1827,14 +1827,16 @@ if CLI_OPTIONS.logDisable:
 # be valid entities for tracking in a wallet.  Until then, all of our python
 # utilities all use just hash160 values, and we manually add the prefix
 # before talking to the BDM.
-HASH160PREFIX  = '\x00'
-P2SHPREFIX     = '\x05'
-MSIGPREFIX     = '\xfe'
-NONSTDPREFIX   = '\xff'
+HASH160PREFIX     = '\x00'
+HASH160_TESTNET   = '\x6f'
+P2SHPREFIX        = '\x05'
+P2SH_TESTNET      = '\xc4'
+MSIGPREFIX        = '\xfe'
+NONSTDPREFIX      = '\xff'
 def CheckHash160(scrAddr):
    if not len(scrAddr)==21:
       raise BadAddressError("Supplied scrAddr is not a Hash160 value!")
-   if not scrAddr[0] in [HASH160PREFIX, P2SHPREFIX]:
+   if not scrAddr[0] in [HASH160PREFIX, P2SHPREFIX, HASH160_TESTNET, P2SH_TESTNET]:
       raise BadAddressError("Supplied scrAddr is not a Hash160 value!")
    return scrAddr[1:]
 

@@ -457,7 +457,9 @@ struct UTXO
    UTXO(void) {}
 
    BinaryData getRecipientScrAddr(void) const
-   { return BtcUtils::getTxOutScrAddr(script_); }
+   {
+      return BtcUtils::getTxOutScrAddrWithPrefix(script_);
+   }
 
    uint64_t getValue(void) const { return value_; }
    const BinaryData& getTxHash(void) const { return txHash_; }

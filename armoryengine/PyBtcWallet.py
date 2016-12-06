@@ -3274,7 +3274,7 @@ class PyBtcWallet(object):
       if chainIndex < 0:
          raise('Nested addresses are no available for imports')
       
-      return self.cppWallet.getNestedAddressForIndex(chainIndex, True)
+      return self.cppWallet.getNestedAddressForIndex(chainIndex, False)
    
    ###############################################################################
    def getPrivateKeyForIndex(self, index):
