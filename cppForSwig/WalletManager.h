@@ -21,6 +21,7 @@ using namespace std;
 #include "Wallets.h"
 #include "SwigClient.h"
 #include "Signer.h"
+#include "BlockDataManagerConfig.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 class WalletContainer
@@ -49,7 +50,7 @@ protected:
    }
 
 public:
-   void registerWithBDV(bool prefix, bool isNew);
+   void registerWithBDV(bool isNew);
 
    vector<uint64_t> getBalancesAndCount(
       uint32_t topBlockHeight, bool IGNOREZC)
@@ -169,20 +170,18 @@ public:
    {
       auto txOutRef = BtcUtils::getTxOutScrAddrNoCopy(script);
 
+      auto p2pkh_prefix =
+        SCRIPT_PREFIX(BlockDataManagerConfig::getPubkeyHashPrefix());
+      auto p2sh_prefix =
+         SCRIPT_PREFIX(BlockDataManagerConfig::getScriptHashPrefix());
+
       shared_ptr<ScriptRecipient> recipient;
-      switch (txOutRef.type_)
-      {
-      case SCRIPT_PREFIX_HASH160:
+      if (txOutRef.type_ == p2pkh_prefix)
          recipient = make_shared<Recipient_P2PKH>(txOutRef.scriptRef_, value);
-         break;
-
-      case SCRIPT_PREFIX_P2SH:
+      else if (txOutRef.type_ == p2sh_prefix)
          recipient = make_shared<Recipient_P2SH>(txOutRef.scriptRef_, value);
-         break;
-
-      default:
+      else
          throw WalletException("unexpected output type");
-      }
 
       signer_->addRecipient(recipient);
    }
@@ -197,6 +196,11 @@ public:
    BinaryData getSignedTx(void)
    {
       BinaryData finalTx(signer_->serialize());
+
+      FILE* f = fopen("C:/Bitcoin/rawtx.txt", "wb");
+      auto&& txstr = finalTx.toHexStr();
+      fwrite(txstr.c_str(), txstr.size(), 1, f);
+      fclose(f);
 
       return finalTx;
    }

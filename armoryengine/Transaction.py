@@ -1135,7 +1135,7 @@ class UnsignedTxInput(AsciiSerializable):
          # Sanity check tha the supplied P2SH script actually matches
          self.p2shScrAddr = script_to_scrAddr(baseScript)
          scriptHash = hash160(self.p2shScript)
-         if not SCRADDR_P2SH_BYTE+scriptHash == self.p2shScrAddr:
+         if not P2SHBYTE + scriptHash == self.p2shScrAddr:
             self.isInitialized = False
             raise InvalidScriptError, 'No P2SH script info avail for TxDP'
 

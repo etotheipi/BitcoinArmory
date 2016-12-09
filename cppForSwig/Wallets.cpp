@@ -1327,7 +1327,7 @@ void AssetWallet_Single::fillHashIndexMap()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-set<BinaryData> AssetWallet_Single::getAddrHashSet(bool forceMainnetPrefix)
+set<BinaryData> AssetWallet_Single::getAddrHashSet()
 {
    LockStruct lock(this);
 
@@ -1335,8 +1335,6 @@ set<BinaryData> AssetWallet_Single::getAddrHashSet(bool forceMainnetPrefix)
 
    set<BinaryData> addrHashSet;
    uint8_t prefix = BlockDataManagerConfig::getPubkeyHashPrefix();
-   if (forceMainnetPrefix)
-      prefix = SCRIPT_PREFIX_HASH160;
 
    for (auto& hashIndexPair : hashMaps_.hashUncompressed_)
    {
@@ -1355,8 +1353,6 @@ set<BinaryData> AssetWallet_Single::getAddrHashSet(bool forceMainnetPrefix)
    }
 
    prefix = BlockDataManagerConfig::getScriptHashPrefix();
-   if (forceMainnetPrefix)
-      prefix = SCRIPT_PREFIX_P2SH;
 
    for (auto& hashIndexPair : hashMaps_.hashP2SH_)
    {
@@ -1493,8 +1489,7 @@ void AssetWallet_Multisig::fillHashIndexMap()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-set<BinaryData> AssetWallet_Multisig::getAddrHashSet(
-   bool forceMainnetPrefix)
+set<BinaryData> AssetWallet_Multisig::getAddrHashSet()
 {
    LockStruct lock(this);
 
@@ -1502,8 +1497,6 @@ set<BinaryData> AssetWallet_Multisig::getAddrHashSet(
 
    set<BinaryData> addrHashSet;
    uint8_t prefix = BlockDataManagerConfig::getScriptHashPrefix();
-   if (forceMainnetPrefix)
-      prefix = SCRIPT_PREFIX_HASH160;
    
    for (auto& hashIndexPair : hashMaps_.hashP2SH_)
    {

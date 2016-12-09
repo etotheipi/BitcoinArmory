@@ -140,6 +140,7 @@ private:
 private:
    uint64_t checkOutputs(void) const;
    bool checkSigs(void) const;
+   bool checkSigs_NoCatch(void) const;
    bool checkSig(unsigned) const;
 
 public:
@@ -147,7 +148,7 @@ public:
       utxos_(utxos), theTx_(theTx)
    {}
    
-   bool verify(void) const;
+   bool verify(bool noCatch = false) const;
 
    BinaryDataRef getSerializedOutputScripts(void) const;
    vector<TxInData> getTxInsData(void) const;

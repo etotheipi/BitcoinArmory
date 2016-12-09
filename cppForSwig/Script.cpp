@@ -52,6 +52,7 @@ OpCode ScriptParser::getNextOpcode(BinaryRefReader& brr) const
       case OP_IF:
       case OP_NOTIF:
          len = brr.getSizeRemaining();
+         break;
 
       default:
          return val;
@@ -725,16 +726,14 @@ void StackInterpreter::process_p2wpkh(const BinaryData& scriptHash)
    if (itemCount != 2)
       throw ScriptException("v0 P2WPKH witness has to be 2 items");
 
-   auto len = brr.get_var_int();
-   stack_.push_back(move(brr.get_BinaryData(len)));
-   while (brr.getSizeRemaining() > 0)
+   for (unsigned i = 0; i < itemCount; i++)
    {
       auto len = brr.get_var_int();
-      processScript(move(brr.get_BinaryDataRef(len)), false);
+      stack_.push_back(brr.get_BinaryData(len));
    }
-
-   /*len = brr.get_var_int();
-   stack_.push_back(move(brr.get_BinaryData(len)));*/
+   
+   if (brr.getSizeRemaining() != 0)
+      throw ScriptException("witness size mismatch");
 
    //construct output script
    auto&& swScript = BtcUtils::getP2WPKHScript(scriptHash);
@@ -746,16 +745,20 @@ void StackInterpreter::process_p2wsh(const BinaryData& scriptHash)
 {
    //get witness data
    auto witnessData = txStubPtr_->getWitnessData(inputIndex_);
+   BinaryData witBD(witnessData);
 
    //prepare stack
    BinaryRefReader brr(witnessData);
    auto itemCount = brr.get_uint8_t();
-
-   while (brr.getSizeRemaining() > 0)
+   
+   for (unsigned i = 0; i < itemCount; i++)
    {
       auto len = brr.get_var_int();
-      processScript(move(brr.get_BinaryDataRef(len)), false);
+      stack_.push_back(brr.get_BinaryData(len));
    }
+
+   if (brr.getSizeRemaining() != 0)
+      throw ScriptException("witness size mismatch");
 
    flags_ |= SCRIPT_VERIFY_P2SH_SHA256;
 
@@ -1272,21 +1275,14 @@ shared_ptr<ResolvedStack> StackResolver::getResolvedStack()
 
          if (msObj->sig_.size() >= msObj->m_)
          {
-            BinaryWriter bw;
-
             //push lead 0 to cover for OP_CMS bug
-            bw.put_uint8_t(0);
+            resolvedStack.push_back(
+               make_shared<StackItem_OpCode>(0));
 
             //sigs
             for (auto& sig : msObj->sig_)
-            {
-               bw.put_BinaryData(BtcUtils::getPushDataHeader(sig));
-               bw.put_BinaryData(sig);
-            }
-             
-            auto msSigs = bw.getData();
-            resolvedStack.push_back(
-               make_shared<StackItem_SerializedScript>(move(msSigs)));
+               resolvedStack.push_back(
+                  make_shared<StackItem_Sig>(move(sig)));
          }
          else
          {

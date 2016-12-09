@@ -279,7 +279,7 @@ class PyBtcWallet(object):
       #instantiated at registration and is unique for the BDV object, so we
       #should only ever set the cppWallet member here 
       
-      self.cppWallet.registerWithBDV(True, isNew)
+      self.cppWallet.registerWithBDV(isNew)
             
    #############################################################################
    def isWltSigningAnyLockbox(self, lockboxList):

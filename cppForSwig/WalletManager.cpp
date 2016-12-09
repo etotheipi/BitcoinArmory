@@ -152,18 +152,13 @@ WalletContainer& WalletManager::getCppWallet(const string& id)
 //// WalletContainer
 ////
 ////////////////////////////////////////////////////////////////////////////////
-void WalletContainer::registerWithBDV(bool useMainnetPrefix, bool isNew)
+void WalletContainer::registerWithBDV(bool isNew)
 {
-   /*Oddly enough, Armory Python wallets force the use of mainnet prefixes for
-   all script hashes, regardless of network. The first bool arg lets you respect
-   that model.
-   */
-
    auto wltSingle = dynamic_pointer_cast<AssetWallet_Single>(wallet_);
    if (wltSingle == nullptr)
       throw runtime_error("invalid wallet ptr");
 
-   auto addrSet = wltSingle->getAddrHashSet(useMainnetPrefix);
+   auto addrSet = wltSingle->getAddrHashSet();
    auto& bdv = getBDVlambda_();
 
    //convert set to vector

@@ -62,8 +62,11 @@ private:
    bool resolved_ = false;
 
 private:
-   BinaryData getSerializedScript(
-      const vector<shared_ptr<StackItem>>& stack) const;
+   static BinaryData serializeScript(
+      const vector<shared_ptr<StackItem>>& stack);
+
+   static BinaryData serializeWitnessData(
+      const vector<shared_ptr<StackItem>>& stack);
 
 public:
    ScriptSpender(const UTXO& utxo, shared_ptr<ResolverFeed> feed) :

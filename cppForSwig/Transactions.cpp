@@ -18,14 +18,17 @@ TransactionStub::~TransactionStub(void)
 //// TransactionVerifier
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-bool TransactionVerifier::verify() const
+bool TransactionVerifier::verify(bool noCatch) const
 {
    //check outputs
    if (checkOutputs() == UINT64_MAX)
       return false;
 
    //check signatures
-   return checkSigs();
+   if (noCatch)
+      return checkSigs();
+
+   return checkSigs_NoCatch();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -68,6 +71,19 @@ bool TransactionVerifier::checkSigs() const
 
    return true;
 }
+
+////////////////////////////////////////////////////////////////////////////////
+bool TransactionVerifier::checkSigs_NoCatch() const
+{
+   for (unsigned i = 0; i < theTx_.txins_.size(); i++)
+   {
+      if (!checkSig(i))
+         return false;
+   }
+
+   return true;
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 bool TransactionVerifier::checkSig(unsigned inputId) const

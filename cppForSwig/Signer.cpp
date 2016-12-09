@@ -42,8 +42,8 @@ BinaryDataRef ScriptSpender::getOutpoint() const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-BinaryData ScriptSpender::getSerializedScript(
-   const vector<shared_ptr<StackItem>>& stack) const
+BinaryData ScriptSpender::serializeScript(
+   const vector<shared_ptr<StackItem>>& stack)
 {
    BinaryWriter bwStack;
    for (auto& stackItem : stack)
@@ -107,6 +107,69 @@ BinaryData ScriptSpender::getSerializedScript(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+BinaryData ScriptSpender::serializeWitnessData(
+   const vector<shared_ptr<StackItem>>& stack)
+{
+   BinaryWriter bwStack;
+   for (auto& stackItem : stack)
+   {
+      switch (stackItem->type_)
+      {
+      case StackItemType_PushData:
+      {
+         auto stackItem_pushdata =
+            dynamic_pointer_cast<StackItem_PushData>(stackItem);
+         if (stackItem_pushdata == nullptr)
+            throw ScriptException("unexpected StackItem type");
+
+         bwStack.put_var_int(stackItem_pushdata->data_.getSize());
+         bwStack.put_BinaryData(stackItem_pushdata->data_);
+         break;
+      }
+
+      case StackItemType_SerializedScript:
+      {
+         auto stackItem_ss =
+            dynamic_pointer_cast<StackItem_SerializedScript>(stackItem);
+         if (stackItem_ss == nullptr)
+            throw ScriptException("unexpected StackItem type");
+
+         bwStack.put_BinaryData(stackItem_ss->data_);
+         break;
+      }
+
+      case StackItemType_Sig:
+      {
+         auto stackItem_sig =
+            dynamic_pointer_cast<StackItem_Sig>(stackItem);
+         if (stackItem_sig == nullptr)
+            throw ScriptException("unexpected StackItem type");
+
+         bwStack.put_var_int(stackItem_sig->data_.getSize());
+         bwStack.put_BinaryData(stackItem_sig->data_);
+         break;
+      }
+
+      case StackItemType_OpCode:
+      {
+         auto stackItem_opcode =
+            dynamic_pointer_cast<StackItem_OpCode>(stackItem);
+         if (stackItem_opcode == nullptr)
+            throw ScriptException("unexpected StackItem type");
+
+         bwStack.put_uint8_t(stackItem_opcode->opcode_);
+         break;
+      }
+
+      default:
+         throw ScriptException("unexpected StackItem type");
+      }
+   }
+
+   return bwStack.getData();
+}
+
+////////////////////////////////////////////////////////////////////////////////
 BinaryDataRef ScriptSpender::getSerializedInput() const
 {
    if (!resolved_)
@@ -128,83 +191,21 @@ BinaryDataRef ScriptSpender::getSerializedInput() const
 ////////////////////////////////////////////////////////////////////////////////
 void ScriptSpender::setStack(const vector<shared_ptr<StackItem>>& stack)
 {
-   serializedScript_ = move(getSerializedScript(stack));
+   serializedScript_ = move(serializeScript(stack));
    resolved_ = true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 void ScriptSpender::setWitnessData(const vector<shared_ptr<StackItem>>& stack)
-{
+{  
    BinaryWriter bw;
+   //put stack item count
    bw.put_var_int(stack.size());
-   for (auto& stackitem : stack)
-   {
-      switch (stackitem->type_)
-      {
-      case StackItemType_PushData:
-      {
-         auto stackitem_pushdata = 
-            dynamic_pointer_cast<StackItem_PushData>(stackitem);
-         if (stackitem_pushdata == nullptr)
-            throw ScriptException("unexpected StackItem type");
-         
-         
-         auto&& dataHeader = 
-            BtcUtils::getPushDataHeader(stackitem_pushdata->data_);
 
-         bw.put_var_int(
-            stackitem_pushdata->data_.getSize() + dataHeader.getSize());
-         bw.put_BinaryData(dataHeader);
-         bw.put_BinaryData(stackitem_pushdata->data_);
+   //put serialized stack
+   bw.put_BinaryData(serializeWitnessData(stack));
 
-         break;
-      }
-
-      case StackItemType_SerializedScript:
-      {
-         auto stackitem_ss =
-            dynamic_pointer_cast<StackItem_SerializedScript>(stackitem);
-         if (stackitem_ss == nullptr)
-            throw ScriptException("unexpected StackItem type");
-
-         bw.put_var_int(stackitem_ss->data_.getSize());
-         bw.put_BinaryData(stackitem_ss->data_);
-
-         break;
-      }
-
-      case StackItemType_Sig:
-      {
-         auto stackitem_sig =
-            dynamic_pointer_cast<StackItem_Sig>(stackitem);
-         if (stackitem_sig == nullptr)
-            throw ScriptException("unexpected StackItem type");
-
-         bw.put_var_int(stackitem_sig->data_.getSize());
-         bw.put_BinaryData(stackitem_sig->data_);
-
-         break;
-      }
-
-      case StackItemType_OpCode:
-      {
-         auto stackitem_opcode =
-            dynamic_pointer_cast<StackItem_OpCode>(stackitem);
-         if (stackitem_opcode == nullptr)
-            throw ScriptException("unexpected StackItem type");
-
-         bw.put_var_int(1);
-         bw.put_uint8_t(stackitem_opcode->opcode_);
-
-         break;
-      }
-
-      default:
-         throw ScriptException("unexpected StackItem type");
-      }
-   }
-   
-   witnessData_ = move(bw.getData());
+   witnessData_ = bw.getData();
    isSegWit_ = true;
 }
 
@@ -407,7 +408,15 @@ BinaryDataRef Signer::serialize(void) const
    {
       //witness data
       for (auto& spender : spenders_)
-         bw.put_BinaryDataRef(spender->getWitnessData());
+      {
+         BinaryDataRef witnessRef = spender->getWitnessData();
+         
+         //account for empty witness data
+         if (witnessRef.getSize() == 0)
+            bw.put_uint8_t(0);
+         else
+            bw.put_BinaryDataRef(spender->getWitnessData());
+      }
    }
 
    //lock time

@@ -843,7 +843,7 @@ public:
    unsigned getAssetIndexForAddr(const BinaryData& scrAddr);
 
    //virtual
-   virtual set<BinaryData> getAddrHashSet(bool forceMainnetPrefix) = 0;
+   virtual set<BinaryData> getAddrHashSet() = 0;
    const BinaryData& getP2SHScriptForHash(const BinaryData&);
 
    //static
@@ -899,7 +899,7 @@ public:
    {}
 
    //virtual
-   set<BinaryData> getAddrHashSet(bool forceMainnetPrefix);
+   set<BinaryData> getAddrHashSet();
 
    //static
    static shared_ptr<AssetWallet_Single> createFromPrivateRoot_Armory135(
@@ -947,7 +947,7 @@ public:
    {}
 
    //virtual
-   set<BinaryData> getAddrHashSet(bool forceMainnetPrefix);
+   set<BinaryData> getAddrHashSet();
 
    shared_ptr<AddressEntry> getAddressEntryForAsset(
       shared_ptr<AssetEntry>,
