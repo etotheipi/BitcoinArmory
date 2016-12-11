@@ -1836,7 +1836,7 @@ NONSTDPREFIX      = '\xff'
 def CheckHash160(scrAddr):
    if not len(scrAddr)==21:
       raise BadAddressError("Supplied scrAddr is not a Hash160 value!")
-   if not scrAddr[0] in [HASH160PREFIX, P2SHPREFIX, HASH160_TESTNET, P2SH_TESTNET]:
+   if not scrAddr[0] in [ADDRBYTE, P2SHBYTE]:
       raise BadAddressError("Supplied scrAddr is not a Hash160 value!")
    return scrAddr[1:]
 

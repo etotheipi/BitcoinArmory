@@ -458,7 +458,7 @@ struct UTXO
 
    BinaryData getRecipientScrAddr(void) const
    {
-      return BtcUtils::getTxOutScrAddrWithPrefix(script_);
+      return BtcUtils::getTxOutScrAddr(script_);
    }
 
    uint64_t getValue(void) const { return value_; }

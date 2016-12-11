@@ -1632,9 +1632,7 @@ bool AssetWallet::extendChainTo(unsigned count)
    if (total > count)
       return false;
 
-   auto toCompute = count - total;
-   if (toCompute == 0)
-      return false;
+   auto toCompute = count - total + 1;
 
    extendChain(toCompute);
    return true;

@@ -1023,7 +1023,7 @@ class PyBtcWallet(object):
       # In the future we will enable first/last seen, but not yet
       time0,blk0 = getCurrTimeAndBlock() if isActuallyNew else (0,0)
       if doRegister and self.isRegistered() and needsRegistered:
-         self.cppWallet.registerWithBDV(True, isActuallyNew)
+         self.cppWallet.registerWithBDV(isActuallyNew)
 
       # For recovery rescans, this method will be called directly by
       # the BDM, which may cause a deadlock if we go through the 
@@ -1056,19 +1056,11 @@ class PyBtcWallet(object):
          newAddrList.append(Hash160ToScrAddr(self.computeNextAddress(\
                                  isActuallyNew=isActuallyNew, \
                                  doRegister=False))) 
-         
-      #extend mirror wallet address chain
-      self.cppWallet.extendAddressChain(numToCreate)
-         
+                  
       #add addresses in bulk once they are all computed   
       if doRegister and self.isRegistered() and numToCreate > 0:
-         #isEnabled will be flagged back to True by the callback once it notifies
-         #that the wallet has properly loaded the new scrAddr and scanned it
-         
-         wltNAddr = {}
-         wltNAddr[self.uniqueIDB58] = newAddrList
          try:
-            self.cppWallet.registerWithBDV(True, isActuallyNew)
+            self.cppWallet.registerWithBDV(isActuallyNew)
             self.actionsToTakeAfterScan.append([self.detectHighestUsedIndex, \
                                           [lastComputedIndex, True]])
          except:

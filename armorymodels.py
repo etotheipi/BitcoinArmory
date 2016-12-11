@@ -1496,7 +1496,7 @@ class SentToAddrBookModel(QAbstractTableModel):
       COL = ADDRBOOKCOLS
       row,col  = index.row(), index.column()
       scrAddr  = self.addrBook[row][0]
-      if scrAddr[0] in [SCRADDR_P2PKH_BYTE, SCRADDR_P2SH_BYTE]:
+      if scrAddr[0] in [ADDRBYTE, P2SHBYTE]:
          addrB58 = scrAddr_to_addrStr(scrAddr)
          addr160 = scrAddr[1:]
       else:

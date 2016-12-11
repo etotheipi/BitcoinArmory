@@ -180,10 +180,12 @@ BinaryData BtcUtils::rsToDerSig(BinaryDataRef bdr)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-BinaryData BtcUtils::getTxOutScrAddrWithPrefix(BinaryDataRef script)
+BinaryData BtcUtils::getTxOutScrAddr(BinaryDataRef script,
+   TXOUT_SCRIPT_TYPE type)
 {
    BinaryWriter bw;
-   auto type = getTxOutScriptType(script);
+   if (type == TXOUT_SCRIPT_NONSTANDARD)
+      type = getTxOutScriptType(script);
 
    auto h160Prefix = BlockDataManagerConfig::getPubkeyHashPrefix();
    auto scriptPrefix = BlockDataManagerConfig::getScriptHashPrefix();
@@ -239,7 +241,7 @@ TxOutScriptRef BtcUtils::getTxOutScrAddrNoCopy(BinaryDataRef script)
    auto p2sh_prefix = 
       SCRIPT_PREFIX(BlockDataManagerConfig::getScriptHashPrefix());
 
-      auto type = getTxOutScriptType(script);
+   auto type = getTxOutScriptType(script);
    switch (type)
    {
    case(TXOUT_SCRIPT_STDHASH160) :

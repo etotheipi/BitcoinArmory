@@ -1119,55 +1119,7 @@ public:
    // We use this for LevelDB keys, to return same key if the same priv/pub 
    // pair is used, and also saving a few bytes for common script types
    static BinaryData getTxOutScrAddr(BinaryDataRef script,
-      TXOUT_SCRIPT_TYPE type = TXOUT_SCRIPT_NONSTANDARD)
-   {
-      BinaryWriter bw;
-      if (type == TXOUT_SCRIPT_NONSTANDARD)
-         type = getTxOutScriptType(script);
-      switch (type)
-      {
-         case(TXOUT_SCRIPT_STDHASH160) :
-            bw.put_uint8_t(SCRIPT_PREFIX_HASH160);
-            bw.put_BinaryData(script.getSliceCopy(3, 20));
-            return bw.getData();
-         case(TXOUT_SCRIPT_P2WPKH) :
-            bw.put_uint8_t(SCRIPT_PREFIX_HASH160);
-            bw.put_BinaryData(script.getSliceCopy(2, 20));
-            return bw.getData();
-         case(TXOUT_SCRIPT_P2WSH) :
-            bw.put_uint8_t(SCRIPT_PREFIX_P2SH);
-            bw.put_BinaryData(script.getSliceCopy(2, 32));
-            return bw.getData();
-         case(TXOUT_SCRIPT_STDPUBKEY65) :
-            bw.put_uint8_t(SCRIPT_PREFIX_HASH160);
-            bw.put_BinaryData(getHash160(script.getSliceRef(1, 65)));
-            return bw.getData();
-         case(TXOUT_SCRIPT_STDPUBKEY33) :
-            bw.put_uint8_t(SCRIPT_PREFIX_HASH160);
-            bw.put_BinaryData(getHash160(script.getSliceRef(1, 33)));
-            return bw.getData();
-         case(TXOUT_SCRIPT_P2SH) :
-            bw.put_uint8_t(SCRIPT_PREFIX_P2SH);
-            bw.put_BinaryData(script.getSliceCopy(2, 20));
-            return bw.getData();
-         case(TXOUT_SCRIPT_NONSTANDARD) :
-            bw.put_uint8_t(SCRIPT_PREFIX_NONSTD);
-            bw.put_BinaryData(getHash160(script));
-            return bw.getData();
-         case(TXOUT_SCRIPT_MULTISIG) :
-            bw.put_uint8_t(SCRIPT_PREFIX_MULTISIG);
-            bw.put_BinaryData(getMultisigUniqueKey(script));
-            return bw.getData();
-         default:
-            LOGERR << "What kind of TxOutScript did we get?";
-            return BinaryData(0);
-      }
-   }
-
-   /////////////////////////////////////////////////////////////////////////////
-   // We use this for LevelDB keys, to return same key if the same priv/pub 
-   // pair is used, and also saving a few bytes for common script types
-   static BinaryData getTxOutScrAddrWithPrefix(BinaryDataRef script);
+      TXOUT_SCRIPT_TYPE type = TXOUT_SCRIPT_NONSTANDARD);
 
    /////////////////////////////////////////////////////////////////////////////
    //no copy version, the regular one is too slow for scanning operations
@@ -1177,7 +1129,7 @@ public:
    // This is basically just for SWIG to access via python
    static BinaryData getScrAddrForScript(BinaryData const & script)
    {
-      return getTxOutScrAddrWithPrefix(script.getRef());
+      return getTxOutScrAddr(script.getRef());
    }
 
    /////////////////////////////////////////////////////////////////////////////
