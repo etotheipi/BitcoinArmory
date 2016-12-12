@@ -20,6 +20,7 @@
 #include "BinaryData.h"
 #include "EncryptionUtils.h"
 
+#include "TxClasses.h"
 #include "SocketObject.h"
 
 using namespace std;
@@ -355,7 +356,11 @@ public:
    const BinaryData& getHash256()
    {
       if (txHash_.getSize() == 0)
-         txHash_ = move(BtcUtils::getHash256(&rawTx_[0], rawTx_.size()));
+      {
+         Tx thisTx(&rawTx_[0], rawTx_.size());
+
+         txHash_ = move(thisTx.getThisHash());
+      }
 
       return txHash_;
    }

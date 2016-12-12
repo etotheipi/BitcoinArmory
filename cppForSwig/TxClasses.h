@@ -335,7 +335,6 @@ public:
    size_t             getNumTxIn(void)   const { return offsetsTxIn_.size() - 1; }
    size_t             getNumTxOut(void)  const { return offsetsTxOut_.size() - 1; }
    BinaryData         getThisHash(void)  const;
-   //bool               isMainBranch(void) const;
    bool               isInitialized(void) const { return isInitialized_; }
    bool               isCoinbase(void) const;
 

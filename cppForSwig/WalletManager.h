@@ -196,12 +196,6 @@ public:
    BinaryData getSignedTx(void)
    {
       BinaryData finalTx(signer_->serialize());
-
-      FILE* f = fopen("C:/Bitcoin/rawtx.txt", "wb");
-      auto&& txstr = finalTx.toHexStr();
-      fwrite(txstr.c_str(), txstr.size(), 1, f);
-      fclose(f);
-
       return finalTx;
    }
 

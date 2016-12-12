@@ -1741,8 +1741,10 @@ void ZeroConfContainer::eraseBDVcallback(string id)
 shared_ptr<GetDataStatus> ZeroConfContainer::broadcastZC(const BinaryData& rawzc, 
    uint32_t timeout_sec)
 {
+   Tx zcTx(rawzc);
+
    //get tx hash
-   auto&& txHash = BtcUtils::getHash256(rawzc);
+   auto&& txHash = zcTx.getThisHash();
 
    //create inv payload
    InvEntry entry;
@@ -1796,7 +1798,7 @@ shared_ptr<GetDataStatus> ZeroConfContainer::broadcastZC(const BinaryData& rawzc
       if (getDataFutStatus != future_status::ready)
       {
          gds->setStatus(false);
-         gds->setMessage("tx broadcast timed out");
+         gds->setMessage("tx broadcast timed out (send)");
       }
       else
          sent = true;
@@ -1836,7 +1838,7 @@ shared_ptr<GetDataStatus> ZeroConfContainer::broadcastZC(const BinaryData& rawzc
       if (status != future_status::ready)
       {
          gds->setStatus(false);
-         gds->setMessage("tx broadcast timed out");
+         gds->setMessage("tx broadcast timed out (get)");
       }
    }
 
