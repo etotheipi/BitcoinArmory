@@ -488,7 +488,7 @@ LedgerEntryData SwigClient::BtcWallet::getLedgerEntryForTxHash(
 ScrAddrObj SwigClient::BtcWallet::getScrAddrObjByKey(const BinaryData& scrAddr,
    uint64_t full, uint64_t spendable, uint64_t unconf, uint32_t count)
 {
-   return ScrAddrObj(sock_, bdvID_, walletID_, scrAddr,
+   return ScrAddrObj(sock_, bdvID_, walletID_, scrAddr, INT32_MAX,
       full, spendable, unconf, count);
 }
 
@@ -542,10 +542,19 @@ void Lockbox::getBalancesAndCountFromDB(uint32_t topBlockHeight, bool IGNOREZC)
 //
 ///////////////////////////////////////////////////////////////////////////////
 ScrAddrObj::ScrAddrObj(shared_ptr<BinarySocket> sock, const string& bdvId,
-   const string& walletID, const BinaryData& scrAddr,
+   const string& walletID, const BinaryData& scrAddr, int index,
    uint64_t full, uint64_t spendabe, uint64_t unconf, uint32_t count) :
    sock_(sock), bdvID_(bdvId), walletID_(walletID), scrAddr_(scrAddr),
-   fullBalance_(full), spendableBalance_(spendabe), 
+   index_(index), fullBalance_(full), spendableBalance_(spendabe), 
+   unconfirmedBalance_(unconf), count_(count)
+{}
+
+///////////////////////////////////////////////////////////////////////////////
+ScrAddrObj::ScrAddrObj(SwigClient::BtcWallet* wlt, const BinaryData& scrAddr,
+   int index, uint64_t full, uint64_t spendabe, uint64_t unconf, uint32_t count) :
+   sock_(wlt->sock_), bdvID_(wlt->bdvID_), walletID_(wlt->walletID_), 
+   scrAddr_(scrAddr), index_(index),
+   fullBalance_(full), spendableBalance_(spendabe),
    unconfirmedBalance_(unconf), count_(count)
 {}
 

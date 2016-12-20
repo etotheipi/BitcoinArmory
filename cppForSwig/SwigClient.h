@@ -21,6 +21,7 @@ and handle the data transmission with the BDM server
 #include "TxClasses.h"
 
 class WalletManager;
+class WalletContainer;
 
 namespace SwigClient
 {
@@ -67,23 +68,41 @@ namespace SwigClient
       vector<LedgerEntryData> getHistoryPage(uint32_t id);
    };
 
+   class BtcWallet;
+
    ///////////////////////////////////////////////////////////////////////////////
    class ScrAddrObj
    {
+      friend class ::WalletContainer;
+
    private:
       const string bdvID_;
       const string walletID_;
       const BinaryData scrAddr_;
+      BinaryData addrHash_;
       const shared_ptr<BinarySocket> sock_;
 
       const uint64_t fullBalance_;
       const uint64_t spendableBalance_;
       const uint64_t unconfirmedBalance_;
       const uint32_t count_;
+      const int index_;
+
+      string comment_;
+
+   private:
+      ScrAddrObj(const BinaryData& addr, const BinaryData& addrHash, int index) :
+         bdvID_(string()), walletID_(string()), index_(index),
+         scrAddr_(addr), addrHash_(addrHash),
+         sock_(nullptr), count_(0),
+         fullBalance_(0), spendableBalance_(0), unconfirmedBalance_(0)
+      {}
 
    public:
+      ScrAddrObj(SwigClient::BtcWallet*, const BinaryData&, int index,
+         uint64_t, uint64_t, uint64_t, uint32_t);
       ScrAddrObj(shared_ptr<BinarySocket>,
-         const string&, const string&, const BinaryData&,
+         const string&, const string&, const BinaryData&, int index, 
          uint64_t, uint64_t, uint64_t, uint32_t);
 
       uint64_t getFullBalance(void) const { return fullBalance_; }
@@ -93,11 +112,19 @@ namespace SwigClient
       uint64_t getTxioCount(void) const { return count_; }
 
       vector<UTXO> getSpendableTxOutList(bool);
+      const BinaryData& getScrAddr(void) const { return scrAddr_; }
+      const BinaryData& getAddrHash(void) const { return addrHash_; }
+
+      void setComment(const string& comment) { comment_ = comment; }
+      const string& getComment(void) const { return comment_; }
+      int getIndex(void) const { return index_; }
    };
 
    ///////////////////////////////////////////////////////////////////////////////
    class BtcWallet
    {
+      friend class ScrAddrObj;
+
    protected:
       const string walletID_;
       const string bdvID_;

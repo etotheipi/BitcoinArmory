@@ -3266,7 +3266,7 @@ class PyBtcWallet(object):
       if chainIndex < 0:
          raise('Nested addresses are no available for imports')
       
-      return self.cppWallet.getNestedAddressForIndex(chainIndex, False)
+      return self.cppWallet.getNestedAddressForIndex(chainIndex)
    
    ###############################################################################
    def getPrivateKeyForIndex(self, index):
@@ -3283,6 +3283,44 @@ class PyBtcWallet(object):
       
       addr160 = self.chainIndexMap[assetIndex]
       return self.addrMap[addr160] 
+   
+   ###############################################################################
+   def returnFilteredCppAddrList(self, filterUse, filterType):
+      from qtdefines import CHANGE_ADDR_DESCR_STRING
+      
+      addrList = []
+      keepInUse = filterUse != "Unused"
+      keepChange = filterUse == "Change"
+      
+      for addrIndex in self.chainIndexMap:
+         
+         #filter by address type
+         if filterType != self.cppWallet.getAddrTypeForIndex(addrIndex):
+            continue
+         
+         addrObj = self.cppWallet.getAddrObjByIndex(addrIndex)         
+         
+         #filter by usage
+         inUse = addrObj.getTxioCount() != 0
+         if not keepChange and inUse != keepInUse:
+            continue
+         
+         #filter by change flag
+         addrComment = self.getCommentForAddress(addrObj.getAddrHash()[1:])
+         isChange = addrComment == CHANGE_ADDR_DESCR_STRING
+         if isChange != keepChange:
+            continue
+         
+         addrObj.setComment(addrComment)
+         addrList.append(addrObj)
+         
+      return addrList
+   
+   ###############################################################################
+   def getAddrByIndex(self, index):
+      addr160 = self.chainIndexMap[index]
+      return self.addrMap[addr160]
+      
       
 ###############################################################################
 def getSuffixedPath(walletPath, nameSuffix):

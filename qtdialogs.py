@@ -32,6 +32,8 @@ from ui.MultiSigModels import LockboxDisplayModel, LockboxDisplayProxy,\
    LOCKBOXCOLS
 from armoryengine.PyBtcWalletRecovery import RECOVERMODE
 
+from TreeViewGUI import AddressTreeModel
+
 NO_CHANGE = 'NoChange'
 MIN_PASSWD_WIDTH = lambda obj: tightSizeStr(obj, '*' * 16)[0]
 STRETCH = 'Stretch'
@@ -1496,6 +1498,7 @@ class DlgWalletDetails(ArmoryDialog):
 
 
       # Address view
+      '''
       self.wltAddrModel = WalletAddrDispModel(wlt, self)
       self.wltAddrProxy = WalletAddrSortProxy(self)
       self.wltAddrProxy.setSourceModel(self.wltAddrModel)
@@ -1521,8 +1524,16 @@ class DlgWalletDetails(ArmoryDialog):
 
       self.connect(self.wltAddrView, SIGNAL('doubleClicked(QModelIndex)'), \
                    self.dblClickAddressView)
-
-
+      '''
+      
+      self.wltAddrTreeModel = AddressTreeModel(self, wlt)
+      self.wltAddrView = QTreeView()
+      self.wltAddrView.setModel(self.wltAddrTreeModel)
+      self.wltAddrView.setMinimumWidth(550)
+      self.wltAddrView.setMinimumHeight(150)
+      self.connect(self.wltAddrView, SIGNAL('doubleClicked(QModelIndex)'), \
+                   self.dblClickAddressView)
+      
       # Now add all the options buttons, dependent on the type of wallet.
 
       lbtnChangeLabels = QLabelButton('Change Wallet Labels');
@@ -1732,7 +1743,7 @@ class DlgWalletDetails(ArmoryDialog):
 
       self.setWindowTitle('Wallet Properties')
 
-      self.doFilterAddr()
+      #self.doFilterAddr()
 
       hexgeom = self.main.settings.get('WltPropGeometry')
       tblgeom = self.main.settings.get('WltPropAddrCols')
@@ -1908,19 +1919,34 @@ class DlgWalletDetails(ArmoryDialog):
 
    #############################################################################
    def dblClickAddressView(self, index):
-      model = index.model()
-      if index.column() == ADDRESSCOLS.Comment:
+      from TreeViewGUI import COL_TREE, COL_COMMENT
+      
+      nodeItem = self.wltAddrTreeModel.getNodeItem(index)
+      try:
+         if not nodeItem.treeNode.canDoubleClick():
+            return
+      except:
+         return
+            
+      cppAddrObj = nodeItem.treeNode.getAddrObj()
+      
+      if index.column() == COL_COMMENT:
          # Update the address's comment. We apparently need to reset the model
          # to get an immediate comment update on OS X, unlike Linux or Windows.
-         self.main.updateAddressCommentFromView(self.wltAddrView, self.wlt)
-         if OS_MACOSX:
-            self.wltAddrView.reset()
+         currComment = cppAddrObj.getComment()
+         
+         dialog = DlgSetComment(self.main, self.main, currComment, 'Address')
+         if dialog.exec_():
+            newComment = str(dialog.edtComment.text())
+            addr160 = cppAddrObj.getAddrHash()
+            self.wlt.setComment(addr160[1:], newComment)
+            cppAddrObj.setComment(newComment)
+            
+            if OS_MACOSX:
+               self.wltAddrView.reset()
 
       else:
-         addrStr = str(index.model().index(index.row(), ADDRESSCOLS.Address).data().toString())
-         atype, addr160 = addrStr_to_hash160(addrStr, False)
-
-         dlg = DlgAddressInfo(self.wlt, addr160, self, self.main)
+         dlg = DlgAddressInfo(self.wlt, cppAddrObj, self, self.main)
          dlg.exec_()
 
 
@@ -3586,14 +3612,14 @@ class DlgDuplicateAddr(ArmoryDialog):
 
 #############################################################################
 class DlgAddressInfo(ArmoryDialog):
-   def __init__(self, wlt, addr160, parent=None, main=None, mode=None):
+   def __init__(self, wlt, cppAddr, parent=None, main=None, mode=None):
       super(DlgAddressInfo, self).__init__(parent, main)
 
       self.wlt = wlt
-      self.cppAddr = self.wlt.getScrAddrObj(\
-                                       Hash160ToScrAddr(addr160))
+      self.cppAddr = cppAddr
 
-      self.addr = self.wlt.getAddrByHash160(addr160)
+      self.addr = self.wlt.getAddrByIndex(self.cppAddr.getIndex())
+      addr160 = self.cppAddr.getAddrHash()[1:]
 
       self.ledgerTable = []
 
@@ -3738,7 +3764,7 @@ class DlgAddressInfo(ArmoryDialog):
       self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self.main)
       self.ledgerModel.setLedgerDelegate(\
          TheBDM.bdv().getLedgerDelegateForScrAddr(self.wlt.uniqueIDB58, \
-                                                  Hash160ToScrAddr(addr160)))
+                                                  self.cppAddr.getAddrHash()))
 
       def ledgerToTableScrAddr(ledger):
          return self.main.convertLedgerToTable(ledger, \

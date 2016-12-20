@@ -23,6 +23,12 @@ using namespace std;
 #include "Signer.h"
 #include "BlockDataManagerConfig.h"
 
+enum AddressType
+{
+   AddressType_P2PKH,
+   AddressType_P2SH
+};
+
 ////////////////////////////////////////////////////////////////////////////////
 class WalletContainer
 {
@@ -34,6 +40,9 @@ private:
    shared_ptr<AssetWallet> wallet_;
    shared_ptr<SwigClient::BtcWallet> swigWallet_;
    function<SwigClient::BlockDataViewer&(void)> getBDVlambda_;
+
+   map<BinaryData, vector<uint64_t>> balanceMap_;
+   map<BinaryData, uint32_t> countMap_;
 
 private:
    WalletContainer(const string& id,
@@ -66,12 +75,74 @@ public:
    
    map<BinaryData, uint32_t> getAddrTxnCountsFromDB(void)
    {
-      return swigWallet_->getAddrTxnCountsFromDB();
+      auto wallet_aet = wallet_->getDefaultAddressType();
+      uint8_t wltAddrPrefix;
+      
+      switch (wallet_aet)
+      {
+      case AddressEntryType_P2PKH:
+         wltAddrPrefix = BlockDataManagerConfig::getPubkeyHashPrefix();
+         break;
+
+      case AddressEntryType_P2SH:
+      case AddressEntryType_Nested_P2SH:
+         wltAddrPrefix = BlockDataManagerConfig::getScriptHashPrefix();
+         break;
+
+      default:
+         throw WalletException("unsupported address entry type");
+      }
+
+      bool updateWallet = false;
+
+      auto&& countmap = swigWallet_->getAddrTxnCountsFromDB();
+
+      for (auto count : countmap)
+      {
+         if (count.first.getSize() == 0)
+            continue;
+
+         //save count
+         countMap_[count.first] = count.second;
+
+         //figure out address type
+         auto prefix = count.first.getPtr();
+
+         if (*prefix == wltAddrPrefix)
+            continue;
+
+         //not the default prefix, let's fetch the asset
+         auto assetIndex = wallet_->getAssetIndexForAddr(count.first);
+         auto asset = wallet_->getAssetForIndex(assetIndex);
+         /*if (asset->getAddrType() != AddressEntryType_Default)
+            continue;*/
+
+         auto hashType = asset->getAddressTypeForHash(
+            count.first.getSliceRef(1, count.first.getSize() - 1));
+         updateWallet = asset->setAddressEntryType(hashType);
+      }
+
+      if (updateWallet)
+         wallet_->update();
+
+      return countMap_;
    }
    
    map<BinaryData, vector<uint64_t>> getAddrBalancesFromDB(void)
    {
-      return swigWallet_->getAddrBalancesFromDB();
+
+      auto&& balancemap = swigWallet_->getAddrBalancesFromDB();
+
+      for (auto& balVec : balancemap)
+      {
+         if (balVec.first.getSize() == 0)
+            continue;
+
+         //save balance
+         balanceMap_[balVec.first] = balVec.second;
+      }
+
+      return balanceMap_;
    }
 
    vector<LedgerEntryData> getHistoryPage(uint32_t id)
@@ -97,9 +168,9 @@ public:
       return swigWallet_->createAddressBook();
    }
 
-   BinaryData getNestedAddressForIndex(unsigned chainIndex, bool forceMainnet)
+   BinaryData getNestedAddressForIndex(unsigned chainIndex)
    {
-      return wallet_->getNestedAddressForIndex(chainIndex, forceMainnet);
+      return wallet_->getNestedAddressForIndex(chainIndex);
    }
 
    void extendAddressChain(unsigned count)
@@ -125,6 +196,66 @@ public:
    const BinaryData& getP2SHScriptForHash(const BinaryData& script)
    {
       return wallet_->getP2SHScriptForHash(script);
+   }
+
+   AddressType getAddrTypeForIndex(int index)
+   {
+      auto addrType = wallet_->getAddrTypeForIndex(index);
+
+      AddressType type;
+      switch (addrType)
+      {
+      case AddressEntryType_P2PKH:
+         type = AddressType_P2PKH;
+         break;
+
+      case AddressEntryType_P2SH:
+      case AddressEntryType_Nested_P2SH:
+         type = AddressType_P2SH;
+         break;
+
+      default:
+         throw WalletException("invalid address type");
+      }
+
+      return type;
+   }
+
+   SwigClient::ScrAddrObj getAddrObjByIndex(int index)
+   {
+      auto addrPtr = wallet_->getAddressEntryForIndex(index);
+
+      uint64_t full = 0, spend = 0, unconf = 0;
+      auto balanceIter = balanceMap_.find(addrPtr->getPrefixedHash());
+      if (balanceIter != balanceMap_.end())
+      {
+         full = balanceIter->second[0];
+         spend = balanceIter->second[1];
+         unconf = balanceIter->second[2];
+      }
+
+      uint32_t count = 0;
+      auto countIter = countMap_.find(addrPtr->getPrefixedHash());
+      if (countIter != countMap_.end())
+         count = countIter->second;
+
+
+      if (swigWallet_ != nullptr)
+      {
+         SwigClient::ScrAddrObj saObj(
+            swigWallet_.get(), addrPtr->getAddress(), index,
+            full, spend, unconf, count);
+         saObj.addrHash_ = addrPtr->getPrefixedHash();
+
+         return saObj;
+      }
+      else
+      {
+         SwigClient::ScrAddrObj saObj(
+            addrPtr->getAddress(), addrPtr->getPrefixedHash(), index);
+
+         return saObj;
+      }
    }
 };
 

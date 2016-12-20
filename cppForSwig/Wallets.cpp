@@ -1233,11 +1233,40 @@ unsigned AssetWallet::getAssetIndexForAddr(const BinaryData& scrAddr)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-shared_ptr<AddressEntry> AssetWallet_Single::getAddressEntryForAsset(
-   shared_ptr<AssetEntry> assetPtr, AddressEntryType ae_type) const
+AddressEntryType AssetWallet::getAddrTypeForIndex(int index)
 {
-   shared_ptr<AddressEntry> aePtr = nullptr;
+   LockStruct lock(this);
+   AddressEntryType addrType;
+   
+   auto addrIter = addresses_.find(index);
+   if (addrIter != addresses_.end())
+      addrType = addrIter->second->getType();
 
+   auto assetIter = assets_.find(index);
+   if (assetIter == assets_.end())
+      throw WalletException("invalid index");
+
+   addrType = assetIter->second->getAddrType();
+
+   if (addrType == AddressEntryType_Default)
+      addrType = default_aet_;
+   return addrType;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+shared_ptr<AddressEntry> AssetWallet_Single::getAddressEntryForAsset(
+   shared_ptr<AssetEntry> assetPtr, AddressEntryType ae_type)
+{
+   LockStruct lock(this);
+
+   auto addrIter = addresses_.find(assetPtr->getId());
+   if (addrIter != addresses_.end())
+      return addrIter->second;
+
+   if (ae_type == AddressEntryType_Default)
+      ae_type = default_aet_;
+
+   shared_ptr<AddressEntry> aePtr = nullptr;
    switch (ae_type)
    {
    case AddressEntryType_P2PKH:
@@ -1256,15 +1285,26 @@ shared_ptr<AddressEntry> AssetWallet_Single::getAddressEntryForAsset(
       throw WalletException("unsupported address entry type");
    }
 
+   if (ae_type == default_aet_)
+      assetPtr->doNotCommit();
+   else
+      writeAssetEntry(assetPtr);
+
+   addresses_.insert(make_pair(assetPtr->getId(), aePtr));
    return aePtr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 shared_ptr<AddressEntry> AssetWallet_Multisig::getAddressEntryForAsset(
-   shared_ptr<AssetEntry> assetPtr, AddressEntryType ae_type) const
+   shared_ptr<AssetEntry> assetPtr, AddressEntryType ae_type)
 {
-   shared_ptr<AddressEntry> aePtr = nullptr;
+   LockStruct lock(this);
 
+   auto addrIter = addresses_.find(assetPtr->getId());
+   if (addrIter != addresses_.end())
+      return addrIter->second;
+
+   shared_ptr<AddressEntry> aePtr = nullptr;
    switch (ae_type)
    {
    case AddressEntryType_P2SH:
@@ -1283,20 +1323,48 @@ shared_ptr<AddressEntry> AssetWallet_Multisig::getAddressEntryForAsset(
       throw WalletException("unsupported address entry type");
    }
 
+   addresses_.insert(make_pair(assetPtr->getId(), aePtr));
    return aePtr;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+shared_ptr<AddressEntry> AssetWallet::getAddressEntryForIndex(int index)
+{
+   LockStruct lock(this);
+
+   auto addrIter = addresses_.find(index);
+   if (addrIter != addresses_.end())
+      return addrIter->second;
+
+   auto asset = getAssetForIndex(index);
+   return getAddressEntryForAsset(asset, asset->getAddrType());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 void AssetWallet::writeAssetEntry(shared_ptr<AssetEntry> entryPtr)
 {
+   if (!entryPtr->needsCommit())
+      return;
+
    auto&& serializedEntry = entryPtr->serialize();
    auto&& dbKey = entryPtr->getDbKey();
 
    CharacterArrayRef keyRef(dbKey.getSize(), dbKey.getPtr());
    CharacterArrayRef dataRef(serializedEntry.getSize(), serializedEntry.getPtr());
 
-   LMDBEnv::Transaction(dbEnv_, LMDB::ReadWrite);
+   LMDBEnv::Transaction tx(dbEnv_, LMDB::ReadWrite);
    db_->insert(keyRef, dataRef);
+
+   entryPtr->doNotCommit();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void AssetWallet::update()
+{
+   LMDBEnv::Transaction tx(dbEnv_, LMDB::ReadWrite);
+
+   for (auto& entryPtr : assets_)
+      writeAssetEntry(entryPtr.second);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1592,13 +1660,13 @@ const BinaryData& AssetWallet::getP2SHScriptForHash(const BinaryData& script)
 
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData AssetWallet::getNestedAddressForIndex(
-   unsigned chainIndex, bool forceMainnet) const
+   unsigned chainIndex)
 {
    auto assetPtr = getAssetForIndex(chainIndex);
    auto addrEntry = getAddressEntryForAsset(
       assetPtr, AddressEntryType_Nested_P2SH);
 
-   return addrEntry->getAddress(forceMainnet);
+   return addrEntry->getAddress();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1883,9 +1951,9 @@ AddressEntry::~AddressEntry()
 {}
 
 ////////////////////////////////////////////////////////////////////////////////
-const BinaryData& AddressEntry_P2PKH::getAddress(bool forceMainnet) const
+const BinaryData& AddressEntry_P2PKH::getPrefixedHash() const
 {
-   if (address_.getSize() == 0)
+   if (hash_.getSize() == 0)
    {
       auto assetSingle = dynamic_pointer_cast<AssetEntry_Single>(asset_);
       if (assetSingle == nullptr)
@@ -1895,15 +1963,19 @@ const BinaryData& AddressEntry_P2PKH::getAddress(bool forceMainnet) const
 
       //get and prepend network byte
       auto networkByte = BlockDataManagerConfig::getPubkeyHashPrefix();
-      if (forceMainnet)
-         networkByte = SCRIPT_PREFIX_HASH160;
 
-      BinaryData addr160;
-      addr160.append(networkByte);
-
-      //b58 encode
-      address_ = move(BtcUtils::scrAddrToBase58(addr160));
+      hash_.append(networkByte);
+      hash_.append(h160);
    }
+
+   return hash_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+const BinaryData& AddressEntry_P2PKH::getAddress() const
+{
+   if (address_.getSize() == 0)
+      address_ = move(BtcUtils::scrAddrToBase58(getPrefixedHash()));
 
    return address_;
 }
@@ -1921,17 +1993,26 @@ shared_ptr<ScriptRecipient> AddressEntry_P2PKH::getRecipient(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-const BinaryData& AddressEntry_P2WPKH::getAddress(bool forceMainnet) const
+const BinaryData& AddressEntry_P2WPKH::getPrefixedHash() const
 {
-   if (address_.getSize() == 0)
+   if (hash_.getSize() == 0)
    {
       auto assetSingle = dynamic_pointer_cast<AssetEntry_Single>(asset_);
       if (assetSingle == nullptr)
          throw WalletException("unexpected asset entry type");
 
       //no address standard for SW yet, consider BIP142
-      address_ = assetSingle->getHash160Compressed();
+      hash_ = assetSingle->getHash160Compressed();
    }
+
+   return hash_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+const BinaryData& AddressEntry_P2WPKH::getAddress() const
+{
+   if (address_.getSize() == 0)
+      address_ = getPrefixedHash();
 
    return address_;
 }
@@ -1949,13 +2030,11 @@ shared_ptr<ScriptRecipient> AddressEntry_P2WPKH::getRecipient(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-const BinaryData& AddressEntry_P2SH::getAddress(bool forceMainnet) const
+const BinaryData& AddressEntry_P2SH::getPrefixedHash() const
 {
    auto prefix = BlockDataManagerConfig::getScriptHashPrefix();
-   if (forceMainnet)
-      prefix = SCRIPT_PREFIX_P2SH;
 
-   if (address_.getSize() == 0)
+   if (hash_.getSize() == 0)
    {
       switch (asset_->getType())
       {
@@ -1965,8 +2044,8 @@ const BinaryData& AddressEntry_P2SH::getAddress(bool forceMainnet) const
          if (assetSingle == nullptr)
             throw WalletException("unexpected asset entry type");
 
-         address_.append(prefix);
-         address_.append(assetSingle->getHash160Compressed());
+         hash_.append(prefix);
+         hash_.append(assetSingle->getHash160Compressed());
          break;
       }
 
@@ -1976,17 +2055,26 @@ const BinaryData& AddressEntry_P2SH::getAddress(bool forceMainnet) const
          if (assetMS == nullptr)
             throw WalletException("unexpected asset entry type");
 
-         address_.append(prefix);
-         address_.append(assetMS->getHash160());
+         hash_.append(prefix);
+         hash_.append(assetMS->getHash160());
          break;
       }
-      
+
       default:
          throw WalletException("unexpected asset type");
       }
-
-      address_ = move(BtcUtils::scrAddrToBase58(address_));
    }
+
+   return hash_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+const BinaryData& AddressEntry_P2SH::getAddress() const
+{
+   auto prefix = BlockDataManagerConfig::getScriptHashPrefix();
+
+   if (address_.getSize() == 0)
+      address_ = move(BtcUtils::scrAddrToBase58(getPrefixedHash()));
 
    return address_;
 }
@@ -2026,9 +2114,9 @@ shared_ptr<ScriptRecipient> AddressEntry_P2SH::getRecipient(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-const BinaryData& AddressEntry_P2WSH::getAddress(bool forceMainnet) const
+const BinaryData& AddressEntry_P2WSH::getPrefixedHash() const
 {
-   if (address_.getSize() == 0)
+   if (hash_.getSize() == 0)
    {
       switch (asset_->getType())
       {
@@ -2040,7 +2128,7 @@ const BinaryData& AddressEntry_P2WSH::getAddress(bool forceMainnet) const
 
          //no address standard for SW yet, consider BIP142
          auto& script = assetSingle->getWitnessScript();
-         address_ = move(BtcUtils::getSha256(script));
+         hash_ = move(BtcUtils::getSha256(script));
          break;
       }
 
@@ -2050,16 +2138,23 @@ const BinaryData& AddressEntry_P2WSH::getAddress(bool forceMainnet) const
          if (assetMS == nullptr)
             throw WalletException("unexpected asset entry type");
 
-         address_ = move(assetMS->getHash256());
+         hash_ = move(assetMS->getHash256());
          break;
       }
 
       default:
          throw WalletException("unexpected asset type");
       }
-
-      //no address scheme for SW outputs yet
    }
+
+   return hash_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+const BinaryData& AddressEntry_P2WSH::getAddress() const
+{
+   if (address_.getSize() == 0)
+      address_ = getPrefixedHash();
 
    return address_;
 }
@@ -2104,13 +2199,11 @@ shared_ptr<ScriptRecipient> AddressEntry_P2WSH::getRecipient(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-const BinaryData& AddressEntry_Nested_P2SH::getAddress(bool forceMainnet) const
+const BinaryData& AddressEntry_Nested_P2SH::getPrefixedHash() const
 {
    uint8_t prefix = BlockDataManagerConfig::getScriptHashPrefix();
-   if (forceMainnet)
-      prefix = SCRIPT_PREFIX_P2SH;
 
-   if (address_.getSize() == 0)
+   if (hash_.getSize() == 0)
    {
       switch (asset_->getType())
       {
@@ -2120,8 +2213,8 @@ const BinaryData& AddressEntry_Nested_P2SH::getAddress(bool forceMainnet) const
          if (assetSingle == nullptr)
             throw WalletException("unexpected asset entry type");
 
-         address_.append(prefix);
-         address_.append(assetSingle->getWitnessScriptH160());
+         hash_.append(prefix);
+         hash_.append(assetSingle->getWitnessScriptH160());
 
          break;
       }
@@ -2132,8 +2225,8 @@ const BinaryData& AddressEntry_Nested_P2SH::getAddress(bool forceMainnet) const
          if (assetMS == nullptr)
             throw WalletException("unexpected asset entry type");
 
-         address_.append(prefix);
-         address_.append(assetMS->getP2WSHScriptH160());
+         hash_.append(prefix);
+         hash_.append(assetMS->getP2WSHScriptH160());
 
          break;
       }
@@ -2141,9 +2234,18 @@ const BinaryData& AddressEntry_Nested_P2SH::getAddress(bool forceMainnet) const
       default:
          throw WalletException("unexpected asset type");
       }
-
-      address_ = move(BtcUtils::scrAddrToBase58(address_));
    }
+
+   return hash_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+const BinaryData& AddressEntry_Nested_P2SH::getAddress() const
+{
+   uint8_t prefix = BlockDataManagerConfig::getScriptHashPrefix();
+
+   if (address_.getSize() == 0)
+      address_ = move(BtcUtils::scrAddrToBase58(getPrefixedHash()));
 
    return address_;
 }
@@ -2280,6 +2382,21 @@ const BinaryData& AssetEntry_Single::getWitnessScriptH160() const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+AddressEntryType AssetEntry_Single::getAddressTypeForHash(
+   BinaryDataRef hashRef) const
+{
+   auto& nested = getWitnessScriptH160();
+   if (hashRef == nested)
+      return AddressEntryType_Nested_P2SH;
+   
+   auto& h160Unc = getHash160Uncompressed();
+   if (hashRef == h160Unc)
+      return AddressEntryType_P2PKH;
+
+   return AddressEntryType_Default;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 const BinaryData& AssetEntry_Multisig::getScript() const
 {
    if (multisigScript_.getSize() == 0)
@@ -2383,6 +2500,21 @@ const BinaryData& AssetEntry_Multisig::getP2WSHScriptH160() const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+AddressEntryType AssetEntry_Multisig::getAddressTypeForHash(
+   BinaryDataRef hashRef) const
+{
+   auto nested = getP2WSHScriptH160();
+   if (nested == hashRef)
+      return AddressEntryType_Nested_P2SH;
+
+   auto p2sh = getHash160();
+   if (p2sh == hashRef)
+      return AddressEntryType_P2SH;
+
+   return AddressEntryType_Default;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 BinaryData AssetEntry::getDbKey() const
 {
    BinaryWriter bw;
@@ -2390,6 +2522,18 @@ BinaryData AssetEntry::getDbKey() const
    bw.put_int32_t(index_);
 
    return bw.getData();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool AssetEntry::setAddressEntryType(AddressEntryType type)
+{
+   if (type == addressType_)
+      return false;
+
+   addressType_ = type;
+   needsCommit_ = true;
+
+   return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2411,7 +2555,10 @@ shared_ptr<AssetEntry> AssetEntry::deserialize(
 shared_ptr<AssetEntry> AssetEntry::deserDBValue(int index, BinaryDataRef value)
 {
    BinaryRefReader brrVal(value);
-   auto entryType = (AssetEntryType)brrVal.get_uint8_t();
+   auto val = brrVal.get_uint8_t();
+
+   auto entryType = AssetEntryType(val & 0x0F);
+   auto addressType = AddressEntryType((val & 0xF0) >> 4);
 
    switch (entryType)
    {
@@ -2491,8 +2638,13 @@ shared_ptr<AssetEntry> AssetEntry::deserDBValue(int index, BinaryDataRef value)
       }
 
       //TODO: add IVs as args for encrypted entries
-      return make_shared<AssetEntry_Single>(index, 
+      auto addrEntry = make_shared<AssetEntry_Single>(index, 
          move(pubKeyUncompressed), move(pubKeyCompressed), move(privKey), move(cypher));
+      
+      addrEntry->setAddressEntryType(addressType);
+      addrEntry->doNotCommit();
+
+      return addrEntry;
    }
 
    default:
@@ -2504,7 +2656,9 @@ shared_ptr<AssetEntry> AssetEntry::deserDBValue(int index, BinaryDataRef value)
 BinaryData AssetEntry_Single::serialize() const
 {
    BinaryWriter bw;
-   bw.put_uint8_t(getType());
+   auto entryType = getType();
+   auto addressType = getAddrType() << 4;
+   bw.put_uint8_t(addressType | entryType);
 
    bw.put_BinaryData(pubkey_->serialize());
    if (privkey_->hasKey())

@@ -188,6 +188,7 @@ enum AssetEntryType
 ////
 enum AddressEntryType
 {
+   AddressEntryType_Default=0,
    AddressEntryType_P2PKH,
    AddressEntryType_P2SH,
    AddressEntryType_P2WPKH,
@@ -359,6 +360,9 @@ class AssetEntry
 protected:
    const int index_;
    AssetEntryType type_;
+   AddressEntryType addressType_ = AddressEntryType_Default;
+
+   bool needsCommit_ = true;
 
 public:
    //tors
@@ -371,10 +375,15 @@ public:
    //local
    int getId(void) const { return index_; }
    const AssetEntryType getType(void) const { return type_; }
+   const AddressEntryType getAddrType(void) const { return addressType_; }
+   bool setAddressEntryType(AddressEntryType type);
+   bool needsCommit(void) const { return needsCommit_; }
+   void doNotCommit(void) { needsCommit_ = false; }
    BinaryData getDbKey(void) const;
 
    //virtual
    virtual BinaryData serialize(void) const = 0;
+   virtual AddressEntryType getAddressTypeForHash(BinaryDataRef) const = 0;
 
    //static
    static shared_ptr<AssetEntry> deserialize(
@@ -438,6 +447,7 @@ public:
 
    //virtual
    BinaryData serialize(void) const;
+   AddressEntryType getAddressTypeForHash(BinaryDataRef) const;
 };
 
 ////
@@ -483,6 +493,7 @@ public:
       throw AssetDeserException("no serialization for MS assets"); 
    }
 
+   AddressEntryType getAddressTypeForHash(BinaryDataRef) const;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -571,11 +582,16 @@ protected:
    const AddressEntryType type_;
    const shared_ptr<AssetEntry> asset_;
 
+   mutable BinaryData address_;
+   mutable BinaryData hash_;
+
 public:
    //tors
    AddressEntry(AddressEntryType aetype, shared_ptr<AssetEntry> asset) :
       asset_(asset), type_(aetype)
-   {}
+   {
+      asset_->setAddressEntryType(aetype);
+   }
 
    virtual ~AddressEntry(void) = 0;
 
@@ -584,16 +600,14 @@ public:
    int getIndex(void) const { return asset_->getId(); }
 
    //virtual
-   virtual const BinaryData& getAddress(bool forceMainnet) const = 0;
+   virtual const BinaryData& getAddress() const = 0;
    virtual shared_ptr<ScriptRecipient> getRecipient(uint64_t) const = 0;
+   virtual const BinaryData& getPrefixedHash(void) const = 0;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
 class AddressEntry_P2PKH : public AddressEntry
 {
-private:
-   mutable BinaryData address_;
-
 public:
    //tors
    AddressEntry_P2PKH(shared_ptr<AssetEntry> asset) :
@@ -601,16 +615,14 @@ public:
    {}
 
    //virtual
-   const BinaryData& getAddress(bool forceMainnet) const;
+   const BinaryData& getAddress() const;
+   const BinaryData& getPrefixedHash() const;
    shared_ptr<ScriptRecipient> getRecipient(uint64_t) const;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
 class AddressEntry_P2WPKH : public AddressEntry
 {
-private:
-   mutable BinaryData address_;
-
 public:
    //tors
    AddressEntry_P2WPKH(shared_ptr<AssetEntry> asset) :
@@ -618,16 +630,14 @@ public:
    {}
 
    //virtual
-   const BinaryData& getAddress(bool forceMainnet) const;
+   const BinaryData& getAddress() const;
+   const BinaryData& getPrefixedHash() const;
    shared_ptr<ScriptRecipient> getRecipient(uint64_t) const;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
 class AddressEntry_P2SH : public AddressEntry
 {
-private:
-   mutable BinaryData address_;
-
 public:
    //tors
    AddressEntry_P2SH(shared_ptr<AssetEntry> asset) :
@@ -635,16 +645,14 @@ public:
    {}
 
    //virtual
-   const BinaryData& getAddress(bool forceMainnet) const;
+   const BinaryData& getAddress() const;
+   const BinaryData& getPrefixedHash() const;
    shared_ptr<ScriptRecipient> getRecipient(uint64_t) const;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
 class AddressEntry_P2WSH : public AddressEntry
 {
-private:
-   mutable BinaryData address_;
-
 public:
    //tors
    AddressEntry_P2WSH(shared_ptr<AssetEntry> asset) :
@@ -652,16 +660,14 @@ public:
    {}
 
    //virtual
-   const BinaryData& getAddress(bool forceMainnet) const;
+   const BinaryData& getAddress() const;
+   const BinaryData& getPrefixedHash() const;
    shared_ptr<ScriptRecipient> getRecipient(uint64_t) const;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
 class AddressEntry_Nested_P2SH : public AddressEntry
 {
-private:
-   mutable BinaryData address_;
-
 public:
    //tors
    AddressEntry_Nested_P2SH(shared_ptr<AssetEntry> asset) :
@@ -669,7 +675,8 @@ public:
    {}
 
    //virtual
-   const BinaryData& getAddress(bool forceMainnet) const;
+   const BinaryData& getAddress() const;
+   const BinaryData& getPrefixedHash() const;
    shared_ptr<ScriptRecipient> getRecipient(uint64_t) const;
 };
 
@@ -788,7 +795,7 @@ protected:
 
    virtual shared_ptr<AddressEntry> getAddressEntryForAsset(
       shared_ptr<AssetEntry>, 
-      AddressEntryType) const = 0;
+      AddressEntryType) = 0;
 
    virtual void fillHashIndexMap(void) = 0;
 
@@ -834,13 +841,18 @@ public:
    string getID(void) const;   
    
    shared_ptr<AssetEntry> getAssetForIndex(unsigned) const;
-   BinaryData getNestedAddressForIndex(unsigned chainIndex, bool forceMainnet) const;
+   BinaryData getNestedAddressForIndex(unsigned chainIndex);
    unsigned getAssetCount(void) const { return assets_.size(); }
    void extendChain(unsigned);
    bool extendChainTo(unsigned);
    void extendChain(shared_ptr<AssetEntry>, unsigned);
    bool hasScrAddr(const BinaryData& scrAddr);
    unsigned getAssetIndexForAddr(const BinaryData& scrAddr);
+   AddressEntryType getAddrTypeForIndex(int index);
+   shared_ptr<AddressEntry> getAddressEntryForIndex(int);
+   AddressEntryType getDefaultAddressType(void) const { return default_aet_; }
+
+   void update(void);
 
    //virtual
    virtual set<BinaryData> getAddrHashSet() = 0;
@@ -869,7 +881,7 @@ protected:
 
    shared_ptr<AddressEntry> getAddressEntryForAsset(
       shared_ptr<AssetEntry>,
-      AddressEntryType) const;
+      AddressEntryType);
 
    void fillHashIndexMap();
 
@@ -951,7 +963,7 @@ public:
 
    shared_ptr<AddressEntry> getAddressEntryForAsset(
       shared_ptr<AssetEntry>,
-      AddressEntryType) const;
+      AddressEntryType);
 
    //static
    static shared_ptr<AssetWallet_Multisig> createFromPrivateRoot(

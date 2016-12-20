@@ -2604,7 +2604,7 @@ class ArmoryMainWindow(QMainWindow):
                rootEntry = wltLoad.addrMap['ROOT']
                self.walletManager.duplicateWOWallet(
                   rootEntry.binPublicKey65, rootEntry.chaincode, 
-                  wltLoad.lastComputedChainIndex)
+                  wltLoad.lastComputedChainIndex + 1)
                
             wltLoad.cppWallet = self.walletManager.getCppWallet(wltID)
             
