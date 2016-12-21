@@ -11,6 +11,10 @@
 #include "DBUtils.h"
 #include "DbHeader.h"
 
+#ifndef _WIN32
+#include "sys/stat.h"
+#endif
+
 uint8_t BlockDataManagerConfig::pubkeyHashPrefix_;
 uint8_t BlockDataManagerConfig::scriptHashPrefix_;
 

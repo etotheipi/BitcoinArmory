@@ -11,6 +11,7 @@
 
 #include <atomic>
 #include <mutex>
+#include <thread>
 #include <memory>
 #include <set>
 #include <map>
@@ -710,7 +711,7 @@ protected:
    bool ownsEnv_ = false;
 
    mutable mutex walletMutex_;
-   mutable size_t mutexTID_ = SIZE_MAX;
+   mutable thread::id mutexTID_;
 
    ////
    struct LockStruct
@@ -726,10 +727,10 @@ protected:
 
          lock_ = 
             make_unique<unique_lock<mutex>>(wltPtr->walletMutex_, defer_lock);
-         if (wltPtr->mutexTID_ != this_thread::get_id().hash())
+         if (wltPtr->mutexTID_ != this_thread::get_id())
          { 
             lock_->lock();
-            wltPtr->mutexTID_ = this_thread::get_id().hash();
+            wltPtr->mutexTID_ = this_thread::get_id();
          }
       }
 
@@ -741,7 +742,7 @@ protected:
          if (lock_->owns_lock())
          {
             if (wltPtr_ != nullptr)
-               wltPtr_->mutexTID_ = SIZE_MAX;
+               wltPtr_->mutexTID_ = thread::id();
          }
       }
    };

@@ -138,7 +138,7 @@ namespace SwigClient
       vector<UTXO> getSpendableTxOutListForValue(
          uint64_t val = UINT64_MAX, bool ignoreZC = true);
       map<BinaryData, uint32_t> getAddrTxnCountsFromDB(void);
-      map<BinaryData, vector<uint64_t>> getAddrBalancesFromDB(void);
+      map<BinaryData, vector<uint64_t> > getAddrBalancesFromDB(void);
 
       vector<LedgerEntryData> getHistoryPage(uint32_t id);
       LedgerEntryData getLedgerEntryForTxHash(
@@ -305,7 +305,7 @@ namespace SwigClient
       shared_ptr<BinarySocket> sock_;
 
       //save all tx we fetch by hash to reduce resource cost on redundant fetches
-      shared_ptr<map<BinaryData, Tx>> txMap_;
+      shared_ptr<map<BinaryData, Tx> > txMap_;
 
    private:
       BlockDataViewer(void) { txMap_ = make_shared<map<BinaryData, Tx>>(); }

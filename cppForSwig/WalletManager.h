@@ -41,7 +41,7 @@ private:
    shared_ptr<SwigClient::BtcWallet> swigWallet_;
    function<SwigClient::BlockDataViewer&(void)> getBDVlambda_;
 
-   map<BinaryData, vector<uint64_t>> balanceMap_;
+   map<BinaryData, vector<uint64_t> > balanceMap_;
    map<BinaryData, uint32_t> countMap_;
 
 private:
@@ -128,7 +128,7 @@ public:
       return countMap_;
    }
    
-   map<BinaryData, vector<uint64_t>> getAddrBalancesFromDB(void)
+   map<BinaryData, vector<uint64_t> > getAddrBalancesFromDB(void)
    {
 
       auto&& balancemap = swigWallet_->getAddrBalancesFromDB();
@@ -258,6 +258,8 @@ public:
       }
    }
 };
+
+class ResolvedFeed_PythonWalletSingle;
 
 ////////////////////////////////////////////////////////////////////////////////
 class PythonSigner
