@@ -1497,35 +1497,7 @@ class DlgWalletDetails(ArmoryDialog):
       viewWidth, viewHeight = w, 10 * h
 
 
-      # Address view
-      '''
-      self.wltAddrModel = WalletAddrDispModel(wlt, self)
-      self.wltAddrProxy = WalletAddrSortProxy(self)
-      self.wltAddrProxy.setSourceModel(self.wltAddrModel)
-      self.wltAddrView = QTableView()
-      self.wltAddrView.setModel(self.wltAddrProxy)
-      self.wltAddrView.setSortingEnabled(True)
-
-      self.wltAddrView.setSelectionBehavior(QTableView.SelectRows)
-      self.wltAddrView.setSelectionMode(QTableView.SingleSelection)
-      self.wltAddrView.horizontalHeader().setStretchLastSection(True)
-      self.wltAddrView.verticalHeader().setDefaultSectionSize(20)
-      self.wltAddrView.setMinimumWidth(550)
-      self.wltAddrView.setMinimumHeight(150)
-      iWidth = tightSizeStr(self.wltAddrView, 'Imp')[0]
-      initialColResize(self.wltAddrView, [iWidth * 1.5, 0.35, 0.4, 64, 0.2])
-
-      self.wltAddrView.sizeHint = lambda: QSize(700, 225)
-      self.wltAddrView.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
-
-      self.wltAddrView.setContextMenuPolicy(Qt.CustomContextMenu)
-      self.wltAddrView.customContextMenuRequested.connect(self.showContextMenu)
-      self.wltAddrProxy.sort(ADDRESSCOLS.ChainIdx, Qt.AscendingOrder)
-
-      self.connect(self.wltAddrView, SIGNAL('doubleClicked(QModelIndex)'), \
-                   self.dblClickAddressView)
-      '''
-      
+      # Address view    
       self.wltAddrTreeModel = AddressTreeModel(self, wlt)
       self.wltAddrView = QTreeView()
       self.wltAddrView.setModel(self.wltAddrTreeModel)
@@ -2771,38 +2743,7 @@ class DlgNewAddressDisp(ArmoryDialog):
 
       frmNewAddrLayout.addWidget(frmCopy, 2, 0, 1, 2)
       frmNewAddr.setLayout(frmNewAddrLayout)
-      
-      #radio button selection for address type
-      P2PKH_tooltip = self.main.createToolTipWidget(\
-         '<b>Pay To Public Key Hash (P2PKH)</b> is the standard non SegWit '
-         'payment address format. Any standard wallet can pay ' 
-         'to and spend from these addresses.'
-         )
-      
-      Nested_PW2PKH_tooltip = self.main.createToolTipWidget(\
-         '<b>Nested Pay To Witness Public Key Hash (Nested P2WPKH)</b> '
-         'is a type of "universal" SegWit address. It ' 
-         'embeds a P2WPKH SegWit script in a BIP16 P2SH address '
-         'scheme.'
-         '<br><br>Nested P2WPKH addresses '
-         'can be funded by any wallet software, regardless of SegWit '
-         'compliance. Only SegWit compliant wallets can spend from SegWit '
-         'outputs.'                                    
-         '<br><br> Segregated Witness (SegWit or SW) transactions '
-         'are more space efficient and resilient to maleability attacks. '
-         'Using them results in lower transaction fees and improved '
-         'unconfirmed transaction history consistency.'                
-         )
-      
-      frmAddrTypeRadio = QFrame()
-      frmAddrTypeRadio.setFrameStyle(STYLE_RAISED)
-      frmAddrTypeRadioLayout = QGridLayout()
-      frmAddrTypeRadioLayout.addWidget(self.radio_P2PKH, 0, 0, 1, 1)
-      frmAddrTypeRadioLayout.addWidget(P2PKH_tooltip, 0, 1, 1, 1)
-      frmAddrTypeRadioLayout.addWidget(self.radio_Nested_P2WPKH, 1, 0, 1, 1)
-      frmAddrTypeRadioLayout.addWidget(Nested_PW2PKH_tooltip, 1, 1, 1, 1)      
-      frmAddrTypeRadio.setLayout(frmAddrTypeRadioLayout)
-
+            
       lblCommDescr = QLabel(\
             '(Optional) Add a label to this address, which will '
             'be shown with any relevant transactions in the '
@@ -2856,9 +2797,14 @@ class DlgNewAddressDisp(ArmoryDialog):
       frmQRsub3 = makeHorizFrame([STRETCH, smLabel, STRETCH ])
       frmQR = makeVertFrame([STRETCH, qrdescr, frmQRsub2, frmQRsub3, STRETCH ], STYLE_SUNKEN)
 
+
+      #addr type selection framce
+      from ui.AddressTypeSelectDialog import AddressLabelFrame
+      self.addrTypeFrame = AddressLabelFrame(main)
+
       layout = QGridLayout()
       layout.addWidget(frmNewAddr, 0, 0, 1, 1)
-      layout.addWidget(frmAddrTypeRadio, 2, 0, 1, 1)
+      layout.addWidget(self.addrTypeFrame.getFrame(), 2, 0, 1, 1)
       layout.addWidget(frmComment, 4, 0, 1, 1)
       layout.addWidget(frmWlt, 5, 0, 1, 1)
       layout.addWidget(buttonBox, 6, 0, 1, 2)
@@ -2869,6 +2815,7 @@ class DlgNewAddressDisp(ArmoryDialog):
       self.setWindowTitle('New Receiving Address')
       self.setFocus()
       
+      '''
       def setAddressType():
          addrStr = ""
          if self.radio_P2PKH.isChecked() == True:
@@ -2881,7 +2828,8 @@ class DlgNewAddressDisp(ArmoryDialog):
          self.qrcode.repaint()       
 
       self.connect(self.radio_P2PKH, SIGNAL('clicked()'), setAddressType)
-      self.connect(self.radio_Nested_P2WPKH, SIGNAL('clicked()'), setAddressType)      
+      self.connect(self.radio_Nested_P2WPKH, SIGNAL('clicked()'), setAddressType)
+      '''      
 
       try:
          self.parent.wltAddrModel.reset()
