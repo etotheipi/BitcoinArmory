@@ -3261,12 +3261,18 @@ class PyBtcWallet(object):
       return scraddrobj
 
    ###############################################################################
-   def getNestedAddrForEntry(self, pybtcaddr):
-      chainIndex = pybtcaddr.chainIndex
+   def getNestedSWAddrForIndex(self, chainIndex):
       if chainIndex < 0:
          raise('Nested addresses are no available for imports')
       
-      return self.cppWallet.getNestedAddressForIndex(chainIndex)
+      return self.cppWallet.getNestedSWAddrForIndex(chainIndex)
+   
+   ###############################################################################
+   def getNestedP2PKAddrForIndex(self, chainIndex):
+      if chainIndex < 0:
+         raise('Nested addresses are no available for imports')
+      
+      return self.cppWallet.getNestedP2PKAddrForIndex(chainIndex) 
    
    ###############################################################################
    def getPrivateKeyForIndex(self, index):

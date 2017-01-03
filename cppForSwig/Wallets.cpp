@@ -1258,13 +1258,16 @@ shared_ptr<AddressEntry> AssetWallet_Single::getAddressEntryForAsset(
    shared_ptr<AssetEntry> assetPtr, AddressEntryType ae_type)
 {
    LockStruct lock(this);
+   
+   if (ae_type == AddressEntryType_Default)
+      ae_type = default_aet_;
 
    auto addrIter = addresses_.find(assetPtr->getId());
    if (addrIter != addresses_.end())
-      return addrIter->second;
-
-   if (ae_type == AddressEntryType_Default)
-      ae_type = default_aet_;
+   {
+      if(addrIter->second->getType() == ae_type)
+         return addrIter->second;
+   }
 
    shared_ptr<AddressEntry> aePtr = nullptr;
    switch (ae_type)
@@ -1277,8 +1280,8 @@ shared_ptr<AddressEntry> AssetWallet_Single::getAddressEntryForAsset(
       aePtr = make_shared<AddressEntry_P2WPKH>(assetPtr);
       break;
 
-   case AddressEntryType_Nested_P2SH:
-      aePtr = make_shared<AddressEntry_Nested_P2SH>(assetPtr);
+   case AddressEntryType_Nested_P2WPKH:
+      aePtr = make_shared<AddressEntry_Nested_P2WPKH>(assetPtr);
       break;
 
    default:
@@ -1290,7 +1293,7 @@ shared_ptr<AddressEntry> AssetWallet_Single::getAddressEntryForAsset(
    else
       writeAssetEntry(assetPtr);
 
-   addresses_.insert(make_pair(assetPtr->getId(), aePtr));
+   addresses_[assetPtr->getId()] = aePtr;
    return aePtr;
 }
 
@@ -1659,12 +1662,27 @@ const BinaryData& AssetWallet::getP2SHScriptForHash(const BinaryData& script)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-BinaryData AssetWallet::getNestedAddressForIndex(
+const BinaryData& AssetWallet::getNestedSWAddrForIndex(
    unsigned chainIndex)
 {
+   LockStruct lock(this);
+
    auto assetPtr = getAssetForIndex(chainIndex);
    auto addrEntry = getAddressEntryForAsset(
-      assetPtr, AddressEntryType_Nested_P2SH);
+      assetPtr, AddressEntryType_Nested_P2WPKH);
+
+   return addrEntry->getAddress();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+const BinaryData& AssetWallet::getNestedP2PKAddrForIndex(
+   unsigned chainIndex)
+{
+   LockStruct lock(this);
+
+   auto assetPtr = getAssetForIndex(chainIndex);
+   auto addrEntry = getAddressEntryForAsset(
+      assetPtr, AddressEntryType_Nested_P2PK);
 
    return addrEntry->getAddress();
 }

@@ -28,8 +28,8 @@ class AddressTypeSelectDialog(ArmoryDialog):
       
       #nested p2wpkh
       self.radioSW = QRadioButton("P2SH-P2WPKH address")
-      swDescr = QLabel("""P2WPKH (SegWit script) nested in P2SH script. Any wallet can pay to
-         this address. Only wallets supporting SegWit can spend from it.""")
+      swDescr = QLabel('P2WPKH (SegWit script) nested in P2SH script. Any wallet can pay to<br>'
+         'this address. Only wallets supporting SegWit can spend from it.')
       
       frmSW = QFrame()
       frmSW.setFrameStyle(STYLE_RAISED)
@@ -45,11 +45,11 @@ class AddressTypeSelectDialog(ArmoryDialog):
       
       #nested p2pk
       self.radioNP2PK = QRadioButton("P2SH-P2PK address")
-      np2pkDescr = QLabel("""Compressed P2PK script nested in P2SH output. Any wallet can pay to this
-         address. Only Armory 0.96+ can spend from it.
+      np2pkDescr = QLabel('Compressed P2PK script nested in P2SH output. Any wallet can pay to this<br>'
+         'address. Only Armory 0.96+ can spend from it.<br><br>'
          
-         This format allow for more efficient transaction space use, resulting in 
-         smaller inputs and lower fees. """)
+         'This format allow for more efficient transaction space use, resulting in <br>'
+         'smaller inputs and lower fees.')
       
       frmNP2PK = QFrame()
       frmNP2PK.setFrameStyle(STYLE_RAISED)
@@ -65,9 +65,18 @@ class AddressTypeSelectDialog(ArmoryDialog):
       
       #main layout
       layout = QGridLayout()
-      layout.addWidget(frmP2PKH, 0, 0, 1, 1)
-      layout.addWidget(frmSW, 2, 0, 1, 1)
-      layout.addWidget(frmNP2PK, 4, 0, 1, 1)
+      layout.addWidget(frmP2PKH, 0, 0, 1, 4)
+      layout.addWidget(frmNP2PK, 2, 0, 1, 4)
+      layout.addWidget(frmSW, 4, 0, 1, 4)
+      
+      self.btnOk = QPushButton('Apply')
+      self.btnCancel = QPushButton('Cancel')
+      
+      self.connect(self.btnOk, SIGNAL('clicked()'), self.accept)
+      self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
+
+      layout.addWidget(self.btnOk, 5, 2, 1, 1)
+      layout.addWidget(self.btnCancel, 5, 3, 1, 1)
 
       self.setLayout(layout)
       self.setWindowTitle('Select Address Type')
@@ -79,7 +88,7 @@ class AddressTypeSelectDialog(ArmoryDialog):
       self.type = _type
       
       self.radioP2PKH.setChecked(False)
-      self.radioSW.setCheckable(False)
+      self.radioSW.setChecked(False)
       self.radioNP2PK.setChecked(False)
       
       if _type == 'P2PKH':
@@ -94,8 +103,9 @@ class AddressTypeSelectDialog(ArmoryDialog):
 
 class AddressLabelFrame(object):
    
-      def __init__(self, main):
+      def __init__(self, main, setAddressFunc):
          self.main = main
+         self.setAddressFun = setAddressFunc
          
          self.frmAddrType = QFrame()
          self.frmAddrType.setFrameStyle(STYLE_RAISED)
@@ -120,6 +130,7 @@ class AddressLabelFrame(object):
          dlg = AddressTypeSelectDialog(self.main, self.main)
          if dlg.exec_():
             self.setType(dlg.getType())
+            self.setAddressFunc(dlg.getType())
             
       def getFrame(self):
          return self.frmAddrType

@@ -168,9 +168,14 @@ public:
       return swigWallet_->createAddressBook();
    }
 
-   BinaryData getNestedAddressForIndex(unsigned chainIndex)
+   BinaryData getNestedSWAddrForIndex(unsigned chainIndex)
    {
-      return wallet_->getNestedAddressForIndex(chainIndex);
+      return wallet_->getNestedSWAddrForIndex(chainIndex);
+   }
+
+   BinaryData getNestedSWAddrForIndex(unsigned chainIndex)
+   {
+      return wallet_->getNestedP2PKAddrForIndex(chainIndex);
    }
 
    void extendAddressChain(unsigned count)

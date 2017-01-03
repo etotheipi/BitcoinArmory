@@ -2798,9 +2798,24 @@ class DlgNewAddressDisp(ArmoryDialog):
       frmQR = makeVertFrame([STRETCH, qrdescr, frmQRsub2, frmQRsub3, STRETCH ], STYLE_SUNKEN)
 
 
+      def setAddressType(typeStr):
+         if typeStr == 'P2PKH':
+            addrStr = self.addr.getAddrStr()
+         elif typeStr == 'P2SH-P2WPKH':
+            addrStr = self.wlt.getNestedSWAddrForIndex(self.addr.chainIndex)
+         elif typeStr == 'P2SH-P2PK'
+            addrStr = self.wlt.getNestedP2PKAddrForIndex(self.addr.chainIndex)
+            
+         self.edtNewAddr.setText(addrStr)     
+         self.qrcode.setAsciiData(addrStr)
+         self.qrcode.repaint()       
+
+      self.connect(self.radio_P2PKH, SIGNAL('clicked()'), setAddressType)
+      self.connect(self.radio_Nested_P2WPKH, SIGNAL('clicked()'), setAddressType)
+  
       #addr type selection framce
       from ui.AddressTypeSelectDialog import AddressLabelFrame
-      self.addrTypeFrame = AddressLabelFrame(main)
+      self.addrTypeFrame = AddressLabelFrame(main, setAddressType)
 
       layout = QGridLayout()
       layout.addWidget(frmNewAddr, 0, 0, 1, 1)
@@ -2814,22 +2829,6 @@ class DlgNewAddressDisp(ArmoryDialog):
       self.setLayout(layout)
       self.setWindowTitle('New Receiving Address')
       self.setFocus()
-      
-      '''
-      def setAddressType():
-         addrStr = ""
-         if self.radio_P2PKH.isChecked() == True:
-            addrStr = self.addr.getAddrStr()
-         elif self.radio_Nested_P2WPKH.isChecked() == True:
-            addrStr = self.wlt.getNestedAddrForEntry(self.addr)
-            
-         self.edtNewAddr.setText(addrStr)     
-         self.qrcode.setAsciiData(addrStr)
-         self.qrcode.repaint()       
-
-      self.connect(self.radio_P2PKH, SIGNAL('clicked()'), setAddressType)
-      self.connect(self.radio_Nested_P2WPKH, SIGNAL('clicked()'), setAddressType)
-      '''      
 
       try:
          self.parent.wltAddrModel.reset()

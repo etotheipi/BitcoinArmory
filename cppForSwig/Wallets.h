@@ -194,7 +194,8 @@ enum AddressEntryType
    AddressEntryType_P2SH,
    AddressEntryType_P2WPKH,
    AddressEntryType_P2WSH,
-   AddressEntryType_Nested_P2SH
+   AddressEntryType_Nested_P2WPKH,
+   AddressEntryType_Nested_P2PK
 };
 
 enum CypherType
@@ -842,7 +843,8 @@ public:
    string getID(void) const;   
    
    shared_ptr<AssetEntry> getAssetForIndex(unsigned) const;
-   BinaryData getNestedAddressForIndex(unsigned chainIndex);
+   const BinaryData& getNestedSWAddrForIndex(unsigned chainIndex);
+   const BinaryData& getNestedP2PKAddrForIndex(unsigned chainIndex);
    unsigned getAssetCount(void) const { return assets_.size(); }
    void extendChain(unsigned);
    bool extendChainTo(unsigned);
