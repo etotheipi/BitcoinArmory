@@ -630,7 +630,9 @@ shared_ptr<AssetWallet_Multisig> AssetWallet_Multisig::createFromPrivateRoot(
    SecureBinaryData&& privateRoot,
    unsigned lookup)
 {
-   if (aet != AddressEntryType_P2SH && aet != AddressEntryType_P2WSH)
+   if (aet != AddressEntryType_Nested_Multisig && 
+       aet != AddressEntryType_P2WSH &&
+       aet != AddressEntryType_Nested_P2WSH)
       throw WalletException("invalid AddressEntryType for MS wallet");
 
    //pub root
@@ -1174,9 +1176,21 @@ unsigned AssetWallet::getAssetIndexForAddr(const BinaryData& scrAddr)
       case SCRIPT_PREFIX_P2SH:
       case SCRIPT_PREFIX_P2SH_TESTNET:
       {
-         auto iter = hashMaps_.hashP2SH_.find(hashRef);
-         if (iter != hashMaps_.hashP2SH_.end())
-            return iter->second;
+         auto iter1 = hashMaps_.hashNestedP2PK_.find(hashRef);
+         if (iter1 != hashMaps_.hashNestedP2PK_.end())
+            return iter1->second;
+         
+         auto iter2 = hashMaps_.hashNestedP2WPKH_.find(hashRef);
+         if (iter2 != hashMaps_.hashNestedP2WPKH_.end())
+            return iter2->second;
+
+         auto iter3 = hashMaps_.hashNestedMultisig_.find(hashRef);
+         if (iter3 != hashMaps_.hashNestedMultisig_.end())
+            return iter3->second;
+
+         auto iter4 = hashMaps_.hashNestedP2WSH_.find(hashRef);
+         if (iter4 != hashMaps_.hashNestedP2WSH_.end())
+            return iter4->second;
 
          break;
       }
@@ -1190,16 +1204,28 @@ unsigned AssetWallet::getAssetIndexForAddr(const BinaryData& scrAddr)
 
    auto getIndexForAddrNoPrefix = [&](BinaryDataRef scriptHash)->unsigned
    {
-      auto iter = hashMaps_.hashCompressed_.find(scrAddr);
+      auto iter = hashMaps_.hashCompressed_.find(scriptHash);
       if (iter != hashMaps_.hashCompressed_.end())
          return iter->second;
 
-      auto iter2 = hashMaps_.hashUncompressed_.find(scrAddr);
+      auto iter2 = hashMaps_.hashUncompressed_.find(scriptHash);
       if (iter2 != hashMaps_.hashUncompressed_.end())
          return iter2->second;
 
-      auto iter3 = hashMaps_.hashP2SH_.find(scrAddr);
-      if (iter3 != hashMaps_.hashP2SH_.end())
+      auto iter3 = hashMaps_.hashNestedP2PK_.find(scriptHash);
+      if (iter3 != hashMaps_.hashNestedP2PK_.end())
+         return iter3->second;
+
+      auto iter4 = hashMaps_.hashNestedP2WPKH_.find(scriptHash);
+      if (iter4 != hashMaps_.hashNestedP2WPKH_.end())
+         return iter4->second;
+
+      auto iter5 = hashMaps_.hashNestedMultisig_.find(scriptHash);
+      if (iter5 != hashMaps_.hashNestedMultisig_.end())
+         return iter5->second;
+
+      auto iter6 = hashMaps_.hashNestedP2WSH_.find(scriptHash);
+      if (iter6 != hashMaps_.hashNestedP2WSH_.end())
          return iter3->second;
 
       return UINT32_MAX;
@@ -1284,6 +1310,10 @@ shared_ptr<AddressEntry> AssetWallet_Single::getAddressEntryForAsset(
       aePtr = make_shared<AddressEntry_Nested_P2WPKH>(assetPtr);
       break;
 
+   case AddressEntryType_Nested_P2PK:
+      aePtr = make_shared<AddressEntry_Nested_P2PK>(assetPtr);
+      break;
+
    default:
       throw WalletException("unsupported address entry type");
    }
@@ -1310,16 +1340,16 @@ shared_ptr<AddressEntry> AssetWallet_Multisig::getAddressEntryForAsset(
    shared_ptr<AddressEntry> aePtr = nullptr;
    switch (ae_type)
    {
-   case AddressEntryType_P2SH:
-      aePtr = make_shared<AddressEntry_P2SH>(assetPtr);
+   case AddressEntryType_Nested_Multisig:
+      aePtr = make_shared<AddressEntry_Nested_Multisig>(assetPtr);
       break;
 
    case AddressEntryType_P2WSH:
       aePtr = make_shared<AddressEntry_P2WSH>(assetPtr);
       break;
 
-   case AddressEntryType_Nested_P2SH:
-      aePtr = make_shared<AddressEntry_Nested_P2SH>(assetPtr);
+   case AddressEntryType_Nested_P2WSH:
+      aePtr = make_shared<AddressEntry_Nested_P2WSH>(assetPtr);
       break;
 
    default:
@@ -1389,8 +1419,11 @@ void AssetWallet_Single::fillHashIndexMap()
          hashMaps_.hashCompressed_.insert(make_pair(
             assetSingle->getHash160Compressed().getRef(), assetSingle->getId()));
          
-         hashMaps_.hashP2SH_.insert(make_pair(
+         hashMaps_.hashNestedP2WPKH_.insert(make_pair(
             assetSingle->getWitnessScriptH160().getRef(), assetSingle->getId()));
+
+         hashMaps_.hashNestedP2PK_.insert(make_pair(
+            assetSingle->getP2PKScriptH160().getRef(), assetSingle->getId()));
       }
 
       lastKnownIndex_ = assets_.rbegin()->first;
@@ -1425,7 +1458,15 @@ set<BinaryData> AssetWallet_Single::getAddrHashSet()
 
    prefix = BlockDataManagerConfig::getScriptHashPrefix();
 
-   for (auto& hashIndexPair : hashMaps_.hashP2SH_)
+   for (auto& hashIndexPair : hashMaps_.hashNestedP2WPKH_)
+   {
+      BinaryWriter bw;
+      bw.put_uint8_t(prefix);
+      bw.put_BinaryDataRef(hashIndexPair.first);
+      addrHashSet.insert(bw.getData());
+   }
+
+   for (auto& hashIndexPair : hashMaps_.hashNestedP2PK_)
    {
       BinaryWriter bw;
       bw.put_uint8_t(prefix);
@@ -1434,68 +1475,6 @@ set<BinaryData> AssetWallet_Single::getAddrHashSet()
    }
 
    return addrHashSet;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-vector<BinaryData> AssetWallet_Single::getHash160VecUncompressed() const
-{
-   LockStruct lock(this);
-
-   vector<BinaryData> h160Vec;
-
-   for (auto& entry : assets_)
-   {
-      auto assetSingle = dynamic_pointer_cast<AssetEntry_Single>(entry.second);
-      BinaryWriter bwUnc;
-      bwUnc.put_uint8_t(BlockDataManagerConfig::getPubkeyHashPrefix());
-      bwUnc.put_BinaryData(assetSingle->getHash160Uncompressed());
-
-      h160Vec.push_back(move(bwUnc.getData()));
-   }
-
-   return h160Vec;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-vector<BinaryData> AssetWallet_Single::getHash160VecCompressed() const
-{
-   LockStruct lock(this);
-
-   vector<BinaryData> h160Vec;
-
-   for (auto& entry : assets_)
-   {
-      auto assetSingle = dynamic_pointer_cast<AssetEntry_Single>(entry.second);
-
-      BinaryWriter bwCmp;
-      bwCmp.put_uint8_t(BlockDataManagerConfig::getPubkeyHashPrefix());
-      bwCmp.put_BinaryData(assetSingle->getHash160Compressed());
-
-      h160Vec.push_back(move(bwCmp.getData()));
-   }
-
-   return h160Vec;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-vector<BinaryData> AssetWallet_Single::getWitnessScriptHash160Vec() const
-{
-   LockStruct lock(this);
-
-   vector<BinaryData> h160Vec;
-
-   for (auto& entry : assets_)
-   {
-      auto assetSingle = dynamic_pointer_cast<AssetEntry_Single>(entry.second);
-
-      BinaryWriter bwCmp;
-      bwCmp.put_uint8_t(BlockDataManagerConfig::getScriptHashPrefix());
-      bwCmp.put_BinaryData(assetSingle->getWitnessScriptH160());
-
-      h160Vec.push_back(move(bwCmp.getData()));
-   }
-
-   return h160Vec;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1527,13 +1506,13 @@ void AssetWallet_Multisig::fillHashIndexMap()
 
       switch (default_aet_)
       {
-      case AddressEntryType_P2SH:
+      case AddressEntryType_Nested_P2WSH:
       {
          for (auto& entry : assets_)
          {
             auto assetMS = dynamic_pointer_cast<AssetEntry_Multisig>(entry.second);
-            hashMaps_.hashP2SH_.insert(
-               make_pair(assetMS->getHash160().getRef(), assetMS->getId()));
+            hashMaps_.hashNestedP2WSH_.insert(
+               make_pair(assetMS->getP2WSHScriptH160().getRef(), assetMS->getId()));
          }
 
          break;
@@ -1546,6 +1525,18 @@ void AssetWallet_Multisig::fillHashIndexMap()
             auto assetMS = dynamic_pointer_cast<AssetEntry_Multisig>(entry.second);
             hashMaps_.hashP2WSH_.insert(
                make_pair(assetMS->getHash256().getRef(), assetMS->getId()));
+         }
+
+         break;
+      }
+
+      case AddressEntryType_Nested_Multisig:
+      {
+         for (auto& entry : assets_)
+         {
+            auto assetMS = dynamic_pointer_cast<AssetEntry_Multisig>(entry.second);
+            hashMaps_.hashNestedMultisig_.insert(
+               make_pair(assetMS->getHash160().getRef(), assetMS->getId()));
          }
 
          break;
@@ -1569,7 +1560,15 @@ set<BinaryData> AssetWallet_Multisig::getAddrHashSet()
    set<BinaryData> addrHashSet;
    uint8_t prefix = BlockDataManagerConfig::getScriptHashPrefix();
    
-   for (auto& hashIndexPair : hashMaps_.hashP2SH_)
+   for (auto& hashIndexPair : hashMaps_.hashNestedMultisig_)
+   {
+      BinaryWriter bw;
+      bw.put_uint8_t(prefix);
+      bw.put_BinaryDataRef(hashIndexPair.first);
+      addrHashSet.insert(bw.getData());
+   }
+
+   for (auto& hashIndexPair : hashMaps_.hashNestedP2WSH_)
    {
       BinaryWriter bw;
       bw.put_uint8_t(prefix);
@@ -1599,12 +1598,15 @@ BinaryData AssetWallet_Multisig::getPrefixedHashForIndex(
 
    switch (default_aet_)
    {
-   case AddressEntryType_P2SH:
+   case AddressEntryType_Nested_Multisig:
       bw.put_BinaryData(assetMS->getHash160());
       break;
 
    case AddressEntryType_P2WSH:
-      bw.put_BinaryData(assetMS->getHash256());
+     return assetMS->getHash256();
+
+   case AddressEntryType_Nested_P2WSH:
+      bw.put_BinaryData(assetMS->getP2WSHScriptH160());
       break;
 
    default:
@@ -1631,34 +1633,52 @@ const BinaryData& AssetWallet::getP2SHScriptForHash(const BinaryData& script)
 {
    fillHashIndexMap();
 
+   auto getEntryPtr = [this](const BinaryData& hash)->shared_ptr<AssetEntry>
+   {
+      auto iter1 = hashMaps_.hashNestedP2PK_.find(hash);
+      if (iter1 != hashMaps_.hashNestedP2PK_.end())
+         return getAssetForIndex(iter1->second);
+
+      auto iter2 = hashMaps_.hashNestedP2WPKH_.find(hash);
+      if (iter2 != hashMaps_.hashNestedP2WPKH_.end())
+         return getAssetForIndex(iter2->second);
+
+      auto iter3 = hashMaps_.hashNestedMultisig_.find(hash);
+      if (iter3 != hashMaps_.hashNestedMultisig_.end())
+         return getAssetForIndex(iter3->second);
+
+      auto iter4 = hashMaps_.hashNestedP2WSH_.find(hash);
+      if (iter4 != hashMaps_.hashNestedP2WSH_.end())
+         return getAssetForIndex(iter4->second);
+
+      return nullptr;
+   };
+
    auto&& hash = BtcUtils::getTxOutRecipientAddr(script);
-
-   shared_ptr<AssetEntry> entryPtr;
-
-   auto iter = hashMaps_.hashP2SH_.find(hash);
-   if (iter != hashMaps_.hashP2SH_.end())
-   {
-      entryPtr = getAssetForIndex(iter->second);
-   }
-   else
-   {
-      auto nextIter = hashMaps_.hashP2WSH_.find(hash);
-      if (nextIter != hashMaps_.hashP2WSH_.end())
-         entryPtr = getAssetForIndex(iter->second);
-   }
+   auto entryPtr = getEntryPtr(hash);
 
    if (entryPtr == nullptr)
       throw WalletException("unkonwn hash");
 
    auto assetSingle = dynamic_pointer_cast<AssetEntry_Single>(entryPtr);
    if (assetSingle != nullptr)
-      return assetSingle->getWitnessScript();
+   {
+      auto& p2pkHash = assetSingle->getP2PKScriptH160();
+      if (p2pkHash == hash)
+         return assetSingle->getP2PKScript();
+      else
+         return assetSingle->getWitnessScript();
+   }
 
    auto assetMS = dynamic_pointer_cast<AssetEntry_Multisig>(entryPtr);
    if (assetMS == nullptr)
       throw WalletException("unexpected entry type");
 
-   return assetMS->getScript();
+   auto& nestedP2WSHhash = assetMS->getP2WSHScriptH160();
+   if (nestedP2WSHhash == hash)
+      return assetMS->getP2WSHScript();
+   else
+      return assetMS->getScript();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2048,7 +2068,7 @@ shared_ptr<ScriptRecipient> AddressEntry_P2WPKH::getRecipient(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-const BinaryData& AddressEntry_P2SH::getPrefixedHash() const
+const BinaryData& AddressEntry_Nested_Multisig::getPrefixedHash() const
 {
    auto prefix = BlockDataManagerConfig::getScriptHashPrefix();
 
@@ -2087,7 +2107,7 @@ const BinaryData& AddressEntry_P2SH::getPrefixedHash() const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-const BinaryData& AddressEntry_P2SH::getAddress() const
+const BinaryData& AddressEntry_Nested_Multisig::getAddress() const
 {
    auto prefix = BlockDataManagerConfig::getScriptHashPrefix();
 
@@ -2098,7 +2118,7 @@ const BinaryData& AddressEntry_P2SH::getAddress() const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-shared_ptr<ScriptRecipient> AddressEntry_P2SH::getRecipient(
+shared_ptr<ScriptRecipient> AddressEntry_Nested_Multisig::getRecipient(
    uint64_t value) const
 {
    BinaryDataRef h160;
@@ -2217,7 +2237,7 @@ shared_ptr<ScriptRecipient> AddressEntry_P2WSH::getRecipient(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-const BinaryData& AddressEntry_Nested_P2SH::getPrefixedHash() const
+const BinaryData& AddressEntry_Nested_P2WPKH::getPrefixedHash() const
 {
    uint8_t prefix = BlockDataManagerConfig::getScriptHashPrefix();
 
@@ -2237,6 +2257,58 @@ const BinaryData& AddressEntry_Nested_P2SH::getPrefixedHash() const
          break;
       }
 
+      default:
+         throw WalletException("unexpected asset type");
+      }
+   }
+
+   return hash_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+const BinaryData& AddressEntry_Nested_P2WPKH::getAddress() const
+{
+   if (address_.getSize() == 0)
+      address_ = move(BtcUtils::scrAddrToBase58(getPrefixedHash()));
+
+   return address_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+shared_ptr<ScriptRecipient> AddressEntry_Nested_P2WPKH::getRecipient(
+   uint64_t value) const
+{
+   BinaryDataRef scriptHash;
+
+   switch (asset_->getType())
+   {
+   case AssetEntryType_Single:
+   {
+      auto assetSingle = dynamic_pointer_cast<AssetEntry_Single>(asset_);
+      if (assetSingle == nullptr)
+         throw WalletException("unexpected asset entry type");
+
+      scriptHash = assetSingle->getWitnessScriptH160();
+      
+      break;
+   }
+
+   default:
+      throw WalletException("unexpected asset type");
+   }
+
+   return make_shared<Recipient_P2SH>(scriptHash, value);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+const BinaryData& AddressEntry_Nested_P2WSH::getPrefixedHash() const
+{
+   uint8_t prefix = BlockDataManagerConfig::getScriptHashPrefix();
+
+   if (hash_.getSize() == 0)
+   {
+      switch (asset_->getType())
+      {
       case AssetEntryType_Multisig:
       {
          auto assetMS = dynamic_pointer_cast<AssetEntry_Multisig>(asset_);
@@ -2258,10 +2330,8 @@ const BinaryData& AddressEntry_Nested_P2SH::getPrefixedHash() const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-const BinaryData& AddressEntry_Nested_P2SH::getAddress() const
+const BinaryData& AddressEntry_Nested_P2WSH::getAddress() const
 {
-   uint8_t prefix = BlockDataManagerConfig::getScriptHashPrefix();
-
    if (address_.getSize() == 0)
       address_ = move(BtcUtils::scrAddrToBase58(getPrefixedHash()));
 
@@ -2269,7 +2339,71 @@ const BinaryData& AddressEntry_Nested_P2SH::getAddress() const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-shared_ptr<ScriptRecipient> AddressEntry_Nested_P2SH::getRecipient(
+shared_ptr<ScriptRecipient> AddressEntry_Nested_P2WSH::getRecipient(
+   uint64_t value) const
+{
+   BinaryDataRef scriptHash;
+
+   switch (asset_->getType())
+   {
+   case AssetEntryType_Multisig:
+   {
+      auto assetMS = dynamic_pointer_cast<AssetEntry_Multisig>(asset_);
+      if (assetMS == nullptr)
+         throw WalletException("unexpected asset entry type");
+
+      scriptHash = assetMS->getP2WSHScriptH160();
+
+      break;
+   }
+
+   default:
+      throw WalletException("unexpected asset type");
+   }
+
+   return make_shared<Recipient_P2SH>(scriptHash, value);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+const BinaryData& AddressEntry_Nested_P2PK::getPrefixedHash() const
+{
+   uint8_t prefix = BlockDataManagerConfig::getScriptHashPrefix();
+
+   if (hash_.getSize() == 0)
+   {
+      switch (asset_->getType())
+      {
+      case AssetEntryType_Single:
+      {
+         auto assetSingle = dynamic_pointer_cast<AssetEntry_Single>(asset_);
+         if (assetSingle == nullptr)
+            throw WalletException("unexpected asset entry type");
+
+         hash_.append(prefix);
+         hash_.append(assetSingle->getP2PKScriptH160());
+
+         break;
+      }
+
+      default:
+         throw WalletException("unexpected asset type");
+      }
+   }
+
+   return hash_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+const BinaryData& AddressEntry_Nested_P2PK::getAddress() const
+{
+   if (address_.getSize() == 0)
+      address_ = move(BtcUtils::scrAddrToBase58(getPrefixedHash()));
+
+   return address_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+shared_ptr<ScriptRecipient> AddressEntry_Nested_P2PK::getRecipient(
    uint64_t value) const
 {
    BinaryDataRef scriptHash;
@@ -2282,18 +2416,7 @@ shared_ptr<ScriptRecipient> AddressEntry_Nested_P2SH::getRecipient(
       if (assetSingle == nullptr)
          throw WalletException("unexpected asset entry type");
 
-      scriptHash = assetSingle->getWitnessScriptH160();
-      
-      break;
-   }
-
-   case AssetEntryType_Multisig:
-   {
-      auto assetMS = dynamic_pointer_cast<AssetEntry_Multisig>(asset_);
-      if (assetMS == nullptr)
-         throw WalletException("unexpected asset entry type");
-
-      scriptHash = assetMS->getP2WSHScriptH160();
+      scriptHash = assetSingle->getP2PKScriptH160();
 
       break;
    }
@@ -2400,12 +2523,35 @@ const BinaryData& AssetEntry_Single::getWitnessScriptH160() const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+const BinaryData& AssetEntry_Single::getP2PKScript() const
+{
+   if (p2pkScript_.getSize() == 0)
+   {
+      p2pkScript_.append(33); //push data opcode for pubkey len
+      p2pkScript_.append(pubkey_->getCompressedKey()); //compressed pubkey
+      p2pkScript_.append(OP_CHECKSIGVERIFY); 
+   }
+
+   return p2pkScript_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+const BinaryData& AssetEntry_Single::getP2PKScriptH160() const
+{
+   if (p2pkScriptH160_.getSize() == 0)
+      p2pkScriptH160_ =
+         move(BtcUtils::getHash160(getP2PKScript()));
+
+   return p2pkScriptH160_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 AddressEntryType AssetEntry_Single::getAddressTypeForHash(
    BinaryDataRef hashRef) const
 {
    auto& nested = getWitnessScriptH160();
    if (hashRef == nested)
-      return AddressEntryType_Nested_P2SH;
+      return AddressEntryType_Nested_P2WPKH;
    
    auto& h160Unc = getHash160Uncompressed();
    if (hashRef == h160Unc)
@@ -2521,13 +2667,13 @@ const BinaryData& AssetEntry_Multisig::getP2WSHScriptH160() const
 AddressEntryType AssetEntry_Multisig::getAddressTypeForHash(
    BinaryDataRef hashRef) const
 {
-   auto nested = getP2WSHScriptH160();
+   auto& nested = getP2WSHScriptH160();
    if (nested == hashRef)
-      return AddressEntryType_Nested_P2SH;
+      return AddressEntryType_Nested_P2WSH;
 
-   auto p2sh = getHash160();
+   auto& p2sh = getHash160();
    if (p2sh == hashRef)
-      return AddressEntryType_P2SH;
+      return AddressEntryType_Nested_Multisig;
 
    return AddressEntryType_Default;
 }

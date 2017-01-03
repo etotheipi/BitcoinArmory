@@ -191,11 +191,12 @@ enum AddressEntryType
 {
    AddressEntryType_Default=0,
    AddressEntryType_P2PKH,
-   AddressEntryType_P2SH,
    AddressEntryType_P2WPKH,
    AddressEntryType_P2WSH,
    AddressEntryType_Nested_P2WPKH,
-   AddressEntryType_Nested_P2PK
+   AddressEntryType_Nested_P2WSH,
+   AddressEntryType_Nested_P2PK,
+   AddressEntryType_Nested_Multisig
 };
 
 enum CypherType
@@ -407,6 +408,9 @@ private:
    mutable BinaryData witnessScript_;
    mutable BinaryData witnessScriptH160_;
 
+   mutable BinaryData p2pkScript_;
+   mutable BinaryData p2pkScriptH160_;
+
 public:
    //tors
    AssetEntry_Single(int id,
@@ -446,6 +450,9 @@ public:
 
    const BinaryData& getWitnessScript(void) const;
    const BinaryData& getWitnessScriptH160(void) const;
+
+   const BinaryData& getP2PKScript(void) const;
+   const BinaryData& getP2PKScriptH160(void) const;
 
    //virtual
    BinaryData serialize(void) const;
@@ -638,12 +645,12 @@ public:
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-class AddressEntry_P2SH : public AddressEntry
+class AddressEntry_Nested_Multisig : public AddressEntry
 {
 public:
    //tors
-   AddressEntry_P2SH(shared_ptr<AssetEntry> asset) :
-      AddressEntry(AddressEntryType_P2SH, asset)
+   AddressEntry_Nested_Multisig(shared_ptr<AssetEntry> asset) :
+      AddressEntry(AddressEntryType_Nested_Multisig, asset)
    {}
 
    //virtual
@@ -668,12 +675,42 @@ public:
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-class AddressEntry_Nested_P2SH : public AddressEntry
+class AddressEntry_Nested_P2WPKH : public AddressEntry
 {
 public:
    //tors
-   AddressEntry_Nested_P2SH(shared_ptr<AssetEntry> asset) :
-      AddressEntry(AddressEntryType_Nested_P2SH, asset)
+   AddressEntry_Nested_P2WPKH(shared_ptr<AssetEntry> asset) :
+      AddressEntry(AddressEntryType_Nested_P2WPKH, asset)
+   {}
+
+   //virtual
+   const BinaryData& getAddress() const;
+   const BinaryData& getPrefixedHash() const;
+   shared_ptr<ScriptRecipient> getRecipient(uint64_t) const;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+class AddressEntry_Nested_P2WSH : public AddressEntry
+{
+public:
+   //tors
+   AddressEntry_Nested_P2WSH(shared_ptr<AssetEntry> asset) :
+      AddressEntry(AddressEntryType_Nested_P2WSH, asset)
+   {}
+
+   //virtual
+   const BinaryData& getAddress() const;
+   const BinaryData& getPrefixedHash() const;
+   shared_ptr<ScriptRecipient> getRecipient(uint64_t) const;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+class AddressEntry_Nested_P2PK : public AddressEntry
+{
+public:
+   //tors
+   AddressEntry_Nested_P2PK(shared_ptr<AssetEntry> asset) :
+      AddressEntry(AddressEntryType_Nested_P2WSH, asset)
    {}
 
    //virtual
@@ -687,15 +724,21 @@ struct HashMaps
 {
    map<BinaryDataRef, int> hashCompressed_;
    map<BinaryDataRef, int> hashUncompressed_;
-   map<BinaryDataRef, int> hashP2SH_;
    map<BinaryDataRef, int> hashP2WSH_;
+   map<BinaryDataRef, int> hashNestedP2WPKH_;
+   map<BinaryDataRef, int> hashNestedP2WSH_;
+   map<BinaryDataRef, int> hashNestedP2PK_;
+   map<BinaryDataRef, int> hashNestedMultisig_;
 
    void clear(void)
    {
       hashCompressed_.clear();
       hashUncompressed_.clear();
-      hashP2SH_.clear();
       hashP2WSH_.clear();
+      hashNestedP2WPKH_.clear();
+      hashNestedP2WSH_.clear();
+      hashNestedP2PK_.clear();
+      hashNestedMultisig_.clear();
    }
 };
 
@@ -933,11 +976,6 @@ public:
    //local
    const SecureBinaryData& getPublicRoot(void) const;
    const SecureBinaryData& getChainCode(void) const;
-
-   //for unit tests
-   vector<BinaryData> getHash160VecUncompressed(void) const;
-   vector<BinaryData> getHash160VecCompressed(void) const;
-   vector<BinaryData> getWitnessScriptHash160Vec(void) const;
 };
 
 ////
@@ -995,8 +1033,8 @@ private:
    shared_ptr<AssetWallet> wltPtr_;
 
 protected:
-   map<BinaryDataRef, BinaryDataRef> hash_to_pubkey_;
-   map<BinaryDataRef, shared_ptr<AssetEntry_Single>> pubkey_to_privkeyAsset_;
+   map<BinaryDataRef, BinaryDataRef> hash_to_preimage_;
+   map<BinaryDataRef, shared_ptr<AssetEntry_Single>> pubkey_to_asset_;
 
 public:
    //tors
@@ -1010,6 +1048,7 @@ public:
          if (assetSingle == nullptr)
             throw WalletException("unexpected asset entry type in single wallet");
 
+         //pubkeys
          auto h160UncompressedRef = BinaryDataRef(assetSingle->getHash160Uncompressed());
          auto h160CompressedRef = BinaryDataRef(assetSingle->getHash160Compressed());
          auto pubkeyUncompressedRef = 
@@ -1017,16 +1056,24 @@ public:
          auto pubkeyCompressedRef =
             BinaryDataRef(assetSingle->getPubKey()->getCompressedKey());
 
-         hash_to_pubkey_.insert(make_pair(h160UncompressedRef, pubkeyUncompressedRef));
-         hash_to_pubkey_.insert(make_pair(h160CompressedRef, pubkeyCompressedRef));
+         hash_to_preimage_.insert(make_pair(h160UncompressedRef, pubkeyUncompressedRef));
+         hash_to_preimage_.insert(make_pair(h160CompressedRef, pubkeyCompressedRef));
 
+         //p2wpkh
          auto witnessScript = BinaryDataRef(assetSingle->getWitnessScript());
          auto&& witnessScriptH160 = BinaryDataRef(assetSingle->getWitnessScriptH160());
 
-         hash_to_pubkey_.insert(make_pair(witnessScriptH160, witnessScript));
+         hash_to_preimage_.insert(make_pair(witnessScriptH160, witnessScript));
+
+         //nested p2pk
+         auto p2pkScript = BinaryDataRef(assetSingle->getP2PKScript());
+         auto p2pkScriptH160 = BinaryDataRef(assetSingle->getP2PKScriptH160());
+
+         hash_to_preimage_.insert(make_pair(p2pkScriptH160, p2pkScript));
          
-         pubkey_to_privkeyAsset_.insert(make_pair(pubkeyUncompressedRef, assetSingle));
-         pubkey_to_privkeyAsset_.insert(make_pair(pubkeyCompressedRef, assetSingle));
+         //pub key to asset
+         pubkey_to_asset_.insert(make_pair(pubkeyUncompressedRef, assetSingle));
+         pubkey_to_asset_.insert(make_pair(pubkeyCompressedRef, assetSingle));
       }
    }
 
@@ -1034,8 +1081,8 @@ public:
    BinaryData getByVal(const BinaryData& key)
    {
       auto keyRef = BinaryDataRef(key);
-      auto iter = hash_to_pubkey_.find(keyRef);
-      if (iter == hash_to_pubkey_.end())
+      auto iter = hash_to_preimage_.find(keyRef);
+      if (iter == hash_to_preimage_.end())
          throw runtime_error("invalid value");
 
       return iter->second;
@@ -1044,8 +1091,8 @@ public:
    virtual const SecureBinaryData& getPrivKeyForPubkey(const BinaryData& pubkey)
    {
       auto pubkeyref = BinaryDataRef(pubkey);
-      auto iter = pubkey_to_privkeyAsset_.find(pubkeyref);
-      if (iter == pubkey_to_privkeyAsset_.end())
+      auto iter = pubkey_to_asset_.find(pubkeyref);
+      if (iter == pubkey_to_asset_.end())
          throw runtime_error("invalid value");
 
       const auto& privkeyAsset = iter->second->getPrivKey();
@@ -1059,8 +1106,8 @@ class ResolvedFeed_AssetWalletMS : public ResolverFeed
 private:
    shared_ptr<AssetWallet> wltPtr_;
 
-   map<BinaryDataRef, BinaryDataRef> hash_to_script_;
-   map<BinaryDataRef, shared_ptr<AssetEntry_Single>> pubkey_to_privKeyasset_;
+   map<BinaryDataRef, BinaryDataRef> hash_to_preimage_;
+   map<BinaryDataRef, shared_ptr<AssetEntry_Single>> pubkey_to_asset_;
 
 public:
    //tors
@@ -1074,23 +1121,15 @@ public:
          if (assetMS == nullptr)
             throw WalletException("unexpected asset entry type in ms wallet");
 
-         BinaryDataRef hash;
-         switch (wltPtr->default_aet_)
-         {
-         case AddressEntryType_P2SH:
-            hash = assetMS->getHash160().getRef();
-            break;
-
-         case AddressEntryType_P2WSH:
-            hash = assetMS->getHash256().getRef();
-            break;
-
-         default:
-            throw WalletException("unexpected AddressEntryType for MS wallet");
-         }
-
          auto script = assetMS->getScript().getRef();
-         hash_to_script_.insert(make_pair(hash, script));
+         hash_to_preimage_.insert(make_pair(
+            assetMS->getHash160().getRef(), script));
+         hash_to_preimage_.insert(make_pair(
+            assetMS->getHash256().getRef(), script));
+
+         auto nested_p2wshScript = assetMS->getP2WSHScript().getRef();
+         hash_to_preimage_.insert(make_pair(
+            assetMS->getP2WSHScriptH160().getRef(), nested_p2wshScript));
 
          for (auto assetptr : assetMS->assetMap_)
          {
@@ -1102,7 +1141,7 @@ public:
             auto pubkeyCpr = 
                assetSingle->getPubKey()->getCompressedKey().getRef();
 
-            pubkey_to_privKeyasset_.insert(make_pair(pubkeyCpr, assetSingle));
+            pubkey_to_asset_.insert(make_pair(pubkeyCpr, assetSingle));
          }
       }
    }
@@ -1111,8 +1150,8 @@ public:
    BinaryData getByVal(const BinaryData& key)
    {
       auto keyRef = BinaryDataRef(key);
-      auto iter = hash_to_script_.find(keyRef);
-      if (iter == hash_to_script_.end())
+      auto iter = hash_to_preimage_.find(keyRef);
+      if (iter == hash_to_preimage_.end())
          throw runtime_error("invalid value");
 
       return iter->second;
@@ -1121,8 +1160,8 @@ public:
    const SecureBinaryData& getPrivKeyForPubkey(const BinaryData& pubkey)
    {
       auto pubkeyref = BinaryDataRef(pubkey);
-      auto iter = pubkey_to_privKeyasset_.find(pubkeyref);
-      if (iter == pubkey_to_privKeyasset_.end())
+      auto iter = pubkey_to_asset_.find(pubkeyref);
+      if (iter == pubkey_to_asset_.end())
          throw runtime_error("invalid value");
 
       const auto& privkeyAsset = iter->second->getPrivKey();

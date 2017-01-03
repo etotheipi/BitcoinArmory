@@ -84,8 +84,10 @@ public:
          wltAddrPrefix = BlockDataManagerConfig::getPubkeyHashPrefix();
          break;
 
-      case AddressEntryType_P2SH:
-      case AddressEntryType_Nested_P2SH:
+      case AddressEntryType_Nested_Multisig:
+      case AddressEntryType_Nested_P2WSH:
+      case AddressEntryType_Nested_P2WPKH:
+      case AddressEntryType_Nested_P2PK:
          wltAddrPrefix = BlockDataManagerConfig::getScriptHashPrefix();
          break;
 
@@ -173,11 +175,6 @@ public:
       return wallet_->getNestedSWAddrForIndex(chainIndex);
    }
 
-   BinaryData getNestedSWAddrForIndex(unsigned chainIndex)
-   {
-      return wallet_->getNestedP2PKAddrForIndex(chainIndex);
-   }
-
    void extendAddressChain(unsigned count)
    {
       wallet_->extendChain(count);
@@ -214,8 +211,10 @@ public:
          type = AddressType_P2PKH;
          break;
 
-      case AddressEntryType_P2SH:
-      case AddressEntryType_Nested_P2SH:
+      case AddressEntryType_Nested_Multisig:
+      case AddressEntryType_Nested_P2WSH:
+      case AddressEntryType_Nested_P2WPKH:
+      case AddressEntryType_Nested_P2PK:
          type = AddressType_P2SH;
          break;
 
@@ -361,8 +360,8 @@ public:
    const SecureBinaryData& getPrivKeyForPubkey(const BinaryData& pubkey)
    {
       auto pubkeyref = BinaryDataRef(pubkey);
-      auto iter = pubkey_to_privkeyAsset_.find(pubkeyref);
-      if (iter == pubkey_to_privkeyAsset_.end())
+      auto iter = pubkey_to_asset_.find(pubkeyref);
+      if (iter == pubkey_to_asset_.end())
          throw runtime_error("invalid value");
 
 
