@@ -1,7 +1,8 @@
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
-from CppBlockUtils import AddressType_P2SH, AddressType_P2PKH
+from CppBlockUtils import AddressType_P2SH_P2PK, \
+   AddressType_P2SH_P2WPKH, AddressType_P2PKH
 from armoryengine.ArmoryUtils import coin2str
 
 COL_TREE = 0
@@ -119,17 +120,24 @@ class TreeStructure_AddressDisplay():
       def createChildNode(name, filterStr):
          nodeMain = TreeNode(name, True, None)
          
-         def walletFilterP2SH():
-            return self.wallet.returnFilteredCppAddrList(filterStr, AddressType_P2SH)
+         def walletFilterP2SH_P2PK():
+            return self.wallet.returnFilteredCppAddrList(filterStr, AddressType_P2SH_P2PK)
+         
+         def walletFilterP2SH_P2WPKH():
+            return self.wallet.returnFilteredCppAddrList(filterStr, AddressType_P2SH_P2WPKH)
          
          def walletFilterP2PKH():
             return self.wallet.returnFilteredCppAddrList(filterStr, AddressType_P2PKH)
-            
-         nodeP2SH = TreeNode("P2SH", True, walletFilterP2SH)
-         nodeMain.appendEntry(nodeP2SH)
+      
          
          nodeP2KH = TreeNode("P2PKH", True, walletFilterP2PKH)
          nodeMain.appendEntry(nodeP2KH)
+         
+         nodeP2SH_P2PK = TreeNode("P2SH-P2PK", True, walletFilterP2SH_P2PK)
+         nodeMain.appendEntry(nodeP2SH_P2PK)
+         
+         nodeP2SH_P2WPKH = TreeNode("P2SH-P2WPKH", True, walletFilterP2SH_P2WPKH)
+         nodeMain.appendEntry(nodeP2SH_P2WPKH)
          
          return nodeMain
       

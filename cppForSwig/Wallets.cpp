@@ -1448,14 +1448,6 @@ set<BinaryData> AssetWallet_Single::getAddrHashSet()
       addrHashSet.insert(bw.getData());
    }
 
-   for (auto& hashIndexPair : hashMaps_.hashCompressed_)
-   {
-      BinaryWriter bw;
-      bw.put_uint8_t(prefix);
-      bw.put_BinaryDataRef(hashIndexPair.first);
-      addrHashSet.insert(bw.getData());
-   }
-
    prefix = BlockDataManagerConfig::getScriptHashPrefix();
 
    for (auto& hashIndexPair : hashMaps_.hashNestedP2WPKH_)

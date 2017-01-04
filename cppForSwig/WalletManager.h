@@ -26,7 +26,9 @@ using namespace std;
 enum AddressType
 {
    AddressType_P2PKH,
-   AddressType_P2SH
+   AddressType_P2SH_P2PK,
+   AddressType_P2SH_P2WPKH,
+   AddressType_Multisig
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -175,6 +177,11 @@ public:
       return wallet_->getNestedSWAddrForIndex(chainIndex);
    }
 
+   BinaryData getNestedP2PKAddrForIndex(unsigned chainIndex)
+   {
+      return wallet_->getNestedP2PKAddrForIndex(chainIndex);
+   }
+
    void extendAddressChain(unsigned count)
    {
       wallet_->extendChain(count);
@@ -213,9 +220,15 @@ public:
 
       case AddressEntryType_Nested_Multisig:
       case AddressEntryType_Nested_P2WSH:
+         type = AddressType_Multisig;
+         break;
+
       case AddressEntryType_Nested_P2WPKH:
+         type = AddressType_P2SH_P2WPKH;
+         break;
+
       case AddressEntryType_Nested_P2PK:
-         type = AddressType_P2SH;
+         type = AddressType_P2SH_P2PK;
          break;
 
       default:

@@ -5,10 +5,12 @@ from qtdefines import ArmoryDialog, STYLE_RAISED, QLabelButton
 
 class AddressTypeSelectDialog(ArmoryDialog):
    
-   def __init__(self, parent, main):
+   def __init__(self, parent, main, addrtype):
       super(AddressTypeSelectDialog, self).__init__(parent, main)   
       
       self.type = "P2PKH"
+      if addrtype is not None:
+         self.type = addrtype
       
       #p2pkh
       self.radioP2PKH = QRadioButton("P2PKH Address")
@@ -105,7 +107,7 @@ class AddressLabelFrame(object):
    
       def __init__(self, main, setAddressFunc):
          self.main = main
-         self.setAddressFun = setAddressFunc
+         self.setAddressFunc = setAddressFunc
          
          self.frmAddrType = QFrame()
          self.frmAddrType.setFrameStyle(STYLE_RAISED)
@@ -124,10 +126,14 @@ class AddressLabelFrame(object):
          self.frmAddrType.setLayout(frmAddrTypeLayout)
          
       def setType(self, _type):
+         self.addrType = _type
          self.typeLabel.setText("<u><font color='blue'>%s</font></u>" % _type)
          
+      def getType(self):
+         return self.addrType
+         
       def changeType(self):
-         dlg = AddressTypeSelectDialog(self.main, self.main)
+         dlg = AddressTypeSelectDialog(self.main, self.main, self.addrType)
          if dlg.exec_():
             self.setType(dlg.getType())
             self.setAddressFunc(dlg.getType())

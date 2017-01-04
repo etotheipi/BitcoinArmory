@@ -2803,7 +2803,7 @@ class DlgNewAddressDisp(ArmoryDialog):
             addrStr = self.addr.getAddrStr()
          elif typeStr == 'P2SH-P2WPKH':
             addrStr = self.wlt.getNestedSWAddrForIndex(self.addr.chainIndex)
-         elif typeStr == 'P2SH-P2PK'
+         elif typeStr == 'P2SH-P2PK':
             addrStr = self.wlt.getNestedP2PKAddrForIndex(self.addr.chainIndex)
             
          self.edtNewAddr.setText(addrStr)     
@@ -8117,51 +8117,15 @@ class DlgAddressBook(ArmoryDialog):
       self.connect(self.wltDispView.selectionModel(), \
                    SIGNAL('currentChanged(const QModelIndex &, const QModelIndex &)'), \
                    self.wltTableClicked)
-
-      #radio button selection for address type
       
-      Nested_PW2PKH_tooltip = self.main.createToolTipWidget(\
-         '<b>Pay To Public Key Hash (P2PKH)</b> is the standard non SegWit '
-         'payment address format. Any standard wallet can pay ' 
-         'to and spend from these addresses. <br><br><br>'
-         '<b>Nested Pay To Witness Public Key Hash (Nested P2WPKH)</b> '
-         'is a type of "universal" SegWit address. It ' 
-         'embeds a P2WPKH SegWit script in a BIP16 P2SH address '
-         'scheme.'
-         '<br><br>Nested P2WPKH addresses '
-         'can be funded by any wallet software, regardless of SegWit '
-         'compliance. Only SegWit compliant wallets can spend from SegWit '
-         'outputs.'                                    
-         '<br><br> Segregated Witness (SegWit or SW) transactions '
-         'are more space efficient and resilient to maleability attacks. '
-         'Using them results in lower transaction fees and improved '
-         'unconfirmed transaction history consistency.'                
-         )
-      
-      self.useSW = False
-      self.radio_P2PKH = QRadioButton("P2PKH address (default)")
-      self.radio_P2PKH.setChecked(True)
-      self.radio_Nested_P2WPKH = QRadioButton("Nested P2WPKH address (SW)")
-      
-      def toggleSW():
-         if self.radio_P2PKH.isChecked() == True:
-            self.useSW = False
-         elif self.radio_Nested_P2WPKH.isChecked() == True:
-            self.useSW = True
-            
+      def toggleAddrType(addrtype):
+         self.addrType = addrtype
          self.wltTableClicked(self.wltDispView.selectionModel().currentIndex())
          
-      self.connect(self.radio_P2PKH, SIGNAL('clicked()'), toggleSW)
-      self.connect(self.radio_Nested_P2WPKH, SIGNAL('clicked()'), toggleSW)
+      from ui.AddressTypeSelectDialog import AddressLabelFrame
+      self.addrTypeSelectFrame = AddressLabelFrame(self, toggleAddrType)
+      self.addrType = self.addrTypeSelectFrame.getType()
       
-      SWFrame = QFrame()
-      SWFrame.setFrameStyle(STYLE_RAISED)
-      SWFrameLayout = QGridLayout()    
-      SWFrameLayout.addWidget(self.radio_P2PKH, 0, 0, 1, 2)     
-      SWFrameLayout.addWidget(self.radio_Nested_P2WPKH, 0, 2, 1, 3)
-      SWFrameLayout.addWidget(Nested_PW2PKH_tooltip, 0, 6, 1, 1)  
-      SWFrame.setLayout(SWFrameLayout)
-
       # DISPLAY sent-to addresses
       self.addrBookTxModel = None
       self.addrBookTxView = QTableView()
@@ -8269,7 +8233,7 @@ class DlgAddressBook(ArmoryDialog):
       dlgLayout.addWidget(lblToWlt, 2, 0)
       dlgLayout.addWidget(self.wltDispView, 3, 0)
       dlgLayout.addWidget(makeHorizFrame([self.lblSelectWlt, STRETCH, self.btnSelectWlt]), 4, 0)
-      dlgLayout.addWidget(SWFrame, 5, 0)
+      dlgLayout.addWidget(self.addrTypeSelectFrame.getFrame(), 5, 0)
       dlgLayout.addWidget(HLINE(), 6, 0)
       dlgLayout.addWidget(lblToAddr, 7, 0)
       dlgLayout.addWidget(self.tabWidget, 8, 0)
@@ -8413,7 +8377,19 @@ class DlgAddressBook(ArmoryDialog):
                    SIGNAL('currentChanged(const QModelIndex &, const QModelIndex &)'), \
                    self.addrTableRxClicked)
 
-
+   #############################################################################
+   def getAddrStr(self, wlt, addrObj):
+      addrStr = ""
+         
+      if self.addrType == 'P2PKH':
+         addrStr = addrObj.getAddrStr()
+      elif self.addrType == 'P2SH-P2PK':
+         addrStr = wlt.getNestedP2PKAddrForIndex(addrObj.chainIndex)
+      elif self.addrType == 'P2SH-P2WPKH':
+         addrStr = wlt.getNestedSWAddrForIndex(addrObj.chainIndex)
+            
+      return addrStr      
+      
    #############################################################################
    def wltTableClicked(self, currIndex, prevIndex=None):
       if prevIndex == currIndex:
@@ -8432,11 +8408,7 @@ class DlgAddressBook(ArmoryDialog):
          self.btnSelectWlt.setText('%s Wallet: %s' % (self.actStr, self.selectedWltID))
          nextAddr = wlt.peekNextUnusedAddr()
          
-         addrStr = ""
-         if not self.useSW:
-            addrStr = nextAddr.getAddrStr()
-         else:
-            addrStr = wlt.getNestedAddrForEntry(nextAddr)
+         addrStr = self.getAddrStr(wlt, nextAddr)
          self.lblSelectWlt.setText('Will create new address: %s...' % \
                                     addrStr[:10])
 
@@ -8547,11 +8519,8 @@ class DlgAddressBook(ArmoryDialog):
       wltID = self.selectedWltID
       addrObj = self.main.walletMap[wltID].getNextUnusedAddress()
       if not self.returnPubKey:
-         if not self.useSW:
-            self.target.setText(addrObj.getAddrStr())
-         else:
-            self.target.setText(\
-               self.main.walletMap[wltID].getNestedAddrForEntry(addrObj))
+         addrStr = self.getAddrStr(self.main.walletMap[wltID], addrObj)
+         self.target.setText(addrStr)
       else:
          pubKeyHash = addrObj.getPubKey().toHexStr()
          if pubKeyHash is None:
