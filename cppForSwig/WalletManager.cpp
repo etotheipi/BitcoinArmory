@@ -105,6 +105,20 @@ void WalletManager::duplicateWOWallet(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+int WalletManager::getLastComputedIndex(const string& id) const
+{
+   {
+      unique_lock<mutex> lock(mu_);
+
+      auto wltIter = wallets_.find(id);
+      if (wltIter == wallets_.end())
+         throw runtime_error("invalid id");
+
+      return wltIter->second.getLastComputedIndex();
+   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
 void WalletManager::synchronizeWallet(const string& id, unsigned chainLength)
 {
    WalletContainer* wltCtr;

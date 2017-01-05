@@ -8232,8 +8232,9 @@ class DlgAddressBook(ArmoryDialog):
       dlgLayout.addWidget(HLINE(), 1, 0)
       dlgLayout.addWidget(lblToWlt, 2, 0)
       dlgLayout.addWidget(self.wltDispView, 3, 0)
-      dlgLayout.addWidget(makeHorizFrame([self.lblSelectWlt, STRETCH, self.btnSelectWlt]), 4, 0)
-      dlgLayout.addWidget(self.addrTypeSelectFrame.getFrame(), 5, 0)
+      dlgLayout.addWidget(makeHorizFrame([self.lblSelectWlt, \
+                                          self.addrTypeSelectFrame.getFrame(), \
+                                          self.btnSelectWlt]), 4, 0)
       dlgLayout.addWidget(HLINE(), 6, 0)
       dlgLayout.addWidget(lblToAddr, 7, 0)
       dlgLayout.addWidget(self.tabWidget, 8, 0)

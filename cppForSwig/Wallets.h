@@ -889,6 +889,7 @@ public:
    const BinaryData& getNestedSWAddrForIndex(unsigned chainIndex);
    const BinaryData& getNestedP2PKAddrForIndex(unsigned chainIndex);
    unsigned getAssetCount(void) const { return assets_.size(); }
+   int getLastComputedIndex(void) const;
    void extendChain(unsigned);
    bool extendChainTo(unsigned);
    void extendChain(shared_ptr<AssetEntry>, unsigned);

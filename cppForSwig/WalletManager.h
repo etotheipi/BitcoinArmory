@@ -118,8 +118,7 @@ public:
          //not the default prefix, let's fetch the asset
          auto assetIndex = wallet_->getAssetIndexForAddr(count.first);
          auto asset = wallet_->getAssetForIndex(assetIndex);
-         /*if (asset->getAddrType() != AddressEntryType_Default)
-            continue;*/
+
 
          auto hashType = asset->getAddressTypeForHash(
             count.first.getSliceRef(1, count.first.getSize() - 1));
@@ -190,6 +189,11 @@ public:
    bool extendAddressChainTo(unsigned count)
    {
       return wallet_->extendChainTo(count);
+   }
+
+   int getLastComputedIndex(void) const
+   {
+      return wallet_->getLastComputedIndex();
    }
 
    bool hasScrAddr(const BinaryData& scrAddr)
@@ -416,6 +420,7 @@ public:
       bdv_ = bdv;
    }
 
+   int getLastComputedIndex(const string& id) const;
    void synchronizeWallet(const string& id, unsigned chainLength);
 
    void duplicateWOWallet(

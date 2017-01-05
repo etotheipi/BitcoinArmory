@@ -1700,6 +1700,16 @@ const BinaryData& AssetWallet::getNestedP2PKAddrForIndex(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+int AssetWallet::getLastComputedIndex(void) const
+{
+   if (getAssetCount() == 0)
+      return -1;
+
+   auto iter = assets_.rbegin();
+   return iter->first;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 string AssetWallet::getID(void) const
 {
    return string(walletID_.getCharPtr(), walletID_.getSize());

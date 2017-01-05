@@ -2546,8 +2546,6 @@ class ArmoryMainWindow(QMainWindow):
       if len(wltPaths) > 0:
          ratioPerWallet = 100 / float(len(wltPaths))
 
-      self.walletManager = Cpp.WalletManager(str(ARMORY_HOME_DIR))
-
       i = 0
       for fpath in wltPaths:
          currentProgress = float(i) * ratioPerWallet
@@ -2596,18 +2594,7 @@ class ArmoryMainWindow(QMainWindow):
                
             if wltLoaded is False:
                continue
-            
-            if self.walletManager.hasWallet(wltID):
-               self.walletManager.synchronizeWallet(
-                  wltID, wltLoad.lastComputedChainIndex)
-            else:
-               rootEntry = wltLoad.addrMap['ROOT']
-               self.walletManager.duplicateWOWallet(
-                  rootEntry.binPublicKey65, rootEntry.chaincode, 
-                  wltLoad.lastComputedChainIndex + 1)
-               
-            wltLoad.cppWallet = self.walletManager.getCppWallet(wltID)
-            
+                        
          except:
             LOGEXCEPT( '***WARNING: Wallet could not be loaded: %s (skipping)',
                                                                            fpath)
@@ -2637,7 +2624,38 @@ class ArmoryMainWindow(QMainWindow):
       self.writeSetting('LastDirectory', savedDir)
 
       updateProgress(100)
-
+      
+      self.loadCppWallets()
+      
+   #############################################################################
+   def loadCppWallets(self):
+      '''
+              if self.walletManager.hasWallet(wltID):
+               self.walletManager.synchronizeWallet(
+                  wltID, wltLoad.lastComputedChainIndex)
+            else:
+               rootEntry = wltLoad.addrMap['ROOT']
+               self.walletManager.duplicateWOWallet(
+                  rootEntry.binPublicKey65, rootEntry.chaincode, 
+                  wltLoad.lastComputedChainIndex + 1)
+               
+            wltLoad.cppWallet = self.walletManager.getCppWallet(wltID) 
+      '''   
+      
+      #load all existing cpp wallets
+      self.walletManager = Cpp.WalletManager(str(ARMORY_HOME_DIR))
+      
+      #check python wallets against cpp wallets
+      from ui.WalletMirrorDialog import WalletComparisonClass
+      wltCmpObj = WalletComparisonClass(self)
+      wltCmpObj.checkWallets()   
+         
+      #load all cpp wallets
+      for wltID in self.walletMap:
+         wlt = self.walletMap[wltID]
+         wlt.cppWallet = self.walletManager.getCppWallet(wltID)
+         
+         
    #############################################################################
    @RemoveRepeatingExtensions
    def getFileSave(self, title='Save Wallet File', \
