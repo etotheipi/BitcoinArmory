@@ -3,13 +3,20 @@ from PyQt4.QtGui import *
 
 from CppBlockUtils import AddressType_P2SH_P2PK, \
    AddressType_P2SH_P2WPKH, AddressType_P2PKH
-from armoryengine.ArmoryUtils import coin2str
+from armoryengine.ArmoryUtils import coin2str, hash160_to_addrStr, \
+   binary_to_hex
+from qtdefines import GETFONT
+from armorycolors import Colors
 
 COL_TREE = 0
 COL_COMMENT = 1
 COL_COUNT = 2
 COL_BALANCE = 3
 
+COL_NAME = 0
+COL_VALUE = 2
+
+################################################################################
 class AddressObjectItem(object):
    
    def __init__(self, addrObj):
@@ -38,7 +45,55 @@ class AddressObjectItem(object):
    
    def canDoubleClick(self):
       return True
+ 
+################################################################################   
+class CoinControlUtxoItem():
    
+   def __init__(self, parent, utxo):
+      self.utxo = utxo
+      self.parent = parent
+      self.name = "Block: #%d | Tx: #%d | TxOut: #%d" % \
+         (utxo.getTxHeight(), utxo.getTxIndex(), utxo.getTxOutIndex())
+         
+      
+      self.state = Qt.Checked
+      if utxo.isChecked() == False:
+         self.state = Qt.Unchecked
+      
+   def rowCount(self):
+      return 0
+   
+   def hasEntries(self):
+      return False
+   
+   def getName(self):
+      return self.name
+   
+   def getBalance(self):
+      return self.utxo.getValue()
+
+   def getComment(self):
+      return ""
+   
+   def checked(self):
+      return self.state
+   
+   def setCheckState(self, val):
+      self.checkDown(val)
+      
+      if self.parent is not None:
+         self.parent.checkUp()
+      
+   def checkDown(self, val):
+      self.state = val
+      
+      if val == Qt.Checked:
+         self.utxo.setChecked(True)
+      else:
+         self.utxo.setChecked(False)
+      
+         
+################################################################################
 class EmptyNode(object):
    
    def __init__(self):
@@ -55,22 +110,24 @@ class EmptyNode(object):
    
    def canDoubleClick(self):
       return False
-
+   
+   def getComment(self):
+      return ""
+   
+################################################################################
 class TreeNode(object):
    
-   def __init__(self, name, isExpendable=False, populateMethod=None):
+   def __init__(self, parent, name, isExpendable=False):
       self.name = name
       self.isExpendable = isExpendable
+      self.parent = parent
       
-      self.populateMethod = populateMethod
-      self.populated = False if populateMethod is not None else True
+      self.populated = False
       
       self.entries = []
       self.empty = False
-            
-   def getName(self):
-      return self.name
-            
+      self.checkStatus = self.computeState()
+                        
    def rowCount(self):
       self.populate()
       if not self.empty:
@@ -78,8 +135,109 @@ class TreeNode(object):
       else:
          return 1
       
+   def hasEntries(self):
+      return self.isExpendable
+   
+   def appendEntry(self, entry):
+      self.entries.append(entry)
+      self.populated = True
+   
+   def getEntryByIndex(self, index):
+      self.populate()
+      if not self.empty:
+         return self.entries[index]
+      else:
+         return EmptyNode()
+      
+   def checked(self):
+      return self.checkStatus
+   
+   def checkDown(self, val):
+      #set own state
+      self.checkStatus = val
+      
+      #set children
+      self.populate()
+      for entry in self.entries:
+         entry.checkDown(val)
+         
+   def checkUp(self):
+      #figure out own state
+      self.checkStatus = self.computeState()
+      
+      #checkUp on parent
+      if self.parent is not None:
+         self.parent.checkUp()
+   
+   def setCheckState(self, val):
+      self.checkDown(val)
+         
+      if self.parent is not None:
+         self.parent.checkUp()
+         
+   def computeState(self):
+      if not self.hasEntries():
+         raise "node needs children to compute state"
+      
+      self.populate()
+      state = Qt.Checked
+      try:
+         state = self.entries[0].checked()
+         for i in range(1, len(self.entries)):
+            if self.entries[i].checked() != state:
+               state = Qt.PartiallyChecked
+               break
+      except:
+         pass
+         
+      return state
+   
+   def getName(self):
+      return self.name
+         
+   
+################################################################################  
+class CoinControlAddressItem(TreeNode):
+   
+   def __init__(self, parent, name, utxoList):
+      self.utxoList = utxoList
+      super(CoinControlAddressItem, self).__init__(parent, name, True)
+
+      self.balance = 0
+      for utxo in utxoList:
+         self.balance += utxo.getValue()
+      
+   def rowCount(self):
+      return len(self.utxoList);
+   
+   def populate(self):
+      if self.populated == True:
+         return
+      
+      self.entries = []
+      for utxo in self.utxoList:
+         self.entries.append(CoinControlUtxoItem(self, utxo))
+         
+      self.populated = True
+      
+   def getBalance(self):
+      return self.balance
+   
+   def getComment(self):
+      return ""
+         
+################################################################################
+class AddressTreeNode(TreeNode):
+   
+   def __init__(self, name, isExpendable=False, populateMethod=None):
+      self.populateMethod = populateMethod       
+      super(AddressTreeNode, self).__init__(None, name, isExpendable)
+            
    def populate(self):
       if self.populated:
+         return
+      
+      if self.populateMethod == None:
          return
       
       addrList = self.populateMethod()
@@ -91,19 +249,34 @@ class TreeNode(object):
          
       self.populated = True
       
-   def hasEntries(self):
-      return self.isExpendable
+################################################################################
+class CoinControlTreeNode(TreeNode):
    
-   def appendEntry(self, entry):
-      self.entries.append(entry)
-   
-   def getEntryByIndex(self, index):
-      self.populate()
-      if not self.empty:
-         return self.entries[index]
-      else:
-         return EmptyNode()
+   def __init__(self, parent, name, isExpendable=False, populateMethod=None):
+      self.populateMethod = populateMethod      
+      super(CoinControlTreeNode, self).__init__(parent, name, isExpendable)
       
+   def getName(self):
+      return self.name
+            
+   def populate(self):
+      if self.populated:
+         return
+      
+      if self.populateMethod == None:
+         return
+      
+      utxoList = self.populateMethod()
+      if len(utxoList) > 0:
+         for addr in utxoList:
+            self.entries.append(\
+               CoinControlAddressItem(self, addr, utxoList[addr]))
+      else:
+         self.empty = True
+         
+      self.populated = True
+ 
+################################################################################     
 class TreeStructure_AddressDisplay():
    
    def __init__(self, wallet):
@@ -112,32 +285,34 @@ class TreeStructure_AddressDisplay():
       
       self.setup()
       
-   def setup(self):
-      
+   def setup(self):     
       #create root node
-      self.root = TreeNode("root", True, None)
+      self.root = AddressTreeNode("root", True, None)
       
       def createChildNode(name, filterStr):
-         nodeMain = TreeNode(name, True, None)
+         nodeMain = AddressTreeNode(name, True, None)
          
          def walletFilterP2SH_P2PK():
-            return self.wallet.returnFilteredCppAddrList(filterStr, AddressType_P2SH_P2PK)
+            return self.wallet.returnFilteredCppAddrList(\
+                     filterStr, AddressType_P2SH_P2PK)
          
          def walletFilterP2SH_P2WPKH():
-            return self.wallet.returnFilteredCppAddrList(filterStr, AddressType_P2SH_P2WPKH)
+            return self.wallet.returnFilteredCppAddrList(\
+                     filterStr, AddressType_P2SH_P2WPKH)
          
          def walletFilterP2PKH():
-            return self.wallet.returnFilteredCppAddrList(filterStr, AddressType_P2PKH)
+            return self.wallet.returnFilteredCppAddrList(\
+                     filterStr, AddressType_P2PKH)
       
          
-         nodeP2KH = TreeNode("P2PKH", True, walletFilterP2PKH)
-         nodeMain.appendEntry(nodeP2KH)
+         nodeUnspent = AddressTreeNode("P2PKH", True, walletFilterP2PKH)
+         nodeMain.appendEntry(nodeUnspent)
          
-         nodeP2SH_P2PK = TreeNode("P2SH-P2PK", True, walletFilterP2SH_P2PK)
-         nodeMain.appendEntry(nodeP2SH_P2PK)
+         nodeRBF = AddressTreeNode("P2SH-P2PK", True, walletFilterP2SH_P2PK)
+         nodeMain.appendEntry(nodeRBF)
          
-         nodeP2SH_P2WPKH = TreeNode("P2SH-P2WPKH", True, walletFilterP2SH_P2WPKH)
-         nodeMain.appendEntry(nodeP2SH_P2WPKH)
+         nodeCPFP = AddressTreeNode("P2SH-P2WPKH", True, walletFilterP2SH_P2WPKH)
+         nodeMain.appendEntry(nodeCPFP)
          
          return nodeMain
       
@@ -149,7 +324,111 @@ class TreeStructure_AddressDisplay():
       self.root.appendEntry(nodeUsed)
       self.root.appendEntry(nodeChange)
       self.root.appendEntry(nodeUnused)
+      
+################################################################################
+class TreeStructure_CoinControl():
+   
+   def __init__(self, wallet):
+      self.wallet = wallet
+      self.root = None
+      
+      self.setup()
+      
+   def getTreeData(self):
+      return self.treeData
+   
+   def reset(self):
+      for section in self.treeData['UTXO']:
+         addrDict = self.treeData['UTXO'][section]
+         
+         for addr in addrDict:
+            utxoList = addrDict[addr]
+            
+            for utxo in utxoList:
+               utxo.setChecked(True)
+      
+   def setup(self):
+      #load utxos
+      utxoList = self.wallet.getFullUTXOList()
+      
+      self.treeData = {
+         'UTXO':{
+            'p2pkh':dict(),
+            'p2sh_p2pk':dict(),
+            'p2sh_p2wpkh':dict()},
+         'RBF':dict(),
+         'CPFP':dict()
+         }
+            
+      #filter utxos
+      for utxo in utxoList:
+         h160 = utxo.getRecipientHash160()
+         assetId = self.wallet.cppWallet.getAssetIndexForAddr(h160)
+         addrType = self.wallet.cppWallet.getAddrTypeForIndex(assetId)
+         
+         binAddr = utxo.getRecipientScrAddr()
+         scrAddr = hash160_to_addrStr(h160, binAddr[0])
+         
+         addrDict = None
+         if addrType == AddressType_P2PKH:
+            addrDict = self.treeData['UTXO']['p2pkh']
+         elif addrType == AddressType_P2SH_P2PK:
+            addrDict = self.treeData['UTXO']['p2sh_p2pk']
+         elif addrType == AddressType_P2SH_P2WPKH:
+            addrDict = self.treeData['UTXO']['p2sh_p2wpkh']
+            
+         if addrDict == None:
+            continue
+         
+         if not scrAddr in addrDict:
+            addrDict[scrAddr] = []
+            
+         addrDict[scrAddr].append(utxo)
+            
+                
+      #create root node
+      self.root = CoinControlTreeNode(None, "root", True, None)
+      
+      def createChildNode(name, filterStr):
+         nodeMain = CoinControlTreeNode(None, name, True, None)
+         
+         if name != "Unspent Outputs":
+            return nodeMain
+         
+         def ccFilterP2PKH():
+            return self.treeData['UTXO']['p2pkh']
+         
+         def ccFilterP2SH_P2PK():
+            return self.treeData['UTXO']['p2sh_p2pk']
+         
+         def ccFilterP2SH_P2WPKH():
+            return self.treeData['UTXO']['p2sh_p2wpkh']
+      
+         
+         nodeP2KH = CoinControlTreeNode(nodeMain, "P2PKH", True, ccFilterP2PKH)
+         nodeMain.appendEntry(nodeP2KH)
+         
+         nodeP2SH_P2PK = CoinControlTreeNode(nodeMain, "P2SH-P2PK", True, ccFilterP2SH_P2PK)
+         nodeMain.appendEntry(nodeP2SH_P2PK)
+         
+         nodeP2SH_P2WPKH = CoinControlTreeNode(nodeMain, "P2SH-P2WPKH", True, ccFilterP2SH_P2WPKH)
+         nodeMain.appendEntry(nodeP2SH_P2WPKH)
+         
+         return nodeMain
+      
+      #create top 3 nodes
+      nodeUTXO   = createChildNode("Unspent Outputs", "Unspent")
+      nodeRBF = createChildNode("RBF Eligible", "RBF")
+      nodeCPFP = createChildNode("CPFP Outputs", "CPFP")
+      
+      self.root.appendEntry(nodeUTXO)
+      self.root.appendEntry(nodeRBF)
+      self.root.appendEntry(nodeCPFP)
+      
+            
+      self.root.checkStatus = self.root.computeState()
 
+################################################################################
 class NodeItem(object):
    
    def __init__(self, row, parent, treeNode):
@@ -187,16 +466,13 @@ class NodeItem(object):
          return self.treeNode.canDoubleClick()
       except:
          return False
-      
-class AddressTreeModel(QAbstractItemModel):
+
+################################################################################      
+class ArmoryTreeModel(QAbstractItemModel):
    
-   def __init__(self, main, wlt):
-      super(AddressTreeModel, self).__init__()
+   def __init__(self, main):
+      super(ArmoryTreeModel, self).__init__()
       self.main = main
-      self.wlt = wlt
-      
-      self.treeStruct = TreeStructure_AddressDisplay(self.wlt)
-      self.root = NodeItem(0, None, self.treeStruct.root)
       
    def parent(self, index):
       if not index.isValid():
@@ -224,9 +500,29 @@ class AddressTreeModel(QAbstractItemModel):
       node = self.getNodeItem(index)
       return node.rowCount()
    
+   def getNodeItem(self, index):
+      if not index.isValid():
+         return self.root
+      
+      item = index.internalPointer()
+      if item is None:
+         return self.root
+      
+      return item
+   
+################################################################################   
+class AddressTreeModel(ArmoryTreeModel):
+   def __init__(self, main, wlt):
+      super(AddressTreeModel, self).__init__(main)
+
+      self.wlt = wlt
+      
+      self.treeStruct = TreeStructure_AddressDisplay(self.wlt)
+      self.root = NodeItem(0, None, self.treeStruct.root)
+      
    def columnCount(self, index=QModelIndex()):
-      return 4
-         
+      return 4      
+   
    def data(self, index, role=Qt.DisplayRole):
       if role==Qt.DisplayRole:
          col = index.column()
@@ -261,13 +557,89 @@ class AddressTreeModel(QAbstractItemModel):
             if section==COL_BALANCE:  return QVariant('Balance')
 
       return QVariant() 
+  
+################################################################################ 
+class CoinControlTreeModel(ArmoryTreeModel):
+   def __init__(self, main, wlt):
+      super(CoinControlTreeModel, self).__init__(main)
+
+      self.wlt = wlt
+      
+      self.treeStruct = TreeStructure_CoinControl(self.wlt)
+      self.root = NodeItem(0, None, self.treeStruct.root)
+      
+   def columnCount(self, index=QModelIndex()):
+      return 3   
+      
+   def data(self, index, role=Qt.DisplayRole):
+      col = index.column()    
+      node = self.getNodeItem(index)
+        
+      if role==Qt.DisplayRole:            
+         if col == COL_NAME:
+            return QVariant(node.treeNode.getName())
+                  
+         if col == COL_COMMENT:
+            try:
+               return QVariant(node.treeNode.getComment())
+            except:
+               pass
+                  
+         if col == COL_VALUE:
+            try:
+               return QVariant(coin2str(node.treeNode.getBalance(), maxZeros=2))
+            except:
+               pass
+      
+      elif role==Qt.CheckStateRole:
+         try:
+            if col == COL_NAME:          
+               st = node.treeNode.checked()
+               return st
+            else: 
+               return QVariant()
+         except:
+            pass
+
+      elif role==Qt.BackgroundRole:
+         try:
+            if node.treeNode.checked() != Qt.Unchecked:
+               return QVariant(Colors.SlightBlue)
+         except:
+            pass
+           
+      elif role==Qt.FontRole:
+         try:
+            if node.treeNode.checked() != Qt.Unchecked:
+               return GETFONT('Fixed', bold=True)
+         except:
+            pass
+
+      return QVariant()
    
-   def getNodeItem(self, index):
-      if not index.isValid():
-         return self.root
+   def headerData(self, section, orientation, role=Qt.DisplayRole):
+      if role==Qt.DisplayRole:
+         if orientation==Qt.Horizontal:
+            if section==COL_NAME: return QVariant('Address/ID')
+            if section==COL_COMMENT:  return QVariant('Comment')
+            if section==COL_VALUE:  return QVariant('Balance')
+
+      return QVariant() 
+   
+   def flags(self, index):
+      f = Qt.ItemIsEnabled
+      if index.column() == 0:
+         node = self.getNodeItem(index)
+         if node.treeNode.getName() != 'None':
+            f |= Qt.ItemIsUserCheckable
+      return f
+            
+   def setData(self, index, value, role):
+      if role == Qt.CheckStateRole:
+         node = self.getNodeItem(index)
+         node.treeNode.setCheckState(value)
+            
+         self.emit(SIGNAL('layoutChanged()'))
+         return True
       
-      item = index.internalPointer()
-      if item is None:
-         return self.root
-      
-      return item
+      return False

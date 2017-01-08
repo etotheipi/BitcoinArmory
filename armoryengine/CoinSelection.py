@@ -117,6 +117,8 @@ class PyUnspentTxOut(object):
          self.binScript = scrAddr_to_script(self.scrAddr)
       else:
          self.binScript = fullScript
+         
+      self.checked = True
 
    def getTxHash(self):
       return self.txHash
@@ -126,6 +128,9 @@ class PyUnspentTxOut(object):
 
    def getTxOutIndex(self):
       return self.txOutIndex
+   
+   def getTxIndex(self):
+      return self.txIndex
 
    def getValue(self):
       return self.val
@@ -158,6 +163,12 @@ class PyUnspentTxOut(object):
 
    def pprint(self, indent=''):
       print self.prettyStr(indent)
+      
+   def setChecked(self, val):
+      self.checked = val
+      
+   def isChecked(self):
+      return self.checked
 
 
 ################################################################################

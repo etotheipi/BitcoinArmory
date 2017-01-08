@@ -104,6 +104,8 @@ class SelectWalletFrame(ArmoryFrame):
       super(SelectWalletFrame, self).__init__(parent, main)
       self.coinControlCallback = coinControlCallback
 
+      self.dlgcc = None
+      
       self.walletComboBox = QComboBox()
       self.walletListBox  = QListWidget()
       self.balAtLeast = atLeast
@@ -236,25 +238,29 @@ class SelectWalletFrame(ArmoryFrame):
 
    def doCoinCtrl(self):
       wlt = self.main.walletMap[self.getSelectedWltID()]
-      dlgcc = DlgCoinControl(self, self.main, wlt, self.customUtxoList)
-      if dlgcc.exec_():
-         self.customUtxoList = [x for x in dlgcc.coinControlList]
-         self.altBalance = sum([x.getValue() for x in dlgcc.coinControlList])
+      if self.dlgcc == None:
+         self.dlgcc = \
+            CoinControlDlg(self, self.main, wlt, self.customUtxoList)
+
+      self.dlgcc.exec_()
       
-         nUtxo = len(self.customUtxoList)
-         if self.altBalance == wlt.getBalance('Spendable'):
-            self.lblCoinCtrl.setText('Source: All addresses')
-            self.customUtxoList = None
-            self.altBalance = None
-         elif nUtxo == 0:
-            self.lblCoinCtrl.setText('Source: None selected')
-         elif nUtxo == 1:
-            utxo = self.customUtxoList[0]
-            aStr = hash160_to_addrStr(utxo.getRecipientHash160())
-            self.lblCoinCtrl.setText('Source: %s...' % aStr[:12])
-         elif nUtxo > 1:
-            self.lblCoinCtrl.setText('Source: %d Outputs' % nUtxo)
-         self.updateOnCoinControl()
+      self.customUtxoList = self.dlgcc.getCustomUtxoList()
+      self.altBalance = sum([x.getValue() for x in self.customUtxoList])
+      
+      nUtxo = len(self.customUtxoList)
+      if self.altBalance == wlt.getBalance('Spendable'):
+         self.lblCoinCtrl.setText('Source: All addresses')
+         self.customUtxoList = None
+         self.altBalance = None
+      elif nUtxo == 0:
+         self.lblCoinCtrl.setText('Source: None selected')
+      elif nUtxo == 1:
+         utxo = self.customUtxoList[0]
+         aStr = hash160_to_addrStr(utxo.getRecipientHash160())
+         self.lblCoinCtrl.setText('Source: %s...' % aStr[:12])
+      elif nUtxo > 1:
+         self.lblCoinCtrl.setText('Source: %d Outputs' % nUtxo)
+      self.updateOnCoinControl()
          
    def updateOnWalletChange(self, ignoredInt=None):
       """
@@ -1125,5 +1131,7 @@ class WizardCreateWatchingOnlyWalletFrame(ArmoryFrame):
 
       
 # Need to put circular imports at the end of the script to avoid an import deadlock
-from qtdialogs import CLICKED, DlgCoinControl, STRETCH, MIN_PASSWD_WIDTH, \
+from qtdialogs import CLICKED, STRETCH, MIN_PASSWD_WIDTH, \
    QRadioButtonBackupCtr, OpenPaperBackupWindow, DlgUnlockWallet, DlgShowKeyList
+
+from ui.CoinControlUI import CoinControlDlg
