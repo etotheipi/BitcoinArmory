@@ -284,6 +284,25 @@ LedgerDelegate BlockDataViewer::getLedgerDelegateForScrAddr(
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+void BlockDataViewer::updateWalletsLedgerFilter(
+   const vector<BinaryData>& wltIdVec)
+{
+   Command cmd;
+
+   cmd.method_ = "updateWalletsLedgerFilter";
+   cmd.ids_.push_back(bdvID_);
+
+   BinaryDataVector bdVec;
+   for (auto bd : wltIdVec)
+      bdVec.push_back(move(bd));
+
+   cmd.args_.push_back(move(bdVec));
+   cmd.serialize();
+
+   auto&& result = sock_->writeAndRead(cmd.command_);
+}
+
+///////////////////////////////////////////////////////////////////////////////
 //
 // LedgerDelegate
 //

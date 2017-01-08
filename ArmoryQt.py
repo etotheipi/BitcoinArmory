@@ -829,10 +829,8 @@ class ArmoryMainWindow(QMainWindow):
             if self.walletMap[wltid].isEnabled:
                self.wltIDList.append(wltid)
 
-      try:
-         TheBDM.bdv().updateWalletsLedgerFilter(self.wltIDList)
-      except:
-         pass
+      TheBDM.bdv().updateWalletsLedgerFilter(self.wltIDList)
+
 
    ############################################################################
    def loadArmoryModulesNoZip(self):

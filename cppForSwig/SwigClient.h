@@ -350,6 +350,7 @@ namespace SwigClient
       BroadcastStatus broadcastZC(const BinaryData& rawTx);
       Tx getTxByHash(const BinaryData& txHash);
 
+      void updateWalletsLedgerFilter(const vector<BinaryData>& wltIdVec);
       bool hasRemoteDB(void);
    };
 };

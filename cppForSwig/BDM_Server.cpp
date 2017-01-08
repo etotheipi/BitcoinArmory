@@ -629,6 +629,21 @@ void BDV_Server_Object::buildMethodMap()
 
    methodMap_["createAddressBook"] = createAddressBook;
 
+   //updateWalletsLedgerFilter
+   auto updateWalletsLedgerFilter = [this]
+      (const vector<string>& ids, Arguments& args)->Arguments
+   {
+      auto&& bdVec = args.get<BinaryDataVector>();
+
+      this->updateWalletsLedgerFilter(bdVec.get());
+
+      Arguments retarg;
+      unsigned done = 1;
+      retarg.push_back(move(IntType(done)));
+      return move(retarg);
+   };
+
+   methodMap_["updateWalletsLedgerFilter"] = updateWalletsLedgerFilter;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

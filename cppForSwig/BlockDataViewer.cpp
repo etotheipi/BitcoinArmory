@@ -1014,7 +1014,13 @@ void WalletGroup::updateLedgerFilter(const vector<BinaryData>& walletsList)
       wlt->uiFilter_ = false;
 
    for (auto walletID : walletsList)
-      wallets_[walletID]->uiFilter_ = true;
+   {
+      auto iter = wallets_.find(walletID);
+      if (iter == wallets_.end())
+         continue;
+
+      iter->second->uiFilter_ = true;
+   }
 
    bdvPtr_->flagRefresh(BDV_filterChanged, BinaryData());
 }
