@@ -1061,8 +1061,7 @@ class PyBtcWallet(object):
       if doRegister and self.isRegistered() and numToCreate > 0:
          try:
             self.cppWallet.registerWithBDV(isActuallyNew)
-            self.actionsToTakeAfterScan.append([self.detectHighestUsedIndex, \
-                                          [lastComputedIndex, True]])
+            self.actionsToTakeAfterScan.append([self.detectHighestUsedIndex])
          except:
             pass
          
@@ -1099,7 +1098,7 @@ class PyBtcWallet(object):
          
    #############################################################################
    @CheckWalletRegistration
-   def detectHighestUsedIndex(self, startFrom=0, writeResultToWallet=False, fullscan=False):
+   def detectHighestUsedIndex(self):
       """
       This method is used to find the highestUsedChainIndex value of the 
       wallet WITHIN its address pool.  It will NOT extend its address pool
@@ -1115,16 +1114,9 @@ class PyBtcWallet(object):
       which will actually extend the address pool as necessary to find the
       highest address used.      
       """
+        
+      highestIndex = self.cppWallet.detectHighestUsedIndex()
 
-      if fullscan:
-         startFrom = 0
-         
-      highestIndex = max(self.highestUsedChainIndex, 0)
-      for a160 in self.linearAddr160List[startFrom:]:
-         addr = self.addrMap[a160]
-         scrAddr = Hash160ToScrAddr(a160)
-         if self.getAddrTotalTxnCount(scrAddr) > 0:
-            highestIndex = max(highestIndex, addr.chainIndex)
 
       if highestIndex > self.highestUsedChainIndex:
          self.highestUsedChainIndex = highestIndex
@@ -1166,7 +1158,7 @@ class PyBtcWallet(object):
       nWhile = 0
       while topCompute - topUsed < 0.9*stepSize:
          topCompute = self.fillAddressPool(stepSize, isActuallyNew=False)
-         topUsed = self.detectHighestUsedIndex(True)
+         topUsed = self.detectHighestUsedIndex()
          nWhile += 1
          if nWhile>10000:
             raise WalletAddressError('Escaping inf loop in freshImport...')

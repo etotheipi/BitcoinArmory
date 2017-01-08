@@ -894,7 +894,7 @@ public:
    bool extendChainTo(unsigned);
    void extendChain(shared_ptr<AssetEntry>, unsigned);
    bool hasScrAddr(const BinaryData& scrAddr);
-   unsigned getAssetIndexForAddr(const BinaryData& scrAddr);
+   int getAssetIndexForAddr(const BinaryData& scrAddr);
    AddressEntryType getAddrTypeForIndex(int index);
    shared_ptr<AddressEntry> getAddressEntryForIndex(int);
    AddressEntryType getDefaultAddressType(void) const { return default_aet_; }

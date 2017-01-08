@@ -1145,13 +1145,13 @@ shared_ptr<AddressEntry> AssetWallet::getNewAddress()
 ////////////////////////////////////////////////////////////////////////////////
 bool AssetWallet::hasScrAddr(const BinaryData& scrAddr)
 {
-   return getAssetIndexForAddr(scrAddr) != UINT32_MAX;
+   return getAssetIndexForAddr(scrAddr) != INT32_MAX;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-unsigned AssetWallet::getAssetIndexForAddr(const BinaryData& scrAddr)
+int AssetWallet::getAssetIndexForAddr(const BinaryData& scrAddr)
 {
-   auto getIndexForAddr = [&](BinaryDataRef scriptHash)->unsigned
+   auto getIndexForAddr = [&](BinaryDataRef scriptHash)->int
    {
       auto prefix = scriptHash.getPtr();
       auto hashRef = scriptHash.getSliceRef(1, scriptHash.getSize() - 1);
@@ -1199,10 +1199,10 @@ unsigned AssetWallet::getAssetIndexForAddr(const BinaryData& scrAddr)
          throw runtime_error("invalid script hash prefix");
       }
 
-      return UINT32_MAX;
+      return INT32_MAX;
    };
 
-   auto getIndexForAddrNoPrefix = [&](BinaryDataRef scriptHash)->unsigned
+   auto getIndexForAddrNoPrefix = [&](BinaryDataRef scriptHash)->int
    {
       auto iter = hashMaps_.hashCompressed_.find(scriptHash);
       if (iter != hashMaps_.hashCompressed_.end())
@@ -1228,7 +1228,7 @@ unsigned AssetWallet::getAssetIndexForAddr(const BinaryData& scrAddr)
       if (iter6 != hashMaps_.hashNestedP2WSH_.end())
          return iter3->second;
 
-      return UINT32_MAX;
+      return INT32_MAX;
    };
 
    LockStruct lock(this);

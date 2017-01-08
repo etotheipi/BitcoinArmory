@@ -201,7 +201,7 @@ public:
       return wallet_->hasScrAddr(scrAddr);
    }
 
-   unsigned getAssetIndexForAddr(const BinaryData& scrAddr)
+   int getAssetIndexForAddr(const BinaryData& scrAddr)
    {
       return wallet_->getAssetIndexForAddr(scrAddr);
    }
@@ -278,6 +278,8 @@ public:
          return saObj;
       }
    }
+
+   int detectHighestUsedIndex(void);
 };
 
 class ResolvedFeed_PythonWalletSingle;

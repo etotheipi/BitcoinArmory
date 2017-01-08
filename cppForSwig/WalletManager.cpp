@@ -183,3 +183,18 @@ void WalletContainer::registerWithBDV(bool isNew)
 
    swigWallet_ = make_shared<SwigClient::BtcWallet>(swigWlt);
 }
+
+////////////////////////////////////////////////////////////////////////////////
+int WalletContainer::detectHighestUsedIndex()
+{
+   int topIndex = 0;
+   for (auto addrCountPair : countMap_)
+   {
+      auto& addr = addrCountPair.first;
+      auto index = getAssetIndexForAddr(addr);
+      if (index > topIndex)
+         topIndex = index;
+   }
+
+   return topIndex;
+}
