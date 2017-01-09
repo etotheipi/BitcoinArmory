@@ -29,7 +29,9 @@ OBJS_Client = UniversalTimer.o BinaryData.o \
 	BtcUtils.o DBUtils.o EncryptionUtils.o \
 	BDM_seder.o DataObject.o FcgiMessage.o \
 	SocketObject.o SwigClient.o StringSockets.o \
-	BlockDataManagerConfig.o TxClasses.o libcryptopp.a
+	BlockDataManagerConfig.o TxClasses.o \
+	WalletManager.o Wallets.o Script.o Signer.o \
+	Transactions.o mdb.o midl.o lmdbpp.o libcryptopp.a
 
 OBJS_Server = UniversalTimer.o BinaryData.o lmdb_wrapper.o \
 	BtcUtils.o DBUtils.o BlockObj.o BlockUtils.o EncryptionUtils.o \
