@@ -461,3 +461,29 @@ void BlockDataManagerConfig::appendPath(string& base, const string& add)
 
    base.append(add);
 }
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData NodeStatusStruct::serialize(void) const
+{
+   BinaryWriter bw;
+   bw.put_uint8_t(uint8_t(status_));
+   bw.put_uint8_t(uint8_t(SegWitEnabled_));
+
+   return bw.getData();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void NodeStatusStruct::deserialize(const BinaryData& data)
+{
+   BinaryRefReader brr(data.getRef());
+
+   status_ = NodeStatus(brr.get_uint8_t());
+   SegWitEnabled_ = bool(brr.get_uint8_t());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+NodeStatusStruct NodeStatusStruct::cast_to_NodeStatusStruct(void* ptr)
+{
+   NodeStatusStruct nss = *(NodeStatusStruct*)ptr;
+   return nss;
+}

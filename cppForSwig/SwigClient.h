@@ -19,6 +19,7 @@ and handle the data transmission with the BDM server
 #include "bdmenums.h"
 #include "log.h"
 #include "TxClasses.h"
+#include "BlockDataManagerConfig.h"
 
 class WalletManager;
 class WalletContainer;
@@ -260,7 +261,8 @@ namespace SwigClient
          CBO_BDV_Refresh,
          CBO_BDM_Ready,
          CBO_progress,
-         CBO_terminate
+         CBO_terminate,
+         CBO_NodeStatus
       };
 
       bool run_ = true;
@@ -352,6 +354,8 @@ namespace SwigClient
 
       void updateWalletsLedgerFilter(const vector<BinaryData>& wltIdVec);
       bool hasRemoteDB(void);
+
+      NodeStatusStruct getNodeStatus(void);
    };
 };
 

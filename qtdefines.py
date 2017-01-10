@@ -327,8 +327,29 @@ class QRichLabel(QLabel):
    def setItalic(self):
       self.setText('<i>' + self.text() + '</i>')
 
+class QRichLabel_AutoToolTip(QRichLabel):
+   def __init__(self, txt, doWrap=True, \
+                           hAlign=Qt.AlignLeft, \
+                           vAlign=Qt.AlignVCenter, \
+                           **kwargs):
+      super(QRichLabel_AutoToolTip, self).__init__(txt, \
+            doWrap, hAlign, vAlign, **kwargs)
+      
+      self.toolTipMethod = None
+   
+   def setToolTipLambda(self, toolTipMethod):
+      self.toolTipMethod = toolTipMethod
+      self.setToolTip(self.toolTipMethod())
+     
+   def event(self, event):
+      if event.type() == QEvent.ToolTip:
+         if self.toolTipMethod != None:
+            txt = self.toolTipMethod()
+            self.setToolTip(txt)
 
+      return QLabel.event(self,event)
 
+      
 class QMoneyLabel(QRichLabel):
    def __init__(self, nSatoshi, ndec=8, maxZeros=2, wColor=True, 
                               wBold=False, txtSize=10):

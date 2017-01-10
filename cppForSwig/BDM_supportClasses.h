@@ -575,5 +575,19 @@ struct BDV_Notification_Progress : public BDV_Notification
    }
 };
 
+struct BDV_Notification_NodeStatus : public BDV_Notification
+{
+   const NodeStatusStruct status_;
+
+   BDV_Notification_NodeStatus(NodeStatusStruct nss) :
+      status_(nss)
+   {}
+
+   BDV_Action action_type(void)
+   {
+      return BDV_NodeStatus;
+   }
+};
+
 #endif
 // kate: indent-width 3; replace-tabs on;

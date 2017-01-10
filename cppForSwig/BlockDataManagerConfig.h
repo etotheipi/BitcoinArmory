@@ -93,5 +93,25 @@ struct BlockDataManagerConfig
    static string portToString(unsigned);
 };
 
+enum NodeStatus
+{
+   NodeStatus_Offline,
+   NodeStatus_Online,
+   NodeStatus_OffSync
+};
+
+struct NodeStatusStruct
+{
+   NodeStatus status_ = NodeStatus_Offline;
+   bool SegWitEnabled_ = false;
+
+   BinaryData serialize(void) const;
+   void deserialize(const BinaryData&);
+
+   //casting nastiness for python callbacks arg conversion until I 
+   //shove it all on the cpp side
+   static NodeStatusStruct cast_to_NodeStatusStruct(void* ptr);
+};
+
 #endif
 // kate: indent-width 3; replace-tabs on;

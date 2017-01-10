@@ -214,6 +214,16 @@ try
       return false;
    };
 
+   auto updateNodeStatusLambda = [bdm]()->void
+   {
+      auto&& nodeStatus = bdm->getNodeStatus();
+      auto&& notifPtr =
+         make_unique<BDV_Notification_NodeStatus>(move(nodeStatus));
+      bdm->notificationStack_.push_back(move(notifPtr));
+   };
+
+   bdm->networkNode_->registerNodeStatusLambda(updateNodeStatusLambda);
+
    while (pimpl->run)
    {
       //register promise with p2p interface

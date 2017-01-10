@@ -303,6 +303,26 @@ void BlockDataViewer::updateWalletsLedgerFilter(
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+NodeStatusStruct BlockDataViewer::getNodeStatus()
+{
+   Command cmd;
+
+   cmd.method_ = "getNodeStatus";
+   cmd.ids_.push_back(bdvID_);
+
+   cmd.serialize();
+   auto&& result = sock_->writeAndRead(cmd.command_);
+
+   Arguments retval(result);
+   auto&& serData = retval.get<BinaryDataObject>();
+
+   NodeStatusStruct nss;
+   nss.deserialize(serData.get());
+
+   return nss;
+}
+
+///////////////////////////////////////////////////////////////////////////////
 //
 // LedgerDelegate
 //
@@ -687,13 +707,14 @@ void BlockHeader::unserialize(uint8_t const * ptr, uint32_t size)
 PythonCallback::PythonCallback(const BlockDataViewer& bdv) :
    sock_(bdv.sock_), bdvID_(bdv.getID())
 {
-   orderMap_["continue"]      = CBO_continue;
-   orderMap_["NewBlock"]      = CBO_NewBlock;
-   orderMap_["BDV_ZC"]        = CBO_ZC;
-   orderMap_["BDV_Refresh"]   = CBO_BDV_Refresh;
-   orderMap_["BDM_Ready"]     = CBO_BDM_Ready;
-   orderMap_["BDV_Progress"]  = CBO_progress;
-   orderMap_["terminate"]     = CBO_terminate;
+   orderMap_["continue"]         = CBO_continue;
+   orderMap_["NewBlock"]         = CBO_NewBlock;
+   orderMap_["BDV_ZC"]           = CBO_ZC;
+   orderMap_["BDV_Refresh"]      = CBO_BDV_Refresh;
+   orderMap_["BDM_Ready"]        = CBO_BDM_Ready;
+   orderMap_["BDV_Progress"]     = CBO_progress;
+   orderMap_["terminate"]        = CBO_terminate;
+   orderMap_["BDV_NodeStatus"]   = CBO_NodeStatus;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -808,6 +829,15 @@ void PythonCallback::remoteLoop(void)
             {
                //shut down command from server
                return false;
+            }
+
+            case CBO_NodeStatus:
+            {
+               auto&& serData = args.get<BinaryDataObject>();
+               NodeStatusStruct nss;
+               nss.deserialize(serData.get());
+
+               run(BDMAction::BDMAction_NodeStatus, &nss, 0);
             }
          }
       }

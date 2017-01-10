@@ -41,7 +41,8 @@ enum OrderType
    OrderZC,
    OrderOther,
    OrderProgress,
-   OrderTerminate
+   OrderTerminate,
+   OrderNodeStatus
 };
 
 ///////////////////////////////////////////////////////////////////////////////

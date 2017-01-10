@@ -42,7 +42,8 @@ enum BDMAction
    BDMAction_Refresh,
    BDMAction_Exited,
    BDMAction_ErrorMsg,
-   BDMAction_StartedWalletScan
+   BDMAction_StartedWalletScan,
+   BDMAction_NodeStatus
 };
 
 enum ARMORY_DB_TYPE
@@ -79,7 +80,8 @@ enum BDV_Action
    BDV_NewBlock,
    BDV_Refresh,
    BDV_ZC,
-   BDV_Progress
+   BDV_Progress,
+   BDV_NodeStatus
 };
 
 enum BDV_refresh

@@ -644,6 +644,20 @@ void BDV_Server_Object::buildMethodMap()
    };
 
    methodMap_["updateWalletsLedgerFilter"] = updateWalletsLedgerFilter;
+
+   //getNodeStatus
+   auto getNodeStatus = [this]
+      (const vector<string>& ids, Arguments& args)->Arguments
+   {
+      auto&& nodeStatus = this->bdmPtr_->getNodeStatus();
+
+      BinaryDataObject bdo(nodeStatus.serialize());
+      Arguments retarg;
+      retarg.push_back(move(bdo));
+      return move(retarg);
+   };
+
+   methodMap_["getNodeStatus"] = getNodeStatus;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1372,6 +1386,20 @@ void BDV_Server_Object::maintenanceThread(void)
             args2.push_back(move(pd));
 
             cb_->callback(move(args2), OrderProgress);
+         }
+
+         case BDV_NodeStatus:
+         {
+            auto&& payload =
+               dynamic_pointer_cast<BDV_Notification_NodeStatus>(notifPtr);
+
+            Arguments args2;
+            BinaryDataObject bdo("BDV_NodeStatus");
+            BinaryDataObject nssBdo(payload->status_.serialize());
+            args2.push_back(move(bdo));
+            args2.push_back(move(nssBdo));
+
+            cb_->callback(move(args2), OrderNodeStatus);
          }
       }
    }

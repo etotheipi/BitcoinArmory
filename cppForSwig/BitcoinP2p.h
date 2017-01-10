@@ -468,6 +468,7 @@ private:
    mutex connectMutex_, pollMutex_, writeMutex_;
    unique_ptr<promise<bool>> connectedPromise_ = nullptr;
    unique_ptr<promise<bool>> verackPromise_ = nullptr;
+   atomic<bool> nodeConnected_;
 
    //to pass payloads between the poll thread and the processing one
    shared_ptr<BlockingStack<vector<uint8_t>>> dataStack_;
@@ -478,12 +479,15 @@ private:
    //callback lambdas
    Stack<function<void(const vector<InvEntry>&)>> invBlockLambdas_;
    function<void(vector<InvEntry>&)> invTxLambda_ = {};
+   function<void(void)> nodeStatusLambda_ = {};
 
    //stores callback by txhash for getdata packet we send to the node
    TransactionalMap<BinaryData, shared_ptr<GetDataStatus>> getTxCallbackMap_;
 
    atomic<bool> run_;
    future<bool> shutdownFuture_;
+
+   uint32_t topBlock_ = UINT32_MAX;
 
 public:
    struct getDataPayload
@@ -550,6 +554,12 @@ public:
 
    void registerGetTxCallback(const BinaryDataRef&, shared_ptr<GetDataStatus>);
    void unregisterGetTxCallback(const BinaryDataRef&);
+
+   bool connected(void) const { return nodeConnected_.load(memory_order_acquire); }
+   bool isSegWit(void) const { return PEER_USES_WITNESS; }
+
+   void updateNodeStatus(bool connected);
+   void registerNodeStatusLambda(function<void(void)> lbd) { nodeStatusLambda_ = lbd; }
 };
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -5,9 +5,12 @@
 # Copyright (C) 2011-2015, Armory Technologies, Inc.                           #
 # Distributed under the GNU Affero General Public License (AGPL v3)            #
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
-#                                                                              #
-################################################################################
-
+#                                                                            #
+# Copyright (C) 2016-17, goatpig                                             #
+#  Distributed under the MIT license                                         #
+#  See LICENSE-MIT or https://opensource.org/licenses/MIT                    #                                   
+#                                                                            #
+##############################################################################
 import gettext
 
 
@@ -160,6 +163,8 @@ class ArmoryMainWindow(QMainWindow):
       self.allLockboxes = []
       self.lockboxIDMap = {}
       self.cppLockboxWltMap = {}
+      
+      self.nodeStatus = None
 
       # Error and exit on both regtest and testnet
       if USE_TESTNET and USE_REGTEST:
@@ -275,7 +280,7 @@ class ArmoryMainWindow(QMainWindow):
 
       self.walletDialogDict = {}
 
-      self.lblArmoryStatus = QRichLabel(tr('<font color=%(color)s>Offline</font> ') %
+      self.lblArmoryStatus = QRichLabel_AutoToolTip(tr('<font color=%(color)s>Offline</font> ') %
                                       { 'color' : htmlColor('TextWarn') }, doWrap=False)
 
       self.statusBar().insertPermanentWidget(0, self.lblArmoryStatus)
@@ -2918,11 +2923,6 @@ class ArmoryMainWindow(QMainWindow):
       self.createCombinedLedger()
       self.ledgerSize = len(self.combinedLedger)
       self.statusBar().showMessage('Blockchain loaded, wallets sync\'d!', 10000)
-      if self.netMode==NETWORKMODE.Full:
-         LOGINFO('Current block number: %d', TheBDM.getTopBlockHeight())
-         self.lblArmoryStatus.setText(\
-            '<font color=%s>Connected (%s blocks)</font> ' %
-            (htmlColor('TextGreen'), TheBDM.getTopBlockHeight()))
 
       currSyncSuccess = self.getSettingOrSetDefault("SyncSuccessCount", 0)
       self.writeSetting('SyncSuccessCount', min(currSyncSuccess+1, 10))
@@ -5862,6 +5862,37 @@ class ArmoryMainWindow(QMainWindow):
       for lbid in self.cppLockboxWltMap:
          self.cppLockboxWltMap[lbid].getBalancesAndCountFromDB(\
             TheBDM.topBlockHeight, IGNOREZC)
+      
+   #############################################################################      
+   def updateStatusBarText(self):
+      if self.nodeStatus.status_ == Cpp.NodeStatus_Online:
+         self.lblArmoryStatus.setText(\
+            '<font color=%s>Connected (%s blocks)</font> ' %
+            (htmlColor('TextGreen'), TheBDM.getTopBlockHeight()))
+         
+         
+         def getToolTipTextOnline():
+            blkRecvAgo  = RightNow() - self.blkReceived
+            tt = tr('Last block received %(time)s ago') % \
+                     { 'time' : secondsToHumanTime(blkRecvAgo) }
+            return tt
+         
+         self.lblArmoryStatus.setToolTipLambda(getToolTipTextOnline)
+         
+      elif self.nodeStatus.status_ == Cpp.NodeStatus_Offline:
+         self.lblArmoryStatus.setText(\
+            '<font color=%s>Node offline (%s blocks)</font> ' %
+            (htmlColor('TextRed'), TheBDM.getTopBlockHeight()))    
+         
+         def getToolTipTextOffline():
+            blkRecvAgo  = RightNow() - self.blkReceived
+            tt = tr(\
+            'Disconnected from Bitcoin Node, cannot update history'
+            '<br><br>Last known block: %d <br>Received %s ago' \
+            % (TheBDM.getTopBlockHeight(), secondsToHumanTime(blkRecvAgo)))
+            return tt
+         
+         self.lblArmoryStatus.setToolTipLambda(getToolTipTextOffline)     
 
    #############################################################################
    def handleCppNotification(self, action, args):
@@ -5869,6 +5900,9 @@ class ArmoryMainWindow(QMainWindow):
       if action == FINISH_LOAD_BLOCKCHAIN_ACTION:
          #Blockchain just finished loading, finish initializing UI and render the
          #ledgers
+         
+         self.nodeStatus = TheBDM.bdv().getNodeStatus()
+         WITNESS = self.nodeStatus.SegWitEnabled_
 
          self.updateWalletData()
 
@@ -5881,7 +5915,9 @@ class ArmoryMainWindow(QMainWindow):
             self.finishLoadBlockchainGUI()
             self.needUpdateAfterScan = False
             self.setDashboardDetails()
-
+         
+         self.updateStatusBarText()
+         
       elif action == NEW_ZC_ACTION:
          #A zero conf Tx conerns one of the address Armory is tracking, pull the
          #updated ledgers from the BDM and create the related notifications.
@@ -5911,9 +5947,6 @@ class ArmoryMainWindow(QMainWindow):
 
             if self.netMode==NETWORKMODE.Full:
                LOGINFO('Current block number: %d', TheBDM.getTopBlockHeight())
-               self.lblArmoryStatus.setText(\
-                  tr('<font color=%(color)s>Connected (%(hgt)s blocks)</font> ') % \
-                  { 'color' : htmlColor('TextGreen'), 'hgt' : TheBDM.getTopBlockHeight()})
 
             # Update the wallet view to immediately reflect new balances
             self.walletModel.reset()
@@ -6034,6 +6067,24 @@ class ArmoryMainWindow(QMainWindow):
             if self.lbDialog != None:
                self.lbDialog.resetLBSelection()
                self.lbDialog.changeLBFilter()
+               
+      elif action == NODESTATUS_UPDATE:
+         self.nodeStatus = args[0]
+         
+         WITNESS = self.nodeStatus.SegWitEnabled_
+         
+         if self.nodeStatus.status_ == Cpp.NodeStatus_Offline:
+            self.showTrayMsg('Disconnected', 'Connection to Bitcoin-Core ' \
+                             'client lost!  Armory cannot send nor ' \
+                             'receive bitcoins until connection is ' \
+                             're-established.', QSystemTrayIcon.Critical, \
+                             10000)
+         elif self.nodeStatus.status_ == Cpp.NodeStatus_Online:
+            self.showTrayMsg('Connected', 'Connection to Bitcoin-Core ' \
+                                   're-established', \
+                                   QSystemTrayIcon.Information, 10000)
+            
+         self.updateStatusBarText()
 
    #############################################################################
    def Heartbeat(self, nextBeatSec=1):
@@ -6133,12 +6184,6 @@ class ArmoryMainWindow(QMainWindow):
                pyBlock = PyBlock().unserialize(cppHead.getSerializedBlock())
                for blockFunc in self.extraNewBlockFunctions:
                   blockFunc(pyBlock)
-
-
-            blkRecvAgo  = RightNow() - self.blkReceived
-            #blkStampAgo = RightNow() - TheBDM.blockchain().top().getTimestamp()  # TODO - show absolute time, and show only on new block
-            self.lblArmoryStatus.setToolTip(tr('Last block received is %(time)s ago') % \
-                                                { 'time' : secondsToHumanTime(blkRecvAgo) })
 
             # TODO - remove
             for func in self.extraHeartbeatOnline:

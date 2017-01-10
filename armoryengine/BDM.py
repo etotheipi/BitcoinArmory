@@ -30,6 +30,7 @@ REFRESH_ACTION = 'refresh'
 STOPPED_ACTION = 'stopped'
 WARNING_ACTION = 'warning'
 SCAN_ACTION = 'StartedWalletScan'
+NODESTATUS_UPDATE = 'NodeStatusUpdate'
 
 def newTheBDM(isOffline=False):
    global TheBDM
@@ -77,6 +78,10 @@ class PySide_CallBack(Cpp.PythonCallback):
             act = SCAN_ACTION
             argstr = Cpp.BtcUtils_cast_to_string_vec(arg)
             arglist.append(argstr)
+         elif action == Cpp.BDMAction_NodeStatus:
+            act = NODESTATUS_UPDATE
+            argNodeStatus = Cpp.NodeStatusStruct_cast_to_NodeStatusStruct(arg)
+            arglist.append(argNodeStatus)
             
          listenerList = TheBDM.getListenerList()
          for cppNotificationListener in listenerList:

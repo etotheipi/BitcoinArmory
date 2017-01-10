@@ -1,3 +1,11 @@
+##############################################################################
+#                                                                            #
+# Copyright (C) 2016-17, goatpig                                             #
+#  Distributed under the MIT license                                         #
+#  See LICENSE-MIT or https://opensource.org/licenses/MIT                    #                                   
+#                                                                            #
+##############################################################################
+
 from PyQt4.QtGui import QFrame
 from PyQt4.QtCore import Qt
 import time

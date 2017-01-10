@@ -1051,6 +1051,7 @@ vector<TxRef*> BlockDataManager::findAllNonStdTx(void)
 // untouched
 
 
+/////////////////////////////////////////////////////////////////////////////
 void BlockDataManager::resetDatabases(ResetDBMode mode)
 {
    if (mode == Reset_SSH)
@@ -1218,4 +1219,20 @@ void BlockDataManager::disableZeroConf(void)
    zcEnabled_ = false;
 
    zeroConfCont_->shutdown();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+NodeStatusStruct BlockDataManager::getNodeStatus() const
+{
+   NodeStatusStruct nss;
+   if (networkNode_ == nullptr)
+      return nss;
+   
+   if(networkNode_->connected())
+      nss.status_ = NodeStatus_Online;
+
+   if (networkNode_->isSegWit())
+      nss.SegWitEnabled_ = true;
+
+   return nss;
 }

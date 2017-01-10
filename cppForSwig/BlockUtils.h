@@ -241,6 +241,7 @@ public:
    }
 
    unsigned getCheckedTxCount(void) const { return checkTransactionCount_; }
+   NodeStatusStruct getNodeStatus(void) const;
 };
 
 ///////////////////////////////////////////////////////////////////////////////

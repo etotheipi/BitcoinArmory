@@ -668,6 +668,7 @@ BitcoinP2P::BitcoinP2P(const string& addrV4, const string& port,
    uint32_t magicword) :
    binSocket_(addrV4, port), magic_word_(magicword)
 {
+   nodeConnected_.store(false, memory_order_relaxed);
    run_.store(true, memory_order_relaxed);
 
 }
@@ -781,6 +782,7 @@ void BitcoinP2P::connectLoop(void)
          verackFuture.get();
          verackPromise_.reset();
          LOGINFO << "Connected to Bitcoin node";
+         updateNodeStatus(true);
 
          //signal calling thread
          connectedPromise_->set_value(true);
@@ -802,6 +804,7 @@ void BitcoinP2P::connectLoop(void)
          binSocket_.closeSocket();
 
       LOGINFO << "Disconnected from Bitcoin node";
+      updateNodeStatus(false);
    }
 
    shutdownPromise.set_value(true);
@@ -929,6 +932,8 @@ void BitcoinP2P::checkServices(unique_ptr<Payload> payload)
       PEER_USES_WITNESS = true;
    else
       PEER_USES_WITNESS = false;
+
+   topBlock_ = pver->startHeight_;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1256,4 +1261,11 @@ void BitcoinP2P::shutdown()
    ieVec.push_back(entry);
 
    processInvBlock(ieVec);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BitcoinP2P::updateNodeStatus(bool connected)
+{
+   nodeConnected_.store(connected, memory_order_release);
+   nodeStatusLambda_();
 }

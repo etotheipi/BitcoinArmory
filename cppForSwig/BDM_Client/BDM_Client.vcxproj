@@ -167,6 +167,7 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\bdmenums.h" />
     <ClInclude Include="..\BDM_seder.h" />
     <ClInclude Include="..\BtcUtils.h" />
     <ClInclude Include="..\DataObject.h" />

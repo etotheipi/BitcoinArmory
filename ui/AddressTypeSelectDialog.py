@@ -1,7 +1,16 @@
+##############################################################################
+#                                                                            #
+# Copyright (C) 2016-17, goatpig                                             #
+#  Distributed under the MIT license                                         #
+#  See LICENSE-MIT or https://opensource.org/licenses/MIT                    #                                   
+#                                                                            #
+##############################################################################
+
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
 from qtdefines import ArmoryDialog, STYLE_RAISED, QLabelButton
+from armoryengine.ArmoryUtils import WITNESS
 
 class AddressTypeSelectDialog(ArmoryDialog):
    
@@ -39,6 +48,9 @@ class AddressTypeSelectDialog(ArmoryDialog):
       swLayout.addWidget(self.radioSW, 0, 0, 1, 1)
       swLayout.addWidget(swDescr, 1, 0, 1, 1)
       frmSW.setLayout(swLayout)
+      
+      if WITNESS == False:
+         frmSW.setDisabled()
       
       def setSW():
          self.selectType('P2SH-P2WPKH')
