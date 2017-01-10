@@ -1386,6 +1386,7 @@ void BDV_Server_Object::maintenanceThread(void)
             args2.push_back(move(pd));
 
             cb_->callback(move(args2), OrderProgress);
+            break;
          }
 
          case BDV_NodeStatus:
@@ -1400,7 +1401,11 @@ void BDV_Server_Object::maintenanceThread(void)
             args2.push_back(move(nssBdo));
 
             cb_->callback(move(args2), OrderNodeStatus);
+            break;
          }
+
+         default:
+            continue;
       }
    }
 }

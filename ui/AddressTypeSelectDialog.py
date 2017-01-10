@@ -10,7 +10,6 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
 from qtdefines import ArmoryDialog, STYLE_RAISED, QLabelButton
-from armoryengine.ArmoryUtils import WITNESS
 
 class AddressTypeSelectDialog(ArmoryDialog):
    
@@ -49,8 +48,9 @@ class AddressTypeSelectDialog(ArmoryDialog):
       swLayout.addWidget(swDescr, 1, 0, 1, 1)
       frmSW.setLayout(swLayout)
       
+      from armoryengine.ArmoryUtils import WITNESS
       if WITNESS == False:
-         frmSW.setDisabled()
+         frmSW.setDisabled(True)
       
       def setSW():
          self.selectType('P2SH-P2WPKH')
