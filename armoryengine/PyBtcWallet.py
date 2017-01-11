@@ -2768,11 +2768,11 @@ class PyBtcWallet(object):
 
 
          ##### MAGIC #####
-         if not ustx.isSW:
+         if ustx.isLegacyTx:
             ustx.createAndInsertSignatureForInput(idx, addrObj.binPrivKey32_Plain)
          ##### MAGIC #####
           
-      if ustx.isSW:
+      if not ustx.isLegacyTx:
          
          #create cpp signer
          from armoryengine.CppSignerDirector import PythonSignerDirector

@@ -928,7 +928,12 @@ void BitcoinP2P::checkServices(unique_ptr<Payload> payload)
 {
    Payload_Version* pver = (Payload_Version*)payload.get();
 
-   if(pver->vheader_.services_ & NODE_WITNESS)
+   auto&& mainnetMW = READHEX(MAINNET_MAGIC_BYTES);
+   auto mwInt = (uint32_t*)mainnetMW.getPtr();
+
+   //Hardcode disabling SW for mainnet until BIP9 rule detection is implemented
+   if(pver->vheader_.services_ & NODE_WITNESS && 
+      magic_word_ != *mwInt)
       PEER_USES_WITNESS = true;
    else
       PEER_USES_WITNESS = false;

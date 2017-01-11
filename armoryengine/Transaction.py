@@ -1125,6 +1125,7 @@ class UnsignedTxInput(AsciiSerializable):
 
       #####
       # If this is P2SH, let's check things, and then use the sub-script
+      nested = False
       baseScript = self.txoScript
       if self.scriptType==CPP_TXOUT_P2SH:
          # If we're here, we should've passed in a P2SH script
@@ -1146,34 +1147,13 @@ class UnsignedTxInput(AsciiSerializable):
          # original script
          baseScript = self.p2shScript
          self.scriptType = getTxOutScriptType(self.p2shScript)
+         nested = True
 
 
       #####
       # Fill some of the other fields with info needed to spend the script
-      if self.scriptType==CPP_TXOUT_P2SH:
-         # If this is a P2SH script, we've already overwritten the script
-         # type with the type of sub script.  If we're here, this means
-         # that the subscript is also P2SH, which is not allowed
-         raise InvalidScriptError('Cannot have recursive P2SH scripts!')
-      elif self.scriptType in CPP_TXOUT_STDSINGLESIG:
-         scrAddr = script_to_scrAddr(baseScript)
-         if pubKeyMap is None or pubKeyMap.get(scrAddr) is None:
-            raise KeyDataError('Must give pubkey map for singlesig USTXI!')
-         self.sigsNeeded  = 1
-         self.keysListed  = 1
-         self.scrAddrs    = [scrAddr]
-         self.pubKeys     = [pubKeyMap[scrAddr]]
-         self.signatures  = ['']
-         self.wltLocators = ['']
-      elif self.scriptType==CPP_TXOUT_P2WPKH:
-         scrAddr = script_to_scrAddr(baseScript)
-         self.sigsNeeded  = 1
-         self.keysListed  = 1
-         self.scrAddrs    = [scrAddr]
-         self.pubKeys     = {}
-         self.signatures  = ['']
-         self.wltLocators = ['']         
-      elif self.scriptType==CPP_TXOUT_MULTISIG:
+      if self.scriptType==CPP_TXOUT_MULTISIG:
+         #nested or raw MS scripts for lockboxes
          M, N, a160s, pubs = getMultisigScriptInfo(baseScript)
          self.sigsNeeded   = M
          self.keysListed   = N
@@ -1181,9 +1161,42 @@ class UnsignedTxInput(AsciiSerializable):
          self.pubKeys      = pubs[:]
          self.signatures   = ['']*N
          self.wltLocators  = ['']*N
+      
+      elif nested == False:
+         #legacy single sig types
+         if self.scriptType==CPP_TXOUT_P2SH:
+            # If this is a P2SH script, we've already overwritten the script
+            # type with the type of sub script.  If we're here, this means
+            # that the subscript is also P2SH, which is not allowed
+            raise InvalidScriptError('Cannot have recursive P2SH scripts!')
+         elif self.scriptType in CPP_TXOUT_STDSINGLESIG:
+            scrAddr = script_to_scrAddr(baseScript)
+            if pubKeyMap is None or pubKeyMap.get(scrAddr) is None:
+               raise KeyDataError('Must give pubkey map for singlesig USTXI!')
+            self.sigsNeeded  = 1
+            self.keysListed  = 1
+            self.scrAddrs    = [scrAddr]
+            self.pubKeys     = [pubKeyMap[scrAddr]]
+            self.signatures  = ['']
+            self.wltLocators = ['']      
+         else:
+            LOGWARN("Non-standard script for TxIn %d" % i)
+            pass
+      
       else:
-         LOGWARN("Non-standard script for TxIn %d" % i)
-         pass
+         #new nested single sig types
+         scrType = self.scriptType
+         if scrType in CPP_TXOUT_NESTED_SINGLESIG:
+            scrAddr = script_to_scrAddr(baseScript)
+            self.sigsNeeded  = 1
+            self.keysListed  = 1
+            self.scrAddrs    = [scrAddr]
+            self.pubKeys     = {}
+            self.signatures  = ['']
+            self.wltLocators = ['']  
+         else:
+            LOGWARN("Unexpected nested type for TxIn %d" % i)
+            pass 
 
 
       # "insert*s" can either be a single values, or a list
@@ -2084,7 +2097,7 @@ class UnsignedTransaction(AsciiSerializable):
       self.lockTime        = 0
       self.ustxInputs  = []
       self.decorTxOuts = []
-      self.isSW = False
+      self.isLegacyTx = True
 
       txMap   = {} if txMap   is None else txMap
       p2shMap = {} if p2shMap is None else p2shMap
@@ -2226,9 +2239,9 @@ class UnsignedTransaction(AsciiSerializable):
    #############################################################################
    def createFromTxOutSelection(self, utxoSelection, scriptValuePairs,
                                 pubKeyMap=None, txMap=None, p2shMap=None, 
-                                isSW=False):
+                                isLegacyTx=True):
 
-      self.isSW = isSW
+      self.isLegacyTx = isLegacyTx
       
       totalUtxoSum = sumTxOutList(utxoSelection)
       totalOutputSum = sum([a[1] for a in scriptValuePairs])
@@ -2540,7 +2553,7 @@ class UnsignedTransaction(AsciiSerializable):
       
       finalTx = self.pytxObj.copy()
       
-      if not self.isSW:   
+      if self.isLegacyTx:   
          # Check signatures are valid (if not skipped)
          # TODO: I would've used PyScriptProcessor since it evaluates the scripts
          #       as a whole, instead of just verifying the individual signatures,

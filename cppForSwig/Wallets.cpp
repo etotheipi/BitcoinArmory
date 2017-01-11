@@ -2533,7 +2533,7 @@ const BinaryData& AssetEntry_Single::getP2PKScript() const
    {
       p2pkScript_.append(33); //push data opcode for pubkey len
       p2pkScript_.append(pubkey_->getCompressedKey()); //compressed pubkey
-      p2pkScript_.append(OP_CHECKSIGVERIFY); 
+      p2pkScript_.append(OP_CHECKSIG); 
    }
 
    return p2pkScript_;

@@ -776,7 +776,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       random.shuffle(scriptValPairs)
 
 
-      isSW = False
+      isLegacyTx = True
       p2shMap = {}
       pubKeyMap = {}
       
@@ -809,7 +809,7 @@ class SendBitcoinsFrame(ArmoryFrame):
                if addrObj:
                   pubKeyMap[scrAddr] = addrObj.binPublicKey65.toBinStr()
             elif scrType == CPP_TXOUT_P2WPKH:
-               isSW = True
+               isLegacyTx = False
                break
             elif scrType == CPP_TXOUT_P2SH:
                p2shScript = self.wlt.cppWallet.getP2SHScriptForHash(utxo.getScript())
@@ -818,9 +818,8 @@ class SendBitcoinsFrame(ArmoryFrame):
                p2shMap[p2shKey]  = p2shScript               
                
                p2shScriptType = getTxOutScriptType(p2shScript)
-               if p2shScriptType == CPP_TXOUT_P2WPKH or \
-                  p2shScriptType == CPP_TXOUT_P2WSH:
-                  isSW = True               
+               if p2shScriptType != CPP_TXOUT_MULTISIG:
+                  isLegacyTx = False               
 
          '''
          If we are consuming any number of SegWit utxos, pass the utxo selection
@@ -830,7 +829,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          
          # Now create the unsigned USTX
          ustx = UnsignedTransaction().createFromTxOutSelection(\
-            utxoSelect, scriptValPairs, pubKeyMap, p2shMap=p2shMap, isSW=isSW)
+            utxoSelect, scriptValPairs, pubKeyMap, p2shMap=p2shMap, isLegacyTx=isLegacyTx)
 
       #ustx.pprint()
 
@@ -853,7 +852,8 @@ class SendBitcoinsFrame(ArmoryFrame):
          if self.wlt.isLocked:
             Passphrase = None  
                   
-            unlockdlg = DlgUnlockWallet(self.wlt, self, self.main, 'Send Transaction', returnPassphrase=True)
+            unlockdlg = DlgUnlockWallet(self.wlt, \
+                  self, self.main, 'Send Transaction', returnPassphrase=True)
             if unlockdlg.exec_():
                if unlockdlg.Accepted == 1:
                   Passphrase = unlockdlg.securePassphrase.copy()
