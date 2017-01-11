@@ -779,6 +779,9 @@ class ArmoryMainWindow(QMainWindow):
 
    ####################################################
    def changeWltFilter(self):
+      
+      if self.netMode == NETWORKMODE.Offline:
+         return
 
       currIdx  = max(self.comboWltSelect.currentIndex(), 0)
       currText = str(self.comboWltSelect.currentText()).lower()
@@ -2632,21 +2635,9 @@ class ArmoryMainWindow(QMainWindow):
       
    #############################################################################
    def loadCppWallets(self):
-      '''
-              if self.walletManager.hasWallet(wltID):
-               self.walletManager.synchronizeWallet(
-                  wltID, wltLoad.lastComputedChainIndex)
-            else:
-               rootEntry = wltLoad.addrMap['ROOT']
-               self.walletManager.duplicateWOWallet(
-                  rootEntry.binPublicKey65, rootEntry.chaincode, 
-                  wltLoad.lastComputedChainIndex + 1)
-               
-            wltLoad.cppWallet = self.walletManager.getCppWallet(wltID) 
-      '''   
-      
       #load all existing cpp wallets
-      self.walletManager = Cpp.WalletManager(str(ARMORY_HOME_DIR))
+      if self.walletManager == None:
+         self.walletManager = Cpp.WalletManager(str(ARMORY_HOME_DIR))
       
       #check python wallets against cpp wallets
       from ui.WalletMirrorDialog import WalletComparisonClass
@@ -3269,8 +3260,6 @@ class ArmoryMainWindow(QMainWindow):
    def addWalletToApplication(self, newWallet, walletIsNew=False):
       LOGINFO('addWalletToApplication')
 
-      newWallet.registerWallet(walletIsNew)
-
       # Update the maps/dictionaries
       newWltID = newWallet.uniqueIDB58
 
@@ -3283,6 +3272,10 @@ class ArmoryMainWindow(QMainWindow):
       # Maintain some linear lists of wallet info
       self.walletIDSet.add(newWltID)
       self.walletIDList.append(newWltID)
+      
+      self.loadCppWallets()
+      newWallet.registerWallet(walletIsNew)
+      
       showByDefault = (determineWalletType(newWallet, self)[0] != WLTTYPES.WatchOnly)
       self.walletVisibleList.append(showByDefault)
       self.setWltSetting(newWltID, 'LedgerShow', showByDefault)

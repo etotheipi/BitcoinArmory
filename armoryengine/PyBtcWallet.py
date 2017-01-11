@@ -804,7 +804,8 @@ class PyBtcWallet(object):
                              kdfMaxMem=DEFAULT_MAXMEM_LIMIT, \
                              shortLabel='', longLabel='', isActuallyNew=True, \
                              doRegisterWithBDM=True, skipBackupFile=False, \
-                             extraEntropy=None, Progress=emptyFunc, armoryHomeDir = ARMORY_HOME_DIR):
+                             extraEntropy=None, Progress=emptyFunc, \
+                             armoryHomeDir = ARMORY_HOME_DIR):
       """
       This method will create a new wallet, using as much customizability
       as you want.  You can enable encryption, and set the target params
@@ -1020,14 +1021,14 @@ class PyBtcWallet(object):
 
       self.linearAddr160List.append(new160)
       self.chainIndexMap[newAddr.chainIndex] = new160
-      
-      needsRegistered = \
-         self.cppWallet.extendAddressChainTo(self.lastComputedChainIndex)
-
+   
       # In the future we will enable first/last seen, but not yet
       time0,blk0 = getCurrTimeAndBlock() if isActuallyNew else (0,0)
-      if doRegister and self.isRegistered() and needsRegistered:
-         self.cppWallet.registerWithBDV(isActuallyNew)
+      if doRegister and self.isRegistered():
+         needsRegistered = \
+            self.cppWallet.extendAddressChainTo(self.lastComputedChainIndex)
+         if needsRegistered:
+            self.cppWallet.registerWithBDV(isActuallyNew)
 
       # For recovery rescans, this method will be called directly by
       # the BDM, which may cause a deadlock if we go through the 

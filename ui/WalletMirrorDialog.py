@@ -72,11 +72,11 @@ class WalletComparisonClass(object):
          
       #synchronize lagging wallets
       for wltID in syncList:
-         reportTextProgress("Synchronizing wallet %s", wltID)
+         reportTextProgress("Synchronizing wallet %s" % wltID)
          
          wlt = self.main.walletMap[wltID]
          self.main.walletManager.synchronizeWallet(
-            wltID, wlt.lastComputedIndex)
+            wltID, wlt.lastComputedChainIndex)
          
       reportTextProgress('shutdown')
          
@@ -103,12 +103,12 @@ class MirrorWalletsDialog(ArmoryDialog):
       support for compressed public keys and Segregated Witness transactions.
       <br><br>
       
-      Mirroring operation only needs to happen once per wallet. Synchronization
+      Mirroring only needs to happen once per wallet. Synchronization
       will happen every time the Python wallet address chain is ahead of the 
       mirrored Cpp wallet address chain (this typically rarely happens).
       <br><br>
       
-      This process can take up to a few minutes.<br><br>
+      This process can take up to a few minutes per wallet.<br><br>
       '''
        )
       
