@@ -710,7 +710,7 @@ class AddressEntry_Nested_P2PK : public AddressEntry
 public:
    //tors
    AddressEntry_Nested_P2PK(shared_ptr<AssetEntry> asset) :
-      AddressEntry(AddressEntryType_Nested_P2WSH, asset)
+      AddressEntry(AddressEntryType_Nested_P2PK, asset)
    {}
 
    //virtual

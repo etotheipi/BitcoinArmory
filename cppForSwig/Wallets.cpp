@@ -1288,6 +1288,8 @@ shared_ptr<AddressEntry> AssetWallet_Single::getAddressEntryForAsset(
    if (ae_type == AddressEntryType_Default)
       ae_type = default_aet_;
 
+   auto prev_aet = assetPtr->getAddrType();
+
    auto addrIter = addresses_.find(assetPtr->getId());
    if (addrIter != addresses_.end())
    {
@@ -1318,7 +1320,7 @@ shared_ptr<AddressEntry> AssetWallet_Single::getAddressEntryForAsset(
       throw WalletException("unsupported address entry type");
    }
 
-   if (ae_type == default_aet_)
+   if (ae_type == default_aet_ || ae_type == prev_aet)
       assetPtr->doNotCommit();
    else
       writeAssetEntry(assetPtr);
@@ -2551,13 +2553,18 @@ const BinaryData& AssetEntry_Single::getP2PKScriptH160() const
 AddressEntryType AssetEntry_Single::getAddressTypeForHash(
    BinaryDataRef hashRef) const
 {
-   auto& nested = getWitnessScriptH160();
-   if (hashRef == nested)
-      return AddressEntryType_Nested_P2WPKH;
-   
-   auto& h160Unc = getHash160Uncompressed();
+      auto& h160Unc = getHash160Uncompressed();
    if (hashRef == h160Unc)
       return AddressEntryType_P2PKH;
+   
+   auto& nestedP2PKScriptHash = getP2PKScriptH160();
+   if (hashRef == nestedP2PKScriptHash)
+      return AddressEntryType_Nested_P2PK;
+
+   auto& nestedScriptHash = getWitnessScriptH160();
+   if (hashRef == nestedScriptHash)
+      return AddressEntryType_Nested_P2WPKH;
+
 
    return AddressEntryType_Default;
 }

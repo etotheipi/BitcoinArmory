@@ -371,12 +371,12 @@ class TreeStructure_CoinControl():
       #filter utxos
       for utxo in utxoList:
          h160 = utxo.getRecipientHash160()
-         assetId = self.wallet.cppWallet.getAssetIndexForAddr(h160)
-         addrType = self.wallet.cppWallet.getAddrTypeForIndex(assetId)
-         
          binAddr = utxo.getRecipientScrAddr()
          scrAddr = hash160_to_addrStr(h160, binAddr[0])
-         
+            
+         assetId = self.wallet.cppWallet.getAssetIndexForAddr(h160)
+         addrType = self.wallet.cppWallet.getAddrTypeForIndex(assetId) 
+                 
          addrDict = None
          if addrType == AddressType_P2PKH:
             addrDict = self.treeData['UTXO']['p2pkh']

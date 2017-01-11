@@ -13,7 +13,7 @@ from qtdefines import ArmoryDialog, QRichLabel, SIGNAL, \
    QCheckBox, QGridLayout, VLINE, HLINE, QFrame, makeHorizFrame, \
    QMoneyLabel, saveTableView, restoreTableView
    
-from TreeViewGUI import CoinControlTreeModel
+from ui.TreeViewGUI import CoinControlTreeModel
 
 ################################################################################   
 class CoinControlDlg(ArmoryDialog):

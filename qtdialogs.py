@@ -32,7 +32,7 @@ from ui.MultiSigModels import LockboxDisplayModel, LockboxDisplayProxy,\
    LOCKBOXCOLS
 from armoryengine.PyBtcWalletRecovery import RECOVERMODE
 
-from TreeViewGUI import AddressTreeModel
+from ui.TreeViewGUI import AddressTreeModel
 
 NO_CHANGE = 'NoChange'
 MIN_PASSWD_WIDTH = lambda obj: tightSizeStr(obj, '*' * 16)[0]
@@ -1676,22 +1676,6 @@ class DlgWalletDetails(ArmoryDialog):
       frmTotals.setLayout(frmTotalsLayout)
 
       lblWltAddr = QRichLabel('<b>Addresses in Wallet:</b>', doWrap=False)
-      self.chkHideEmpty = QCheckBox('Hide Empty')
-      self.chkHideChange = QCheckBox('Hide Change')
-      self.chkHideUnused = QCheckBox('Hide Unused')
-      self.chkHideEmpty.setChecked(False)
-      self.chkHideChange.setChecked(self.main.usermode == USERMODE.Standard)
-      self.chkHideUnused.setChecked(self.wlt.highestUsedChainIndex > 25)
-
-      self.connect(self.chkHideEmpty, SIGNAL(CLICKED), self.doFilterAddr)
-      self.connect(self.chkHideChange, SIGNAL(CLICKED), self.doFilterAddr)
-      self.connect(self.chkHideUnused, SIGNAL(CLICKED), self.doFilterAddr)
-
-      headerFrm = makeHorizFrame([ lblWltAddr, \
-                                   STRETCH, \
-                                   self.chkHideEmpty, \
-                                   self.chkHideChange, \
-                                   self.chkHideUnused])
 
       btnGoBack = QPushButton('<<< Go Back')
       self.connect(btnGoBack, SIGNAL(CLICKED), self.accept)
@@ -1699,7 +1683,6 @@ class DlgWalletDetails(ArmoryDialog):
 
       layout = QGridLayout()
       layout.addWidget(self.frm, 0, 0)
-      layout.addWidget(headerFrm, 1, 0)
       layout.addWidget(self.wltAddrView, 2, 0)
       layout.addWidget(bottomFrm, 3, 0)
 
@@ -1891,7 +1874,7 @@ class DlgWalletDetails(ArmoryDialog):
 
    #############################################################################
    def dblClickAddressView(self, index):
-      from TreeViewGUI import COL_TREE, COL_COMMENT
+      from ui.TreeViewGUI import COL_TREE, COL_COMMENT
       
       nodeItem = self.wltAddrTreeModel.getNodeItem(index)
       try:
@@ -1984,8 +1967,8 @@ class DlgWalletDetails(ArmoryDialog):
       if showRecvCoinsWarningIfNecessary(self.wlt, self, self.main):
          loading = LoadingDisp(self, self.main)
          loading.show()
-         DlgNewAddressDisp(self.wlt, self, self.main, loading).exec_()
-      self.wltAddrView.reset()
+         if DlgNewAddressDisp(self.wlt, self, self.main, loading).exec_():
+            self.wltAddrView.reset()
 
 
    def execSendBtc(self):
@@ -2690,12 +2673,6 @@ class DlgNewAddressDisp(ArmoryDialog):
       self.lblIsCopied.setTextFormat(Qt.RichText)
       self.connect(btnClipboard, SIGNAL(CLICKED), self.setClipboard)
       
-      #address selection radio buttons
-      self.radio_P2PKH = QRadioButton("P2PKH Address (default)")
-      self.radio_P2PKH.setChecked(True)      
-      self.radio_Nested_P2WPKH = QRadioButton("Nested P2WPKH Address (SegWit)")
-
-
       def openPaymentRequest():
          msgTxt = str(self.edtComm.toPlainText())
          msgTxt = msgTxt.split('\n')[0][:128]
@@ -2809,9 +2786,6 @@ class DlgNewAddressDisp(ArmoryDialog):
          self.edtNewAddr.setText(addrStr)     
          self.qrcode.setAsciiData(addrStr)
          self.qrcode.repaint()       
-
-      self.connect(self.radio_P2PKH, SIGNAL('clicked()'), setAddressType)
-      self.connect(self.radio_Nested_P2WPKH, SIGNAL('clicked()'), setAddressType)
   
       #addr type selection framce
       from ui.AddressTypeSelectDialog import AddressLabelFrame
