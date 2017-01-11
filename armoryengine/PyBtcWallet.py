@@ -283,7 +283,10 @@ class PyBtcWallet(object):
       #instantiated at registration and is unique for the BDV object, so we
       #should only ever set the cppWallet member here 
       
-      self.cppWallet.registerWithBDV(isNew)
+      try:
+         self.cppWallet.registerWithBDV(isNew)
+      except:
+         pass
             
    #############################################################################
    def isWltSigningAnyLockbox(self, lockboxList):
@@ -1021,19 +1024,13 @@ class PyBtcWallet(object):
 
       self.linearAddr160List.append(new160)
       self.chainIndexMap[newAddr.chainIndex] = new160
-   
-      # In the future we will enable first/last seen, but not yet
-      time0,blk0 = getCurrTimeAndBlock() if isActuallyNew else (0,0)
-      if doRegister and self.isRegistered():
+         
+      if self.cppWallet != None:      
          needsRegistered = \
-            self.cppWallet.extendAddressChainTo(self.lastComputedChainIndex)
-         if needsRegistered:
-            self.cppWallet.registerWithBDV(isActuallyNew)
-
-      # For recovery rescans, this method will be called directly by
-      # the BDM, which may cause a deadlock if we go through the 
-      # thread queue.  The calledFromBDM is "permission" to access the
-      # BDM private methods directly
+            self.cppWallet.extendAddressChainTo(self.lastComputedChainIndex)   
+         
+         if doRegister and self.isRegistered() and needsRegistered:
+               self.cppWallet.registerWithBDV(isActuallyNew)
 
       return new160
       
