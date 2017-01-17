@@ -42,6 +42,17 @@ BinaryDataRef ScriptSpender::getOutpoint() const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+const BinaryData& ScriptSpender::getSingleSig(void) const
+{
+   if (sigVec_.size() == 0)
+      throw ScriptException("no sig for script (yet?)");
+   else if (sigVec_.size() > 1)
+      throw ScriptException("script does not yield a single signature");
+
+   return sigVec_[0];
+}
+
+////////////////////////////////////////////////////////////////////////////////
 BinaryData ScriptSpender::serializeScript(
    const vector<shared_ptr<StackItem>>& stack)
 {
@@ -192,6 +203,27 @@ BinaryDataRef ScriptSpender::getSerializedInput() const
 void ScriptSpender::setStack(const vector<shared_ptr<StackItem>>& stack)
 {
    serializedScript_ = move(serializeScript(stack));
+
+   for (auto& stackItem : stack)
+   {
+      switch (stackItem->type_)
+      {
+      case StackItemType_Sig:
+      {
+         auto stackItem_sig =
+            dynamic_pointer_cast<StackItem_Sig>(stackItem);
+         if (stackItem_sig == nullptr)
+            throw ScriptException("unexpected StackItem type");
+
+         sigVec_.push_back(stackItem_sig->data_);
+         break;
+      }
+
+      default:
+         continue;
+      }
+   }
+
    resolved_ = true;
 }
 
@@ -252,13 +284,22 @@ vector<TxInData> Signer::getTxInsData(void) const
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData Signer::getSubScript(unsigned index) const
 {
-   return spenders_[index]->getOutputScript();
+   auto spender = getSpender(index);
+   return spender->getOutputScript();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-BinaryDataRef Signer::getWitnessData(unsigned inputId) const
+BinaryDataRef Signer::getWitnessData(unsigned index) const
 {
-   return spenders_[inputId]->getWitnessData();
+   auto spender = getSpender(index);
+   return spender->getWitnessData();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool Signer::isInputSW(unsigned index) const
+{
+   auto spender = getSpender(index);
+   return spender->isSegWit();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -479,6 +520,45 @@ bool Signer::verify(void)
    tsv.setFlags(tsvFlags);
 
    return tsv.verify();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool Signer::verifyRawTx(const BinaryData& rawTx, 
+   const map<BinaryData, map<unsigned, BinaryData>>& rawUTXOs)
+{
+   //deser raw tx
+   auto bctx = BCTX::parse(rawTx);
+
+   map<BinaryData, map<unsigned, UTXO>> utxoMap;
+
+   //deser utxos
+   for (auto& utxoPair : rawUTXOs)
+   {
+      map<unsigned, UTXO> idMap;
+      for (auto& rawUtxoPair : utxoPair.second)
+      {
+         UTXO utxo;
+         utxo.unserializeRaw(rawUtxoPair.second);
+         idMap.insert(move(make_pair(rawUtxoPair.first, move(utxo))));
+      }
+
+      utxoMap.insert(move(make_pair(utxoPair.first, move(idMap))));
+   }
+
+   //setup verifier
+   TransactionVerifier tsv(*bctx, utxoMap);
+   auto tsvFlags = tsv.getFlags();
+   tsvFlags |= SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_SEGWIT;
+   tsv.setFlags(tsvFlags);
+
+   return tsv.verify(true);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+const BinaryData& Signer::getSigForInputIndex(unsigned id) const
+{
+   auto& spender = getSpender(id);
+   return spender->getSingleSig();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -56,6 +56,7 @@ private:
 
    //
    shared_ptr<ResolverFeed> resolverFeed_;
+   vector<BinaryData> sigVec_;
    BinaryData serializedScript_;
    mutable BinaryData serializedInput_;
    BinaryData witnessData_;
@@ -73,7 +74,7 @@ public:
       utxo_(utxo), resolverFeed_(feed)
    {}
 
-   bool isSegWit(void) const { return false; }
+   bool isSegWit(void) const { return isSegWit_; }
 
    //set
    void setSigHashType(SIGHASH_TYPE sht) { sigHashType_ = sht; }
@@ -94,6 +95,7 @@ public:
    uint64_t getValue(void) const { return utxo_.getValue(); }
    shared_ptr<ResolverFeed> getFeed(void) const { return resolverFeed_; }
    const UTXO& getUtxo(void) const { return utxo_; }
+   const BinaryData& getSingleSig(void) const;
 
    unsigned getFlags(void) const
    {
@@ -305,12 +307,15 @@ public:
    void sign(void);
    BinaryDataRef serialize(void) const;
    bool verify(void);
+   bool verifyRawTx(const BinaryData& rawTx, 
+      const map<BinaryData, map<unsigned, BinaryData> >& rawUTXOs);
 
    ////
    BinaryDataRef getSerializedOutputScripts(void) const;
    vector<TxInData> getTxInsData(void) const;
    BinaryData getSubScript(unsigned index) const;
    BinaryDataRef getWitnessData(unsigned inputId) const;
+   bool isInputSW(unsigned inputId) const;
 
    uint32_t getVersion(void) const { return version_; }
    uint32_t getTxOutCount(void) const { return recipients_.size(); }
@@ -323,6 +328,7 @@ public:
    BinaryDataRef getOutpoint(unsigned) const;
    uint64_t getOutpointValue(unsigned) const;
    unsigned getTxInSequence(unsigned) const;
+   const BinaryData& getSigForInputIndex(unsigned) const;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

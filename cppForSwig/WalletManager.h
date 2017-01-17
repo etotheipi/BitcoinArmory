@@ -75,7 +75,7 @@ public:
       return swigWallet_->getSpendableTxOutListForValue(val, ignoreZC);
    }
    
-   map<BinaryData, uint32_t> getAddrTxnCountsFromDB(void)
+   const map<BinaryData, uint32_t>& getAddrTxnCountsFromDB(void)
    {
       auto wallet_aet = wallet_->getDefaultAddressType();
       uint8_t wltAddrPrefix;
@@ -131,7 +131,7 @@ public:
       return countMap_;
    }
    
-   map<BinaryData, vector<uint64_t> > getAddrBalancesFromDB(void)
+   const map<BinaryData, vector<uint64_t> >& getAddrBalancesFromDB(void)
    {
 
       auto&& balancemap = swigWallet_->getAddrBalancesFromDB();
@@ -355,8 +355,43 @@ public:
       return finalTx;
    }
 
+   const BinaryData& getSigForInputIndex(unsigned id) const
+   {
+      return signer_->getSigForInputIndex(id);
+   }
+
+   BinaryData getWitnessDataForInputIndex(unsigned id)
+   {
+      return BinaryData(signer_->getWitnessData(id));
+   }
+
+   bool isInptuSW(unsigned id) const
+   {
+      return signer_->isInputSW(id);
+   }
+
    virtual ~PythonSigner(void) = 0;
    virtual const SecureBinaryData& getPrivateKeyForIndex(unsigned) = 0;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+class PythonVerifier
+{
+private:
+   unique_ptr<Signer> signer_;
+
+public:
+   PythonVerifier()
+   {
+      signer_ = make_unique<Signer>();
+      signer_->setFlags(SCRIPT_VERIFY_SEGWIT);
+   }
+
+   bool verifySignedTx(const BinaryData& rawTx,
+     const map<BinaryData, map<unsigned, BinaryData> >& utxoMap)
+   {
+      return signer_->verifyRawTx(rawTx, utxoMap);
+   }
 };
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -2787,11 +2787,31 @@ class PyBtcWallet(object):
          #sign
          cppsigner.signTx()
          
-         #get fully serialized tx  
-         finalTx = cppsigner.getSignedTx()
-         
-         #set in ustx object
-         ustx.setFinalTx(finalTx)                                  
+         #set sigs and witness data
+         for inID in range(0, len(ustx.ustxInputs)):
+            try:
+               sigStr = cppsigner.getSigForInputIndex(inID)
+            except:
+               if cppsigner.isInptuSW(inID):
+                  sigStr = ''
+                  
+                  try:
+                     sigStr = cppsigner.getWitnessDataForInputIndex(inID)
+                  except:
+                     raise Exception("missing witness data for SW input")
+               else:
+                  raise Exception("no sig for index %d" % inID)
+            
+            ustxi = ustx.ustxInputs[inID]
+            if len(ustxi.pubKeys) != 1:
+               raise Exception("unexepected ustxi scrAddr count")
+            
+            pubkey = ustxi.pubKeys[0]
+            
+            #pubkeys are all empty strings for non legacy tx
+            ustxi.insertSignature(sigStr, pubkey)
+            
+
 
       if self.useEncryption:
          self.lock()

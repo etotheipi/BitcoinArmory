@@ -775,8 +775,6 @@ class SendBitcoinsFrame(ArmoryFrame):
       # Anonymize the outputs
       random.shuffle(scriptValPairs)
 
-
-      isLegacyTx = True
       p2shMap = {}
       pubKeyMap = {}
       
@@ -802,24 +800,22 @@ class SendBitcoinsFrame(ArmoryFrame):
          
          for utxo in utxoSelect:
             scrType = getTxOutScriptType(utxo.getScript())
+            scrAddr = utxo.getRecipientScrAddr()
             if scrType in CPP_TXOUT_STDSINGLESIG:
-               scrAddr = utxo.getRecipientScrAddr()
                a160 = scrAddr_to_hash160(scrAddr)[1]
                addrObj = self.wlt.getAddrByHash160(a160)
                if addrObj:
                   pubKeyMap[scrAddr] = addrObj.binPublicKey65.toBinStr()
-            elif scrType == CPP_TXOUT_P2WPKH:
-               isLegacyTx = False
-               break
             elif scrType == CPP_TXOUT_P2SH:
                p2shScript = self.wlt.cppWallet.getP2SHScriptForHash(utxo.getScript())
                p2shKey = binary_to_hex(script_to_scrAddr(script_to_p2sh_script(
                   p2shScript)))
-               p2shMap[p2shKey]  = p2shScript               
+               p2shMap[p2shKey]  = p2shScript  
                
-               p2shScriptType = getTxOutScriptType(p2shScript)
-               if p2shScriptType != CPP_TXOUT_MULTISIG:
-                  isLegacyTx = False               
+               addrIndex = self.wlt.cppWallet.getAssetIndexForAddr(utxo.getRecipientHash160())
+               addrStr = self.wlt.chainIndexMap[addrIndex]
+               addrObj = self.wlt.addrMap[addrStr]
+               pubKeyMap[scrAddr] = addrObj.binPublicKey65.toBinStr()               
 
          '''
          If we are consuming any number of SegWit utxos, pass the utxo selection
@@ -829,7 +825,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          
          # Now create the unsigned USTX
          ustx = UnsignedTransaction().createFromTxOutSelection(\
-            utxoSelect, scriptValPairs, pubKeyMap, p2shMap=p2shMap, isLegacyTx=isLegacyTx)
+            utxoSelect, scriptValPairs, pubKeyMap, p2shMap=p2shMap)
 
       #ustx.pprint()
 

@@ -2879,7 +2879,7 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def getWalletForAddr160(self, addr160):
       for wltID, wlt in self.walletMap.iteritems():
-         if wlt.hasAddr(addr160):
+         if wlt.hasScrAddr(addr160):
             return wltID
       return ''
 

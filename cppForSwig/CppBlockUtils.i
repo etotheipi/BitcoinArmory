@@ -282,12 +282,12 @@ namespace std
 
 /******************************************************************************/
 // Convert C++(map<BinaryData, uint32_t>) to Python(dict{string, int})
-%typemap(out) map<BinaryData, uint32_t>
+%typemap(out) const map<BinaryData, uint32_t> &
 {
 	PyObject* thisDict = PyDict_New();
-	auto bdIter = $1.begin();
+	auto bdIter = $1->begin();
 
-	while(bdIter != $1.end())
+	while(bdIter != $1->end())
 	{
 		auto& bdobj = bdIter->first;
 		PyObject* pyStringObj = 
@@ -306,12 +306,12 @@ namespace std
 
 /******************************************************************************/
 // Convert C++(map<BinaryData, vector<uint64_t>>) to Python(dict{string, list[int]})
-%typemap(out) map<BinaryData, vector<uint64_t> >
+%typemap(out) const map<BinaryData, vector<uint64_t> > &
 {
 	PyObject* thisDict = PyDict_New();
-	auto bdIter = $1.begin();
+	auto bdIter = $1->begin();
 
-	while(bdIter != $1.end())
+	while(bdIter != $1->end())
 	{
 		auto& bdobj = bdIter->first;
 		PyObject* pyStringObj = 
@@ -339,6 +339,42 @@ namespace std
 	}
 
 	$result = thisDict;
+}
+
+/******************************************************************************/
+// Convert Python(dict{str:dict{int:str}}) to 
+// C++(map<BinaryData. map<unsigned, BinaryData>>
+%typemap(in) const std::map<BinaryData, std::map<unsigned, BinaryData> > & (std::map<BinaryData, std::map<unsigned, BinaryData> > map_bd_map_uint_bd)
+{
+	PyObject *key, *value;
+	Py_ssize_t pos = 0;
+
+	while(PyDict_Next($input, &pos, &key, &value))
+	{
+		BinaryData key_bd((uint8_t*)PyString_AsString(key), PyString_Size(key));
+		std::map<unsigned, BinaryData> bdObjMap;
+
+		PyObject *inner_key, *inner_value;
+		Py_ssize_t inner_pos = 0;
+
+		while(PyDict_Next(value, &inner_pos, &inner_key, &inner_value))
+		{
+			unsigned inner_key_uint = PyInt_AsLong(inner_key);
+			 
+			BinaryData inner_value_bd(
+				(uint8_t*)PyString_AsString(inner_value), PyString_Size(inner_value));
+
+			bdObjMap.insert(std::move(std::make_pair(
+				inner_key_uint,
+				std::move(inner_value_bd))));
+		}
+
+		map_bd_map_uint_bd.insert(std::move(std::make_pair(
+			key_bd, 
+			std::move(bdObjMap))));
+	}
+	
+	$1 = &map_bd_map_uint_bd;	
 }
 
 

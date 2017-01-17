@@ -206,6 +206,9 @@ BinaryData TransactionVerifier::getSubScript(unsigned index) const
 ////////////////////////////////////////////////////////////////////////////////
 BinaryDataRef TransactionVerifier::getWitnessData(unsigned inputId) const
 {
+   if (inputId >= theTx_.witnesses_.size())
+      throw runtime_error("invalid witness data id");
+
    auto& witOffsetAndSize = theTx_.witnesses_[inputId];
    return BinaryDataRef(theTx_.data_ + witOffsetAndSize.first, 
       witOffsetAndSize.second);
