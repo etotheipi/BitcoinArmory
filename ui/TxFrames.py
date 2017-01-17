@@ -912,7 +912,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          if cppWlt is None:
             LOGERROR('Somehow failed to get cppWlt for lockbox: %s', lbID)
 
-         return cppWlt.getSpendableBalance(TheBDM.getTopBlockHeight(), IGNOREZC)
+         return cppWlt.getSpendableBalance()
          
          
 

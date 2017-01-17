@@ -161,11 +161,16 @@ namespace SwigClient
 
       uint64_t txnCount_ = 0;
 
+      set<BinaryData> scrAddrSet_;
+
    public:
 
-      Lockbox(const BlockDataViewer& bdv, const string& id) :
+      Lockbox(const BlockDataViewer& bdv, const string& id,
+         const vector<BinaryData>& addrVec) :
          BtcWallet(bdv, id)
-      {}
+      {
+         scrAddrSet_.insert(addrVec.begin(), addrVec.end());
+      }
 
       void getBalancesAndCountFromDB(uint32_t topBlockHeight, bool IGNOREZC);
 
@@ -173,6 +178,8 @@ namespace SwigClient
       uint64_t getSpendableBalance(void) const { return spendableBalance_; }
       uint64_t getUnconfirmedBalance(void) const { return unconfirmedBalance_; }
       uint64_t getWltTotalTxnCount(void) const { return txnCount_; }
+
+      bool hasScrAddr(const BinaryData&) const;
    };
 
    ///////////////////////////////////////////////////////////////////////////////

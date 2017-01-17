@@ -158,7 +158,7 @@ Lockbox BlockDataViewer::registerLockbox(
    if (retint == 0)
       throw runtime_error("server returned false to registerLockbox query");
 
-   return Lockbox(*this, id);
+   return Lockbox(*this, id, addrVec);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -573,6 +573,13 @@ void Lockbox::getBalancesAndCountFromDB(uint32_t topBlockHeight, bool IGNOREZC)
    unconfirmedBalance_ = bVec[2];
 
    txnCount_ = bVec[3];
+}
+
+///////////////////////////////////////////////////////////////////////////////
+bool Lockbox::hasScrAddr(const BinaryData& addr) const
+{
+   auto addrIter = scrAddrSet_.find(addr);
+   return addrIter != scrAddrSet_.end();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

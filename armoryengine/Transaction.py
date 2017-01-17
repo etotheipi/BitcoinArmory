@@ -1688,7 +1688,7 @@ class UnsignedTxInput(AsciiSerializable):
          if len(self.signatures[i]) > 0:
             signStatus.statusN[i] = TXIN_SIGSTAT.ALREADY_SIGNED
 
-         if cppWlt and cppWlt.hasScrAddress(self.scrAddrs[i]):
+         if cppWlt and cppWlt.hasScrAddr(self.scrAddrs[i]):
             signStatus.wltIsRelevant = True
             if len(self.signatures[i]) > 0:
                signStatus.statusN[i] = TXIN_SIGSTAT.WLT_ALREADY_SIGNED

@@ -63,7 +63,7 @@ class LockboxSelectFrame(ArmoryFrame):
       self.dispDescr = QRichLabel(dispDescr)
       self.dispDescr.setWordWrap(True)
       self.dispDescr.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-      bal = self.cppWlt.getSpendableBalance(TheBDM.getTopBlockHeight(), IGNOREZC)
+      bal = self.cppWlt.getSpendableBalance()
       self.dispBal = QMoneyLabel(bal, wBold=True)
       self.dispBal.setTextFormat(Qt.RichText)
 
