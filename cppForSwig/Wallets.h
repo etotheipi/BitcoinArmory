@@ -496,6 +496,9 @@ public:
    const BinaryData& getP2WSHScript(void) const;
    const BinaryData& getP2WSHScriptH160(void) const;
 
+   unsigned getM(void) const { return m_; }
+   unsigned getN(void) const { return n_; }
+
    //virtual
    BinaryData serialize(void) const 
    { 
@@ -612,6 +615,13 @@ public:
    virtual const BinaryData& getAddress() const = 0;
    virtual shared_ptr<ScriptRecipient> getRecipient(uint64_t) const = 0;
    virtual const BinaryData& getPrefixedHash(void) const = 0;
+
+   //accounts for txhash + id as well as input script size
+   virtual size_t getInputSize(void) const = 0;
+   
+   //throw by default, SW types will overload
+   virtual size_t getWitnessDataSize(void) const 
+   { throw runtime_error("no witness data"); }
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -627,6 +637,9 @@ public:
    const BinaryData& getAddress() const;
    const BinaryData& getPrefixedHash() const;
    shared_ptr<ScriptRecipient> getRecipient(uint64_t) const;
+   
+   //size
+   size_t getInputSize(void) const { return 180; }
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -642,6 +655,10 @@ public:
    const BinaryData& getAddress() const;
    const BinaryData& getPrefixedHash() const;
    shared_ptr<ScriptRecipient> getRecipient(uint64_t) const;
+   
+   //size
+   size_t getInputSize(void) const { return 41; }
+   size_t getWitnessDataSize(void) const { return 108; }
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -657,6 +674,9 @@ public:
    const BinaryData& getAddress() const;
    const BinaryData& getPrefixedHash() const;
    shared_ptr<ScriptRecipient> getRecipient(uint64_t) const;
+
+   //size
+   size_t getInputSize(void) const;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -672,6 +692,10 @@ public:
    const BinaryData& getAddress() const;
    const BinaryData& getPrefixedHash() const;
    shared_ptr<ScriptRecipient> getRecipient(uint64_t) const;
+
+   //size
+   size_t getInputSize(void) const { return 41; }
+   size_t getWitnessDataSize(void) const;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -687,6 +711,10 @@ public:
    const BinaryData& getAddress() const;
    const BinaryData& getPrefixedHash() const;
    shared_ptr<ScriptRecipient> getRecipient(uint64_t) const;
+
+   //size
+   size_t getInputSize(void) const { return 63; }
+   size_t getWitnessDataSize(void) const { return 108; }
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -702,6 +730,10 @@ public:
    const BinaryData& getAddress() const;
    const BinaryData& getPrefixedHash() const;
    shared_ptr<ScriptRecipient> getRecipient(uint64_t) const;
+
+   //size
+   size_t getInputSize(void) const { return 75; }
+   size_t getWitnessDataSize(void) const;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -717,6 +749,9 @@ public:
    const BinaryData& getAddress() const;
    const BinaryData& getPrefixedHash() const;
    shared_ptr<ScriptRecipient> getRecipient(uint64_t) const;
+
+   //size
+   size_t getInputSize(void) const { return 107; }
 };
 
 ////////////////////////////////////////////////////////////////////////////////

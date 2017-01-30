@@ -280,6 +280,7 @@ namespace SwigClient
       SOCKET sockfd_;
 
       map<string, CallbackOrder> orderMap_;
+      const BlockDataViewer* bdvPtr_;
 
    public:
       PythonCallback(const BlockDataViewer& bdv);
@@ -316,6 +317,8 @@ namespace SwigClient
       //save all tx we fetch by hash to reduce resource cost on redundant fetches
       shared_ptr<map<BinaryData, Tx> > txMap_;
 
+      mutable unsigned topBlock_ = 0;
+
    private:
       BlockDataViewer(void) { txMap_ = make_shared<map<BinaryData, Tx>>(); }
       BlockDataViewer(const shared_ptr<BinarySocket> sock);
@@ -329,6 +332,8 @@ namespace SwigClient
 
          return *this;
       }
+
+      void setTopBlock(unsigned block) const { topBlock_ = block; }
 
    public:
       ~BlockDataViewer(void);
@@ -363,6 +368,7 @@ namespace SwigClient
       bool hasRemoteDB(void);
 
       NodeStatusStruct getNodeStatus(void);
+      unsigned getTopBlock(void) const { return topBlock_; }
    };
 };
 

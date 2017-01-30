@@ -57,6 +57,12 @@
     <ClInclude Include="..\bdmenums.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\CoinSelection.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ScriptRecipient.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\BinaryData.cpp">
@@ -123,6 +129,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\BlockDataManagerConfig.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\CoinSelection.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

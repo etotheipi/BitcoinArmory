@@ -22,6 +22,7 @@ using namespace std;
 #include "SwigClient.h"
 #include "Signer.h"
 #include "BlockDataManagerConfig.h"
+#include "CoinSelection.h"
 
 enum AddressType
 {
@@ -31,11 +32,72 @@ enum AddressType
    AddressType_Multisig
 };
 
+class WalletContainer;
+
+////////////////////////////////////////////////////////////////////////////////
+struct CoinSelectionInstance
+{
+private:
+   CoinSelection cs_;
+
+   map<unsigned, shared_ptr<ScriptRecipient>> recipients_;
+   UtxoSelection selection_;
+   WalletContainer* const walletContainer_;
+
+   vector<UTXO> state_utxoVec_;
+   bool state_useAll_ = false;
+
+   const uint64_t spendableBalance_;
+
+private:
+   static void decorateUTXOs(WalletContainer* const, vector<UTXO>&);
+   static function<vector<UTXO>(uint64_t)> getFetchLambdaFromWalletContainer(
+      WalletContainer* const walletContainer);
+
+   static function<vector<UTXO>(uint64_t)> getFetchLambdaFromLockbox(
+      SwigClient::Lockbox* const, unsigned M, unsigned N);
+
+   uint64_t getSpendVal(void) const;
+   void checkSpendVal(void) const;
+   void addRecipient(unsigned, const BinaryData&, uint64_t);
+   
+   void selectUTXOs(vector<UTXO>&, uint64_t fee, float fee_byte, 
+      bool useExhaustiveList, bool adjustFee);
+public:
+   CoinSelectionInstance(WalletContainer* const walletContainer);
+   CoinSelectionInstance(SwigClient::Lockbox* const, 
+      unsigned M, unsigned N,
+      unsigned blockHeight, uint64_t balance);
+
+   unsigned addRecipient(const BinaryData&, uint64_t);
+   void updateRecipient(unsigned, const BinaryData&, uint64_t);
+   void removeRecipient(unsigned);
+   void resetRecipients(void);
+
+   void selectUTXOs(uint64_t fee, float fee_byte, bool adjustFee);
+   void processCustomUtxoList(
+      const vector<BinaryData>& rawUtxos, 
+      uint64_t fee, float fee_byte,
+      bool useExhaustiveList, bool adjustFee);
+
+   void updateState(uint64_t fee, float fee_byte, bool adjustFee);
+
+   uint64_t getFeeForMaxVal(float fee_byte);
+   
+   size_t getSizeEstimate(void) const { return selection_.size_; }
+   vector<UTXO> getUtxoSelection(void) const { return selection_.utxoVec_; }
+   uint64_t getFlatFee(void) const { return selection_.fee_; }
+   float getFeeByte(void) const { return selection_.fee_byte_; }
+
+   bool isSW(void) const { return selection_.witnessSize_ != 0; }
+};
+
 ////////////////////////////////////////////////////////////////////////////////
 class WalletContainer
 {
    friend class WalletManager;
    friend class PythonSigner;
+   friend class CoinSelectionInstance;
 
 private:
    const string id_;
@@ -45,6 +107,10 @@ private:
 
    map<BinaryData, vector<uint64_t> > balanceMap_;
    map<BinaryData, uint32_t> countMap_;
+
+   uint64_t totalBalance_ = 0;
+   uint64_t spendableBalance_ = 0;
+   uint64_t unconfirmedBalance_ = 0;
 
 private:
    WalletContainer(const string& id,
@@ -66,7 +132,14 @@ public:
    vector<uint64_t> getBalancesAndCount(
       uint32_t topBlockHeight, bool IGNOREZC)
    {
-      return swigWallet_->getBalancesAndCount(topBlockHeight, IGNOREZC);
+      auto&& balVec =
+         swigWallet_->getBalancesAndCount(topBlockHeight, IGNOREZC);
+
+      totalBalance_ = balVec[0];
+      spendableBalance_ = balVec[1];
+      unconfirmedBalance_ = balVec[2];
+
+      return balVec;
    }
 
    vector<UTXO> getSpendableTxOutListForValue(
@@ -280,6 +353,13 @@ public:
    }
 
    int detectHighestUsedIndex(void);
+
+   CoinSelectionInstance getCoinSelectionInstance(void)
+   {
+      return CoinSelectionInstance(this);
+   }
+
+   unsigned getTopBlock(void);
 };
 
 class ResolvedFeed_PythonWalletSingle;

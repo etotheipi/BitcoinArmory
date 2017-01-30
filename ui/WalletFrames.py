@@ -246,6 +246,7 @@ class SelectWalletFrame(ArmoryFrame):
       
       self.customUtxoList = self.dlgcc.getCustomUtxoList()
       self.altBalance = sum([x.getValue() for x in self.customUtxoList])
+      self.useAllCCList = self.dlgcc.isUseAllChecked()
       
       nUtxo = len(self.customUtxoList)
       if self.altBalance == wlt.getBalance('Spendable'):
@@ -297,6 +298,7 @@ class SelectWalletFrame(ArmoryFrame):
          if self.coinControlCallback:
             self.altBalance = None
             self.customUtxoList = None
+            self.useAllCCList = False
             self.btnCoinCtrl.setEnabled(wlt.getBalance('Spendable')>0)
             self.lblCoinCtrl.setText('Source: All addresses' if wlt.getBalance('Spendable')>0 else\
                                      'Source: 0 addresses' )
@@ -327,7 +329,8 @@ class SelectWalletFrame(ArmoryFrame):
          self.dispBal.setText('(available when online)', color='DisableFG')
       self.repaint()
       if self.coinControlCallback:
-         self.coinControlCallback(self.customUtxoList, self.altBalance)
+         self.coinControlCallback(\
+            self.customUtxoList, self.altBalance, self.useAllCCList)
 
 
 

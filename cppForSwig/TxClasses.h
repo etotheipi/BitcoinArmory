@@ -440,12 +440,17 @@ private:
 struct UTXO
 {
    BinaryData txHash_;
-   uint32_t   txOutIndex_;
-   uint32_t   txHeight_;
-   uint32_t   txIndex_;
-   uint64_t   value_;
+   uint32_t   txOutIndex_ = UINT32_MAX;
+   uint32_t   txHeight_ = UINT32_MAX;
+   uint32_t   txIndex_ = UINT32_MAX;
+   uint64_t   value_ = 0;
    BinaryData script_;
-   bool       isMultisigRef_;
+   bool       isMultisigRef_ = false;
+
+   //for coin selection
+   bool isInputSW_ = false;
+   unsigned txinRedeemSizeBytes_ = UINT32_MAX;
+   unsigned witnessDataSizeBytes_ = UINT32_MAX;
 
    UTXO(uint64_t value, uint32_t txHeight, uint32_t txIndex, 
       uint32_t txOutIndex, BinaryData txHash, BinaryData script) :
@@ -468,6 +473,9 @@ struct UTXO
    uint32_t getTxOutIndex(void) const { return txOutIndex_; }
    uint32_t getNumConfirm(uint32_t height) const
    {
+      if (txHeight_ == UINT32_MAX)
+         return 0;
+
       return height - txHeight_ + 1;
    }
 
@@ -476,6 +484,33 @@ struct UTXO
    BinaryData serialize(void) const;
    void unserialize(const BinaryData&);
    void unserializeRaw(const BinaryData&);
+
+   //coin seletion methods
+   bool isSegWit(void) const { return isInputSW_; }
+   unsigned getInputRedeemSize(void) const;
+   unsigned getWitnessDataSize(void) const;
+
+   bool operator==(const UTXO& rhs) const
+   {
+      if (rhs.getTxHash() != getTxHash())
+         return false;
+
+      return rhs.getTxOutIndex() == getTxOutIndex();
+   }
+
+   bool operator<(const UTXO& rhs) const
+   {
+      if (txHeight_ != rhs.txHeight_)
+         return txHeight_ < rhs.txHeight_;
+
+      if (txIndex_ != rhs.txIndex_)
+         return txIndex_ < rhs.txIndex_;
+
+      if (txOutIndex_ != rhs.txOutIndex_)
+         return txOutIndex_ < rhs.txOutIndex_;
+
+      return false;
+   }
 };
 
 

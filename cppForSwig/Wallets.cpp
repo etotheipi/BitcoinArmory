@@ -2128,16 +2128,6 @@ shared_ptr<ScriptRecipient> AddressEntry_Nested_Multisig::getRecipient(
    BinaryDataRef h160;
    switch (asset_->getType())
    {
-   case AssetEntryType_Single:
-   {
-      auto assetSingle = dynamic_pointer_cast<AssetEntry_Single>(asset_);
-      if (assetSingle == nullptr)
-         throw WalletException("unexpected asset entry type");
-
-      h160 = assetSingle->getHash160Compressed().getRef();
-      break;
-   }
-
    case AssetEntryType_Multisig:
    {
       auto assetMS = dynamic_pointer_cast<AssetEntry_Multisig>(asset_);
@@ -2156,24 +2146,38 @@ shared_ptr<ScriptRecipient> AddressEntry_Nested_Multisig::getRecipient(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+size_t AddressEntry_Nested_Multisig::getInputSize() const
+{
+   switch (asset_->getType())
+   {
+   case AssetEntryType_Multisig:
+   {
+      auto assetMS = dynamic_pointer_cast<AssetEntry_Multisig>(asset_);
+      if (assetMS == nullptr)
+         throw WalletException("unexpected asset entry type");
+
+      auto m = assetMS->getM();
+
+      size_t size = assetMS->getScript().getSize() + 2;
+      size += 73 * m + 40; //m sigs + outpoint
+
+      return size;
+   }
+
+   default:
+      throw WalletException("unexpected asset type");
+   }
+
+   return SIZE_MAX;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 const BinaryData& AddressEntry_P2WSH::getPrefixedHash() const
 {
    if (hash_.getSize() == 0)
    {
       switch (asset_->getType())
       {
-      case AssetEntryType_Single:
-      {
-         auto assetSingle = dynamic_pointer_cast<AssetEntry_Single>(asset_);
-         if (assetSingle == nullptr)
-            throw WalletException("unexpected asset entry type");
-
-         //no address standard for SW yet, consider BIP142
-         auto& script = assetSingle->getWitnessScript();
-         hash_ = move(BtcUtils::getSha256(script));
-         break;
-      }
-
       case AssetEntryType_Multisig:
       {
          auto assetMS = dynamic_pointer_cast<AssetEntry_Multisig>(asset_);
@@ -2208,21 +2212,6 @@ shared_ptr<ScriptRecipient> AddressEntry_P2WSH::getRecipient(
    BinaryDataRef scriptHash;
    switch (asset_->getType())
    {
-   case AssetEntryType_Single:
-   {
-      auto assetSingle = dynamic_pointer_cast<AssetEntry_Single>(asset_);
-      if (assetSingle == nullptr)
-         throw WalletException("unexpected asset entry type");
-
-      auto& script = assetSingle->getWitnessScript();
-
-      //this will fail miserable since the hash val is bound to the case scope
-      //this part cannot complete correctly until sha256 for AssetEntry_Single
-      //p2wsh is saved in the asset
-      scriptHash = BtcUtils::getSha256(script);
-      break;
-   }
-
    case AssetEntryType_Multisig:
    {
       auto assetMS = dynamic_pointer_cast<AssetEntry_Multisig>(asset_);
@@ -2238,6 +2227,32 @@ shared_ptr<ScriptRecipient> AddressEntry_P2WSH::getRecipient(
    }
 
    return make_shared<Recipient_PW2SH>(scriptHash, value);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+size_t AddressEntry_P2WSH::getWitnessDataSize() const
+{
+   switch (asset_->getType())
+   {
+   case AssetEntryType_Multisig:
+   {
+      auto assetMS = dynamic_pointer_cast<AssetEntry_Multisig>(asset_);
+      if (assetMS == nullptr)
+         throw WalletException("unexpected asset entry type");
+
+      auto m = assetMS->getM();
+
+      size_t size = assetMS->getScript().getSize() + 2;
+      size += 73 * m + 2;
+      
+      return size;
+   }
+
+   default:
+      throw WalletException("unexpected asset type");
+   }
+
+   return SIZE_MAX;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2366,6 +2381,32 @@ shared_ptr<ScriptRecipient> AddressEntry_Nested_P2WSH::getRecipient(
    }
 
    return make_shared<Recipient_P2SH>(scriptHash, value);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+size_t AddressEntry_Nested_P2WSH::getWitnessDataSize() const
+{
+   switch (asset_->getType())
+   {
+   case AssetEntryType_Multisig:
+   {
+      auto assetMS = dynamic_pointer_cast<AssetEntry_Multisig>(asset_);
+      if (assetMS == nullptr)
+         throw WalletException("unexpected asset entry type");
+
+      auto m = assetMS->getM();
+
+      size_t size = assetMS->getScript().getSize() + 2;
+      size += 73 * m + 2;
+
+      return size;
+   }
+
+   default:
+      throw WalletException("unexpected asset type");
+   }
+
+   return SIZE_MAX;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

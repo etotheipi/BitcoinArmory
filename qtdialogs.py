@@ -8831,66 +8831,6 @@ class DlgSettings(ArmoryDialog):
 
       self.connect(btnDefaultURI, SIGNAL(CLICKED), clickRegURI)
 
-
-      # ###############################################################
-      # # Announcements and Alerts (Commeented out until announcements system fix)
-      # lblAnnounce = QRichLabel(tr("""
-      #    Armory Technologies, Inc. will periodically post announcements and
-      #    security alerts.  ATI will also use this channel to notify you of
-      #    new Armory versions.  All these notifications are signed by an
-      #    offline private key controlled exclusively by ATI."""))
-      # self.radioAnnounce1024 = QRadioButton(tr("""
-      #    (Level 1) All announcements including testing/unstable versions"""))
-      # self.radioAnnounce2048 = QRadioButton(tr("""
-      #    (Level 2) Standard announcements and notifications"""))
-      # self.radioAnnounce3072 = QRadioButton(tr("""
-      #    (Level 3) Only important announcements and alerts"""))
-      # self.radioAnnounce4096 = QRadioButton(tr("""
-      #    (Level 4) Only critical security alerts"""))
-      #
-      # self.chkDisableUpgradeNotify = QCheckBox(tr("""
-      #    Disable software upgrade notifications """))
-      #
-      # self.chkDisableUpgradeNotify.setChecked( \
-      #    self.main.getSettingOrSetDefault('DisableUpgradeNotify', False))
-      #
-      # lblDisableAnnounce = QRichLabel(tr("""
-      #    <font color="%s">If you must completely disable all notifications
-      #    from the Armory team, you can run Armory with the
-      #    "--skip-announce-check" flag from the command-line, or add it to
-      #    the Armory shortcut target</font>""") % htmlColor('DisableFG'))
-      #
-      # btnGroupAnnounce = QButtonGroup(self)
-      # btnGroupAnnounce.addButton(self.radioAnnounce1024)
-      # btnGroupAnnounce.addButton(self.radioAnnounce2048)
-      # btnGroupAnnounce.addButton(self.radioAnnounce3072)
-      # btnGroupAnnounce.addButton(self.radioAnnounce4096)
-      # btnGroupAnnounce.setExclusive(True)
-      #
-      # minPriority = self.main.getSettingOrSetDefault('NotifyMinPriority', \
-      #                                                    DEFAULT_MIN_PRIORITY)
-      # if minPriority >= 4096:
-      #    self.radioAnnounce4096.setChecked(True)
-      # elif minPriority >= 3072:
-      #    self.radioAnnounce3072.setChecked(True)
-      # elif minPriority >= 2048:
-      #    self.radioAnnounce2048.setChecked(True)
-      # elif minPriority >= 0:
-      #    self.radioAnnounce1024.setChecked(True)
-      #
-      # btnResetNotify = QPushButton(tr('Reset Notifications'))
-      # frmBtnResetNotify = makeHorizFrame([btnResetNotify, 'Stretch'])
-      #
-      # def resetNotifyLong():
-      #    self.main.notifyIgnoreLong  = set()
-      #    self.main.notifyIgnoreShort = set()
-      #    self.main.writeSetting('NotifyIgnore', '')
-      #    QMessageBox.information(self, tr('Settings Changed'), tr("""
-      #       All notifications have been reset!"""), QMessageBox.Ok)
-      #
-      # self.connect(btnResetNotify, SIGNAL(CLICKED), resetNotifyLong)
-
-
       txFee = self.main.getSettingOrSetDefault('Default_Fee', MIN_TX_FEE)
       lblDefaultFee = QRichLabel(tr("""
          <b>Default fee to include with transactions:</b><br>"""))
@@ -9022,31 +8962,6 @@ class DlgSettings(ArmoryDialog):
       subFrm = makeHorizFrame([lblStk, STRETCH, fStack])
 
 
-      ###############################################################
-      # SelectCoins preferences
-      # NOT ENABLED YET -- BUT WILL BE SOON
-      # lblSelectCoin = QRichLabel('<b>Coin Selection Preferences:</b>')
-      # lblSelectCoinDescr = QRichLabel( \
-            # 'When Armory constructs a transaction, there are many different '
-            # 'ways for it to select from coins that make up your balance. '
-            # 'The "SelectCoins" algorithm can be set to prefer more-anonymous '
-            # 'coin selections or to prefer avoiding mandatory transaction fees. '
-            # '<B>No guarantees are made about the relative anonymity of the '
-            # 'coin selection, only that Armory will <i>prefer</i> a transaction '
-            # 'that requires a fee if it can increase anonymity.</b>')
-      # self.cmbSelectCoins = QComboBox()
-      # self.cmbSelectCoins.clear()
-      # self.cmbSelectCoins.addItem( 'Prefer free transactions' )
-      # self.cmbSelectCoins.addItem( 'Maximize anonymity'   )
-      # self.cmbSelectCoins.setCurrentIndex(0)
-      # i+=1
-      # dlgLayout.addWidget(lblSelectCoin,                     i,0)
-      # dlgLayout.addWidget(self.cmbSelectCoins,               i,1)
-      # i+=1
-      # dlgLayout.addWidget(lblSelectCoinDescr,                i,0, 1,2)
-
-
-      ###############################################################
       # Save/Cancel Button
       self.btnCancel = QPushButton("Cancel")
       self.btnAccept = QPushButton("Save")
@@ -9094,10 +9009,7 @@ class DlgSettings(ArmoryDialog):
 
       i += 1
       frmLayout.addWidget(lblPrivacyTitle, i, 0, 1, 3)
-      # i += 1
-      # frmLayout.addWidget(lblPrivStatsDescr , i, 0, 1, 3)
-      # i += 1
-      # frmLayout.addWidget(self.chkPrivacyStats , i, 0, 1, 3)
+
       i += 1
       frmLayout.addWidget(lblPrivTorDescr, i, 0, 1, 3)
       i += 1
@@ -9115,6 +9027,7 @@ class DlgSettings(ArmoryDialog):
       i += 1
       frmLayout.addWidget(self.chkAskURIAtStartup, i, 0, 1, 3)
 
+      '''
       i += 1
       frmLayout.addWidget(HLINE(), i, 0, 1, 3)
 
@@ -9125,7 +9038,8 @@ class DlgSettings(ArmoryDialog):
 
       i += 1
       frmLayout.addWidget(lblDefaultDescr, i, 0, 1, 3)
-
+      '''
+      
       i += 1
       frmLayout.addWidget(HLINE(), i, 0, 1, 3)
 
@@ -9167,35 +9081,6 @@ class DlgSettings(ArmoryDialog):
       i += 1
       frmLayout.addWidget(HLINE(), i, 0, 1, 3)
 
-
-      # i += 1
-      # frmLayout.addWidget(lblAnnounce, i, 0, 1, 3)
-      #
-      # i += 1
-      # frmLayout.addWidget(self.radioAnnounce1024, i, 0, 1, 3)
-      #
-      # i += 1
-      # frmLayout.addWidget(self.radioAnnounce2048, i, 0, 1, 3)
-      #
-      # i += 1
-      # frmLayout.addWidget(self.radioAnnounce3072, i, 0, 1, 3)
-      #
-      # i += 1
-      # frmLayout.addWidget(self.radioAnnounce4096, i, 0, 1, 3)
-      #
-      # i += 1
-      # frmLayout.addWidget(lblDisableAnnounce, i, 0, 1, 4)
-      #
-      # i += 1
-      # frmLayout.addWidget(self.chkDisableUpgradeNotify , i, 0, 1, 3)
-      #
-      # i += 1
-      # frmLayout.addWidget(frmBtnResetNotify , i, 0, 1, 3)
-      #
-      #
-      # i += 1
-      # frmLayout.addWidget(HLINE(), i, 0, 1, 3)
-
       i += 1
       frmLayout.addWidget(lblUsermode, i, 0)
       frmLayout.addWidget(QLabel(''), i, 1)
@@ -9203,13 +9088,22 @@ class DlgSettings(ArmoryDialog):
 
       i += 1
       frmLayout.addWidget(self.lblUsermodeDescr, i, 0, 1, 3)
-
-
+      
+ 
       frmOptions = QFrame()
       frmOptions.setLayout(frmLayout)
-
+      
+      self.settingsTab = QTabWidget()
+      self.settingsTab.addTab(frmOptions, "General")
+      
+      #FeeChange tab
+      self.setupFeeAndChangeTab()      
+      frmFeeChange = makeVertFrame([self.frmFee, self.frmChange, 'Stretch'])
+      
+      self.settingsTab.addTab(frmFeeChange, "Fee & Change")
+      
       self.scrollOptions = QScrollArea()
-      self.scrollOptions.setWidget(frmOptions)
+      self.scrollOptions.setWidget(self.settingsTab)
 
 
 
@@ -9222,32 +9116,183 @@ class DlgSettings(ArmoryDialog):
       self.setMinimumWidth(650)
       self.setWindowTitle('Armory Settings')
 
-      # NOTE:  This was getting complicated for a variety of reasons, so switched
-      #        to manually constructing the options window.  May come back to this
-      #        at a later time.
-      #
-      # Let's create a scalable list of options.  Each row of this list looks like:
-      #
-      #     [OptionType, SettingsName, DefaultValue, BoldText, NormalText, Tooltip]
-      #
-      # SettingsName is the string used in self.main.getSettingOrSetDefault()
-      # OptionType can be one of:
-      #     {'Checkbox', 'LineEdit', 'Combo|Opt1|Opt2|...', 'Separator', 'Header'}
-      #
-      # "Separator adds a horizontal-ruler to separate option groups, and "Header"
-      # is basically a textual separator with no actual option
+   #############################################################################
+   def setupFeeAndChangeTab(self):
+      ##########
+      #fee
+      
+      feeByte = self.main.getSettingOrSetDefault('Default_FeeByte', MIN_FEE_BYTE)
+      txFee = self.main.getSettingOrSetDefault('Default_Fee', MIN_TX_FEE)
+      adjustFee = self.main.getSettingOrSetDefault('AdjustFee', True)
+      feeOpt = self.main.getSettingOrSetDefault('FeeOption', DEFAULT_FEE_TYPE)
+      
+      def feeRadio(strArg):
+         self.radioAutoFee.setChecked(False)
+         
+         self.radioFeeByte.setChecked(False)
+         self.leFeeByte.setEnabled(False)
+         
+         self.radioFlatFee.setChecked(False)
+         self.leFlatFee.setEnabled(False)
+         
+         if strArg == 'Auto':
+            self.radioAutoFee.setChecked(True)
+         elif strArg == 'FeeByte':
+            self.radioFeeByte.setChecked(True)
+            self.leFeeByte.setEnabled(True)
+         elif strArg == 'FlatFee':
+            self.radioFlatFee.setChecked(True)
+            self.leFlatFee.setEnabled(True)
+            
+         self.feeOpt = strArg
+            
+      def getCallbck(strArg):
+         def callbck():
+            return feeRadio(strArg)
+         return callbck
+      
+      labelFee = QRichLabel("<b>Fee<br></b>")
+      
+      self.radioAutoFee = QRadioButton("Auto fee/byte")
+      self.connect(self.radioAutoFee, SIGNAL('clicked()'), getCallbck('Auto'))
+      toolTipAutoFee = self.main.createToolTipWidget("""
+      Fetch fee/byte from local Bitcoin node. 
+      Defaults to manual fee/byte on failure. 
+      """)
+      
+      self.radioFeeByte = QRadioButton("Manual fee/byte")
+      self.connect(self.radioFeeByte, SIGNAL('clicked()'), getCallbck('FeeByte'))
+      self.leFeeByte = QLineEdit(str(feeByte))
+      toolTipFeeByte = self.main.createToolTipWidget("""
+      Values in satoshi/byte
+      """)
+      
+      self.radioFlatFee = QRadioButton("Flat fee")
+      self.connect(self.radioFlatFee, SIGNAL('clicked()'), getCallbck('FlatFee'))
+      self.leFlatFee = QLineEdit(coin2str(txFee, maxZeros=0))
+      toolTipFlatFee = self.main.createToolTipWidget("""
+      Values in BTC
+      """)
+      
+      self.checkAdjust = QCheckBox("Auto-adjust fee/byte for better privacy")
+      self.checkAdjust.setChecked(adjustFee)
+      feeToolTip = self.main.createToolTipWidget("""
+      Auto-adjust fee may increase your total fee using the selected fee/byte rate
+      as its basis in an attempt to align the amount of digits after the decimal
+      point between your spend values and change value.
+      
+      <br><br>
+      The purpose of this obfuscation technic is to make the change output
+      less obvious. 
+      
+      <br><br>
+      The auto-adjust fee feature only applies to fee/byte options
+      and does not inflate your fee by more that 10% of its original value.    
+      """)
+      
+      frmFeeLayout = QGridLayout()
+      frmFeeLayout.addWidget(labelFee, 0, 0, 1, 1)
+      
+      frmAutoFee = makeHorizFrame([self.radioAutoFee, toolTipAutoFee, STRETCH])
+      frmFeeLayout.addWidget(frmAutoFee, 1, 0, 1, 1)
+      
+      frmFeeByte = makeHorizFrame([self.radioFeeByte, self.leFeeByte, \
+                                   toolTipFeeByte, STRETCH, STRETCH])
+      frmFeeLayout.addWidget(frmFeeByte, 2, 0, 1, 1)
+      
+      frmFlatFee = makeHorizFrame([self.radioFlatFee, self.leFlatFee, \
+                                   toolTipFlatFee, STRETCH, STRETCH])
+      frmFeeLayout.addWidget(frmFlatFee, 3, 0, 1, 1)     
+      
+      frmCheckAdjust = makeHorizFrame([self.checkAdjust, feeToolTip, STRETCH])
+      frmFeeLayout.addWidget(frmCheckAdjust, 4, 0, 1, 2)
+      
+      feeRadio(feeOpt)
 
-      # self.Options = []
-      # self.Options.append( ['LineEdit', 'Default_Fee', MIN_TX_FEE, \
-                           # 'Default fee to include with transactions.', \
-                           # 'Fees go to users that contribute computing power '
-                           # 'to keep the Bitcoin network secure (0.0005 BTC is '
-                           # 'standard).', \
-                           # 'NOTE: some transactions will require a fee '
-                           # 'regardless of your preferences -- in such cases '
-                           # 'you will be prompted to include the correct '
-                           # 'value or abort the transaction'])
+      self.frmFee = QFrame()
+      self.frmFee.setFrameStyle(STYLE_RAISED)
+      self.frmFee.setLayout(frmFeeLayout)
+      
+      #########
+      #change
+      
+      changeType = self.main.getSettingOrSetDefault('Default_ChangeType', DEFAULT_CHANGE_TYPE)
+      
+      def changeRadio(strArg):
+         self.radioAutoChange.setChecked(False)
+         self.radioForceP2PKH.setChecked(False)
+         self.radioForceP2SH_P2PK.setChecked(False)
+         self.radioForceP2SH_P2WPKH.setChecked(False)
+         
+         if strArg == 'Auto':
+            self.radioAutoChange.setChecked(True)
+         elif strArg == 'P2PKH':
+            self.radioForceP2PKH.setChecked(True)
+         elif strArg == 'P2SH-P2PK':
+            self.radioForceP2SH_P2PK.setChecked(True)
+         elif strArg == 'P2SH-P2WPKH':
+            self.radioForceP2SH_P2WPKH.setChecked(True)
+            
+         self.changeType = strArg
+         
+      def changeCallbck(strArg):
+         def callbck():
+            return changeRadio(strArg)
+         return callbck
+      
+      labelChange = QRichLabel("<b>Change Address Type<br></b>")
 
+      self.radioAutoChange = QRadioButton("Auto change")
+      self.connect(self.radioAutoChange, SIGNAL('clicked()'), changeCallbck('Auto'))
+      toolTipAutoChange = self.main.createToolTipWidget("""
+      Change address type will match the address type of recipient
+      addresses. <br>
+      
+      Favors P2SH when recipients are heterogenous. <br>
+      
+      Will create nested SegWit change if inputs are SegWit and 
+      recipient are P2SH. <br><br>
+      
+      <b>Pre 0.96 Armory cannot spend from P2SH address types</b>
+      """)
+      
+      self.radioForceP2PKH = QRadioButton("Force P2PKH")
+      self.connect(self.radioForceP2PKH, SIGNAL('clicked()'), changeCallbck('P2PKH'))
+      
+      self.radioForceP2SH_P2PK = QRadioButton("Force P2SH-P2PK")
+      self.connect(self.radioForceP2SH_P2PK, SIGNAL('clicked()'), changeCallbck('P2SH-P2PK'))
+      
+      self.radioForceP2SH_P2WPKH = QRadioButton("Force P2SH-P2WPKH")
+      self.connect(self.radioForceP2SH_P2WPKH, SIGNAL('clicked()'), changeCallbck('P2SH-P2WPKH'))      
+      toolTipForceP2SH_P2WPKH = self.main.createToolTipWidget("""
+      Defaults back to P2SH-P2PK if SegWit is not enabled
+      """)
+      
+      if WITNESS == False:
+         self.radioForceP2SH_P2WPKH.setEnabled(False)
+      
+      changeRadio(changeType)
+      
+      frmChangeLayout = QGridLayout()
+      frmChangeLayout.addWidget(labelChange, 0, 0, 1, 1)
+      
+      frmAutoChange = makeHorizFrame([self.radioAutoChange, \
+                                      toolTipAutoChange, STRETCH])
+      frmChangeLayout.addWidget(frmAutoChange, 1, 0, 1, 1)
+      
+      frmForceP2PKH = makeHorizFrame([self.radioForceP2PKH])
+      frmChangeLayout.addWidget(frmForceP2PKH, 2, 0, 1, 1)
+      
+      frmForceP2PK = makeHorizFrame([self.radioForceP2SH_P2PK])
+      frmChangeLayout.addWidget(frmForceP2PK, 3, 0, 1, 1)
+
+      frmForceSW = makeHorizFrame([self.radioForceP2SH_P2WPKH, \
+                                   toolTipForceP2SH_P2WPKH, STRETCH])
+      frmChangeLayout.addWidget(frmForceSW, 4, 0, 1, 1)  
+      
+      self.frmChange = QFrame()    
+      self.frmChange.setFrameStyle(STYLE_RAISED)
+      self.frmChange.setLayout(frmChangeLayout)
 
    #############################################################################
    def accept(self, *args):
@@ -9328,27 +9373,18 @@ class DlgSettings(ArmoryDialog):
       self.main.writeSetting('NotifyBtcOut', self.chkBtcOut.isChecked())
       self.main.writeSetting('NotifyDiscon', self.chkDiscon.isChecked())
       self.main.writeSetting('NotifyReconn', self.chkReconn.isChecked())
-
-
-      oldTorSetting = self.main.getSettingOrSetDefault('UseTorSettings', False)
-      #self.main.writeSetting('SkipStatsReport',self.chkPrivacyStats.isChecked())
+      
+      
+      #fee
+      self.main.writeSetting('FeeOption', self.feeOpt)
+      self.main.writeSetting('Default_FeeByte', str(self.leFeeByte.text()))
+      self.main.writeSetting('Default_Fee', str2coin(str(self.leFlatFee.text())))
+      self.main.writeSetting('AdjustFee', self.checkAdjust.isChecked())
+      
+      #change
+      self.main.writeSetting('Default_ChangeType', self.changeType)      
       self.main.writeSetting('UseTorSettings', self.chkPrivacyTor.isChecked())
 
-
-
-      '''
-      if self.radioAnnounce1024.isChecked():
-         self.main.writeSetting('NotifyMinPriority',    0)
-      elif self.radioAnnounce2048.isChecked():
-         self.main.writeSetting('NotifyMinPriority', 2048)
-      elif self.radioAnnounce3072.isChecked():
-         self.main.writeSetting('NotifyMinPriority', 3072)
-      elif self.radioAnnounce4096.isChecked():
-         self.main.writeSetting('NotifyMinPriority', 4096)
-
-      self.main.writeSetting('DisableUpgradeNotify', \
-                  self.chkDisableUpgradeNotify.isChecked())
-      '''
       try:
          self.main.createCombinedLedger()
       except:

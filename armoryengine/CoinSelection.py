@@ -752,20 +752,16 @@ DEFAULT_PRIORITY = 57600000
 ################################################################################
 # Call bitcoin core to get the fee estimate per KB
 def estimateFee():
-   result = MIN_TX_FEE
-   try:
-      # See https://bitcoin.org/en/developer-reference#estimatefee for
-      # documentation about this RPC call
-      fee = BDM.TheSDM.callJSONIgnoreOwnership( \
-               'estimatefee', NBLOCKS_TO_CONFIRM)
-      # -1 is returned if BitcoinD does not have enough data to estimate fee.
-      if fee > 0:
-         result = int(fee * ONE_BTC)
-   except:
-      # if the BitcoinD version does not support fee estimation return default
-      # if the BitcoinD was never started return default
-      pass
-   return result
+   # See https://bitcoin.org/en/developer-reference#estimatefee for
+   # documentation about this RPC call
+   fee = BDM.TheSDM.callJSONIgnoreOwnership( \
+            'estimatefee', NBLOCKS_TO_CONFIRM)
+   # -1 is returned if BitcoinD does not have enough data to estimate fee.
+   if fee > 0:
+      return int(fee * ONE_BTC)
+   
+   raise Exception("could not get fee/byte from node")
+
    
 ################################################################################
 # Call bitcoin core to get the priority estimate

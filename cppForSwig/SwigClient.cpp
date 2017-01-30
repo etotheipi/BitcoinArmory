@@ -712,7 +712,7 @@ void BlockHeader::unserialize(uint8_t const * ptr, uint32_t size)
 //
 ///////////////////////////////////////////////////////////////////////////////
 PythonCallback::PythonCallback(const BlockDataViewer& bdv) :
-   sock_(bdv.sock_), bdvID_(bdv.getID())
+   sock_(bdv.sock_), bdvID_(bdv.getID()), bdvPtr_(&bdv)
 {
    orderMap_["continue"]         = CBO_continue;
    orderMap_["NewBlock"]         = CBO_NewBlock;
@@ -784,6 +784,8 @@ void PythonCallback::remoteLoop(void)
             case CBO_NewBlock:
             {
                unsigned int newblock = args.get<IntType>().getVal();
+               bdvPtr_->setTopBlock(newblock);
+
                if (newblock != 0)
                   run(BDMAction::BDMAction_NewBlock, &newblock, newblock);
 
@@ -818,6 +820,8 @@ void PythonCallback::remoteLoop(void)
                sendCmd.serialize();
 
                unsigned int topblock = args.get<IntType>().getVal();
+               bdvPtr_->setTopBlock(topblock);
+
                run(BDMAction::BDMAction_Ready, nullptr, topblock);
 
                break;

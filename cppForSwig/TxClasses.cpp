@@ -727,6 +727,25 @@ void UTXO::unserializeRaw(const BinaryData& data)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+unsigned UTXO::getInputRedeemSize(void) const
+{
+   if (txinRedeemSizeBytes_ == UINT32_MAX)
+      throw runtime_error("redeem size is no set");
+
+   return txinRedeemSizeBytes_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+unsigned UTXO::getWitnessDataSize(void) const
+{
+   if (!isSegWit() || witnessDataSizeBytes_ == UINT32_MAX)
+      throw runtime_error("no witness data size available");
+
+   return witnessDataSizeBytes_;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 //
 // AddressBookEntry methods

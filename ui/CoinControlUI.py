@@ -29,6 +29,20 @@ class CoinControlDlg(ArmoryDialog):
          'all addresses in this wallet.  You can control the source addresses '
          'used for this transaction by selecting them below, and unchecking '
          'all other addresses.')
+      
+      self.useAllCheckBox = QCheckBox("Use all selected UTXOs")
+      useAllToolTip = self.main.createToolTipWidget('''
+      By default, Armory will pick a a subset of the UTXOs you pick 
+      explicitly through the coin control feature to best suit the
+      total spend value of the transaction you are constructing.
+      
+      <br><br>
+      Checking 'Use all selected UTXOs' forces the construction of a
+      transaction that will redeem the exact list of UTXOs you picked 
+      instead 
+      ''')
+      
+      frmCheckAll = makeHorizFrame([self.useAllCheckBox, useAllToolTip, 'Stretch'])
             
       self.ccTreeModel = CoinControlTreeModel(self, wlt)
       self.ccView = QTreeView()
@@ -57,9 +71,10 @@ class CoinControlDlg(ArmoryDialog):
                   
       layout = QGridLayout()
       layout.addWidget(lblDescr, 0, 0)
-      layout.addWidget(self.ccView, 1, 0)
-      layout.addWidget(frmSum, 3, 0)
-      layout.addWidget(buttonBox, 4, 0)
+      layout.addWidget(frmCheckAll, 1, 0)
+      layout.addWidget(self.ccView, 2, 0)
+      layout.addWidget(frmSum, 4, 0)
+      layout.addWidget(buttonBox, 5, 0)
       self.setLayout(layout)
       
       self.setWindowTitle('Coin Control (Expert)')
@@ -81,6 +96,10 @@ class CoinControlDlg(ArmoryDialog):
                   utxoList.append(utxo)
                   
       return utxoList
+   
+   #############################################################################
+   def isUseAllChecked(self):
+      return self.useAllCheckBox.isChecked()
 
    #############################################################################
    def closeEvent(self, event):
