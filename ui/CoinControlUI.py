@@ -48,10 +48,6 @@ class CoinControlDlg(ArmoryDialog):
       self.ccView = QTreeView()
       self.ccView.setModel(self.ccTreeModel)
            
-      lblDescrSum = QRichLabel('Balance of selected addresses:', doWrap=False)
-      self.lblSum = QMoneyLabel(0, wBold=True)
-      frmSum = makeHorizFrame(['Stretch', lblDescrSum, self.lblSum, 'Stretch'])
-            
       self.btnAccept = QPushButton("Accept")
       self.btnCancel = QPushButton("Cancel")
       self.connect(self.btnAccept, SIGNAL('clicked()'), self.accept)
@@ -73,7 +69,6 @@ class CoinControlDlg(ArmoryDialog):
       layout.addWidget(lblDescr, 0, 0)
       layout.addWidget(frmCheckAll, 1, 0)
       layout.addWidget(self.ccView, 2, 0)
-      layout.addWidget(frmSum, 4, 0)
       layout.addWidget(buttonBox, 5, 0)
       self.setLayout(layout)
       

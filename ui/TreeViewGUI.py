@@ -283,6 +283,16 @@ class CoinControlTreeNode(TreeNode):
          self.empty = True
          
       self.populated = True
+      
+   def getBalance(self):
+      self.populate()
+      
+      balance = 0
+      for entry in self.entries:
+         if entry.checked() != Qt.Unchecked:
+            balance += entry.getBalance()
+         
+      return balance
  
 ################################################################################     
 class TreeStructure_AddressDisplay():
