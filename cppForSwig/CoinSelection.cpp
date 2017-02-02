@@ -572,7 +572,7 @@ vector<UTXO> CoinSorting::sortCoins(
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 vector<UTXO> CoinSubSelection::selectOneUtxo_SingleSpendVal(
-   const vector<UTXO>& utxoVec, unsigned spendVal, unsigned fee)
+   const vector<UTXO>& utxoVec, uint64_t spendVal, uint64_t fee)
 {
    vector<UTXO> retVec;
 
@@ -614,7 +614,7 @@ vector<UTXO> CoinSubSelection::selectOneUtxo_SingleSpendVal(
 
 ////////////////////////////////////////////////////////////////////////////////
 vector<UTXO> CoinSubSelection::selectManyUtxo_SingleSpendVal(
-   const vector<UTXO>& utxoVec, unsigned spendVal, unsigned fee)
+   const vector<UTXO>& utxoVec, uint64_t spendVal, uint64_t fee)
 {
    vector<UTXO> retVec;
 
@@ -637,13 +637,13 @@ vector<UTXO> CoinSubSelection::selectManyUtxo_SingleSpendVal(
 
 ////////////////////////////////////////////////////////////////////////////////
 vector<UTXO> CoinSubSelection::selectOneUtxo_DoubleSpendVal(
-   const vector<UTXO>& utxoVec, unsigned spendVal, unsigned fee)
+   const vector<UTXO>& utxoVec, uint64_t spendVal, uint64_t fee)
 {
    vector<UTXO> retVec;
 
    int64_t idealTarget = spendVal * 2 + fee;
-   uint64_t minTarget = max(0.75f * idealTarget, spendVal + fee);
-   uint64_t maxTarget = 1.25f * idealTarget;
+   uint64_t minTarget = max(uint64_t(0.75f * float(idealTarget)), spendVal + fee);
+   uint64_t maxTarget = uint64_t(1.25f * float(idealTarget));
 
    int64_t bestMatch = INT64_MAX;
    unsigned bestId = 0;
@@ -671,12 +671,12 @@ vector<UTXO> CoinSubSelection::selectOneUtxo_DoubleSpendVal(
 
 ////////////////////////////////////////////////////////////////////////////////
 vector<UTXO> CoinSubSelection::selectManyUtxo_DoubleSpendVal(
-   const vector<UTXO>& utxoVec, unsigned spendVal, unsigned fee)
+   const vector<UTXO>& utxoVec, uint64_t spendVal, uint64_t fee)
 {
    vector<UTXO> retVec;
 
    int64_t idealTarget = spendVal * 2;
-   uint64_t minTarget = max(0.8f * idealTarget, spendVal + fee);
+   uint64_t minTarget = max(uint64_t(0.8f * float(idealTarget)), spendVal + fee);
 
    int64_t tally = 0;
    unsigned count = 0;

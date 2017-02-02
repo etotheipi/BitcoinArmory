@@ -210,17 +210,17 @@ struct CoinSubSelection
 {
    //single spendval
    static vector<UTXO> selectOneUtxo_SingleSpendVal(
-      const vector<UTXO>&, unsigned spendVal, unsigned fee);
+      const vector<UTXO>&, uint64_t spendVal, uint64_t fee);
 
    static vector<UTXO> selectManyUtxo_SingleSpendVal(
-      const vector<UTXO>&, unsigned spendVal, unsigned fee);
+      const vector<UTXO>&, uint64_t spendVal, uint64_t fee);
 
    //double spendval
    static vector<UTXO> selectOneUtxo_DoubleSpendVal(
-      const vector<UTXO>&, unsigned spendVal, unsigned fee);
+      const vector<UTXO>&, uint64_t spendVal, uint64_t fee);
 
    static vector<UTXO> selectManyUtxo_DoubleSpendVal(
-      const vector<UTXO>&, unsigned spendVal, unsigned fee);
+      const vector<UTXO>&, uint64_t spendVal, uint64_t fee);
 };
 
 ////////////////////////////////////////////////////////////////////////////////
