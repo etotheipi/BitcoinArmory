@@ -557,7 +557,7 @@ bool Signer::verifyRawTx(const BinaryData& rawTx,
 ////////////////////////////////////////////////////////////////////////////////
 const BinaryData& Signer::getSigForInputIndex(unsigned id) const
 {
-   auto& spender = getSpender(id);
+   auto spender = getSpender(id);
    return spender->getSingleSig();
 }
 

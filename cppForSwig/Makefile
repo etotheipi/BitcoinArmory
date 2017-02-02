@@ -5,8 +5,8 @@ ifdef DEBUG
 CFLAGS=-g3 -Wall -pipe -fPIC -Wshadow
 CXXFLAGS=-g3 -Wall -pipe -fPIC -Wshadow
 else
-CFLAGS = -O2 -pipe -fPIC -Wshadow
-CXXFLAGS = -O2 -pipe -fPIC -Wshadow
+CFLAGS = -O2 -pipe -fPIC
+CXXFLAGS = -O2 -pipe -fPIC
 endif
 
 ifdef STATIC_LINK
@@ -31,7 +31,8 @@ OBJS_Client = UniversalTimer.o BinaryData.o \
 	SocketObject.o SwigClient.o StringSockets.o \
 	BlockDataManagerConfig.o TxClasses.o \
 	WalletManager.o Wallets.o Script.o Signer.o \
-	Transactions.o mdb.o midl.o lmdbpp.o libcryptopp.a
+	Transactions.o mdb.o midl.o lmdbpp.o \
+        CoinSelection.o libcryptopp.a
 
 OBJS_Server = UniversalTimer.o BinaryData.o lmdb_wrapper.o \
 	BtcUtils.o DBUtils.o BlockObj.o BlockUtils.o EncryptionUtils.o \

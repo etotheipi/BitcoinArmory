@@ -40,7 +40,7 @@ struct CoinSelectionInstance
 private:
    CoinSelection cs_;
 
-   map<unsigned, shared_ptr<ScriptRecipient>> recipients_;
+   map<unsigned, shared_ptr<ScriptRecipient> > recipients_;
    UtxoSelection selection_;
    WalletContainer* const walletContainer_;
 

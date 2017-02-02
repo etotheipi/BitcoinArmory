@@ -77,25 +77,25 @@ UtxoSelection CoinSelection::getUtxoSelection(
          auto&& utxos1 = CoinSubSelection::selectOneUtxo_SingleSpendVal(
             sortedVec, payStruct.spendVal_, compiledFee_oneOutput);
          if (utxos1.size() > 0)
-            selections.push_back(move(UtxoSelection(move(utxos1))));
+            selections.push_back(move(UtxoSelection(utxos1)));
 
          //one utxo, double val
          auto&& utxos2 = CoinSubSelection::selectOneUtxo_DoubleSpendVal(
             sortedVec, payStruct.spendVal_, compiledFee_oneOutput);
          if (utxos2.size())
-            selections.push_back(move(UtxoSelection(move(utxos2))));
+            selections.push_back(move(UtxoSelection(utxos2)));
 
          //many utxos, single val
          auto&& utxos3 = CoinSubSelection::selectManyUtxo_SingleSpendVal(
             sortedVec, payStruct.spendVal_, compiledFee_manyOutputs);
          if (utxos3.size() > 0)
-            selections.push_back(move(UtxoSelection(move(utxos3))));
+            selections.push_back(move(UtxoSelection(utxos3)));
 
          //many utxos, double val
          auto&& utxos4 = CoinSubSelection::selectManyUtxo_DoubleSpendVal(
             sortedVec, payStruct.spendVal_, compiledFee_manyOutputs);
          if (utxos4.size() > 0)
-            selections.push_back(move(UtxoSelection(move(utxos4))));
+            selections.push_back(move(UtxoSelection(utxos4)));
       }
 
       //create random selections
@@ -109,13 +109,13 @@ UtxoSelection CoinSelection::getUtxoSelection(
             auto&& utxos5 = CoinSubSelection::selectManyUtxo_SingleSpendVal(
                sortedVec, payStruct.spendVal_, compiledFee_manyOutputs);
             if (utxos5.size() > 0)
-               selections.push_back(move(UtxoSelection(move(utxos5))));
+               selections.push_back(move(UtxoSelection(utxos5)));
 
             //many utxos, double val
             auto&& utxos6 = CoinSubSelection::selectManyUtxo_DoubleSpendVal(
                sortedVec, payStruct.spendVal_, compiledFee_manyOutputs);
             if (utxos6.size() > 0)
-            selections.push_back(move(UtxoSelection(move(utxos6))));
+               selections.push_back(move(UtxoSelection(utxos6)));
          }
       }
    }
@@ -539,11 +539,11 @@ vector<UTXO> CoinSorting::sortCoins(
          ++count;
       }
 
-      unsigned top1 = max(count / 3, 5);
+      unsigned top1 = max(count / 3, unsigned(5));
       unsigned topsz = min(top1, count);
 
       //random swap 2 entries topsz times
-      unsigned bracket = max(count - topsz, 1);
+      unsigned bracket = max(count - topsz, unsigned(1));
       for (unsigned i = 0; i < topsz; i++)
       {
          auto v1 = rand() % topsz;
