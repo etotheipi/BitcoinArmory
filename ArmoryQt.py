@@ -3209,6 +3209,7 @@ class ArmoryMainWindow(QMainWindow):
       dialog = DlgSetComment(self, self, currComment, 'Transaction')
       if dialog.exec_():
          newComment = str(dialog.edtComment.text())
+         view.model().updateIndexComment(index, newComment)
          self.walletMap[wltID].setComment(hex_to_binary(txHash), newComment)
          self.walletListChanged()
 

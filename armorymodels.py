@@ -129,139 +129,6 @@ class AllWalletsDispModel(QAbstractTableModel):
             
          return rowFlag
 
-
-   # This might work for checkbox-in-tableview
-   #QStandardItemModel* tableModel = new QStandardItemModel();
-   #// create text item
-   #tableModel->setItem(0, 0, new QStandardItem("text item"));
-   #// create check box item
-   #QStandardItem* item0 = new QStandardItem(true);
-   #item0->setCheckable(true);
-   #item0->setCheckState(Qt::Checked);
-   #item0->setText("some text");
-   #tableModel->setItem(0, 1, item0);
-   #// set model
-   #ui->tableView->setModel(tableModel);
-
-   # Perhaps delegate for rich text in QTableViews
-   #void SpinBoxDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const
-   #{
-        #QTextDocument document;
-        #QVariant value = index.data(Qt::DisplayRole);
-        #if (value.isValid() && !value.isNull()) {
-             #QString text("<span style='background-color: lightgreen'>This</span> is highlighted.");
-        #text.append(" (");
-        #text.append(value.toString());
-        #text.append(")");
-        #document.setHtml(text);
-        #painter->translate(option.rect.topLeft());
-        #document.drawContents(painter);
-        #painter->translate(-option.rect.topLeft());
-   #}
-
-
-# This was an almost-successful attempt to use a delegate to manage visibility
-# Will kind of hack around it, using a simpler delegate and a QTableView 
-# signal to do the toggling
-'''
-class AllWalletsCheckboxDelegate(QStyledItemDelegate):
-   """
-   Taken from http://stackoverflow.com/a/3366899/1610471
-   """
-   def __init__(self, parent=None):
-      super(AllWalletsCheckboxDelegate, self).__init__(parent)   
-
-
-   def createEditor(self, parent, option, index):
-      """ Without this, an editor is created if the user clicks in this cell."""
-      return None
-
-
-   def paint(self, painter, option, index):
-      if not index.column() == WLTVIEWCOLS.Visible:
-         QStyledItemDelegate.paint(self, painter, option, index)
-      else:
-         # Paint a checkbox without the label.
-         checked = bool(index.model().data(index, Qt.DisplayRole))
-         check_box_style_option = QStyleOptionButton()
-
-         if (index.flags() & Qt.ItemIsEditable) > 0:
-            check_box_style_option.state |= QStyle.State_Enabled
-         else:
-            check_box_style_option.state |= QStyle.State_ReadOnly
-
-         if checked:
-            check_box_style_option.state |= QStyle.State_On
-         else:
-            check_box_style_option.state |= QStyle.State_Off
-
-         check_box_style_option.rect = self.getCheckboxRect(option)
-
-         #if not index.model().hasFlag(index, Qt.ItemIsEditable):
-            #check_box_style_option.state |= QStyle.State_ReadOnly
-
-         QApplication.style().drawControl(QStyle.CE_CheckBox, 
-                                          check_box_style_option, 
-                                          painter)
-
-
-   def editorEvent(self, event, model, option, index):
-      """
-      Change the data in the model and the state of the checkbox
-      if the user presses the left mousebutton or presses
-      Key_Space or Key_Select and this cell is editable. Otherwise do nothing.
-      """
-      if index.column()==WLTVIEWCOLS.Visible:
-         #if not (index.flags() & Qt.ItemIsEditable) > 0:
-            #return False
-
-         # Do not change the checkbox-state
-         if event.type() == QEvent.MouseButtonRelease or \
-            event.type() == QEvent.MouseButtonDblClick:
-            if event.button() != Qt.LeftButton or \
-               not self.getCheckboxRect(option).contains(event.pos()):
-               return False
-            if event.type() == QEvent.MouseButtonDblClick:
-               return True
-            elif event.type() == QEvent.KeyPress:
-               if event.key() != Qt.Key_Space and \
-                  event.key() != Qt.Key_Select:
-                  return False
-            else:
-               return False
-
-         # Change the checkbox-state
-         self.setModelData(None, model, index)
-         return True
-      else:
-         return False
-      
-
-
-   def setModelData(self, editor, model, index):
-      """ The user wanted to change the old state in the opposite """
-      newValue = not bool(index.model().data(index, Qt.DisplayRole))
-      model.setData(index, newValue, Qt.EditRole)
-
-
-   def getCheckboxRect(self, option):
-      check_box_style_option = QStyleOptionButton()
-      check_box_rect = QApplication.style().subElementRect( \
-            QStyle.SE_CheckBoxIndicator, check_box_style_option, None)
-      check_box_point = QPoint( option.rect.x() +
-                                option.rect.width() / 2 -
-                                check_box_rect.width() / 2,
-                                option.rect.y() +
-                                option.rect.height() / 2 -
-                                check_box_rect.height() / 2)
-      return QRect(check_box_point, check_box_rect.size())
-
-   def sizeHint(self, option, index):
-      if index.column()==WLTVIEWCOLS.Visible:
-         return QSize(28,28)
-      return QStyledItemDelegate.sizeHint(self, option, index)
-'''
-
 ################################################################################
 class AllWalletsCheckboxDelegate(QStyledItemDelegate):
    """
@@ -332,19 +199,11 @@ class LedgerDispModelSimple(QAbstractTableModel):
       wltID = rowData[LEDGERCOLS.WltID]
       wlt = self.main.walletMap.get(wltID)
       optInRBF = rowData[LEDGERCOLS.optInRBF]
-      
-      if optInRBF == True:
-         abc = ''
-      
+            
       if wlt:
          wtype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
       else:
          wtype = WLTTYPES.WatchOnly
-
-      #LEDGERCOLS  = enum( 'NumConf', 'UnixTime','DateStr', 'TxDir', 
-                         # 'WltName', 'Comment', 'Amount', 'isOther', 
-                         # 'WltID', 'TxHash', 'isCoinbase', 'toSelf', 
-                         # 'optInRBF')
 
       if role==Qt.DisplayRole:
          return QVariant(rowData[col])
@@ -586,6 +445,14 @@ class LedgerDispModelSimple(QAbstractTableModel):
             blockReturn = leID
       
       return blockReturn
+   
+   def updateIndexComment(self, index, comment):
+      #this allows the code to update comments without the need 
+      #to reload the entire model
+      
+      row = index.row()
+      rowData = self.ledger[row]
+      rowData[LEDGERCOLS.Comment] = comment
   
 ################################################################################
 class CalendarDialog(ArmoryDialog):   
