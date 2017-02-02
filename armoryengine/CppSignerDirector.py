@@ -18,6 +18,12 @@ class PythonSignerDirector(Cpp.PythonSigner):
    def getPrivateKeyForIndex(self, index):
       return self.wlt.getPrivateKeyForIndex(index)
    
+   def getPrivateKeyForImportIndex(self, index):
+      scrAddr = self.wlt.linearAddr160List[index]
+      addrObj = self.wlt.addrMap[scrAddr]
+      
+      return addrObj.binPrivKey32_Plain
+   
    def addSpender(self, utxo):
       super(PythonSignerDirector, self).addSpender(\
          utxo.val, \

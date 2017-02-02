@@ -257,6 +257,15 @@ class AddressTreeNode(TreeNode):
          
       self.populated = True
       
+   def getBalance(self):
+      self.populate()
+      
+      balance = 0
+      for entry in self.entries:
+         balance += entry.getBalance()
+         
+      return balance
+      
 ################################################################################
 class CoinControlTreeNode(TreeNode):
    
@@ -321,8 +330,7 @@ class TreeStructure_AddressDisplay():
          def walletFilterP2PKH():
             return self.wallet.returnFilteredCppAddrList(\
                      filterStr, AddressType_P2PKH)
-      
-         
+
          nodeUnspent = AddressTreeNode("P2PKH", True, walletFilterP2PKH)
          nodeMain.appendEntry(nodeUnspent)
          
@@ -331,7 +339,7 @@ class TreeStructure_AddressDisplay():
          
          nodeCPFP = AddressTreeNode("P2SH-P2WPKH", True, walletFilterP2SH_P2WPKH)
          nodeMain.appendEntry(nodeCPFP)
-         
+                   
          return nodeMain
       
       #create top 3 nodes
@@ -342,6 +350,16 @@ class TreeStructure_AddressDisplay():
       self.root.appendEntry(nodeUsed)
       self.root.appendEntry(nodeChange)
       self.root.appendEntry(nodeUnused)
+      
+      #if we have imports, add an import section
+      if not self.wallet.hasImports():
+         return
+            
+      nodeImports = AddressTreeNode(
+         'Imports', True, \
+         self.wallet.getImportCppAddrList)
+      
+      self.root.appendEntry(nodeImports)
       
 ################################################################################
 class TreeStructure_CoinControl():
@@ -519,6 +537,9 @@ class ArmoryTreeModel(QAbstractItemModel):
       return node.rowCount()
    
    def getNodeItem(self, index):
+      if index == None:
+         return self.root
+      
       if not index.isValid():
          return self.root
       
@@ -549,6 +570,12 @@ class AddressTreeModel(ArmoryTreeModel):
          if col == COL_TREE:
             return QVariant(node.treeNode.getName())
          
+         if col == COL_BALANCE:
+            try:
+               return QVariant(coin2str(node.treeNode.getBalance(), maxZeros=2))
+            except:
+               return QVariant()          
+         
          if node.hasChildren():
             return QVariant()
          
@@ -561,8 +588,7 @@ class AddressTreeModel(ArmoryTreeModel):
          if col == COL_COUNT:
             return QVariant(node.treeNode.getCount())
          
-         if col == COL_BALANCE:
-            return QVariant(coin2str(node.treeNode.getBalance(), maxZeros=2))
+
       
       return QVariant()
    

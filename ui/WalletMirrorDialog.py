@@ -15,35 +15,42 @@ from qtdefines import ArmoryDialog, QLabel, QGridLayout, \
    
 from armoryengine.ArmoryUtils import PyBackgroundThread
 
+##############################################################################
 class WalletComparisonClass(object):
    
+   ###########################################################################
    def __init__(self, main):
       self.main = main
-      
+   
+   ###########################################################################   
    def checkWallets(self):   
       #compare with loaded python wallets
       walletsToMirror = []
       walletsToSync = []
+      importsToCheck = []
       for wltID in self.main.walletMap:
+         wlt = self.main.walletMap[wltID]
+         
+         if len(wlt.importList) > 0:
+            importsToCheck.append(wltID)
+         
          if not self.main.walletManager.hasWallet(wltID):
             #if python wallet id is missing from cpp wallet map, 
             #flag it for mirroring
             walletsToMirror.append(wltID)
             continue
          
-         wlt = self.main.walletMap[wltID]
          lastComputed = self.main.walletManager.getLastComputedIndex(wltID)
          if lastComputed < wlt.lastComputedChainIndex:
             #if python wallet has more computed addresses than cpp 
             #wallet, mark it for synchronizing
             walletsToSync.append(wltID)
-            
-         #TODO: check for imports
-         
-      if len(walletsToMirror) + len(walletsToSync) > 0:
-         self.updateCppWallets(walletsToMirror, walletsToSync)
+                    
+      if len(walletsToMirror) + len(walletsToSync) + len(importsToCheck) > 0:
+         self.updateCppWallets(walletsToMirror, walletsToSync, importsToCheck)
    
-   def updateCppWallets(self, mirrorList, syncList):
+   ###########################################################################
+   def updateCppWallets(self, mirrorList, syncList, importList):
       #construct GUI
       mirrorWalletDlg = MirrorWalletsDialog(self.main, self.main)
       
@@ -51,13 +58,15 @@ class WalletComparisonClass(object):
          mirrorWalletDlg.setStatusText(text)
       
       thr = PyBackgroundThread(self.walletComputation,
-                               mirrorList, syncList, updateStatusText)
+                        mirrorList, syncList, importList, updateStatusText)
       thr.start()
       
       mirrorWalletDlg.exec_()
       thr.join()
       
-   def walletComputation(self, mirrorList, syncList, reportTextProgress):
+   ###########################################################################   
+   def walletComputation(\
+         self, mirrorList, syncList, importList, reportTextProgress):
       
       #mirror missing wallets
       for wltID in mirrorList:
@@ -70,7 +79,7 @@ class WalletComparisonClass(object):
             rootEntry.binPublicKey65, rootEntry.chaincode,\
             wlt.lastComputedChainIndex + 1)
          
-      #synchronize lagging wallets
+      #synchronize wallets
       for wltID in syncList:
          reportTextProgress("Synchronizing wallet %s" % wltID)
          
@@ -78,11 +87,24 @@ class WalletComparisonClass(object):
          self.main.walletManager.synchronizeWallet(
             wltID, wlt.lastComputedChainIndex)
          
+      for wltID in importList:
+         reportTextProgress("Checking imports for wallet %s" % wltID)
+         
+         wlt = self.main.walletMap[wltID]
+         for importId in wlt.importList:
+            scrAddr = wlt.linearAddr160List[importId]
+            addrObj = wlt.addrMap[scrAddr]
+            
+            self.main.walletManager.setImport(\
+               wltID, importId, addrObj.getPubKey())
+         
       reportTextProgress('shutdown')
          
-
+         
+##############################################################################
 class MirrorWalletsDialog(ArmoryDialog):
    
+   ###########################################################################
    def __init__(self, parent, main):
       super(MirrorWalletsDialog, self).__init__(parent, main)
       
@@ -133,9 +155,8 @@ class MirrorWalletsDialog(ArmoryDialog):
       
       self.setMinimumWidth(500)
       self.setFocus() 
-      
-      #self.startProgressThread()
-      
+   
+   ###########################################################################  
    def updateProgressStatus(self):
       count = 1
       while self.progress:
@@ -144,7 +165,8 @@ class MirrorWalletsDialog(ArmoryDialog):
             self.buildProgressText()
             
          count += 1
-      
+    
+   ###########################################################################   
    def setStatusText(self, text):
       if text == 'shutdown':
          self.stopProgressThread()
@@ -156,7 +178,7 @@ class MirrorWalletsDialog(ArmoryDialog):
          self.counter = 1
          self.buildProgressText()
 
-      
+   ###########################################################################   
    def buildProgressText(self):
       text = self.progressText
       dotCount = self.counter % 5
@@ -165,22 +187,27 @@ class MirrorWalletsDialog(ArmoryDialog):
       dots = '.' * dotCount
       text += dots
       self.emit(SIGNAL('UpdateTextStatus'), text)
-      
+   
+   ###########################################################################   
    def updateTextStatus(self, text):
       self.statusLabel.setText(text)
-      
+   
+   ###########################################################################   
    def signalTerminateDialog(self):
       self.emit(SIGNAL('TerminateDlg'), None)
-      
+   
+   ###########################################################################   
    def shutdown(self):
       self.stopProgressThread()
       self.reject()
-      
+   
+   ###########################################################################   
    def startProgressThread(self):
       self.progress = True
       self.progressThr = PyBackgroundThread(self.updateProgressStatus)
       self.progressThr.start()
-      
+   
+   ###########################################################################   
    def stopProgressThread(self):
       if self.progressThr == None:
          return

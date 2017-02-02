@@ -833,6 +833,7 @@ protected:
    map<int, shared_ptr<AddressEntry>> addresses_;
    HashMaps hashMaps_;
    mutable int lastKnownIndex_ = -1;
+   mutable int lastAssetMapSize_ = 0;
 
    shared_ptr<DerivationScheme> derScheme_;
    AddressEntryType default_aet_;
@@ -859,6 +860,7 @@ protected:
 
    //local
    void writeAssetEntry(shared_ptr<AssetEntry>);
+   void deleteAssetEntry(shared_ptr<AssetEntry>);
    BinaryDataRef getDataRefForKey(const BinaryData& key) const;
 
    void putData(const BinaryData& key, const BinaryData& data);
@@ -933,15 +935,18 @@ public:
    AddressEntryType getAddrTypeForIndex(int index);
    shared_ptr<AddressEntry> getAddressEntryForIndex(int);
    AddressEntryType getDefaultAddressType(void) const { return default_aet_; }
-
    void update(void);
+   void deleteImports(const vector<BinaryData>&);
 
    //virtual
    virtual set<BinaryData> getAddrHashSet() = 0;
+   virtual bool setImport(int importID, const SecureBinaryData& pubkey) = 0;
+
    const BinaryData& getP2SHScriptForHash(const BinaryData&);
 
    //static
    static shared_ptr<AssetWallet> loadMainWalletFromFile(const string& path);
+   static int convertToImportIndex(int importID);
 };
 
 ////
@@ -994,6 +999,7 @@ public:
 
    //virtual
    set<BinaryData> getAddrHashSet();
+   bool setImport(int importID, const SecureBinaryData& pubkey);
 
    //static
    static shared_ptr<AssetWallet_Single> createFromPrivateRoot_Armory135(
@@ -1037,6 +1043,7 @@ public:
 
    //virtual
    set<BinaryData> getAddrHashSet();
+   bool setImport(int importID, const SecureBinaryData& pubkey);
 
    shared_ptr<AddressEntry> getAddressEntryForAsset(
       shared_ptr<AssetEntry>,

@@ -803,6 +803,7 @@ shared_ptr<BtcWallet> WalletGroup::registerWallet(
 
    registerAddresses(scrAddrVec, IDstr, wltIsNew);
 
+   theWallet->resetCounters();
    return theWallet;
 }
 
@@ -846,9 +847,13 @@ bool WalletGroup::registerAddresses(const vector<BinaryData>& saVec,
    auto addrMap = theWallet->scrAddrMap_.get();
 
    set<BinaryData> saSet;
+   set<BinaryDataRef> saSetRef;
    map<BinaryData, shared_ptr<ScrAddrObj>> saMap;
+   
+   //strip collisions from set of addresses to register
    for (auto& sa : saVec)
    {
+      saSetRef.insert(BinaryDataRef(sa));
       if (addrMap->find(sa) != addrMap->end())
          continue;
 
@@ -859,9 +864,24 @@ bool WalletGroup::registerAddresses(const vector<BinaryData>& saVec,
       saMap.insert(make_pair(sa, saObj));
    }
 
-   auto callback = [&, saMap, theWallet](bool refresh)->void
+   //remove registered addresses missing in new address vector
+   vector<BinaryData> removeAddrVec;
+   for (auto addrPair : *addrMap)
+   {
+      auto setIter = saSetRef.find(addrPair.first.getRef());
+      if (setIter != saSetRef.end())
+         continue;
+
+      removeAddrVec.push_back(addrPair.first);
+   }
+
+   auto callback = [&, saMap, removeAddrVec, theWallet](bool refresh)->void
    {
       theWallet->scrAddrMap_.update(saMap);
+
+      if (removeAddrVec.size() > 0)
+         theWallet->scrAddrMap_.erase(removeAddrVec);
+
       theWallet->needsRefresh(refresh);
       theWallet->setRegistered();
    };

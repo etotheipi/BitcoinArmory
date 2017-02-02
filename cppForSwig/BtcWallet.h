@@ -163,6 +163,7 @@ private:
       map<BinaryData, TxIOPair>&) const;
    void unregister(void) { isRegistered_ = false; }
    void resetTxOutHistory(void);
+   void resetCounters(void);
 
 private:
 

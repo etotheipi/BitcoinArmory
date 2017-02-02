@@ -206,6 +206,8 @@ class PyBtcWallet(object):
          self.addrPoolSize = 10  # this makes debugging so much easier!
       else:
          self.addrPoolSize = CLI_OPTIONS.keypool
+         
+      self.importList = []
 
       # For file sync features
       self.walletPath = ''
@@ -277,7 +279,7 @@ class PyBtcWallet(object):
    #############################################################################
    def registerWallet(self, isNew=False):
       if self.cppWallet == None:
-         raise('invalid cppWallet object')
+         raise Exception('invalid cppWallet object')
       
       #this returns a copy of a BtcWallet C++ object. This object is
       #instantiated at registration and is unique for the BDV object, so we
@@ -2141,11 +2143,10 @@ class PyBtcWallet(object):
                                  
             self.linearAddr160List.append(newAddr.getAddr160())
             self.chainIndexMap[newAddr.chainIndex] = newAddr.getAddr160()
-   
-            # Update the parallel C++ object that scans the blockchain for us
-            timeRng = newAddr.getTimeRange()
-            blkRng  = newAddr.getBlockRange()
-               
+            
+            if newAddr.chainIndex <= -2:
+               self.importList.append(len(self.linearAddr160List) - 1)
+                  
          if dtype in (WLT_DATATYPE_ADDRCOMMENT, WLT_DATATYPE_TXCOMMENT):
             self.commentsMap[hashVal] = rawData # actually ASCII data, here
             self.commentLocs[hashVal] = byteLocation
@@ -2450,11 +2451,10 @@ class PyBtcWallet(object):
       wltPath = self.walletPath
       
       passCppWallet = self.cppWallet
-      if self.isRegistered():
-         self.cppWallet.removeAddressBulk([Hash160ToScrAddr(addr160)])
-         
+      self.cppWallet.removeAddressBulk([Hash160ToScrAddr(addr160)])
       self.readWalletFile(wltPath)
       self.cppWallet = passCppWallet
+      self.registerWallet(False)
 
    #############################################################################
    def importExternalAddressData(self, privKey=None, privChk=None, \
@@ -2462,7 +2462,7 @@ class PyBtcWallet(object):
                                        addr20=None,  addrChk=None, \
                                        firstTime=UINT32_MAX, \
                                        firstBlk=UINT32_MAX, lastTime=0, \
-                                       lastBlk=0, doReg=True):
+                                       lastBlk=0):
       """
       This wallet fully supports importing external keys, even though it is
       a deterministic wallet: determinism only adds keys to the pool based
@@ -2563,18 +2563,14 @@ class PyBtcWallet(object):
          [[WLT_UPDATE_ADD, WLT_DATATYPE_KEYDATA, newAddr160, newAddr]])
       self.addrMap[newAddr160] = newAddr.copy()
       self.addrMap[newAddr160].walletByteLoc = newDataLoc[0] + 21
+      
       self.linearAddr160List.append(newAddr160)
+      self.importList.append(len(self.linearAddr160List) - 1)
+      
       if self.useEncryption and self.kdfKey:
          self.addrMap[newAddr160].lock(self.kdfKey)
          if not self.isLocked:
             self.addrMap[newAddr160].unlock(self.kdfKey)
-
-      if self.isRegistered() and doReg==True:
-         self.cppWallet.addScrAddress_5_(Hash160ToScrAddr(newAddr160), \
-                                   firstTime, firstBlk, lastTime, lastBlk)
-
-      # The following line MAY deadlock if this method is called from the BDM
-      # thread.  Do not write any BDM methods that calls this method!
 
    #############################################################################  
    def importExternalAddressBatch(self, privKeyList):
@@ -2582,125 +2578,8 @@ class PyBtcWallet(object):
       addr160List = []
       
       for key, a160 in privKeyList:
-         self.importExternalAddressData(key, doReg=False)
+         self.importExternalAddressData(key)
          addr160List.append(Hash160ToScrAddr(a160))
-         
-      self.cppWallet.addAddressBulk(addr160List, False)
-
-   #############################################################################
-   def bulkImportAddresses(self, textBlock, privKeyEndian=BIGENDIAN, \
-                     sepList=":;'[]()=-_*&^%$#@!,./?\n"):
-      """
-      Attempts to import plaintext key data stored in a file.  This method
-      expects all data to be in hex or Base58:
-
-         20 bytes / 40  hex chars -- public key hashes
-         25 bytes / 50  hex chars -- full binary addresses
-         65 bytes / 130 hex chars -- public key
-         32 bytes / 64  hex chars -- private key
-
-         33 or 34 Base58 chars    -- address strings
-         50 to 52 Base58 chars    -- base58-encoded private key
-
-      Since this is python, I don't have to require any particular format:
-      I can pretty easily break apart the entire file into individual strings,
-      search for addresses and public keys, then, search for private keys that
-      correspond to that data.  Obviously, simpler is better, but as long as
-      the data is encoded as in the above list and separated by whitespace or
-      punctuation, this method should succeed.
-
-      We must throw an error if this is NOT a watching-only address and we
-      find an address without a private key.  We will need to create a
-      separate watching-only wallet in order to import these keys.
-
-      TODO: will finish this later
-      """
-
-      """
-      STUB: (AGAIN) I just can't make this work out to be as stupid-proof 
-            as I originally planned.  I'll have to put it on hold.
-      self.__init__()
-
-      newfile = open(filename,'rb')
-      newdata = newfile.read()
-      newfile.close()
-
-      # Change all punctuation to the same char so split() works easier
-      for ch in sepList:
-         newdata.replace(ch, ' ')
-
-      newdata = newdata.split()
-      hexChars = '01234567890abcdef'
-      b58Chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
-      DATATYPES = enum( 'UNKNOWN', \
-                        'Addr_Hex_20', \
-                        'Addr_B58_25', \
-                        'PubX_Hex_32', \
-                        'PubY_Hex_32', \
-                        'PubK_Hex_65', \
-                        'Priv_Hex_32', \
-                        'Priv_Hex_36', \
-                        'Priv_Hex_37', \
-                        'Priv_B58_32', \
-                        'Priv_B58_37', \
-                        'Priv_MiniPriv', \
-                        'PubK_Hex_33_Compressed', \
-                        'Priv_Hex_33_Compressed')
-
-      DTYPES = enum('Unknown', 'Hash160', 'PubKey', 'PrivKey', 'Byte32', 'Byte33')
-      
-
-      lastAddr = None
-      lastPubK = None
-      lastPriv = None
-      for theStr in newdata:
-         if len(theStr)<20:
-            continue
-
-         hexCount = sum([1 if c in hexChars else 0 for c in theStr])
-         b58Count = sum([1 if c in b58Chars else 0 for c in theStr])
-         canBeHex = hexCount==len(theStr)
-         canBeB58 = b58Count==len(theStr)
-         isHex = canBeHex
-         isB58 = canBeB58 and not canBeHex
-         isStr = not isHex and not isB58
-
-         dataAndType = [DTYPES.Unknown, '']
-         if isHex:
-            binData = hex_to_binary(theStr)
-            sz = len(binData)
-
-            if sz==20:
-               dataAndType = [DTYPES.Hash160, binData]
-            elif sz==25:
-               dataAndType = [DTYPES.Hash160, binData[1:21]]
-            elif sz==32:
-               dataAndType = [DTYPES., binData[1:21]]
-         elif isB58:
-            binData = base58_to_binary(theStr)
-            sz = len(binData)
-
-            
-         if isHex and sz==40:
-         elif isHex and sz==50:
-            dataAndType = [DTYPES.Hash160, hex_to_binary(theStr)[1:21]]
-         elif isB58 and sz>=31 and sz<=35:
-            dataAndType = [DTYPES.Hash160, addrStr_to_hash160(theStr)]
-         elif isHex is sz==130:
-            dataAndType = [DTYPES.PubKey, hex_to_binary(theStr)]
-         elif isHex is sz==128:
-            dataAndType = [DTYPES.PubKey, '\x04'+hex_to_binary(theStr)]
-         elif isHex is sz==128:
-            
-             
-
-         potentialKey = SecureBinaryData('\x04' + piece)
-         isValid = CryptoECDSA().VerifyPublicKeyValid(potentialKey)
-      """
-      pass
-
-
-
 
 
    #############################################################################
@@ -3301,8 +3180,16 @@ class PyBtcWallet(object):
       if assetIndex == 2**32:
          raise("unknown hash")
       
-      addr160 = self.chainIndexMap[assetIndex]
-      return self.addrMap[addr160] 
+      try:
+         addr160 = self.chainIndexMap[assetIndex]
+      except:
+         if assetIndex < -2:
+            importIndex = self.cppWallet.convertToImportIndex(assetIndex)
+            addr160 = self.linearAddr160List[importIndex]
+         else:
+            raise Exception("invalid address index")
+         
+      return self.addrMap[addr160]
    
    ###############################################################################
    def returnFilteredCppAddrList(self, filterUse, filterType):
@@ -3313,6 +3200,9 @@ class PyBtcWallet(object):
       keepChange = filterUse == "Change"
       
       for addrIndex in self.chainIndexMap:
+         
+         if addrIndex < 0:
+            continue
          
          #filter by address type
          if filterType != self.cppWallet.getAddrTypeForIndex(addrIndex):
@@ -3340,8 +3230,25 @@ class PyBtcWallet(object):
    def getAddrByIndex(self, index):
       addr160 = self.chainIndexMap[index]
       return self.addrMap[addr160]
-      
-      
+   
+   ###############################################################################
+   def getImportCppAddrList(self):
+   
+      addrList = []
+      for addrIndex in self.importList:
+         
+         addrObj = self.cppWallet.getImportAddrObjByIndex(addrIndex)    
+         addrComment = self.getCommentForAddress(addrObj.getAddrHash()[1:])
+         addrObj.setComment(addrComment)
+         
+         addrList.append(addrObj)
+         
+      return addrList  
+   
+   ###############################################################################
+   def hasImports(self):
+      return len(self.importList) != 0
+       
 ###############################################################################
 def getSuffixedPath(walletPath, nameSuffix):
    fpath = walletPath

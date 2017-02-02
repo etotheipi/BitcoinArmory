@@ -1394,6 +1394,17 @@ void AssetWallet::writeAssetEntry(shared_ptr<AssetEntry> entryPtr)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+void AssetWallet::deleteAssetEntry(shared_ptr<AssetEntry> entryPtr)
+{
+   auto&& dbKey = entryPtr->getDbKey();
+   CharacterArrayRef keyRef(dbKey.getSize(), dbKey.getPtr());
+
+   LMDBEnv::Transaction tx(dbEnv_, LMDB::ReadWrite);
+   db_->erase(keyRef);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
 void AssetWallet::update()
 {
    LMDBEnv::Transaction tx(dbEnv_, LMDB::ReadWrite);
@@ -1403,11 +1414,48 @@ void AssetWallet::update()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+void AssetWallet::deleteImports(const vector<BinaryData>& addrVec)
+{
+   LockStruct lock(this);
+
+   for (auto& scrAddr : addrVec)
+   {
+      int importIndex = INT32_MAX;
+      try
+      {
+         //if import index does not exist or isnt negative, continue
+         //only imports use a negative derivation index
+         importIndex = getAssetIndexForAddr(scrAddr);
+         if (importIndex > 0 || importIndex == INT32_MAX)
+            continue;
+      }
+      catch (...)
+      {
+         continue;
+      }
+
+      auto assetIter = assets_.find(importIndex);
+      if (assetIter == assets_.end())
+         continue;
+
+      auto assetPtr = assetIter->second;
+
+      //remove from wallet's maps
+      assets_.erase(importIndex);
+      addresses_.erase(importIndex);
+
+      //erase from file
+      deleteAssetEntry(assetPtr);
+   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
 void AssetWallet_Single::fillHashIndexMap()
 {
    LockStruct lock(this);
 
-   if (assets_.size() > 0 && lastKnownIndex_ != assets_.rbegin()->first)
+   if ((assets_.size() > 0 && lastKnownIndex_ != assets_.rbegin()->first) ||
+      lastAssetMapSize_ != assets_.size())
    {
       hashMaps_.clear();
 
@@ -1429,6 +1477,7 @@ void AssetWallet_Single::fillHashIndexMap()
       }
 
       lastKnownIndex_ = assets_.rbegin()->first;
+      lastAssetMapSize_ = assets_.size();
    }
 }
 
@@ -1494,7 +1543,8 @@ void AssetWallet_Multisig::fillHashIndexMap()
 {
    LockStruct lock(this);
 
-   if (assets_.size() > 0 && lastKnownIndex_ != assets_.rbegin()->first)
+   if ((assets_.size() > 0 && lastKnownIndex_ != assets_.rbegin()->first) ||
+      lastAssetMapSize_ != assets_.size())
    {
       hashMaps_.clear();
 
@@ -1541,6 +1591,7 @@ void AssetWallet_Multisig::fillHashIndexMap()
       }
 
       lastKnownIndex_ = assets_.rbegin()->first;
+      lastAssetMapSize_ = assets_.size();
    }
 }
 
@@ -1738,11 +1789,11 @@ bool AssetWallet::extendChainTo(unsigned count)
    LockStruct lock(this);
 
    //make address chain at least *count* long
-   auto total = getAssetCount();
-   if (total > count)
+   auto lastComputedIndex = max(getLastComputedIndex(), 0);
+   if (lastComputedIndex > count)
       return false;
 
-   auto toCompute = count - total + 1;
+   auto toCompute = count - lastComputedIndex;
 
    extendChain(toCompute);
    return true;
@@ -1773,6 +1824,41 @@ void AssetWallet::extendChain(shared_ptr<AssetEntry> assetPtr, unsigned count)
             id, asset));
       }
    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool AssetWallet_Single::setImport(
+   int importID, const SecureBinaryData& pubkey)
+{
+   auto importIndex = convertToImportIndex(importID);
+   
+   LockStruct lock(this);
+
+   auto assetIter = assets_.find(importIndex);
+   if (assetIter != assets_.end())
+      return false;
+
+   auto pubkey_copy = pubkey;
+   auto empty_privkey = SecureBinaryData();
+   auto newAsset = make_shared<AssetEntry_Single>(
+      importIndex, move(pubkey_copy), move(empty_privkey), nullptr);
+
+   assets_.insert(make_pair(importIndex, newAsset));
+   writeAssetEntry(newAsset);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool AssetWallet_Multisig::setImport(
+   int importID, const SecureBinaryData& pubkey)
+{
+   throw WalletException("setImport not implemented for multisig wallets");
+   return false;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+int AssetWallet::convertToImportIndex(int importID)
+{
+   return INT32_MIN + importID;
 }
 
 

@@ -318,6 +318,13 @@ void BtcWallet::resetTxOutHistory()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+void BtcWallet::resetCounters()
+{
+   lastPulledCountsID_ = -1;
+   lastPulledBalancesID_ = -1;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 vector<UnspentTxOut> BtcWallet::getSpendableTxOutListForValue(uint64_t val,
    bool ignoreZC)
 {

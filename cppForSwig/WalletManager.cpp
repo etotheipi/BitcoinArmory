@@ -162,12 +162,25 @@ WalletContainer& WalletManager::getCppWallet(const string& id)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+bool WalletManager::setImport(
+   string wltID, int importID, const SecureBinaryData& pubkey)
+{
+   auto wltIter = wallets_.find(wltID);
+   if (wltIter == wallets_.end())
+      throw WalletException("invalid wlt id");
+
+   return wltIter->second.setImport(importID, pubkey);
+}
+
+////////////////////////////////////////////////////////////////////////////////
 ////
 //// WalletContainer
 ////
 ////////////////////////////////////////////////////////////////////////////////
 void WalletContainer::registerWithBDV(bool isNew)
 {
+   reset();
+
    auto wltSingle = dynamic_pointer_cast<AssetWallet_Single>(wallet_);
    if (wltSingle == nullptr)
       throw runtime_error("invalid wallet ptr");
@@ -204,6 +217,28 @@ unsigned WalletContainer::getTopBlock(void)
 {
    auto& bdv = getBDVlambda_();
    return bdv.getTopBlock();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool WalletContainer::setImport(int importID, const SecureBinaryData& pubkey)
+{
+   return wallet_->setImport(importID, pubkey);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+int WalletContainer::convertToImportIndex(int index)
+{
+   return AssetWallet::convertToImportIndex(index);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void WalletContainer::removeAddressBulk(const vector<BinaryData>& addrVec)
+{
+   //delete from AssetWallet
+   wallet_->deleteImports(addrVec);
+
+   //caller should register the wallet again to update the address list on
+   //the db side
 }
 
 ////////////////////////////////////////////////////////////////////////////////

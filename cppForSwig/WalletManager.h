@@ -118,6 +118,15 @@ private:
       id_(id), getBDVlambda_(bdvLbd)
    {}
 
+   void reset(void)
+   {
+      totalBalance_ = 0;
+      spendableBalance_ = 0;
+      unconfirmedBalance_ = 0;
+      balanceMap_.clear();
+      countMap_.clear();
+   }
+
 protected:
    //need this for unit test, but can't have it exposed to SWIG for backwards
    //compatiblity with 2.x (because of the shared_ptr return type)
@@ -352,6 +361,12 @@ public:
       }
    }
 
+   SwigClient::ScrAddrObj getImportAddrObjByIndex(int index)
+   {
+      auto importIndex = AssetWallet::convertToImportIndex(index);
+      return getAddrObjByIndex(importIndex);
+   }
+
    int detectHighestUsedIndex(void);
 
    CoinSelectionInstance getCoinSelectionInstance(void)
@@ -360,6 +375,10 @@ public:
    }
 
    unsigned getTopBlock(void);
+
+   bool setImport(int importID, const SecureBinaryData& pubkey);
+   int convertToImportIndex(int);
+   void removeAddressBulk(const vector<BinaryData>&);
 };
 
 class ResolvedFeed_PythonWalletSingle;
@@ -452,6 +471,7 @@ public:
 
    virtual ~PythonSigner(void) = 0;
    virtual const SecureBinaryData& getPrivateKeyForIndex(unsigned) = 0;
+   virtual const SecureBinaryData& getPrivateKeyForImportIndex(unsigned) = 0;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -498,8 +518,12 @@ public:
       if (iter == pubkey_to_asset_.end())
          throw runtime_error("invalid value");
 
+      auto id = iter->second->getId();
+      if (id >= 0)
+         return signerPtr_->getPrivateKeyForIndex(id);
 
-      return signerPtr_->getPrivateKeyForIndex(iter->second->getId());
+      id = AssetWallet::convertToImportIndex(id);
+      return signerPtr_->getPrivateKeyForImportIndex(id);
    }
 };
 
@@ -546,6 +570,9 @@ public:
       unsigned chainLength);
 
    WalletContainer& getCppWallet(const string& id);
+
+   bool setImport(
+      string wltID, int importID, const SecureBinaryData& pubkey);
 };
 
 #endif

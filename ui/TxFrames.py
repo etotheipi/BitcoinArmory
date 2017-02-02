@@ -700,7 +700,15 @@ class SendBitcoinsFrame(ArmoryFrame):
                p2shMap[p2shKey]  = p2shScript  
                
                addrIndex = self.wlt.cppWallet.getAssetIndexForAddr(utxo.getRecipientHash160())
-               addrStr = self.wlt.chainIndexMap[addrIndex]
+               try:
+                  addrStr = self.wlt.chainIndexMap[addrIndex]
+               except:
+                  if addrIndex < -2:
+                     importIndex = self.wlt.cppWallet.convertToImportIndex(addrIndex)
+                     addrStr = self.wlt.linearAddr160List[importIndex]
+                  else:
+                     raise Exception("invalid address index")
+                  
                addrObj = self.wlt.addrMap[addrStr]
                pubKeyMap[scrAddr] = addrObj.binPublicKey65.toBinStr()               
 

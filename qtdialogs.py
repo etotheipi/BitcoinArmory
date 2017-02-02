@@ -2057,13 +2057,15 @@ class DlgWalletDetails(ArmoryDialog):
                QMessageBox.Ok)
          return
 
-      row = selectedList[0].row()
-      addrStr = str(self.wltAddrView.model().index(row, ADDRESSCOLS.Address).data().toString())
+      nodeIndex = selectedList[0]
+      nodeItem = self.wltAddrTreeModel.getNodeItem(nodeIndex)
+      addrStr = nodeItem.treeNode.getName()
       atype, addr160 = addrStr_to_hash160(addrStr)
       if atype==P2SHBYTE:
          LOGWARN('Deleting P2SH address: %s' % addrStr)
 
-      if self.wlt.addrMap[addr160].chainIndex == -2:
+      
+      if self.wlt.cppWallet.getAssetIndexForAddr(addr160) < 0:
          dlg = DlgRemoveAddress(self.wlt, addr160, self, self.main)
          dlg.exec_()
       else:
@@ -3214,6 +3216,7 @@ class DlgImportAddress(ArmoryDialog):
          pass
 
       self.accept()
+      self.main.loadCppWallets()
 
 
    #############################################################################
@@ -3384,7 +3387,8 @@ class DlgImportAddress(ArmoryDialog):
          pass
 
       self.accept()
-
+      self.main.loadCppWallets()
+      
 
 #############################################################################
 class DlgVerifySweep(ArmoryDialog):
@@ -4608,16 +4612,21 @@ class DlgRemoveAddress(ArmoryDialog):
       super(DlgRemoveAddress, self).__init__(parent, main)
 
 
-      if not wlt.hasAddr(addr160):
+      if not wlt.hasScrAddr(addr160):
          raise WalletAddressError('Address does not exist in wallet!')
 
-      if not wlt.getAddrByHash160(addr160).chainIndex == -2:
+      addrIndex = wlt.cppWallet.getAssetIndexForAddr(addr160)
+      
+      if addrIndex >= 0:
          raise WalletAddressError('Cannot delete regular chained addresses! '
                                    'Can only delete imported addresses.')
 
+         
+      importIndex = wlt.cppWallet.convertToImportIndex(addrIndex)
 
       self.wlt = wlt
-      self.addr = wlt.addrMap[addr160]
+      importStr = wlt.linearAddr160List[importIndex]
+      self.addr = wlt.addrMap[importStr]
       self.comm = wlt.getCommentForAddress(addr160)
 
       lblWarning = QLabel('<b>!!! WARNING !!!</b>\n\n')

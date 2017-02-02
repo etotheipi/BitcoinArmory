@@ -543,7 +543,7 @@ vector<UTXO> CoinSorting::sortCoins(
       unsigned topsz = min(top1, count);
 
       //random swap 2 entries topsz times
-      unsigned bracket = count - topsz;
+      unsigned bracket = max(count - topsz, 1);
       for (unsigned i = 0; i < topsz; i++)
       {
          auto v1 = rand() % topsz;
