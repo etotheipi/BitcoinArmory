@@ -22,6 +22,9 @@
 #define FCGI_PORT_TESTNET 19001
 #define FCGI_PORT_REGTEST 19002
 
+#define RPC_PORT_MAINNET 8332
+#define RPC_PORT_TESTNET 18332
+
 enum BDMPhase
 {
    BDMPhase_DBHeaders = 1,

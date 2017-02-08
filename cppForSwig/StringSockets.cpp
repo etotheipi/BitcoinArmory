@@ -16,13 +16,32 @@
 HttpSocket::HttpSocket(const BinarySocket& obj) :
 BinarySocket(obj)
 {
-   stringstream ss;
-   ss << "POST / HTTP/1.1" << "\r\n";
-   ss << "Host: " << addr_ << "\r\n";
-   ss << "Content-type: text/html; charset=UTF-8" << "\r\n";
-   ss << "Content-Length: ";
+   resetHeaders();
+}
 
-   http_header_ = move(ss.str());
+///////////////////////////////////////////////////////////////////////////////
+void HttpSocket::setupHeaders()
+{
+   addHeader("POST / HTTP/1.1");
+   stringstream addrHeader;
+   addrHeader << "Host: " << addr_;
+   addHeader(addrHeader.str());
+   addHeader("Content-type: text/html; charset=UTF-8");
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void HttpSocket::addHeader(string header)
+{
+   //headers should not have the termination CRLF
+   header.append("\r\n");
+   headers_.push_back(move(header));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void HttpSocket::resetHeaders()
+{
+   headers_.clear();
+   setupHeaders();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -32,16 +51,25 @@ int32_t HttpSocket::makePacket(char** packet, const char* msg)
       return -1;
 
    stringstream ss;
+   ss << "Content-Length: ";
    ss << strlen(msg);
    ss << "\r\n\r\n";
 
+   size_t httpHeaderSize = 0;
+   for (auto& header : headers_)
+      httpHeaderSize += header.size();
+
    *packet = new char[strlen(msg) +
       ss.str().size() +
-      http_header_.size() +
+      httpHeaderSize +
       1];
 
-   memcpy(*packet, http_header_.c_str(), http_header_.size());
-   size_t pos = http_header_.size();
+   int32_t pos = 0;
+   for (auto& header : headers_)
+   {
+      memcpy(*packet + pos, header.c_str(), header.size());
+      pos += header.size();
+   }
 
    memcpy(*packet + pos, ss.str().c_str(), ss.str().size());
    pos += ss.str().size();
@@ -50,6 +78,10 @@ int32_t HttpSocket::makePacket(char** packet, const char* msg)
    pos += strlen(msg);
 
    memset(*packet + pos, 0, 1);
+
+   FILE* ff = fopen("C:/ArmoryDB-testnet2/httpheader.txt", "wb");
+   fwrite(*packet, strlen(*packet), 1, ff);
+   fclose(ff);
 
    return pos;
 }

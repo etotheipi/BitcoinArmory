@@ -1115,7 +1115,7 @@ shared_ptr<AddressEntry> AssetWallet::getNewAddress()
    auto index = getAndBumpHighestUsedIndex();
 
    //lock
-   LockStruct lock(this);
+   ReentrantLock lock(this);
 
    auto addrIter = addresses_.find(index);
    if (addrIter != addresses_.end())
@@ -1231,7 +1231,7 @@ int AssetWallet::getAssetIndexForAddr(const BinaryData& scrAddr)
       return INT32_MAX;
    };
 
-   LockStruct lock(this);
+   ReentrantLock lock(this);
 
    fillHashIndexMap();
 
@@ -1261,7 +1261,7 @@ int AssetWallet::getAssetIndexForAddr(const BinaryData& scrAddr)
 ////////////////////////////////////////////////////////////////////////////////
 AddressEntryType AssetWallet::getAddrTypeForIndex(int index)
 {
-   LockStruct lock(this);
+   ReentrantLock lock(this);
    AddressEntryType addrType;
    
    auto addrIter = addresses_.find(index);
@@ -1283,7 +1283,7 @@ AddressEntryType AssetWallet::getAddrTypeForIndex(int index)
 shared_ptr<AddressEntry> AssetWallet_Single::getAddressEntryForAsset(
    shared_ptr<AssetEntry> assetPtr, AddressEntryType ae_type)
 {
-   LockStruct lock(this);
+   ReentrantLock lock(this);
    
    if (ae_type == AddressEntryType_Default)
       ae_type = default_aet_;
@@ -1333,7 +1333,7 @@ shared_ptr<AddressEntry> AssetWallet_Single::getAddressEntryForAsset(
 shared_ptr<AddressEntry> AssetWallet_Multisig::getAddressEntryForAsset(
    shared_ptr<AssetEntry> assetPtr, AddressEntryType ae_type)
 {
-   LockStruct lock(this);
+   ReentrantLock lock(this);
 
    auto addrIter = addresses_.find(assetPtr->getId());
    if (addrIter != addresses_.end())
@@ -1365,7 +1365,7 @@ shared_ptr<AddressEntry> AssetWallet_Multisig::getAddressEntryForAsset(
 ////////////////////////////////////////////////////////////////////////////////
 shared_ptr<AddressEntry> AssetWallet::getAddressEntryForIndex(int index)
 {
-   LockStruct lock(this);
+   ReentrantLock lock(this);
 
    auto addrIter = addresses_.find(index);
    if (addrIter != addresses_.end())
@@ -1416,7 +1416,7 @@ void AssetWallet::update()
 ////////////////////////////////////////////////////////////////////////////////
 void AssetWallet::deleteImports(const vector<BinaryData>& addrVec)
 {
-   LockStruct lock(this);
+   ReentrantLock lock(this);
 
    for (auto& scrAddr : addrVec)
    {
@@ -1452,7 +1452,7 @@ void AssetWallet::deleteImports(const vector<BinaryData>& addrVec)
 ////////////////////////////////////////////////////////////////////////////////
 void AssetWallet_Single::fillHashIndexMap()
 {
-   LockStruct lock(this);
+   ReentrantLock lock(this);
 
    if ((assets_.size() > 0 && lastKnownIndex_ != assets_.rbegin()->first) ||
       lastAssetMapSize_ != assets_.size())
@@ -1484,7 +1484,7 @@ void AssetWallet_Single::fillHashIndexMap()
 ////////////////////////////////////////////////////////////////////////////////
 set<BinaryData> AssetWallet_Single::getAddrHashSet()
 {
-   LockStruct lock(this);
+   ReentrantLock lock(this);
 
    fillHashIndexMap();
 
@@ -1541,7 +1541,7 @@ const SecureBinaryData& AssetWallet_Single::getChainCode() const
 ////////////////////////////////////////////////////////////////////////////////
 void AssetWallet_Multisig::fillHashIndexMap()
 {
-   LockStruct lock(this);
+   ReentrantLock lock(this);
 
    if ((assets_.size() > 0 && lastKnownIndex_ != assets_.rbegin()->first) ||
       lastAssetMapSize_ != assets_.size())
@@ -1598,7 +1598,7 @@ void AssetWallet_Multisig::fillHashIndexMap()
 ////////////////////////////////////////////////////////////////////////////////
 set<BinaryData> AssetWallet_Multisig::getAddrHashSet()
 {
-   LockStruct lock(this);
+   ReentrantLock lock(this);
 
    fillHashIndexMap();
 
@@ -1664,7 +1664,7 @@ BinaryData AssetWallet_Multisig::getPrefixedHashForIndex(
 ////////////////////////////////////////////////////////////////////////////////
 shared_ptr<AssetEntry> AssetWallet::getAssetForIndex(unsigned index) const
 {
-   LockStruct lock(this);
+   ReentrantLock lock(this);
 
    auto iter = assets_.find(index);
    if (iter == assets_.end())
@@ -1730,7 +1730,7 @@ const BinaryData& AssetWallet::getP2SHScriptForHash(const BinaryData& script)
 const BinaryData& AssetWallet::getNestedSWAddrForIndex(
    unsigned chainIndex)
 {
-   LockStruct lock(this);
+   ReentrantLock lock(this);
 
    auto assetPtr = getAssetForIndex(chainIndex);
    auto addrEntry = getAddressEntryForAsset(
@@ -1743,7 +1743,7 @@ const BinaryData& AssetWallet::getNestedSWAddrForIndex(
 const BinaryData& AssetWallet::getNestedP2PKAddrForIndex(
    unsigned chainIndex)
 {
-   LockStruct lock(this);
+   ReentrantLock lock(this);
 
    auto assetPtr = getAssetForIndex(chainIndex);
    auto addrEntry = getAddressEntryForAsset(
@@ -1771,7 +1771,7 @@ string AssetWallet::getID(void) const
 ////////////////////////////////////////////////////////////////////////////////
 void AssetWallet::extendChain(unsigned count)
 {
-   LockStruct lock(this);
+   ReentrantLock lock(this);
 
    //add *count* entries to address chain
    if (assets_.size() == 0)
@@ -1786,7 +1786,7 @@ void AssetWallet::extendChain(unsigned count)
 ////////////////////////////////////////////////////////////////////////////////
 bool AssetWallet::extendChainTo(unsigned count)
 {
-   LockStruct lock(this);
+   ReentrantLock lock(this);
 
    //make address chain at least *count* long
    auto lastComputedIndex = max(getLastComputedIndex(), 0);
@@ -1805,7 +1805,7 @@ void AssetWallet::extendChain(shared_ptr<AssetEntry> assetPtr, unsigned count)
    if (count == 0)
       return;
 
-   LockStruct lock(this);
+   ReentrantLock lock(this);
 
    auto&& assetVec = derScheme_->extendChain(assetPtr, count);
 
@@ -1832,7 +1832,7 @@ bool AssetWallet_Single::setImport(
 {
    auto importIndex = convertToImportIndex(importID);
    
-   LockStruct lock(this);
+   ReentrantLock lock(this);
 
    auto assetIter = assets_.find(importIndex);
    if (assetIter != assets_.end())
@@ -1845,6 +1845,8 @@ bool AssetWallet_Single::setImport(
 
    assets_.insert(make_pair(importIndex, newAsset));
    writeAssetEntry(newAsset);
+
+   return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

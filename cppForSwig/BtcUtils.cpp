@@ -9,6 +9,7 @@
 #include "BtcUtils.h"
 #include "hmac.h"
 #include "sha.h"
+#include "base64.h"
 #include "EncryptionUtils.h"
 #include "BlockDataManagerConfig.h"
 
@@ -309,4 +310,27 @@ TxOutScriptRef BtcUtils::getTxOutScrAddrNoCopy(BinaryDataRef script)
    }
 
    return outputRef;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+string BtcUtils::base64_encode(const string& in)
+{
+   string output;
+   CryptoPP::Base64Encoder base64e(
+      new CryptoPP::StringSink(output), false, in.size() + 1);
+   base64e.Put((const byte*)in.c_str(), in.size());
+   base64e.MessageEnd();
+
+   return output;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+string BtcUtils::base64_decode(const string& in)
+{
+   string output;
+   CryptoPP::Base64Decoder base64e(new CryptoPP::StringSink(output));
+   base64e.Put((const byte*)in.c_str(), in.size());
+   base64e.MessageEnd();
+
+   return output;
 }

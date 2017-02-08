@@ -2,9 +2,15 @@
 //                                                                            //
 //  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
-//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//  See LICENSE-ATI or http://www.gnu.org/licenses/agpl.html                  //
+//                                                                            //
+//                                                                            //
+//  Copyright (C) 2016, goatpig                                               //            
+//  Distributed under the MIT license                                         //
+//  See LICENSE-MIT or https://opensource.org/licenses/MIT                    //                                   
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
+
 #ifndef BLOCKDATAMANAGERCONFIG_H
 #define BLOCKDATAMANAGERCONFIG_H
 
@@ -12,6 +18,8 @@
 #include <thread>
 #include "bdmenums.h"
 #include "BinaryData.h"
+#include <tuple>
+#include <list>
 
 #ifdef _WIN32
 #include <ShlObj.h>
@@ -19,6 +27,7 @@
 #include <wordexp.h>
 #endif
 
+////////////////////////////////////////////////////////////////////////////////
 struct BlockDataManagerConfig
 {
    ARMORY_DB_TYPE armoryDbType_ = ARMORY_DB_FULL;
@@ -50,6 +59,7 @@ struct BlockDataManagerConfig
    NodeType nodeType_ = Node_BTC;
    string btcPort_;
    string fcgiPort_;
+   string rpcPort_;
 
 
    unsigned ramUsage_ = 4;
@@ -86,13 +96,22 @@ struct BlockDataManagerConfig
    BlockDataManagerConfig();
    void selectNetwork(const std::string &netname);
 
-   void appendPath(string& base, const string& add);
+   void processArgs(const map<string, string>&, bool);
    void parseArgs(int argc, char* argv[]);
    void printHelp(void);
    string stripQuotes(const string& input);
    static string portToString(unsigned);
+
+   static void appendPath(string& base, const string& add);
+   static void expandPath(string& path);
+
+   static vector<string> getLines(const string& path);
+   static map<string, string> getKeyValsFromLines(
+      const vector<string>&, char delim);
+   static pair<string, string> getKeyValFromLine(const string&, char delim);
 };
 
+////
 enum NodeStatus
 {
    NodeStatus_Offline,
@@ -100,10 +119,52 @@ enum NodeStatus
    NodeStatus_OffSync
 };
 
+////
+enum RpcStatus
+{
+   RpcStatus_Disabled,
+   RpcStatus_BadAuth,
+   RpcStatus_Online,
+   RpcStatus_Error_28
+};
+
+////
+enum ChainStatus
+{
+   ChainStatus_Unknown,
+   ChainStatus_Syncing,
+   ChainStatus_Ready
+};
+
+////////////////////////////////////////////////////////////////////////////////
+class NodeChainState
+{
+private:
+   list<tuple<unsigned, uint64_t, uint64_t>> heightTimeVec_;
+   ChainStatus state_ = ChainStatus_Unknown;
+   float blockSpeed_ = 0.0f;
+   uint64_t eta_ = 0;
+
+public:
+   void appendHeightAndTime(unsigned, uint64_t);
+   void processState(void);
+   unsigned getTopBlock(void) const;
+   ChainStatus state(void) const { return state_; }
+   float getBlockSpeed(void) const { return blockSpeed_; }
+
+   BinaryData serialize(void) const;
+   void unserialize(const BinaryData&);
+
+   void reset();
+};
+
+////////////////////////////////////////////////////////////////////////////////
 struct NodeStatusStruct
 {
    NodeStatus status_ = NodeStatus_Offline;
    bool SegWitEnabled_ = false;
+   RpcStatus rpcStatus_ = RpcStatus_Disabled;
+   NodeChainState chainState_;
 
    BinaryData serialize(void) const;
    void deserialize(const BinaryData&);
@@ -111,6 +172,14 @@ struct NodeStatusStruct
    //casting nastiness for python callbacks arg conversion until I 
    //shove it all on the cpp side
    static NodeStatusStruct cast_to_NodeStatusStruct(void* ptr);
+};
+
+////////////////////////////////////////////////////////////////////////////////
+struct ConfigFile
+{
+   map<string, string> keyvalMap_;
+
+   ConfigFile(const string& path);
 };
 
 #endif

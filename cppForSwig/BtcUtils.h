@@ -2032,6 +2032,9 @@ public:
 
       return bw.getData();
    }
+
+   static string base64_encode(const string&);
+   static string base64_decode(const string&);
 };
    
 static inline void suppressUnusedFunctionWarning()

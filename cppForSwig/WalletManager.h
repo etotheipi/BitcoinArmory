@@ -97,7 +97,7 @@ class WalletContainer
 {
    friend class WalletManager;
    friend class PythonSigner;
-   friend class CoinSelectionInstance;
+   friend struct CoinSelectionInstance;
 
 private:
    const string id_;

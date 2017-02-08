@@ -37,6 +37,7 @@
 
 #include <functional>
 #include "BDM_supportClasses.h"
+#include "nodeRPC.h"
 
 #ifndef MAXSIZE_T
    #if defined(_WIN64) || defined(__X86_64__)
@@ -132,6 +133,7 @@ public:
    typedef function<void(BDMPhase, double,unsigned, unsigned)> ProgressCallback;   
    shared_ptr<BitcoinP2P> networkNode_;
    shared_future<bool> isReadyFuture_;
+   mutable shared_ptr<NodeRPC> nodeRPC_;
 
    TimedStack<unique_ptr<BDV_Notification>> notificationStack_;
    shared_ptr<ZeroConfContainer>   zeroConfCont_;
@@ -242,6 +244,8 @@ public:
 
    unsigned getCheckedTxCount(void) const { return checkTransactionCount_; }
    NodeStatusStruct getNodeStatus(void) const;
+
+   float getFeeByte(void) const;
 };
 
 ///////////////////////////////////////////////////////////////////////////////

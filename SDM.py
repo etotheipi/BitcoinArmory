@@ -166,7 +166,7 @@ class SatoshiDaemonManager(object):
                       extraExeSearch=[], createHomeIfDNE=True):
       LOGDEBUG('Exec setupSDM')
       # If the client is remote, don't do anything.
-      if not self.localClient:
+      if not self.localDB:
          LOGWARN("No SDM since the client is remote")
          return
 
@@ -223,7 +223,7 @@ class SatoshiDaemonManager(object):
    def setupManualSDM(self):
       LOGDEBUG('Exec setupManualSDM')
       # If the client is remote, don't do anything.
-      if not self.localClient:
+      if not self.localDB:
          LOGWARN("No SDM since the client is remote")
          return
 
@@ -242,11 +242,11 @@ class SatoshiDaemonManager(object):
          self.proxy = None
 
    #############################################################################
-   def checkClientIsLocal(self):
+   def checkDBIsLocal(self):
       if ARMORYDB_IP != ARMORYDB_DEFAULT_IP or ARMORYDB_PORT != ARMORYDB_DEFAULT_PORT:
-         self.localClient = False
+         self.localDB = False
       else:
-         self.localClient = True
+         self.localDB = True
 
    #############################################################################
    def setDisabled(self, newBool=True):

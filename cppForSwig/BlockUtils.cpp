@@ -890,6 +890,8 @@ BlockDataManager::BlockDataManager(
          throw DbErrorMsg("invalid node type in bdmConfig");
       }
 
+      nodeRPC_ = make_shared<NodeRPC>(config_);
+
       zeroConfCont_ = make_shared<ZeroConfContainer>(iface_, networkNode_);
       scrAddrData_ = make_shared<BDM_ScrAddrFilter>(this);
    }
@@ -1234,5 +1236,7 @@ NodeStatusStruct BlockDataManager::getNodeStatus() const
    if (networkNode_->isSegWit())
       nss.SegWitEnabled_ = true;
 
+   nss.rpcStatus_ = nodeRPC_->testConnection();
+   nss.chainState_ = nodeRPC_->getChainStatus();
    return nss;
 }

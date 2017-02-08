@@ -1,3 +1,92 @@
+v0.96
+
+== Added ==
+   - 2 new payment script types have been introduced on top of legacy P2PKH:
+      - P2SH-P2PK: nested P2PK script. Uses compressed public keys.
+      - P2SH-P2WPKH: nested P2WPKH SegWit single address output script.
+
+   - Introduced a new signer that can sign outputs using the new script types. The new signer code is only active when
+     when redeeming outputs using the new scripts. Old outputs and new outputs using the legacy script type (P2PKH) 
+     are still signed by the original code and can be signed for by previous versions dating back to 0.92.x.
+     New address selection GUI let's the user pick the output script of their choice.
+
+   - The modified offline signing serialization format is backwards compatible. Older version can sign for legacy outputs.
+     Older versions can also fund the new types (as they are P2SH scripts). You will need Armory 0.96+ to spend from these
+     new scripts
+
+   - Introducing brand new wallet code in C++, using LMDB for system I/O. The new code is compatible with Armory's 
+     proprietary chain derivation and can reproduce any existing Armory wallet. Starting 0.96, all existing wallets
+     are mirrored to this new format.
+
+   - Wallet mirrors are exclusively watching only (they only contain public data). The new wallet code introduces the new
+     address types and signer code. It is used to bridge the wallet data from client to database and distinguish 
+     between output scripts.
+
+   - Single address use patterns are preserved. While any wallet can return any of the new output scripts, the new 
+     wallet code guarantees requested new addresses originate from fresh public keys and locks public keys to their
+     chosen address type.
+
+   - Coin selection logic has been reproduced on the C++ side, with some improvements. It allows for proper interaction
+     with satoshi/byte fee options and provides predictive tx size thanks to the new wallet framework.
+
+   - New options have been introduced for fee management:
+      - Manual fee/byte.
+      - Auto fee/byte.
+
+      Auto fee/byte queries fee/byte from your local node over the RPC. It defaults to the default manual fee/byte on
+      failure. New setting UI has been introduced to change the defaults. New UI has been added to the Send dialog
+      to pick custom fee schedule per transaction.
+
+   - Added optional auto adjust fee/byte feature. This feature ties back to the new coin selection logic. When using 
+     fee/byte options, it attempts to increase your fee in order to lign up the precision of your change output with
+     the precision of your spend values. The goal is to obfuscate your change output in conjunction with the existing
+     output order randomization, by bluring the difference in value between change and payement outputs. This feature
+     improves privacy when applicable.
+     
+     The fee bump is never more than 10% the original fee value and the coin selection code will prioritize outputs
+     that fit this strategy if enabled. This behavior can be turned on and off in the new fee dialogs.
+
+   - Added new change address options, configurable in a new settings tab. The options allow the user to pick the 
+     script type of the change address, or automate it.
+
+     When automated, the change output will attempt to match the output script type of the payement address. This
+     feature improves privacy by unifying output script types, which obfuscates the change output. 
+
+     If the recipient address types do not match, the auto option will create a P2SH-P2PK change (as it uses compressed 
+     public keys, resulting in smaller transactions when redeeming the change). Keep in mind that all versions prior 
+     to 0.96 cannot redeem these type of P2SH outputs.
+
+     If the transaction is SegWit and the change output is automated to P2SH, the output script type will be P2SH-P2WPKH.
+
+   - The coin selection code will attempt to consolidate unspent outputs in order to redeem more outputs than it creates. 
+     This behavior only takes place if there are available outputs sharing the same address as the already selected ones. 
+     This behavior will not inflate the transaction fee by more than 20%.
+
+   - When choosing fee/byte options, the coin selection code will not create a change output if the change is considered
+     dust. Dust change refers to a change output with a value lower than the fee it will cost to redeem it. 
+
+     In such case, the change value will be added to the transaction fee instead. This will increase tx priority and 
+     improve privacy (as there will be no change output).
+
+   - Reworked the coin control dialog. It now distinguishes between address types and has place holders for RBF and CPFP. 
+     These features will be introduced in a later release.
+
+   - Added the option to force the full redemption of coin control selection. Previously, the coin selection code would 
+     pick outputs from within a custom coin control set. This option instructs the code to use the set as is.
+
+   - Added a Tx preview button to the send dialog, to review tx before pressing "Send".
+
+   - Reworked address ledger in wallet properties dialog. Now distinguishes between address categories (Used, Change and 
+     Unused) and address types (P2PKH, P2SH-P2PK, P2SH-P2WPKH)
+
+   - The SegWit address type (P2SH-P2WPKH) can only be used if your local node references a chain that has activated SegWit.
+
+== Fixed ==
+   - Fixed transaction count display in wallet properties dialog
+   - Fixed wallet group selector in online lobby
+   - Fixed lockbox spending
+   - Will now properly display updated comments in global ledger
+
 v0.95.1
 
 == Added ==

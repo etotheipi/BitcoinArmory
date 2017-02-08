@@ -177,6 +177,7 @@
     <ClInclude Include="..\FcgiMessage.h" />
     <ClInclude Include="..\LedgerEntry.h" />
     <ClInclude Include="..\LedgerEntryData.h" />
+    <ClInclude Include="..\ReentrantLock.h" />
     <ClInclude Include="..\ScriptRecipient.h" />
     <ClInclude Include="..\SocketObject.h" />
     <ClInclude Include="..\StringSockets.h" />
@@ -200,6 +201,7 @@
     <ClCompile Include="..\FcgiMessage.cpp" />
     <ClCompile Include="..\leveldb_windows_port\win32_posix\dirent_win32.cpp" />
     <ClCompile Include="..\leveldb_windows_port\win32_posix\mman.cpp" />
+    <ClCompile Include="..\ReentrantLock.cpp" />
     <ClCompile Include="..\Script.cpp" />
     <ClCompile Include="..\Signer.cpp" />
     <ClCompile Include="..\SocketObject.cpp" />

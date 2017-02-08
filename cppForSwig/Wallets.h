@@ -22,6 +22,7 @@
 #include "lmdbpp.h"
 #include "Script.h"
 #include "Signer.h"
+#include "ReentrantLock.h"
 
 using namespace std;
 
@@ -778,7 +779,7 @@ struct HashMaps
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-class AssetWallet
+class AssetWallet : protected Lockable
 {
    friend class ResolvedFeed_AssetWalletSingle;
    friend class ResolvedFeed_AssetWalletMS;
@@ -788,43 +789,6 @@ protected:
    LMDB* db_ = nullptr;
    const string dbName_;
    bool ownsEnv_ = false;
-
-   mutable mutex walletMutex_;
-   mutable thread::id mutexTID_;
-
-   ////
-   struct LockStruct
-   {
-      const AssetWallet* wltPtr_;
-      unique_ptr<unique_lock<mutex>> lock_;
-
-      LockStruct(const AssetWallet* wltPtr) :
-         wltPtr_(wltPtr)
-      {
-         if (wltPtr == nullptr)
-            throw WalletException("empty wlt ptr");
-
-         lock_ = 
-            make_unique<unique_lock<mutex>>(wltPtr->walletMutex_, defer_lock);
-         if (wltPtr->mutexTID_ != this_thread::get_id())
-         { 
-            lock_->lock();
-            wltPtr->mutexTID_ = this_thread::get_id();
-         }
-      }
-
-      ~LockStruct(void)
-      {
-         if (lock_ == nullptr)
-            return;
-
-         if (lock_->owns_lock())
-         {
-            if (wltPtr_ != nullptr)
-               wltPtr_->mutexTID_ = thread::id();
-         }
-      }
-   };
 
    atomic<int> highestUsedAddressIndex_;
 

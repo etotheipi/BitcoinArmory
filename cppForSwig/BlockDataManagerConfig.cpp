@@ -15,6 +15,11 @@
 #include "sys/stat.h"
 #endif
 
+////////////////////////////////////////////////////////////////////////////////
+//
+// NodeStatusStruct
+//
+////////////////////////////////////////////////////////////////////////////////
 uint8_t BlockDataManagerConfig::pubkeyHashPrefix_;
 uint8_t BlockDataManagerConfig::scriptHashPrefix_;
 
@@ -91,6 +96,7 @@ void BlockDataManagerConfig::selectNetwork(const string &netname)
       magicBytes_ = READHEX(MAINNET_MAGIC_BYTES);
       btcPort_ = portToString(NODE_PORT_MAINNET);
       fcgiPort_ = portToString(FCGI_PORT_MAINNET);
+      rpcPort_ = portToString(RPC_PORT_MAINNET);
       pubkeyHashPrefix_ = SCRIPT_PREFIX_HASH160;
       scriptHashPrefix_ = SCRIPT_PREFIX_P2SH;
    }
@@ -101,6 +107,7 @@ void BlockDataManagerConfig::selectNetwork(const string &netname)
       magicBytes_ = READHEX(TESTNET_MAGIC_BYTES);
       btcPort_ = portToString(NODE_PORT_TESTNET);
       fcgiPort_ = portToString(FCGI_PORT_TESTNET);
+      rpcPort_ = portToString(RPC_PORT_TESTNET);
       pubkeyHashPrefix_ = SCRIPT_PREFIX_HASH160_TESTNET;
       scriptHashPrefix_ = SCRIPT_PREFIX_P2SH_TESTNET;
 
@@ -113,6 +120,7 @@ void BlockDataManagerConfig::selectNetwork(const string &netname)
       magicBytes_ = READHEX(REGTEST_MAGIC_BYTES);
       btcPort_ = portToString(NODE_PORT_REGTEST);
       fcgiPort_ = portToString(FCGI_PORT_REGTEST);
+      rpcPort_ = portToString(RPC_PORT_TESTNET);
       pubkeyHashPrefix_ = SCRIPT_PREFIX_HASH160_TESTNET;
       scriptHashPrefix_ = SCRIPT_PREFIX_P2SH_TESTNET;
 
@@ -171,10 +179,6 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
 
    --satoshi-datadir: path to blockchain data folder (blkXXXXX.dat files)
 
-   --spawnId: id as a string with which the db was spawned. Certain methods like
-   shutdown require this id to proceed. Starting with an empty id makes all
-   these methods unusable. Currently only used by shutdown()
-
    --ram_usage: defines the ram use during scan operations. 1 level averages
    128MB of ram (without accounting the base amount, ~400MB). Defaults at 4.
    Can't be lower than 1. Can be changed in between processes
@@ -198,128 +202,33 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
 
    try
    {
+      //parse cli args
+      map<string, string> args;
       for (int i = 1; i < argc; i++)
       {
-         istringstream ss(argv[i]);
-         string str;
-         getline(ss, str, '=');
+         //check prefix
+         if (strlen(argv[i]) < 2)
+            throw DbErrorMsg("invalid CLI arg");
 
-         if (str == "--testnet")
-         {
-            selectNetwork("Test");
-         }
-         else if (str == "--regtest")
-         {
-            selectNetwork("Regtest");
-         }
-         else if (str == "--rescan")
-         {
-            initMode_ = INIT_RESCAN;
-         }
-         else if (str == "--rebuild")
-         {
-            initMode_ = INIT_REBUILD;
-         }
-         else if (str == "--rescanSSH")
-         {
-            initMode_ = INIT_SSH;
-         }
-         else if (str == "--checkchain")
-         {
-            checkChain_ = true;
-         }
-         else
-         {
-            if (str == "--datadir")
-            {
-               string argstr;
-               getline(ss, argstr, '=');
+         string prefix(argv[i], 2);
+         if (prefix != "--")
+            throw DbErrorMsg("invalid CLI arg");
 
-               dataDir_ = stripQuotes(argstr);
-            }
-            else if (str == "--dbdir")
-            {
-               string argstr;
-               getline(ss, argstr, '=');
-
-               dbDir_ = stripQuotes(argstr);
-            }
-            else if (str == "--satoshi-datadir")
-            {
-               string argstr;
-               getline(ss, argstr, '=');
-
-               blkFileLocation_ = stripQuotes(argstr);
-            }
-            else if (str == "--spawnId")
-            {
-               string argstr;
-               getline(ss, argstr, '=');
-
-               spawnID_ = stripQuotes(argstr);
-            }
-            else if (str == "--db-type")
-            {
-               string argstr;
-               getline(ss, argstr, '=');
-
-               auto&& _str = stripQuotes(argstr);
-               if (_str == "DB_BARE")
-                  armoryDbType_ = ARMORY_DB_BARE;
-               else if (_str == "DB_FULL")
-                  armoryDbType_ = ARMORY_DB_FULL;
-               else if (_str == "DB_SUPER")
-                  armoryDbType_ = ARMORY_DB_SUPER;
-               else
-               {
-                  cout << "Error: bad argument syntax" << endl;
-                  printHelp();
-               }
-            }
-            else if (str == "--ram-usage")
-            {
-               string argstr;
-               getline(ss, argstr, '=');
-
-               int val = 0;
-               try
-               {
-                  val = stoi(argstr);
-               }
-               catch (...)
-               {
-               }
-
-               if (val > 0)
-                  ramUsage_ = val;
-            }
-            else if (str == "--thread-count")
-            {
-               string argstr;
-               getline(ss, argstr, '=');
-
-               int val = 0;
-               try
-               {
-                  val = stoi(argstr);
-               }
-               catch (...)
-               {
-               }
-
-               if (val > 0)
-                  threadCount_ = val;
-            }
-            else
-            {
-               cout << "Error: bad argument syntax" << endl;
-               printHelp();
-            }
-         }
+         //string prefix and tokenize
+         string line(argv[i] + 2);
+         args.insert(getKeyValFromLine(line, '='));
       }
 
-      //figure out defaults
-      if (dataDir_.size() == 0)
+      processArgs(args, true);
+
+      //figure out datadir
+      auto argIter = args.find("datadir");
+      if (argIter != args.end())
+      { 
+         dataDir_ = argIter->second;
+         args.erase(argIter);
+      }
+      else
       {
          if (!testnet_ && !regtest_)
             dataDir_ = defaultDataDir_;
@@ -329,6 +238,25 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
             dataDir_ = defaultRegtestDataDir_;
       }
 
+      expandPath(dataDir_);
+
+      //get datadir
+      auto configPath = dataDir_;
+      appendPath(configPath, "armorydb.conf");
+
+      if (DBUtils::fileExists(configPath, 2))
+      {
+         ConfigFile cf(configPath);
+         auto mapIter = cf.keyvalMap_.find("datadir");
+         if (mapIter != cf.keyvalMap_.end())
+            throw DbErrorMsg("datadir is illegal in .conf file");
+
+         processArgs(cf.keyvalMap_, false);
+      }
+
+      processArgs(args, false);
+
+      //figure out defaults
       bool autoDbDir = false;
       if (dbDir_.size() == 0)
       {
@@ -345,58 +273,12 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
             blkFileLocation_ = defaultTestnetBlkFileLocation_;
       }
 
-      //resolve ~
-#ifdef _WIN32
-      char* pathPtr = new char[MAX_PATH + 1];
-      if (SHGetFolderPath(0, CSIDL_APPDATA, 0, 0, pathPtr) != S_OK)
-      {
-         delete[] pathPtr;
-         throw runtime_error("failed to resolve appdata path");
-      }
-
-      string userPath(pathPtr);
-      delete[] pathPtr;
-#else
-      wordexp_t wexp;
-      wordexp("~", &wexp, 0);
-
-      for (unsigned i = 0; i < wexp.we_wordc; i++)
-      {
-         cout << wexp.we_wordv[i] << endl;
-      }
-
-      if (wexp.we_wordc == 0)
-         throw runtime_error("failed to resolve home path");
-
-      string userPath(wexp.we_wordv[0]);
-#endif
-
       //expand paths if necessary
-      if (dataDir_.c_str()[0] == '~')
-      {
-         auto newPath = userPath;
-         appendPath(newPath, dataDir_.substr(1));
+      expandPath(dbDir_);
+      expandPath(blkFileLocation_);
 
-         dataDir_ = move(newPath);
-      }
-
-      if (dbDir_.c_str()[0] == '~')
-      {
-         auto newPath = userPath;
-         appendPath(newPath, dbDir_.substr(1));
-
-         dbDir_ = move(newPath);
-      }
-
-      if (blkFileLocation_.c_str()[0] == '~')
-      {
-         auto newPath = userPath;
-         appendPath(newPath, blkFileLocation_.substr(1));
-
-         blkFileLocation_ = move(newPath);
-      }
-
-      if (blkFileLocation_.substr(blkFileLocation_.length() - 6, 6) != "blocks")
+      if (blkFileLocation_.size() < 6 || 
+          blkFileLocation_.substr(blkFileLocation_.length() - 6, 6) != "blocks")
       {
          appendPath(blkFileLocation_, "blocks");
       }
@@ -448,6 +330,104 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+void BlockDataManagerConfig::processArgs(const map<string, string>& args, 
+   bool onlyDetectNetwork)
+{
+   //network type
+   auto iter = args.find("testnet");
+   if (iter != args.end())
+      selectNetwork("Test");
+
+   iter = args.find("regtest");
+   if (iter != args.end())
+      selectNetwork("Regtest");
+
+   if (onlyDetectNetwork)
+      return;
+
+   //db init options
+   iter = args.find("rescanSSH");
+   if (iter != args.end())
+      initMode_ = INIT_SSH;
+
+   iter = args.find("rescan");
+   if (iter != args.end())
+      initMode_ = INIT_RESCAN;
+
+   iter = args.find("rebuild");
+   if (iter != args.end())
+      initMode_ = INIT_REBUILD;
+
+   iter = args.find("checkchain");
+   if (iter != args.end())
+      checkChain_ = true;
+
+   //db type
+   iter = args.find("db-type");
+   if (iter != args.end())
+   {
+      if (iter->second == "DB_BARE")
+         armoryDbType_ = ARMORY_DB_BARE;
+      else if (iter->second == "DB_FULL")
+         armoryDbType_ = ARMORY_DB_FULL;
+      else if (iter->second == "DB_SUPER")
+         armoryDbType_ = ARMORY_DB_SUPER;
+      else
+      {
+         cout << "Error: bad argument syntax" << endl;
+         printHelp();
+      }
+   }
+
+   //paths
+   iter = args.find("datadir");
+   if (iter != args.end())
+      dataDir_ = stripQuotes(iter->second);
+
+   iter = args.find("dbdir");
+   if (iter != args.end())
+      dbDir_ = stripQuotes(iter->second);
+
+   iter = args.find("satoshi-datadir");
+   if (iter != args.end())
+      blkFileLocation_ = stripQuotes(iter->second);
+
+   //resource control
+   iter = args.find("thread-count");
+   if (iter != args.end())
+   {
+      int val = 0;
+      try
+      {
+         val = stoi(iter->second);
+      }
+      catch (...)
+      {
+      }
+
+      if (val > 0)
+         threadCount_ = val;
+   }
+
+   iter = args.find("ram-usage");
+   if (iter != args.end())
+   {
+      int val = 0;
+      try
+      {
+         val = stoi(iter->second);
+      }
+      catch (...)
+      {
+      }
+
+      if (val > 0)
+         ramUsage_ = val;
+   }
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
 void BlockDataManagerConfig::appendPath(string& base, const string& add)
 {
    if (add.size() == 0)
@@ -463,11 +443,109 @@ void BlockDataManagerConfig::appendPath(string& base, const string& add)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+void BlockDataManagerConfig::expandPath(string& path)
+{
+   if (path.c_str()[0] != '~')
+      return;
+
+   //resolve ~
+#ifdef _WIN32
+   char* pathPtr = new char[MAX_PATH + 1];
+   if (SHGetFolderPath(0, CSIDL_APPDATA, 0, 0, pathPtr) != S_OK)
+   {
+      delete[] pathPtr;
+      throw runtime_error("failed to resolve appdata path");
+   }
+
+   string userPath(pathPtr);
+   delete[] pathPtr;
+#else
+   wordexp_t wexp;
+   wordexp("~", &wexp, 0);
+
+   for (unsigned i = 0; i < wexp.we_wordc; i++)
+   {
+      cout << wexp.we_wordv[i] << endl;
+   }
+
+   if (wexp.we_wordc == 0)
+      throw runtime_error("failed to resolve home path");
+
+   string userPath(wexp.we_wordv[0]);
+#endif
+
+   appendPath(userPath, path.substr(1));
+   path = move(userPath);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+vector<string> BlockDataManagerConfig::getLines(const string& path)
+{
+   vector<string> output;
+   fstream fs(path, ios_base::in);
+
+   while (fs.good())
+   {
+      string str;
+      getline(fs, str);
+      output.push_back(move(str));
+   }
+
+   return output;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+map<string, string> BlockDataManagerConfig::getKeyValsFromLines(
+   const vector<string>& lines, char delim)
+{
+   map<string, string> output;
+   for (auto& line : lines)
+      output.insert(move(getKeyValFromLine(line, delim)));
+
+   return output;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+pair<string, string> BlockDataManagerConfig::getKeyValFromLine(
+   const string& line, char delim)
+{
+   stringstream ss(line);
+   pair<string, string> output;
+
+   //key
+   getline(ss, output.first, delim);
+
+   //val
+   if (ss.good())
+      getline(ss, output.second);
+
+   return output;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// ConfigFile
+//
+////////////////////////////////////////////////////////////////////////////////
+ConfigFile::ConfigFile(const string& path)
+{
+   auto&& lines = BlockDataManagerConfig::getLines(path);
+   keyvalMap_ = move(BlockDataManagerConfig::getKeyValsFromLines(lines, '='));
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// NodeStatusStruct
+//
+////////////////////////////////////////////////////////////////////////////////
 BinaryData NodeStatusStruct::serialize(void) const
 {
    BinaryWriter bw;
    bw.put_uint8_t(uint8_t(status_));
    bw.put_uint8_t(uint8_t(SegWitEnabled_));
+   bw.put_uint8_t(uint8_t(rpcStatus_));
+
+   bw.put_BinaryData(chainState_.serialize());
 
    return bw.getData();
 }
@@ -479,6 +557,9 @@ void NodeStatusStruct::deserialize(const BinaryData& data)
 
    status_ = NodeStatus(brr.get_uint8_t());
    SegWitEnabled_ = bool(brr.get_uint8_t());
+   rpcStatus_ = RpcStatus(brr.get_uint8_t());
+
+   chainState_.unserialize(brr.get_BinaryData(brr.getSizeRemaining()));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -486,4 +567,120 @@ NodeStatusStruct NodeStatusStruct::cast_to_NodeStatusStruct(void* ptr)
 {
    NodeStatusStruct nss = *(NodeStatusStruct*)ptr;
    return nss;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// NodeChainState
+//
+////////////////////////////////////////////////////////////////////////////////
+void NodeChainState::processState()
+{
+   if (state_ == ChainStatus_Ready)
+      return;
+
+   //compare top block timestamp to now
+   if (heightTimeVec_.size() == 0)
+      return;
+
+   uint64_t now = time(0);
+   auto blocktime = get<1>(heightTimeVec_.back());
+
+   if (blocktime > now)
+   {
+      state_ = ChainStatus_Ready;
+      return;
+   }
+
+   auto diff = now - blocktime;
+   if (diff < 7200) //admissible timestamp variation for valid blocks
+   {
+      state_ = ChainStatus_Ready;
+      return;
+   }
+
+   //we got this far, node is still syncing, let's compute progress and eta
+   state_ = ChainStatus_Syncing;
+
+   //average amount of blocks left to sync based on timestamp diff
+   auto blocksLeft = diff / 600;
+
+   //compute block syncing speed based off of the last 20 top blocks
+   auto iterend = heightTimeVec_.rbegin();
+   auto time_end = get<2>(*iterend);
+
+   auto iterbegin = heightTimeVec_.begin();
+   auto time_begin = get<2>(*iterbegin);
+
+   if (time_end <= time_begin)
+      return;
+
+   auto blockdiff = get<0>(*iterend) - get<0>(*iterbegin);
+   if (blockdiff == 0)
+      return;
+
+   auto timediff = time_end - time_begin;
+   blockSpeed_ = float(blockdiff) / float(timediff);
+   eta_ = uint64_t(float(blocksLeft) * blockSpeed_);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+unsigned NodeChainState::getTopBlock() const
+{
+   if (heightTimeVec_.size() == 0)
+      throw runtime_error("");
+
+   return get<0>(heightTimeVec_.back());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void NodeChainState::appendHeightAndTime(unsigned height, uint64_t timestamp)
+{
+   try
+   {
+      if (getTopBlock() == height)
+         return;
+   }
+   catch (...)
+   {
+   }
+
+   heightTimeVec_.push_back(make_tuple(height, timestamp, time(0)));
+
+   //force the list at 20 max entries
+   while (heightTimeVec_.size() > 20)
+      heightTimeVec_.pop_front();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void NodeChainState::reset()
+{
+   heightTimeVec_.clear();
+   state_ = ChainStatus_Unknown;
+   blockSpeed_ = 0.0f;
+   eta_ = 0;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData NodeChainState::serialize() const
+{
+   BinaryWriter bw;
+
+   bw.put_uint8_t(state_);
+   bw.put_double(blockSpeed_);
+   bw.put_uint64_t(eta_);
+
+   return bw.getData();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void NodeChainState::unserialize(const BinaryData& bd)
+{
+   heightTimeVec_.clear();
+
+   BinaryRefReader brr(bd.getRef());
+
+   state_ = ChainStatus(brr.get_uint8_t());
+   blockSpeed_ = float(brr.get_double());
+   eta_ = brr.get_uint64_t();
 }

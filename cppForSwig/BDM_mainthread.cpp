@@ -15,6 +15,8 @@
 #include "BlockUtils.h"
 #include "BlockDataViewer.h"
 
+#include "nodeRPC.h"
+
 #include <ctime>
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -134,9 +136,27 @@ try
    promise<bool> isReadyPromise;
    bdm->isReadyFuture_ = isReadyPromise.get_future();
 
+   auto updateNodeStatusLambda = [bdm]()->void
+   {
+      auto&& nodeStatus = bdm->getNodeStatus();
+      auto&& notifPtr =
+         make_unique<BDV_Notification_NodeStatus>(move(nodeStatus));
+      bdm->notificationStack_.push_back(move(notifPtr));
+   };
+
    //connect to node as async, no need to wait for a succesful connection
    //to init the DB
    bdm->networkNode_->connectToNode(true);
+
+   //if RPC is running, wait on node init
+   try
+   {
+      bdm->nodeRPC_->waitOnChainSync(updateNodeStatusLambda);
+   }
+   catch (runtime_error&)
+   {
+      LOGINFO << "Error occured while querying the RPC for sync status";
+   }
 
    tuple<BDMPhase, double, unsigned, unsigned> lastvalues;
    time_t lastProgressTime = 0;
@@ -212,14 +232,6 @@ try
       }
 
       return false;
-   };
-
-   auto updateNodeStatusLambda = [bdm]()->void
-   {
-      auto&& nodeStatus = bdm->getNodeStatus();
-      auto&& notifPtr =
-         make_unique<BDV_Notification_NodeStatus>(move(nodeStatus));
-      bdm->notificationStack_.push_back(move(notifPtr));
    };
 
    bdm->networkNode_->registerNodeStatusLambda(updateNodeStatusLambda);

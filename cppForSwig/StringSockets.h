@@ -34,9 +34,9 @@ class HttpSocket : public BinarySocket
 {
    friend class FcgiSocket;
 
-private:
-   string http_header_;
+   vector<string> headers_;
 
+private:
    struct packetData
    {
       vector<uint8_t> httpData;
@@ -79,9 +79,14 @@ private:
 private:
    int32_t makePacket(char** packet, const char* msg);
    string getBody(vector<uint8_t>);
+   void setupHeaders(void);
 
 public:
    HttpSocket(const BinarySocket&);
+
+   void resetHeaders(void);
+   void addHeader(string);
+
    virtual string writeAndRead(const string&, SOCKET sockfd = SOCK_MAX);
    virtual SocketType type(void) const { return SocketHttp; }
 };
