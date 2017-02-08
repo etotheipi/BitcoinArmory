@@ -4049,6 +4049,7 @@ class ArmoryMainWindow(QMainWindow):
          fout = open(saveFile, 'wb')
          fout.write(getLastBytesOfFile(ARMORY_LOG_FILE, 256*1024))
          fout.write(getLastBytesOfFile(ARMCPP_LOG_FILE, 256*1024))
+         fout.write(getLastBytesOfFile(ARMDB_LOG_FILE, 256*1024))
          fout.close()
 
          LOGINFO('Log saved to %s', saveFile)
