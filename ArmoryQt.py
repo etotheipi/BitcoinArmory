@@ -5319,6 +5319,8 @@ class ArmoryMainWindow(QMainWindow):
 
             # Update the wallet view to immediately reflect new balances
             self.walletModel.reset()
+            self.updateStatusBarText()
+            
       elif action == REFRESH_ACTION:
          #The wallet ledgers have been updated from an event outside of new ZC
          #or new blocks (usually a wallet or address was imported, or the
