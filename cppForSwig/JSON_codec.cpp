@@ -20,15 +20,18 @@ string JSON_encode(JSON_object& json_obj)
    //make sure json_obj has jsonrpc, params and id key
    auto rpciter = json_obj.keyval_pairs_.find(string("jsonrpc"));
    if (rpciter == json_obj.keyval_pairs_.end())
-      json_obj.add_pair(string("jsonrpc"), string("2.0"));
+      json_obj.add_pair("jsonrpc", "2.0");
 
    auto paramsiter = json_obj.keyval_pairs_.find(string("params"));
    if (paramsiter == json_obj.keyval_pairs_.end())
-      json_obj.add_pair(string("params"), JSON_array());
+   {
+      JSON_array arr;
+      json_obj.add_pair("params", arr);
+   }
 
    auto iditer = json_obj.keyval_pairs_.find(string("id"));
    if (iditer == json_obj.keyval_pairs_.end())
-      json_obj.add_pair(string("id"), json_obj.id_);
+      json_obj.add_pair("id", json_obj.id_);
 
    stringstream ss;
    json_obj.serialize(ss);
@@ -310,11 +313,10 @@ void JSON_state::unserialize(istream& s)
    {
    case 'n':
    {
-      vector<char> val_null(5);
-      s.getline(&val_null[0], 5);
-      val_null[4] = 0;
+      string val_null(4, ' ');
+      s.read(&val_null[0], 4);
 
-      if (strcmp(&val_null[0], "null") != 0)
+      if (val_null != "null")
          throw JSON_Exception("invalid state");
 
       state_ = JSON_null;
@@ -323,11 +325,10 @@ void JSON_state::unserialize(istream& s)
 
    case 't':
    {
-      vector<char> val_true(5);
-      s.getline(&val_true[0], 5);
-      val_true[4] = 0;
+      string val_true(4, ' ');
+      s.getline(&val_true[0], 4);
 
-      if (strcmp(&val_true[0], "true") != 0)
+      if (val_true != "true")
          throw JSON_Exception("invalid state");
 
       state_ = JSON_true;
@@ -336,11 +337,10 @@ void JSON_state::unserialize(istream& s)
 
    case 'f':
    {
-      vector<char> val_false(6);
-      s.getline(&val_false[0], 6);
-      val_false[5] = 0;
+      string val_false(5, ' ');
+      s.getline(&val_false[0], 5);
 
-      if (strcmp(&val_false[0], "false") != 0)
+      if (val_false != "false")
          throw JSON_Exception("invalid state");
 
       state_ = JSON_false;

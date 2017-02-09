@@ -62,7 +62,7 @@ RpcStatus NodeRPC::testConnection()
    goodNode_ = false;
 
    JSON_object json_obj;
-   json_obj.add_pair(string("method"), string("getinfo"));
+   json_obj.add_pair("method", "getinfo");
 
    string response;
    try
@@ -198,12 +198,12 @@ float NodeRPC::getFeeByte(unsigned blocksToConfirm)
    ReentrantLock lock(this);
 
    JSON_object json_obj;
-   json_obj.add_pair(string("method"), string("estimatefee"));
+   json_obj.add_pair("method", "estimatefee");
 
    auto json_array = make_shared<JSON_array>();
    json_array->add_value(blocksToConfirm);
 
-   json_obj.add_pair(string("params"), json_array);
+   json_obj.add_pair("params", json_array);
 
    auto&& response = socket_->writeAndRead(JSON_encode(json_obj));
    auto&& response_obj = JSON_decode(response);
@@ -227,7 +227,7 @@ bool NodeRPC::updateChainStatus(void)
 
    //get top block header
    JSON_object json_getbestblockhash;
-   json_getbestblockhash.add_pair(string("method"), string("getbestblockhash"));
+   json_getbestblockhash.add_pair("method", "getbestblockhash");
 
    auto&& response = JSON_decode(
       socket_->writeAndRead(JSON_encode(json_getbestblockhash)));
@@ -239,8 +239,8 @@ bool NodeRPC::updateChainStatus(void)
    params_obj->add_value(hash_obj);
 
    JSON_object json_getheader;
-   json_getheader.add_pair(string("method"), string("getblockheader"));
-   json_getheader.add_pair(string("params"), params_obj);
+   json_getheader.add_pair("method", "getblockheader");
+   json_getheader.add_pair("params", params_obj);
 
    auto&& block_header = JSON_decode(
       socket_->writeAndRead(JSON_encode(json_getheader)));
@@ -322,7 +322,7 @@ void NodeRPC::waitOnChainSync(function<void(void)> callbck)
       if (blkSpeed != 0.0f)
       {
          auto singleBlkEta = max(1.0f / blkSpeed, 1.0f);
-         dur = min(unsigned(singleBlkEta), 5); //don't sleep for more than 5sec
+         dur = min(unsigned(singleBlkEta), unsigned(5)); //don't sleep for more than 5sec
       }
 
       this_thread::sleep_for(chrono::seconds(dur));
@@ -345,7 +345,7 @@ void NodeRPC::shutdown()
    ReentrantLock lock(this);
 
    JSON_object json_obj;
-   json_obj.add_pair(string("method"), string("stop"));
+   json_obj.add_pair("method", "stop");
 
    auto&& response = socket_->writeAndRead(JSON_encode(json_obj));
    auto&& response_obj = JSON_decode(response);

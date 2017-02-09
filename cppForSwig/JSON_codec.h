@@ -11,6 +11,7 @@
 
 using namespace std;
 
+#include <stdexcept>
 #include <memory>
 #include <vector>
 #include <string>
@@ -25,7 +26,7 @@ enum JSON_StateEnum
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-class JSON_Exception : runtime_error
+class JSON_Exception : public runtime_error
 {
 public:
    JSON_Exception(const string& str) : runtime_error(str)
@@ -49,7 +50,7 @@ struct JSON_string : JSON_value
    JSON_string(void)
    {}
 
-   JSON_string(string& val) : val_(move(val))
+   JSON_string(const string& val) : val_(val)
    {}
 
    void serialize(ostream& s) const
@@ -128,7 +129,7 @@ public:
 
    map<JSON_string, shared_ptr<JSON_value>> keyval_pairs_;
 
-   bool add_pair(string& key, string& val)
+   bool add_pair(const string& key, const string& val)
    {
       auto jsonstr = make_shared<JSON_string>(val);
       auto&& keyval = make_pair(
@@ -138,7 +139,7 @@ public:
       return insert_iter.second;
    }
 
-   bool add_pair(string& key, shared_ptr<JSON_value> val)
+   bool add_pair(const string& key, shared_ptr<JSON_value> val)
    {
       auto&& keyval = make_pair(move(JSON_string(key)), val);
 
@@ -146,7 +147,7 @@ public:
       return insert_iter.second;
    }
 
-   bool add_pair(string& key, JSON_array& val)
+   bool add_pair(const string& key, JSON_array& val)
    {
       auto jsonarr = make_shared<JSON_array>(move(val));
       auto&& keyval = make_pair(
@@ -156,7 +157,7 @@ public:
       return insert_iter.second;
    }
 
-   bool add_pair(string& key, float val)
+   bool add_pair(const string& key, float val)
    {
       auto jsonarr = make_shared<JSON_number>(val);
       auto&& keyval = make_pair(
@@ -166,7 +167,7 @@ public:
       return insert_iter.second;
    }
 
-   bool add_pair(string& key, int val)
+   bool add_pair(const string& key, int val)
    {
       return add_pair(key, float(val));
    }

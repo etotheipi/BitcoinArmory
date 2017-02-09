@@ -16,6 +16,8 @@ using namespace std;
 #include <memory>
 #include <string>
 
+#include "make_unique.h"
+
 class LockableException : public runtime_error
 {
 public:

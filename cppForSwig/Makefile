@@ -32,7 +32,8 @@ OBJS_Client = UniversalTimer.o BinaryData.o \
 	BlockDataManagerConfig.o TxClasses.o \
 	WalletManager.o Wallets.o Script.o Signer.o \
 	Transactions.o mdb.o midl.o lmdbpp.o \
-        CoinSelection.o libcryptopp.a
+        CoinSelection.o ReentrantLock.o \
+	libcryptopp.a
 
 OBJS_Server = UniversalTimer.o BinaryData.o lmdb_wrapper.o \
 	BtcUtils.o DBUtils.o BlockObj.o BlockUtils.o EncryptionUtils.o \
@@ -43,7 +44,8 @@ OBJS_Server = UniversalTimer.o BinaryData.o lmdb_wrapper.o \
 	DatabaseBuilder.o BlockchainScanner.o BlockDataMap.o \
 	DataObject.o BitcoinP2P.o BDM_Server.o BDM_seder.o SocketObject.o \
 	fcgiapp.o os_unix.o FcgiMessage.o BlockDataManagerConfig.o \
-	Transactions.o Script.o Signer.o \
+	Transactions.o Script.o Signer.o nodeRPC.o JSON_codec.o \
+	ReentrantLock.o StringSockets.o \
 	libcryptopp.a 
 
 #if python is specified, use it

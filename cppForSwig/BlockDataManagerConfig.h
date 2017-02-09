@@ -140,7 +140,7 @@ enum ChainStatus
 class NodeChainState
 {
 private:
-   list<tuple<unsigned, uint64_t, uint64_t>> heightTimeVec_;
+   list<tuple<unsigned, uint64_t, uint64_t> > heightTimeVec_;
    ChainStatus state_ = ChainStatus_Unknown;
    float blockSpeed_ = 0.0f;
    uint64_t eta_ = 0;
