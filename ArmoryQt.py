@@ -143,7 +143,7 @@ class ArmoryMainWindow(QMainWindow):
       self.sweepAfterScanList = []
       self.newWalletList = []
       self.newZeroConfSinceLastUpdate = []
-      self.lastSDMState = BDM_UNINITIALIZED
+      self.lastSDMStr = ""
       self.doShutdown = False
       self.downloadDict = {}
       self.notAvailErrorCount = 0
@@ -564,7 +564,7 @@ class ArmoryMainWindow(QMainWindow):
          MessageSigningVerificationDialog(self,self).exec_()
 
       def openBlindBroad():
-         if not satoshiIsAvailable():
+         if not TheSDM.satoshiIsAvailable():
             QMessageBox.warning(self, tr("Not Online"), tr("""
                Bitcoin Core is not available, so Armory will not be able
                to broadcast any transactions for you."""), QMessageBox.Ok)
@@ -1031,11 +1031,6 @@ class ArmoryMainWindow(QMainWindow):
       if DlgFactoryReset(self,self).exec_():
          # The dialog already wrote all the flag files, just close now
          self.closeForReal()
-
-
-   ####################################################
-   def showPrivacyGeneric(self):
-      DlgPrivacyPolicy().exec_()
 
    ####################################################
    def clearMemoryPool(self):
@@ -1803,8 +1798,8 @@ class ArmoryMainWindow(QMainWindow):
             #If we got this far we are using default settings and expecting
             #a local db process which is missing. Let's spawn it.
             self.setSatoshiPaths()
-            spawnId = TheSDM.spawnDB(ARMORY_HOME_DIR, TheBDM.armoryDBDir)
-            TheBDM.setSpawnId(spawnId)
+            TheSDM.spawnDB(ARMORY_HOME_DIR, TheBDM.armoryDBDir)
+            #TheBDM.setSpawnId(spawnId)
    
             #test if db has started
             if TheBDM.bdv().hasRemoteDB() == False:
@@ -1832,23 +1827,19 @@ class ArmoryMainWindow(QMainWindow):
          return False
 
       if TheBDM.hasRemoteDB() or not self.doAutoBitcoind:
-         self.setSatoshiPaths()
-         TheSDM.setupManualSDM()
-         self.notifyBitcoindIsReady()
          return False
 
-      if satoshiIsAvailable():
+      if TheSDM.satoshiIsAvailable():
          LOGWARN('Tried to start bitcoind, but satoshi already running')
          return False
 
       self.setSatoshiPaths()
-      TheSDM.setDisabled(False)
 
       try:
          # "satexe" is actually just the install directory, not the direct
          # path the executable.  That dir tree will be searched for bitcoind
          TheSDM.setupSDM(extraExeSearch=self.satoshiExeSearchPath)
-         TheSDM.startBitcoind(self.notifyBitcoindIsReady)
+         TheSDM.startBitcoind()
          LOGDEBUG('Bitcoind started without error')
          return True
       except:
@@ -1889,7 +1880,7 @@ class ArmoryMainWindow(QMainWindow):
    # This version of online mode is possible doesn't check the internet everytime
    def isOnlineModePossible(self):
       return self.internetStatus != INTERNET_STATUS.Unavailable and \
-               satoshiIsAvailable() and \
+               TheSDM.satoshiIsAvailable() and \
                os.path.exists(os.path.join(TheBDM.btcdir, 'blocks'))
 
    ############################################################################
@@ -1920,64 +1911,6 @@ class ArmoryMainWindow(QMainWindow):
          #self.NetworkingFactory = self.getSingletonConnectedNetworkingFactory()
          self.NetworkingFactory = FakeClientFactory()
       return
-
-   #############################################################################
-   '''
-   def getSingletonConnectedNetworkingFactory(self):
-      if not self.SingletonConnectedNetworkingFactory:
-         # ArmoryClientFactory auto-reconnects, so add the connection
-         # the very first time and never afterwards.
-
-         # Actually setup the networking, now
-         from twisted.internet import reactor
-
-         def showOfflineMsg():
-            self.netMode = NETWORKMODE.Disconnected
-            self.setDashboardDetails()
-            self.lblArmoryStatus.setText( \
-               '<font color=%s><i>Disconnected</i></font>' % htmlColor('TextWarn'))
-            if not self.getSettingOrSetDefault('NotifyDiscon', True):
-               return
-
-            try:
-               self.showTrayMsg('Disconnected', 'Connection to Bitcoin-Core ' \
-			                    'client lost!  Armory cannot send nor ' \
-								'receive bitcoins until connection is ' \
-								're-established.', QSystemTrayIcon.Critical, \
-								10000)
-            except:
-               LOGEXCEPT('Failed to show disconnect notification')
-
-
-         self.connectCount = 0
-         def showOnlineMsg():
-            self.netMode = NETWORKMODE.Full
-            self.setDashboardDetails()
-            self.lblArmoryStatus.setText(\
-                     '<font color=%s>Connected (%s blocks)</font> ' %
-                     (htmlColor('TextGreen'), TheBDM.getTopBlockHeight()))
-            if not self.getSettingOrSetDefault('NotifyReconn', True):
-               return
-
-            try:
-               if self.connectCount>0:
-                  self.showTrayMsg('Connected', 'Connection to Bitcoin-Core ' \
-                                   're-established', \
-								   QSystemTrayIcon.Information, 10000)
-               self.connectCount += 1
-            except:
-               LOGEXCEPT('Failed to show reconnect notification')
-
-         self.SingletonConnectedNetworkingFactory = ArmoryClientFactory(
-                                      TheBDM,
-                                      func_loseConnect=showOfflineMsg,
-                                      func_madeConnect=showOnlineMsg,
-                                      func_newTx=self.newTxFunc)
-         reactor.callWhenRunning(reactor.connectTCP, '127.0.0.1',
-                                 BITCOIN_PORT,
-                                 self.SingletonConnectedNetworkingFactory)
-      return self.SingletonConnectedNetworkingFactory
-      '''
 
    #############################################################################
    def parseUriLink(self, uriStr, clickOrEnter='click'):
@@ -3570,15 +3503,6 @@ class ArmoryMainWindow(QMainWindow):
          self.saveCombinedLogFile()
 
    #############################################################################
-   def getUserAgreeToPrivacy(self, getAgreement=False):
-      ptype = 'submitbug' if getAgreement else 'generic'
-      dlg = DlgPrivacyPolicy(self, self, ptype)
-      if not dlg.exec_():
-         return False
-
-      return dlg.chkUserAgrees.isChecked()
-
-   #############################################################################
    def logFileTriplePrivacyWarning(self):
       return MsgBoxCustom(MSGBOX.Warning, tr('Privacy Warning'), tr("""
          <b><u><font size=3>Wallet Analysis Log Files</font></u></b>
@@ -3663,7 +3587,7 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def lookForBitcoind(self):
       LOGDEBUG('lookForBitcoind')
-      if satoshiIsAvailable():
+      if TheSDM.satoshiIsAvailable():
          return 'Running'
 
       self.setSatoshiPaths()
@@ -3700,7 +3624,7 @@ class ArmoryMainWindow(QMainWindow):
                to the installation directory."""), QMessageBox.Ok)
          self.startBitcoindIfNecessary()
       elif self.doAutoBitcoind and not TheSDM.isRunningBitcoind():
-         if satoshiIsAvailable():
+         if TheSDM.satoshiIsAvailable():
             result = QMessageBox.warning(self, tr('Still Running'), tr("""
                'Bitcoin-Core is still running.  Armory cannot start until
                'it is closed.  Do you want Armory to close it for you?"""), \
@@ -4345,6 +4269,31 @@ class ArmoryMainWindow(QMainWindow):
 
       if self.isShuttingDown:
          return
+      
+      sdmState = TheSDM.getSDMState()
+      sdmStr = ""
+      
+      if sdmState.status_ == NodeStatus_Offline:
+         sdmStr = "NodeStatus_Offline"
+         
+         if self.doAutoBitcoind:
+            if TheSDM.isRunningBitcoind():
+               sdmStr = "NodeStatus_Initializing"
+            elif not os.path.exists(TheSDM.executable):
+               sdmStr = "NodeStatus_BadPath"
+      
+      else:
+         sdmStr = "NodeStatus_Ready"
+         
+         if sdmState.rpcStatus_ != RpcStatus_Online:
+            sdmStr = "NodeStatus_Initializing"
+            
+         else:
+            if sdmState.chainState_.state() == ChainStatus_Unknown:
+               sdmStr = "NodeStatus_Initializing"
+            elif sdmState.chainState_.state() == ChainStatus_Syncing:
+               sdmStr = "NodeStatus_Syncing"
+               
 
       if TheBDM.getState()==BDM_SCANNING:
 
@@ -4465,13 +4414,14 @@ class ArmoryMainWindow(QMainWindow):
                self.barProgressScan.setValue(pvalue)
                self.lblTimeLeftScan.setVisible(True)
 
-      elif TheSDM.getSDMState() in ['BitcoindInitializing','BitcoindSynchronizing']:
+      elif sdmStr in ['NodeStatus_Initializing','NodeStatus_Syncing']:
 
          self.lblDashModeSync.setVisible(True)
          self.barProgressSync.setVisible(True)
          self.lblTimeLeftSync.setVisible(True)
          self.barProgressSync.setFormat('%p%')
-
+         self.barProgressSync.setRange(0,100)
+         
          self.lblDashModeBuild.setVisible(True)
          self.barProgressBuild.setVisible(True)
          self.lblTimeLeftBuild.setVisible(False)
@@ -4484,78 +4434,15 @@ class ArmoryMainWindow(QMainWindow):
          self.barProgressScan.setValue(0)
          self.barProgressScan.setFormat('')
 
-         ssdm = TheSDM.getSDMState()
-         lastBlkNum  = self.getSettingOrSetDefault('LastBlkRecv',     0)
-         lastBlkTime = self.getSettingOrSetDefault('LastBlkRecvTime', 0)
+         
+         if sdmStr == 'NodeStatus_Syncing':
+            sdmPercent = sdmState.chainState_.pct_
+            self.lblTimeLeftSync.setText(sdmState.chainState_.eta_)
 
-         # Get data from SDM if it has it
-         info = TheSDM.getTopBlockInfo()
-         if len(info['tophash'])>0:
-            lastBlkNum  = info['numblks']
-            lastBlkTime = info['toptime']
-
-         # Use a reference point if we are starting from scratch
-         refBlock = max(290746,      lastBlkNum)
-         refTime  = max(1394922889,  lastBlkTime)
-
-
-         # Ten min/block is pretty accurate, even from genesis (about 1% slow)
-         # And it gets better as we sync past the reference block above
-         self.approxMaxBlock = refBlock + int((RightNow() - refTime) / (10*MINUTE))
-         self.approxBlkLeft  = self.approxMaxBlock - lastBlkNum
-         self.approxPctSoFar = self.getPercentageFinished(self.approxMaxBlock, \
-                                                                  lastBlkNum)
-
-         self.initSyncCircBuff.append([RightNow(), self.approxPctSoFar])
-         if len(self.initSyncCircBuff)>30:
-            # There's always a couple wacky measurements up front, start at 10
-            t0,p0 = self.initSyncCircBuff[10]
-            t1,p1 = self.initSyncCircBuff[-1]
-            dt,dp = t1-t0, p1-p0
-            if dt>600:
-               self.initSyncCircBuff = self.initSyncCircBuff[1:]
-
-            if dp>0 and dt>0:
-               dpPerSec = dp / dt
-               if lastBlkNum < 200000:
-                  dpPerSec = dpPerSec / 2
-               timeRemain = (1 - self.approxPctSoFar) / dpPerSec
-               #timeRemain = min(timeRemain, 8*HOUR)
-            else:
-               timeRemain = None
-         else:
-            timeRemain = None
-
-
-         intPct = int(100*self.approxPctSoFar)
-         strPct = '%d%%' % intPct
-
-
-         self.barProgressSync.setFormat('%p%')
-         if ssdm == 'BitcoindReady':
-            return (0,0,0.99)  # because it's probably not completely done...
-            self.lblTimeLeftSync.setText(tr('Almost Done...'))
-            self.barProgressSync.setValue(99)
-         elif ssdm == 'BitcoindSynchronizing':
-            sdmPercent = int(99.9*self.approxPctSoFar)
-            if self.approxBlkLeft < 10000:
-               if self.approxBlkLeft < 200:
-                  self.lblTimeLeftSync.setText(tr('%(n)d blocks') % { 'n':self.approxBlkLeft})
-               else:
-                  # If we're within 10k blocks, estimate based on blkspersec
-                  if info['blkspersec'] > 0:
-                     timeleft = int(self.approxBlkLeft/info['blkspersec'])
-                     self.lblTimeLeftSync.setText(secondsToHumanTime(timeleft))
-            else:
-               # If we're more than 10k blocks behind...
-               if timeRemain:
-                  timeRemain = min(24*HOUR, timeRemain)
-                  self.lblTimeLeftSync.setText(secondsToHumanTime(timeRemain))
-               else:
-                  self.lblTimeLeftSync.setText('')
-         elif ssdm == 'BitcoindInitializing':
+         elif sdmStr == 'NodeStatus_Initializing':
             sdmPercent = 0
-            self.barProgressSync.setFormat('')
+            self.barProgressSync.setRange(0,0)
+
             self.barProgressBuild.setFormat('')
             self.barProgressScan.setFormat('')
          else:
@@ -4954,11 +4841,35 @@ class ArmoryMainWindow(QMainWindow):
          return
 
       sdmState = TheSDM.getSDMState()
+      sdmStr = ""
+      
+      if sdmState.status_ == NodeStatus_Offline:
+         sdmStr = "NodeStatus_Offline"
+         
+         if self.doAutoBitcoind:
+            if TheSDM.isRunningBitcoind():
+               sdmStr = "NodeStatus_Initializing"
+            elif not os.path.exists(TheSDM.executable):
+               sdmStr = "NodeStatus_BadPath"
+      
+      else:
+         sdmStr = "NodeStatus_Ready"
+         
+         if sdmState.rpcStatus_ != RpcStatus_Online:
+            sdmStr = "NodeStatus_Initializing"
+            
+         else:
+            if sdmState.chainState_.state() == ChainStatus_Unknown:
+               sdmStr = "NodeStatus_Initializing"
+            elif sdmState.chainState_.state() == ChainStatus_Syncing:
+               sdmStr = "NodeStatus_Syncing"
+      
       bdmState = TheBDM.getState()
       descr  = ''
       descr1 = ''
       descr2 = ''
-
+      
+   
       # Methods for showing/hiding groups of widgets on the dashboard
       def setBtnRowVisible(r, visBool):
          for c in range(3):
@@ -5002,15 +4913,13 @@ class ArmoryMainWindow(QMainWindow):
          setBtnRowVisible(DASHBTNS.Close, False)
          setOnlyDashModeVisible()
 
-      if not TheBDM.hasRemoteDB() and \
-         self.doAutoBitcoind and not sdmState=='BitcoindReady':
-         # User is letting Armory manage the Satoshi client for them.
-         # TODO -  Move to event handlers
-         if not sdmState==self.lastSDMState:
-
+      if sdmStr != self.lastSDMStr:
+         if sdmStr == "NodeStatus_Offline":
+            # User is letting Armory manage the Satoshi client for them.
+   
             self.lblBusy.setVisible(False)
             self.btnModeSwitch.setVisible(False)
-
+   
             # There's a whole bunch of stuff that has to be hidden/shown
             # depending on the state... set some reasonable defaults here
             setBtnFrameVisible(False)
@@ -5019,13 +4928,13 @@ class ArmoryMainWindow(QMainWindow):
             setBtnRowVisible(DASHBTNS.Instruct, False)
             setBtnRowVisible(DASHBTNS.Settings, True)
             setBtnRowVisible(DASHBTNS.Close, False)
-
+   
             if self.internetStatus == INTERNET_STATUS.Unavailable or CLI_OPTIONS.offline:
                self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
                setOnlyDashModeVisible()
                self.lblDashModeSync.setText( tr('Armory is <u>offline</u>'), \
-                                            size=4, color='TextWarn', bold=True)
-               if satoshiIsAvailable():
+                                               size=4, color='TextWarn', bold=True)
+               if TheSDM.satoshiIsAvailable():
                   self.frmDashMidButtons.setVisible(True)
                   setBtnRowVisible(DASHBTNS.Close, True)
                   if CLI_OPTIONS.offline:
@@ -5055,269 +4964,133 @@ class ArmoryMainWindow(QMainWindow):
                   descr2 += self.GetDashFunctionalityText(tr('Offline'))
                   self.lblDashDescr1.setText(descr1)
                   self.lblDashDescr2.setText(descr2)
-            elif not TheSDM.isRunningBitcoind():
-               setOnlyDashModeVisible()
-               self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
-               self.lblDashModeSync.setText( tr('Armory is <u>offline</u>'), \
-                                            size=4, color='TextWarn', bold=True)
-               # Bitcoind is not being managed, but we want it to be
-               if satoshiIsAvailable() or sdmState=='BitcoindAlreadyRunning':
-                  # But bitcoind/-qt is already running
-                  LOGINFO('Dashboard switched to auto-butSatoshiRunning')
-                  self.lblDashModeSync.setText(tr(' Please close Bitcoin-Core'), \
-                                                         size=4, bold=True)
-                  setBtnFrameVisible(True, '')
-                  setBtnRowVisible(DASHBTNS.Close, True)
-                  self.btnModeSwitch.setVisible(True)
-                  self.btnModeSwitch.setText(tr('Check Again'))
-                  #setBtnRowVisible(DASHBTNS.Close, True)
-                  descr1 += self.GetDashStateText('Auto', 'OfflineBitcoindRunning')
-                  descr2 += self.GetDashStateText('Auto', 'NewUserInfo')
-                  descr2 += self.GetDashFunctionalityText('Offline')
-                  self.lblDashDescr1.setText(descr1)
-                  self.lblDashDescr2.setText(descr2)
-                  #self.psutil_detect_bitcoin_exe_path()
-               elif sdmState in ['BitcoindExeMissing', 'BitcoindHomeMissing']:
-                  LOGINFO('Dashboard switched to auto-cannotFindExeHome')
-                  if sdmState=='BitcoindExeMissing':
-                     self.lblDashModeSync.setText(tr('Cannot find Bitcoin Installation'), \
-                                                         size=4, bold=True)
-                  else:
-                     self.lblDashModeSync.setText(tr('Cannot find Bitcoin Home Directory'), \
-                                                         size=4, bold=True)
-                  setBtnRowVisible(DASHBTNS.Close, satoshiIsAvailable())
-                  setBtnRowVisible(DASHBTNS.Install, True)
-                  setBtnRowVisible(DASHBTNS.Browse, True)
-                  setBtnRowVisible(DASHBTNS.Settings, True)
-                  #setBtnRowVisible(DASHBTNS.Instruct, not OS_WINDOWS)
-                  self.btnModeSwitch.setVisible(True)
-                  self.btnModeSwitch.setText(tr('Check Again'))
-                  setBtnFrameVisible(True)
-                  descr1 += self.GetDashStateText('Auto', 'OfflineNeedBitcoinInst')
-                  descr2 += self.GetDashStateText('Auto', 'NewUserInfo')
-                  descr2 += self.GetDashFunctionalityText('Offline')
-                  self.lblDashDescr1.setText(descr1)
-                  self.lblDashDescr2.setText(descr2)
-               elif sdmState in ['BitcoindDatabaseEnvError']:
-                  LOGINFO('Dashboard switched to auto-BadDBEnv')
-                  setOnlyDashModeVisible()
-                  setBtnRowVisible(DASHBTNS.Install, True)
-                  #setBtnRowVisible(DASHBTNS.Instruct, not OS_WINDOWS)
-                  setBtnRowVisible(DASHBTNS.Settings, True)
-                  self.lblDashModeSync.setText( tr('Armory is <u>offline</u>'), \
-                                            size=4, color='TextWarn', bold=True)
-                  descr1 += self.GetDashStateText('Auto', 'OfflineBadDBEnv')
-                  descr2 += self.GetDashFunctionalityText('Offline')
-                  self.lblDashDescr1.setText(descr1)
-                  self.lblDashDescr2.setText(descr2)
-                  setBtnFrameVisible(True, '')
-               elif sdmState in ['BitcoindUnknownCrash']:
-                  LOGERROR('Should not usually get here')
-                  setOnlyDashModeVisible()
-                  setBtnFrameVisible(True, \
-                     tr('Try reinstalling the Bitcoin '
-                     'software then restart Armory.  If you continue to have '
-                     'problems, please open an issue at https://github.com/goatpig/BitcoinArmory/issues'))
-                  setBtnRowVisible(DASHBTNS.Settings, True)
-                  setBtnRowVisible(DASHBTNS.Install, True)
-                  LOGINFO('Dashboard switched to auto-BtcdCrashed')
-                  self.lblDashModeSync.setText( tr('Armory is <u>offline</u>'), \
-                                            size=4, color='TextWarn', bold=True)
-                  descr1 += self.GetDashStateText('Auto', 'OfflineBtcdCrashed')
-                  descr2 += self.GetDashFunctionalityText('Offline')
-                  self.lblDashDescr1.setText(descr1)
-                  self.lblDashDescr2.setText(descr2)
-                  self.lblDashDescr1.setTextInteractionFlags( \
-                                          Qt.TextSelectableByMouse | \
-                                          Qt.TextSelectableByKeyboard)
-               elif sdmState in ['BitcoindNotAvailable']:
-                  LOGERROR('BitcoindNotAvailable: should not happen...')
-                  self.notAvailErrorCount += 1
-                  descr1 += ''
-                  descr2 += self.GetDashFunctionalityText('Offline')
-                  self.lblDashDescr1.setText(descr1)
-                  self.lblDashDescr2.setText(descr2)
-               else:
-                  setBtnFrameVisible(False)
-                  descr1 += ''
-                  descr2 += self.GetDashFunctionalityText('Offline')
-                  self.lblDashDescr1.setText(descr1)
-                  self.lblDashDescr2.setText(descr2)
-            else:  # online detected/forced, and TheSDM has already been started
-               if sdmState in ['BitcoindWrongPassword', 'BitcoindNotAvailable']:
-
-                  extraTxt = ''
-                  if not self.wasSynchronizing:
-                     setOnlyDashModeVisible()
-                  else:
-                     extraTxt = tr("""
-                        <b>Armory has lost connection to the
-                        core Bitcoin software.  If you did not do anything
-                        that affects your network connection or the bitcoind
-                        process, it will probably recover on its own in a
-                        couple minutes</b><br><br>""")
-                     self.lblTimeLeftSync.setVisible(False)
-                     self.barProgressSync.setFormat('')
-
-
-                  self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
-                  LOGINFO('Dashboard switched to auto-BadConnection')
-                  self.lblDashModeSync.setText( tr('Armory is <u>offline</u>'), \
-                                            size=4, color='TextWarn', bold=True)
-                  descr1 += self.GetDashStateText('Auto', 'OfflineBadConnection')
-                  descr2 += self.GetDashFunctionalityText('Offline')
-                  self.lblDashDescr1.setText(extraTxt + descr1)
-                  self.lblDashDescr2.setText(descr2)
-               elif sdmState in ['BitcoindInitializing', \
-                                 'BitcoindSynchronizing']:
-                  self.wasSynchronizing = True
-                  LOGINFO('Dashboard switched to auto-InitSync')
-                  self.lblBusy.setVisible(True)
-                  self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
-                  self.updateSyncProgress()
-
-
-                  # If torrent ever ran, leave it visible
-                  setSyncRowVisible(True)
-                  setScanRowVisible(True)
-
-                  if sdmState=='BitcoindInitializing':
-                     self.lblDashModeSync.setText( tr('Initializing Bitcoin Engine'), size=4, bold=True, color='Foreground')
-                  else:
-                     self.lblDashModeSync.setText( 'Synchronizing with Network', size=4, bold=True, color='Foreground')
-
-
-                  self.lblDashModeBuild.setText( tr('Build Databases'), \
-                                              size=4, bold=True, color='DisableFG')
-                  self.lblDashModeScan.setText( tr('Scan Transaction History'), \
-                                              size=4, bold=True, color='DisableFG')
-
-                  descr1 += self.GetDashStateText('Auto', 'InitializingDoneSoon')
-                  descr2 += self.GetDashStateText('Auto', 'NewUserInfo')
-
-                  setBtnRowVisible(DASHBTNS.Settings, True)
-                  setBtnFrameVisible(True, \
-                     tr('Since version 0.88, Armory runs bitcoind in the '
-                     'background.  You can switch back to '
-                     'the old way in the Settings dialog. '))
-
-                  descr2 += self.GetDashFunctionalityText('Offline')
-                  self.lblDashDescr1.setText(descr1)
-                  self.lblDashDescr2.setText(descr2)
-      else:
-         # User is managing satoshi client, or bitcoind is already sync'd
-         self.frmDashMidButtons.setVisible(False)
-         if bdmState in (BDM_OFFLINE, BDM_UNINITIALIZED):
-            if self.internetStatus == INTERNET_STATUS.Unavailable:
-               self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
-               setOnlyDashModeVisible()
-               self.lblBusy.setVisible(False)
-               self.btnModeSwitch.setVisible(False)
-               self.btnModeSwitch.setEnabled(False)
-               self.lblDashModeSync.setText( tr('Armory is <u>offline</u>'), \
-                                         size=4, color='TextWarn', bold=True)
-
-               if not satoshiIsAvailable():
-                  descr = self.GetDashStateText('User','OfflineNoSatoshiNoInternet')
-               else:
-                  descr = self.GetDashStateText('User', 'OfflineNoInternet')
-
-               descr += '<br><br>'
-               descr += self.GetDashFunctionalityText('Offline')
-               self.lblDashDescr1.setText(descr)
-            else:
-               LOGINFO('Dashboard switched to user-OfflineOnlinePoss')
-               self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
-               setOnlyDashModeVisible()
-               self.lblBusy.setVisible(False)
-               self.lblDashModeSync.setText(tr('Armory is <u>offline</u>'), size=4, bold=True)
-               descr  = self.GetDashStateText('User', 'OfflineButOnlinePossible')
-               descr += self.GetDashFunctionalityText('Offline')
-               self.lblDashDescr1.setText(descr)
-
-               if not satoshiIsAvailable():
-                  descr = self.GetDashStateText('User','OfflineNoSatoshi')
-                  setBtnRowVisible(DASHBTNS.Settings, True)
-                  setBtnFrameVisible(True, \
-                     tr('If you would like Armory to manage the Bitcoin software '
-                     'for you (Bitcoin-Core or bitcoind), then adjust your '
-                     'Armory settings, then restart Armory.'))
-                  descr = self.GetDashStateText('User','OfflineNoSatoshiNoInternet')
-               else:
-                  self.btnModeSwitch.setVisible(True)
-                  self.btnModeSwitch.setEnabled(True)
-                  self.btnModeSwitch.setText(tr('Go Online!'))
-                  descr = self.GetDashStateText('User', 'OfflineNoInternet')
-
-               descr += '<br><br>'
-               descr += self.GetDashFunctionalityText('Offline')
-               self.lblDashDescr1.setText(descr)
-
-         elif bdmState == BDM_BLOCKCHAIN_READY:
+                  
+         elif sdmStr == "NodeStatus_BadPath":
             setOnlyDashModeVisible()
-            self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, True)
-            self.lblBusy.setVisible(False)
-            if self.netMode == NETWORKMODE.Disconnected:
-               self.btnModeSwitch.setVisible(False)
-               self.lblDashModeSync.setText( tr('Armory is disconnected'), size=4, color='TextWarn', bold=True)
-               descr  = self.GetDashStateText('User','Disconnected')
-               descr += self.GetDashFunctionalityText('Offline')
-               self.lblDashDescr1.setText(descr)
-            else:
-               # Fully online mode
-               self.btnModeSwitch.setVisible(False)
-               self.lblDashModeSync.setText( tr('Armory is online!'), color='TextGreen', size=4, bold=True)
-               self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, True)
-               descr  = self.GetDashStateText('User', 'OnlineFull1')
-               descr += self.GetDashFunctionalityText('Online')
-               descr += self.GetDashStateText('User', 'OnlineFull2')
-               self.lblDashDescr1.setText(descr)
-            #self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dash)
-         elif bdmState == BDM_SCANNING:
-            LOGINFO('Dashboard switched to "Scanning" mode')
-            self.updateSyncProgress()
-            self.lblDashModeScan.setVisible(True)
-            self.barProgressScan.setVisible(True)
-            self.lblTimeLeftScan.setVisible(True)
+            self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
+            self.lblDashModeSync.setText( tr('Armory is <u>offline</u>'), \
+                                             size=4, color='TextWarn', bold=True)
+      
+            LOGINFO('Dashboard switched to auto-cannotFindExeHome')
+            self.lblDashModeSync.setText(tr('Cannot find Bitcoin Home Directory'), \
+                                                            size=4, bold=True)
+            setBtnRowVisible(DASHBTNS.Close, TheSDM.satoshiIsAvailable())
+            setBtnRowVisible(DASHBTNS.Install, True)
+            setBtnRowVisible(DASHBTNS.Browse, True)
+            setBtnRowVisible(DASHBTNS.Settings, True)
+            #setBtnRowVisible(DASHBTNS.Instruct, not OS_WINDOWS)
+            self.btnModeSwitch.setVisible(True)
+            self.btnModeSwitch.setText(tr('Check Again'))
+            setBtnFrameVisible(True)
+            descr1 += self.GetDashStateText('Auto', 'OfflineNeedBitcoinInst')
+            descr2 += self.GetDashStateText('Auto', 'NewUserInfo')
+            descr2 += self.GetDashFunctionalityText('Offline')
+            self.lblDashDescr1.setText(descr1)
+            self.lblDashDescr2.setText(descr2)
+                     
+         elif sdmStr == "NodeStatus_Initializing" or \
+            sdmStr == "NodeStatus_Syncing":
+            self.wasSynchronizing = True
+            LOGINFO('Dashboard switched to auto-InitSync')
             self.lblBusy.setVisible(True)
+            self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
+            self.updateSyncProgress()
+   
+   
+            # If torrent ever ran, leave it visible
+            setSyncRowVisible(True)
+            setScanRowVisible(True)
+   
+            if sdmStr == "NodeStatus_Initializing":
+               self.lblDashModeSync.setText( tr('Initializing Bitcoin Engine'), size=4, bold=True, color='Foreground')
+            elif sdmStr == "NodeStatus_Syncing":
+               self.lblDashModeSync.setText( 'Synchronizing with Network', size=4, bold=True, color='Foreground')
+   
+   
+            self.lblDashModeBuild.setText( tr('Build Databases'), \
+                                          size=4, bold=True, color='DisableFG')
+            self.lblDashModeScan.setText( tr('Scan Transaction History'), \
+                                          size=4, bold=True, color='DisableFG')
+   
+            descr1 += self.GetDashStateText('Auto', 'InitializingDoneSoon')
+            descr2 += self.GetDashStateText('Auto', 'NewUserInfo')
+   
+            setBtnRowVisible(DASHBTNS.Settings, True)
+            setBtnFrameVisible(True, \
+               tr('Since version 0.88, Armory runs bitcoind in the '
+                  'background.  You can switch back to '
+                  'the old way in the Settings dialog. '))
+   
+            descr2 += self.GetDashFunctionalityText('Offline')
+            self.lblDashDescr1.setText(descr1)
+            self.lblDashDescr2.setText(descr2)
+            
+      self.lastSDMStr = sdmStr
+     
+         
+      if bdmState == BDM_BLOCKCHAIN_READY:
+         setOnlyDashModeVisible()
+         self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, True)
+         self.lblBusy.setVisible(False)
+         if self.netMode == NETWORKMODE.Disconnected:
             self.btnModeSwitch.setVisible(False)
+            self.lblDashModeSync.setText( tr('Armory is disconnected'), size=4, color='TextWarn', bold=True)
+            descr  = self.GetDashStateText('User','Disconnected')
+            descr += self.GetDashFunctionalityText('Offline')
+            self.lblDashDescr1.setText(descr)
+         else:
+            # Fully online mode
+            self.btnModeSwitch.setVisible(False)
+            self.lblDashModeSync.setText( tr('Armory is online!'), color='TextGreen', size=4, bold=True)
+            self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, True)
+            descr  = self.GetDashStateText('User', 'OnlineFull1')
+            descr += self.GetDashFunctionalityText('Online')
+            descr += self.GetDashStateText('User', 'OnlineFull2')
+            self.lblDashDescr1.setText(descr)
 
-            if TheSDM.getSDMState() == 'BitcoindReady':
-               self.barProgressSync.setVisible(True)
-               self.lblTimeLeftSync.setVisible(True)
-               self.lblDashModeSync.setVisible(True)
-               self.lblTimeLeftSync.setText('')
-               self.lblDashModeSync.setText( tr('Synchronizing with Network'), \
-                                       size=4, bold=True, color='DisableFG')
-            else:
-               self.barProgressSync.setVisible(False)
-               self.lblTimeLeftSync.setVisible(False)
-               self.lblDashModeSync.setVisible(False)
+      elif bdmState == BDM_SCANNING:
+         LOGINFO('Dashboard switched to "Scanning" mode')
+         self.lblDashModeScan.setVisible(True)
+         self.barProgressScan.setVisible(True)
+         self.lblTimeLeftScan.setVisible(True)
+         self.lblBusy.setVisible(True)
+         self.btnModeSwitch.setVisible(False)
 
-            if len(str(self.lblDashModeBuild.text()).strip()) == 0:
-               self.lblDashModeBuild.setText( tr('Preparing Databases'), \
+         if sdmStr == 'NodeStatus_Ready':
+            self.barProgressSync.setVisible(True)
+            self.lblTimeLeftSync.setVisible(True)
+            self.lblDashModeSync.setVisible(True)
+            self.lblTimeLeftSync.setText('')
+            self.lblDashModeSync.setText( tr('Synchronizing with Network'), \
+                                    size=4, bold=True, color='DisableFG')
+         else:
+            self.barProgressSync.setVisible(False)
+            self.lblTimeLeftSync.setVisible(False)
+            self.lblDashModeSync.setVisible(False)
+
+         if len(str(self.lblDashModeBuild.text()).strip()) == 0:
+            self.lblDashModeBuild.setText( tr('Preparing Databases'), \
                                           size=4, bold=True, color='Foreground')
-
-            if len(str(self.lblDashModeScan.text()).strip()) == 0:
-               self.lblDashModeScan.setText( tr('Scan Transaction History'), \
+            
+         if len(str(self.lblDashModeScan.text()).strip()) == 0:
+            self.lblDashModeScan.setText( tr('Scan Transaction History'), \
                                           size=4, bold=True, color='DisableFG')
 
-            self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
+         self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
 
-            if len(self.walletMap)==0:
-               descr = self.GetDashStateText('User','ScanNoWallets')
-            else:
-               descr = self.GetDashStateText('User','ScanWithWallets')
-
-            descr += self.GetDashStateText('Auto', 'NewUserInfo')
-            descr += self.GetDashFunctionalityText('Scanning') + '<br>'
-            self.lblDashDescr1.setText(descr)
-            self.lblDashDescr2.setText('')
-            self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dash)
+         if len(self.walletMap)==0:
+            descr = self.GetDashStateText('User','ScanNoWallets')
          else:
-            LOGERROR('What the heck blockchain mode are we in?  %s', bdmState)
+            descr = self.GetDashStateText('User','ScanWithWallets')
 
-      self.lastSDMState =  sdmState
+         descr += self.GetDashStateText('Auto', 'NewUserInfo')
+         descr += self.GetDashFunctionalityText('Scanning') + '<br>'
+         self.lblDashDescr1.setText(descr)
+         self.lblDashDescr2.setText('')
+         self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dash)
+      else:
+         LOGERROR('What the heck blockchain mode are we in?  %s', bdmState)
+
       self.lblDashModeSync.setContentsMargins( 50,5,50,5)
       self.lblDashModeBuild.setContentsMargins(50,5,50,5)
       self.lblDashModeScan.setContentsMargins( 50,5,50,5)
@@ -5583,7 +5356,7 @@ class ArmoryMainWindow(QMainWindow):
 
          self.createCombinedLedger(reset)
 
-      elif action == 'progress':
+      elif action == 'progress':        
          #Received progress data for a wallet side scan
          wltIDList = args[0]
          prog = args[1]
@@ -5664,8 +5437,10 @@ class ArmoryMainWindow(QMainWindow):
                self.lbDialog.resetLBSelection()
                self.lbDialog.changeLBFilter()
                
-      elif action == NODESTATUS_UPDATE:
+      elif action == NODESTATUS_UPDATE:        
          self.nodeStatus = args[0]
+
+         TheSDM.updateState(self.nodeStatus)
 
          armoryengine.ArmoryUtils.WITNESS = self.nodeStatus.SegWitEnabled_
          
@@ -5679,8 +5454,13 @@ class ArmoryMainWindow(QMainWindow):
             self.showTrayMsg('Connected', 'Connection to Bitcoin-Core ' \
                                    're-established', \
                                    QSystemTrayIcon.Information, 10000)
-            
+         
+         self.updateSyncProgress()   
          self.updateStatusBarText()
+         
+      elif action == BDM_SCAN_PROGRESS:
+         self.setDashboardDetails()
+         self.updateSyncProgress()
 
    #############################################################################
    def Heartbeat(self, nextBeatSec=1):
@@ -6044,16 +5824,12 @@ class ArmoryMainWindow(QMainWindow):
          else:
             LOGINFO('BDM is safe for clean shutdown')
 
-         self.shutdownBitcoindThread = threading.Thread(target=TheSDM.stopBitcoind)
-         self.shutdownBitcoindThread.start()
-
+         TheSDM.stopBitcoind()
          TheBDM.shutdown()
 
          # Remove Temp Modules Directory if it exists:
          if self.tempModulesDirName:
             shutil.rmtree(self.tempModulesDirName)
-
-         self.shutdownBitcoindThread.join()
 
       except:
          # Don't want a strange error here interrupt shutdown
@@ -6344,9 +6120,13 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def startBlockchainProcessingInitialization(self):
       self.startBitcoindIfNecessary()
+      self.completeBlockchainProcessingInitialization()
 
    #############################################################################
    def completeBlockchainProcessingInitialization(self):
+      if CLI_OPTIONS.offline:
+         return
+      
       gotDB = self.startArmoryDBIfNecessary()
       if gotDB == False:
          TheBDM.setState(BDM_OFFLINE)

@@ -221,7 +221,7 @@ float NodeRPC::getFeeByte(unsigned blocksToConfirm)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void NodeRPC::updateChainStatus(void)
+bool NodeRPC::updateChainStatus(void)
 {
    ReentrantLock lock(this);
 
@@ -267,13 +267,14 @@ void NodeRPC::updateChainStatus(void)
    nodeChainState_.appendHeightAndTime(height_val->val_, time_val->val_);
 
    //figure out state
-   nodeChainState_.processState();
+   return nodeChainState_.processState();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 void NodeRPC::waitOnChainSync(function<void(void)> callbck)
 {
    nodeChainState_.reset();
+   callbck();
 
    while (1)
    {
@@ -291,6 +292,7 @@ void NodeRPC::waitOnChainSync(function<void(void)> callbck)
       this_thread::sleep_for(chrono::seconds(1));
    }
 
+   callbck();
 
    while (1)
    {
@@ -299,7 +301,9 @@ void NodeRPC::waitOnChainSync(function<void(void)> callbck)
       {
          ReentrantLock lock(this);
 
-         updateChainStatus();
+         if (updateChainStatus())
+            callbck();
+
          auto& chainStatus = getChainStatus();
          if (chainStatus.state() == ChainStatus_Ready)
             break;
@@ -333,4 +337,27 @@ const NodeChainState& NodeRPC::getChainStatus(void) const
    ReentrantLock lock(this);
    
    return nodeChainState_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void NodeRPC::shutdown()
+{
+   ReentrantLock lock(this);
+
+   JSON_object json_obj;
+   json_obj.add_pair(string("method"), string("stop"));
+
+   auto&& response = socket_->writeAndRead(JSON_encode(json_obj));
+   auto&& response_obj = JSON_decode(response);
+
+   if (!response_obj.isResponseValid(json_obj.id_))
+      throw JSON_Exception("invalid response");
+
+   auto responseStr_obj = response_obj.getValForKey("result");
+   auto responseStr = dynamic_pointer_cast<JSON_string>(responseStr_obj);
+
+   if (responseStr == nullptr)
+      throw JSON_Exception("invalid response");
+
+   LOGINFO << responseStr->val_;
 }

@@ -31,6 +31,7 @@ STOPPED_ACTION = 'stopped'
 WARNING_ACTION = 'warning'
 SCAN_ACTION = 'StartedWalletScan'
 NODESTATUS_UPDATE = 'NodeStatusUpdate'
+BDM_SCAN_PROGRESS = 'BDM_Progress'
 
 def newTheBDM(isOffline=False):
    global TheBDM
@@ -93,12 +94,16 @@ class PySide_CallBack(Cpp.PythonCallback):
 
    def progress(self, phase, walletVec, prog, seconds, progressNumeric):
       try:
-         #walletIdString = str(walletId)
          if len(walletVec) == 0:
             self.bdm.progressPhase = phase
             self.bdm.progressComplete = prog
             self.bdm.secondsRemaining = seconds
             self.bdm.progressNumeric = progressNumeric
+            
+            self.bdm.bdmState = BDM_SCANNING
+            
+            for cppNotificationListener in TheBDM.getListenerList():
+               cppNotificationListener(BDM_SCAN_PROGRESS, [None, None])            
          else:
             progInfo = [walletVec, prog]
             for cppNotificationListener in TheBDM.getListenerList():
@@ -147,6 +152,7 @@ class BlockDataManager(object):
 
       self.btcdir = BTC_HOME_DIR
       self.armoryDBDir = ARMORY_DB_DIR
+      self.datadir = ARMORY_HOME_DIR
       self.lastPctLoad = 0
       
       self.topBlockHeight = 0
@@ -156,20 +162,19 @@ class BlockDataManager(object):
       self.secondsRemaining=0
       self.progressPhase=0
       self.progressNumeric=0
-      
-      self.spawnId = ""
-      
+            
       self.remoteDB = False
       self.instantiateBDV()
       
       self.exception = ""
+      
+      self.cookie = None
    
    #############################################################################  
    def instantiateBDV(self):
       if self.bdmState == BDM_OFFLINE:
          return
       
-      self.bdmState = BDM_SCANNING
       socketType = Cpp.SocketFcgi
       if ARMORYDB_IP != ARMORYDB_DEFAULT_IP or ARMORYDB_PORT != ARMORYDB_DEFAULT_PORT:
          socketType = Cpp.SocketHttp 
@@ -314,21 +319,28 @@ class BlockDataManager(object):
 
    #############################################################################
    @ActLikeASingletonBDM
-   def setSpawnId(self, spawnId):
-      self.spawnId = spawnId
-
-   #############################################################################
-   @ActLikeASingletonBDM
    def shutdown(self):
       if self.bdmState == BDM_OFFLINE:
          return
       
-      try:
+      try:         
          self.bdv_.unregisterFromDB()
          self.callback.shutdown()
-         self.bdv_.shutdown(self.spawnId)
+         
+         cookie = self.getCookie()        
+         self.bdv_.shutdown(cookie)
       except:
          pass
+      
+   #############################################################################
+   def getCookie(self):
+      if self.cookie == None:
+         
+         #get cookie from file
+         cookiePath = os.path.join(self.datadir, ".cookie_")
+         cookieFile = open(cookiePath, "r")
+         self.cookie = cookieFile.read()
+      return self.cookie
 
    #############################################################################
    @ActLikeASingletonBDM

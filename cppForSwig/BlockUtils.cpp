@@ -1236,6 +1236,9 @@ NodeStatusStruct BlockDataManager::getNodeStatus() const
    if (networkNode_->isSegWit())
       nss.SegWitEnabled_ = true;
 
+   if (nodeRPC_ == nullptr)
+      return nss;
+
    nss.rpcStatus_ = nodeRPC_->testConnection();
    nss.chainState_ = nodeRPC_->getChainStatus();
    return nss;

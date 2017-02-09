@@ -31,7 +31,7 @@ private:
    unique_ptr<HttpSocket> socket_;
    string basicAuthString_;
 
-   //set to true is node is connected and identified successfully
+   //set to true if node is connected and identified
    bool goodNode_ = false; 
 
    NodeChainState nodeChainState_;
@@ -46,8 +46,9 @@ public:
    RpcStatus testConnection(void);
    RpcStatus setupConnection(void);
    float getFeeByte(unsigned);
+   void shutdown(void);
 
-   void updateChainStatus(void);
+   bool updateChainStatus(void);
    const NodeChainState& getChainStatus(void) const;   
    void waitOnChainSync(function<void(void)>);
 };

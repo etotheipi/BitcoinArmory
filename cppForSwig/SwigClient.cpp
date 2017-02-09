@@ -96,19 +96,35 @@ BlockDataViewer::~BlockDataViewer()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::shutdown(const string& spawnId)
+void BlockDataViewer::shutdown(const string& cookie)
 {
    Command cmd;
    cmd.method_ = "shutdown";
    
-   if (spawnId.size() > 0)
+   if (cookie.size() > 0)
    {
-      BinaryDataObject bdo(spawnId);
+      BinaryDataObject bdo(cookie);
       cmd.args_.push_back(move(bdo));
    }
 
    cmd.serialize();
    auto&& result = sock_->writeAndRead(cmd.command_);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void BlockDataViewer::shutdownNode(const string& cookie)
+{
+   Command cmd;
+   cmd.method_ = "shutdownNode";
+
+   if (cookie.size() > 0)
+   {
+      BinaryDataObject bdo(cookie);
+      cmd.args_.push_back(move(bdo));
+   }
+
+   cmd.serialize();
+   sock_->writeAndRead(cmd.command_);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -320,6 +336,28 @@ NodeStatusStruct BlockDataViewer::getNodeStatus()
    nss.deserialize(serData.get());
 
    return nss;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+float BlockDataViewer::estimateFee(unsigned blocksToConfirm)
+{
+   Command cmd;
+
+   cmd.method_ = "estimateFee";
+   cmd.ids_.push_back(bdvID_);
+
+   IntType inttype(blocksToConfirm);
+
+   cmd.args_.push_back(move(inttype));
+   cmd.serialize();
+
+   auto && result = sock_->writeAndRead(cmd.command_);
+   Arguments args(result);
+   auto serData = args.get<BinaryDataObject>();
+
+   BinaryRefReader brr(serData.get().getRef());
+   
+   return float(brr.get_double());
 }
 
 ///////////////////////////////////////////////////////////////////////////////

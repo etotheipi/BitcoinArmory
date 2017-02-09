@@ -81,6 +81,9 @@ v0.96
 
    - The SegWit address type (P2SH-P2WPKH) can only be used if your local node references a chain that has activated SegWit.
 
+   - Moved node RPC socketing to ArmoryDB. ArmoryDB now waits on node initiliazation and synchronization processes if it can 
+     establish a RPC connection.
+
 == Fixed ==
    - Fixed transaction count display in wallet properties dialog
    - Fixed wallet group selector in online lobby

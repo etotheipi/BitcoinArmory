@@ -359,7 +359,8 @@ namespace SwigClient
       void goOnline(void);
       void registerWithDB(BinaryData magic_word);
       void unregisterFromDB(void);
-      void shutdown(const string& spawnId);
+      void shutdown(const string&);
+      void shutdownNode(const string&);
 
       BroadcastStatus broadcastZC(const BinaryData& rawTx);
       Tx getTxByHash(const BinaryData& txHash);
@@ -369,6 +370,7 @@ namespace SwigClient
 
       NodeStatusStruct getNodeStatus(void);
       unsigned getTopBlock(void) const { return topBlock_; }
+      float estimateFee(unsigned);
    };
 };
 

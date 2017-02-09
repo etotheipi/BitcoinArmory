@@ -201,6 +201,7 @@ public:
 
    const shared_ptr<BDV_Server_Object>& get(const string& id) const;
    Arguments runCommand(const string& cmd);
+   Arguments processShutdownCommand(Command&);
    Arguments registerBDV(Arguments& arg);
    void unregisterBDV(const string& bdvId);
    void shutdown(void);

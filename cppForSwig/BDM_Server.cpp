@@ -658,6 +658,27 @@ void BDV_Server_Object::buildMethodMap()
    };
 
    methodMap_["getNodeStatus"] = getNodeStatus;
+
+   //estimateFee
+   auto estimateFee = [this]
+      (const vector<string>& ids, Arguments& args)->Arguments
+   {
+
+      auto blocksToConfirm = args.get<IntType>().getVal();
+      auto feeByte = 
+         this->bdmPtr_->nodeRPC_->getFeeByte(blocksToConfirm);
+
+      BinaryWriter bw;
+      bw.put_double(feeByte);
+      BinaryDataObject bdo(bw.getData());
+
+      Arguments retarg;
+      retarg.push_back(move(bdo));
+      return move(retarg);
+   };
+
+   methodMap_["estimateFee"] = estimateFee;
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -672,36 +693,27 @@ const shared_ptr<BDV_Server_Object>& Clients::get(const string& id) const
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-Arguments Clients::runCommand(const string& cmdStr)
+Arguments Clients::processShutdownCommand(Command& cmdObj)
 {
-   if (!run_.load(memory_order_relaxed))
+   auto& thisCookie = bdmT_->bdm()->config().cookie_;
+   if (thisCookie.size() == 0)
       return Arguments();
-   
-   Command cmdObj(cmdStr);
-   cmdObj.deserialize();
+
+   try
+   {
+      auto&& cookie = cmdObj.args_.get<BinaryDataObject>();
+      auto&& cookieStr = cookie.toStr();
+
+      if ((cookieStr.size() == 0) || (cookieStr != thisCookie))
+         throw runtime_error("spawnId mismatch");
+   }
+   catch (...)
+   {
+      return Arguments();
+   }
 
    if (cmdObj.method_ == "shutdown")
    {
-      auto& thisSpawnId = bdmT_->bdm()->config().spawnID_;
-      if (thisSpawnId.size() == 0)
-         return Arguments();
-
-      //if thisSpawnId is empty, return
-      //if the spawnId provided with the shutdown command is emtpy, 
-      //mismatches, or is missing entirely (get() will throw), return
-
-      try
-      {
-         auto&& spawnId = cmdObj.args_.get<BinaryDataObject>();
-         auto&& spawnStr = spawnId.toStr();
-         if ((spawnStr.size() == 0) || (spawnStr.compare(thisSpawnId) != 0))
-            throw runtime_error("spawnId mismatch");
-      }
-      catch (...)
-      {
-         return Arguments();
-      }
-
       auto shutdownLambda = [this](void)->void
       {
          this->exitRequestLoop();
@@ -712,9 +724,30 @@ Arguments Clients::runCommand(const string& cmdStr)
       thread shutdownThr(shutdownLambda);
       if (shutdownThr.joinable())
          shutdownThr.detach();
-
-      return Arguments();
    }
+   else if (cmdObj.method_ == "shutdownNode")
+   {
+      if (bdmT_->bdm()->nodeRPC_ != nullptr)
+         bdmT_->bdm()->nodeRPC_->shutdown();
+   }
+
+   return Arguments();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+Arguments Clients::runCommand(const string& cmdStr)
+{
+   if (!run_.load(memory_order_relaxed))
+      return Arguments();
+   
+   Command cmdObj(cmdStr);
+   cmdObj.deserialize();
+
+   if (cmdObj.method_ == "shutdown" || cmdObj.method_ == "shutdownNode")
+   {
+      return processShutdownCommand(cmdObj);
+   }
+
    else if (bdmT_->bdm()->hasException())
    {
       rethrow_exception(bdmT_->bdm()->getException());
@@ -1307,7 +1340,7 @@ void BDV_Server_Object::maintenanceThread(void)
       }
 
       auto action = notifPtr->action_type();
-      if (action != BDV_Progress)
+      if (action != BDV_Progress && action != BDV_NodeStatus)
       {
          //skip all but progress notifications if BDV isn't ready
          if (isReadyFuture_.wait_for(chrono::seconds(0)) != future_status::ready)

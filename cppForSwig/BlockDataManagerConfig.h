@@ -49,8 +49,6 @@ struct BlockDataManagerConfig
    bool regtest_ = false;
 
    string logFilePath_;
-
-   string spawnID_;
    
    BinaryData genesisBlockHash_;
    BinaryData genesisTxHash_;
@@ -70,6 +68,8 @@ struct BlockDataManagerConfig
    bool reportProgress_ = true;
 
    bool checkChain_ = false;
+
+   const string cookie_;
 
    /////////////
    static uint8_t pubkeyHashPrefix_;
@@ -99,7 +99,6 @@ struct BlockDataManagerConfig
    void processArgs(const map<string, string>&, bool);
    void parseArgs(int argc, char* argv[]);
    void printHelp(void);
-   string stripQuotes(const string& input);
    static string portToString(unsigned);
 
    static void appendPath(string& base, const string& add);
@@ -109,6 +108,7 @@ struct BlockDataManagerConfig
    static map<string, string> getKeyValsFromLines(
       const vector<string>&, char delim);
    static pair<string, string> getKeyValFromLine(const string&, char delim);
+   static string stripQuotes(const string& input);
 };
 
 ////
@@ -144,10 +144,11 @@ private:
    ChainStatus state_ = ChainStatus_Unknown;
    float blockSpeed_ = 0.0f;
    uint64_t eta_ = 0;
+   float pct_ = 0.0f;
 
 public:
    void appendHeightAndTime(unsigned, uint64_t);
-   void processState(void);
+   bool processState(void);
    unsigned getTopBlock(void) const;
    ChainStatus state(void) const { return state_; }
    float getBlockSpeed(void) const { return blockSpeed_; }

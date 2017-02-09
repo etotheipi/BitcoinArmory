@@ -279,6 +279,13 @@ public:
    ///////////////////////////////////////////////////////////////////////////////
    template<typename T> auto get() -> T
    {
+      //sanity check
+      if (rawRefReader_.getSizeRemaining() == 0)
+      {
+         LOGERR << "exhausted entries in Arguments object";
+         throw range_error("exhausted entries in Arguments object");
+      }      
+      
       //peak at rawRefReader_ first byte
       auto objectTypePtr = rawRefReader_.getCurrPtr();
       
@@ -286,12 +293,6 @@ public:
       {
          auto errObj = ErrorType::deserialize(rawRefReader_);
          throw DbErrorMsg(errObj.what());
-      }
-
-      if (rawRefReader_.getSizeRemaining() == 0)
-      {
-         LOGERR << "exhausted entries in Arguments object";
-         throw range_error("exhausted entries in Arguments object");
       }
 
       return T::deserialize(rawRefReader_);

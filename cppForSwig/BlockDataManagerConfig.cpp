@@ -10,6 +10,7 @@
 #include "BtcUtils.h"
 #include "DBUtils.h"
 #include "DbHeader.h"
+#include "EncryptionUtils.h"
 
 #ifndef _WIN32
 #include "sys/stat.h"
@@ -73,7 +74,8 @@ const string BlockDataManagerConfig::defaultRegtestBlkFileLocation_ =
 #endif
 
 ////////////////////////////////////////////////////////////////////////////////
-BlockDataManagerConfig::BlockDataManagerConfig()
+BlockDataManagerConfig::BlockDataManagerConfig() :
+   cookie_(SecureBinaryData().GenerateRandom(32).toHexStr())
 {
    selectNetwork("Main");
 }
@@ -216,7 +218,9 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
 
          //string prefix and tokenize
          string line(argv[i] + 2);
-         args.insert(getKeyValFromLine(line, '='));
+         auto&& argkeyval = getKeyValFromLine(line, '=');
+         args.insert(make_pair(
+            argkeyval.first, stripQuotes(argkeyval.second)));
       }
 
       processArgs(args, true);
@@ -322,6 +326,12 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
       testPath(dbDir_, 6);
 
       testPath(blkFileLocation_, 2);
+
+      //cookie file
+      auto cookiePath = dataDir_;
+      appendPath(cookiePath, ".cookie_");
+      fstream fs(cookiePath, ios_base::out | ios_base::trunc);
+      fs << cookie_;
    }
    catch (...)
    {
@@ -374,7 +384,7 @@ void BlockDataManagerConfig::processArgs(const map<string, string>& args,
          armoryDbType_ = ARMORY_DB_SUPER;
       else
       {
-         cout << "Error: bad argument syntax" << endl;
+         cout << "Error: unexpected DB type: " << iter->second << endl;
          printHelp();
       }
    }
@@ -530,7 +540,13 @@ pair<string, string> BlockDataManagerConfig::getKeyValFromLine(
 ConfigFile::ConfigFile(const string& path)
 {
    auto&& lines = BlockDataManagerConfig::getLines(path);
-   keyvalMap_ = move(BlockDataManagerConfig::getKeyValsFromLines(lines, '='));
+
+   for (auto& line : lines)
+   {
+      auto&& keyval = BlockDataManagerConfig::getKeyValFromLine(line, '=');
+      keyvalMap_.insert(make_pair(
+         keyval.first, BlockDataManagerConfig::stripQuotes(keyval.second)));
+   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -574,14 +590,14 @@ NodeStatusStruct NodeStatusStruct::cast_to_NodeStatusStruct(void* ptr)
 // NodeChainState
 //
 ////////////////////////////////////////////////////////////////////////////////
-void NodeChainState::processState()
+bool NodeChainState::processState()
 {
    if (state_ == ChainStatus_Ready)
-      return;
+      return false;
 
    //compare top block timestamp to now
    if (heightTimeVec_.size() == 0)
-      return;
+      return false;
 
    uint64_t now = time(0);
    auto blocktime = get<1>(heightTimeVec_.back());
@@ -589,14 +605,14 @@ void NodeChainState::processState()
    if (blocktime > now)
    {
       state_ = ChainStatus_Ready;
-      return;
+      return true;
    }
 
    auto diff = now - blocktime;
    if (diff < 7200) //admissible timestamp variation for valid blocks
    {
       state_ = ChainStatus_Ready;
-      return;
+      return true;
    }
 
    //we got this far, node is still syncing, let's compute progress and eta
@@ -613,15 +629,22 @@ void NodeChainState::processState()
    auto time_begin = get<2>(*iterbegin);
 
    if (time_end <= time_begin)
-      return;
+      return false;
 
    auto blockdiff = get<0>(*iterend) - get<0>(*iterbegin);
    if (blockdiff == 0)
-      return;
+      return false;
 
    auto timediff = time_end - time_begin;
    blockSpeed_ = float(blockdiff) / float(timediff);
    eta_ = uint64_t(float(blocksLeft) * blockSpeed_);
+
+   //pct progress
+   auto height_end = get<0>(*iterend);
+   auto chainLength = height_end + blocksLeft;
+   pct_ = min(float(blocksLeft) / float(chainLength), 1.0f);
+
+   return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -669,6 +692,7 @@ BinaryData NodeChainState::serialize() const
    bw.put_uint8_t(state_);
    bw.put_double(blockSpeed_);
    bw.put_uint64_t(eta_);
+   bw.put_double(pct_);
 
    return bw.getData();
 }
@@ -683,4 +707,5 @@ void NodeChainState::unserialize(const BinaryData& bd)
    state_ = ChainStatus(brr.get_uint8_t());
    blockSpeed_ = float(brr.get_double());
    eta_ = brr.get_uint64_t();
+   pct_ = brr.get_double();
 }
