@@ -28,12 +28,11 @@ _CppBlockUtils.*
 /cppForSwig/gtest/*.a
 /cppForSwig/gtest/*.out.*
 /cppForSwig/gtest/blkfiletest/*
-/cppForSwig/gtest/ContainerTests.dSYM/*
-/cppForSwig/gtest/CppBlockUtilsTests.dSYM/*
+/cppForSwig/gtest/*.dSYM
+/cppForSwig/gtest/*.lmdb*
+/cppForSwig/gtest/DB1kIterTest
 
 *.DS_Store
-osxbuild/Armory.app
-osxbuild/env
 
 /ArmoryStandalone/*
 /cppForSwig/CppBlockUtils_wrap.h
@@ -74,7 +73,10 @@ osxbuild/env
 
 /osxbuild/armory_*.tar.gz
 /osxbuild/build-app.log.txt
-/osxbuild/objc_armory/*
+/osxbuild/objc_armory/*.o
+/osxbuild/objc_armory/Makefile*
+/osxbuild/objc_armory/moc*
+/osxbuild/objc_armory/sip*
 /osxbuild/workspace/*
 
 /armory_*_raspbian-armhf*
