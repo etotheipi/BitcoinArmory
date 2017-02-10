@@ -969,7 +969,7 @@ class DlgInconsistentWltReport(ArmoryDialog):
                         continue
 
                # Exclude regular logs as well, if desired
-               if not includeReg and fn in ['armorylog.txt', 'armorycpplog.txt']:
+               if not includeReg and fn in ['armorylog.txt', 'armorycpplog.txt', dbLog.txt]:
                   continue
 
 
