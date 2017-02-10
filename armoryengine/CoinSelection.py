@@ -754,8 +754,7 @@ DEFAULT_PRIORITY = 57600000
 def estimateFee():
    # See https://bitcoin.org/en/developer-reference#estimatefee for
    # documentation about this RPC call
-   fee = TheBDM.bdv().estimateFee( \
-            'estimatefee', NBLOCKS_TO_CONFIRM)
+   fee = TheBDM.bdv().estimateFee(NBLOCKS_TO_CONFIRM)
    # -1 is returned if BitcoinD does not have enough data to estimate fee.
    if fee > 0:
       return int(fee * ONE_BTC)
