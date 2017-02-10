@@ -1254,6 +1254,13 @@ except:
    SystemSpecs.HddAvailA = -1
    SystemSpecs.HddAvailB = -1
 
+# OSX 10.12 just had to go and make things complicated....
+prefEnc = locale.getpreferredencoding()
+if prefEnc == None:
+   if os.environ.get('LC_ALL', '').upper() == 'UTF-8':
+      prefEnc = 'utf-8'
+   else:
+      prefEnc = 'Unknown'
 
 LOGINFO('')
 LOGINFO('')
@@ -1275,7 +1282,7 @@ LOGINFO('   Total Available RAM   : %0.2f GB', SystemSpecs.Memory)
 LOGINFO('   CPU ID string         : ' + SystemSpecs.CpuStr)
 LOGINFO('   Number of CPU cores   : %d cores', SystemSpecs.NumCores)
 LOGINFO('   System is 64-bit      : ' + str(SystemSpecs.IsX64))
-LOGINFO('   Preferred Encoding    : ' + locale.getpreferredencoding())
+LOGINFO('   Preferred Encoding    : ' + prefEnc)
 LOGINFO('   Machine Arch          : ' + SystemSpecs.Machine)
 LOGINFO('   Available HDD (ARM)   : %d GB' % SystemSpecs.HddAvailA)
 LOGINFO('   Available HDD (BTC)   : %d GB' % SystemSpecs.HddAvailB)
