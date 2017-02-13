@@ -251,11 +251,11 @@ class LedgerDispModelSimple(QAbstractTableModel):
             isCB  = rowData[COL.isCoinbase]
             isConfirmed = (nConf>119 if isCB else nConf>5)
             if isConfirmed:
-               return QVariant(self.tr('Transaction confirmed!\n(%d confirmations)')%nConf)
+               return QVariant(self.tr('Transaction confirmed!\n(%1 confirmations)').arg(nConf))
             else:
                tooltipStr = ''
                if isCB:
-                  tooltipStr = self.tr('%d/120 confirmations')%nConf
+                  tooltipStr = self.tr('%1/120 confirmations').arg(nConf)
                   tooltipStr += ( self.tr('\n\nThis is a "generation" transaction from\n'
                                  'Bitcoin mining.  These transactions take\n'
                                  '120 confirmations (approximately one day)\n'
@@ -265,7 +265,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
                                ' Do not consider you have been sent these coins until'
                                ' this transaction has at least 1 confirmation.')
                else:
-                  tooltipStr = self.tr('%d/6 confirmations')%rowData[COL.NumConf]
+                  tooltipStr = self.tr('%1/6 confirmations').arg(rowData[COL.NumConf])
                   tooltipStr += self.tr( '\n\nFor small transactions, 2 or 3 '
                                  'confirmations is usually acceptable. '
                                  'For larger transactions, you should '

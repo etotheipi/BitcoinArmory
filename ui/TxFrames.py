@@ -1314,7 +1314,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       self.sentToSelfWarn = False
       self.fileLoaded = None
 
-      lblDescr = QRichLabel(tr(
+      lblDescr = QRichLabel(self.tr(
          'Copy or load a transaction from file into the text box below.  '
          'If the transaction is unsigned and you have the correct wallet, '
          'you will have the opportunity to sign it.  If it is already signed '
@@ -1377,7 +1377,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
       # ##
       self.infoLbls.append([])
-      self.infoLbls[-1].append(self.main.createToolTipWidget(tr(
+      self.infoLbls[-1].append(self.main.createToolTipWidget(self.tr(
          'A unique string that identifies an <i>unsigned</i> transaction.  '
          'This is different than the ID that the transaction will have when '
          'it is finally broadcast, because the broadcast ID cannot be '
@@ -1726,9 +1726,9 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
    def broadTx(self):
       if self.main.netMode == NETWORKMODE.Disconnected:
          QMessageBox.warning(self, self.tr('No Internet!'), \
-            self.tr('Armory lost its connection to , and cannot '
+            self.tr('Armory lost its connection to Bitcoin Core, and cannot '
             'broadcast any transactions until it is reconnected. '
-            'Please verify that  (or bitcoind) is open '
+            'Please verify that Bitcoin Core (or bitcoind) is open '
             'and synchronized with the network.'), QMessageBox.Ok)
          return
       elif self.main.netMode == NETWORKMODE.Offline:

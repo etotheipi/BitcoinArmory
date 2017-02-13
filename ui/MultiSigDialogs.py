@@ -975,7 +975,7 @@ class DlgLockboxManager(ArmoryDialog):
       # simulfunding widgets
       self.stkDashboard = QStackedWidget()
 
-      simultxt = self.tr('SimulFund')
+      simultxt = 'SimulFund'
       self.chkSimulfundA = QCheckBox(simultxt)
       self.chkSimulfundB = QCheckBox(simultxt)
 

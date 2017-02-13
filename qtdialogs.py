@@ -722,7 +722,7 @@ class DlgInconsistentWltReport(ArmoryDialog):
          hAlign=Qt.AlignHCenter)
 
       lblDescr = QRichLabel(self.tr("""
-         Armory has detected that %1 is finconsistent,
+         Armory has detected that %1 is inconsistent,
          possibly due to hardware errors out of our control.  It <u>strongly
          recommended</u> you submit the wallet logs to the Armory developers
          for review.  Until you hear back from an Armory developer,
@@ -3099,7 +3099,7 @@ class DlgImportAddress(ArmoryDialog):
       if not 'mini' in keyType.lower():
          reply = QMessageBox.question(self, self.tr('Verify Address'), self.tr('''
                The key data you entered appears to correspond to
-               the following Bitcoin address:\n\n\t' %1
+               the following Bitcoin address:\n\n\t %1
                \n\nIs this the correct address?''').arg(addrStr),
                QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
          if reply == QMessageBox.Cancel:
@@ -4202,12 +4202,11 @@ class DlgImportPaperWallet(ArmoryDialog):
          pluralChar = '' if len(errorLines) == 1 else 's'
          article = ' an' if len(errorLines) == 1 else ''
          QMessageBox.question(self, self.tr('Errors Corrected!'), self.tr('''
-            Detected %1 error%2 on line%3 %4
+            Detected %n error(s) on line(s) %1
             in the data you entered.  Armory attempted to fix the
-            error%5 but it is not always right.  Be sure
-            to verify the "Wallet Unique ID" closely on the next window.''').arg(
-            article, pluralChar, pluralChar, englishNumberList(errorLines), pluralChar), \
-            QMessageBox.Ok)
+            error(s) but it is not always right.  Be sure
+            to verify the "Wallet Unique ID" closely on the next window.''', "", len(errorLines)).arg(
+               englishNumberList(errorLines)), QMessageBox.Ok)
 
       # If we got here, the data is valid, let's create the wallet and accept the dlg
       privKey = ''.join(self.wltDataLines[:2])
@@ -8507,7 +8506,7 @@ class DlgAddressBook(ArmoryDialog):
             QMessageBox.critical(self, self.tr("P2SH Not Allowed"), self.tr("""
                This operation requires a public key, but you selected a
                P2SH address which does not have a public key (these addresses
-               start with "2" or "3").  Please select a different address"""), \
+               start with "2" or "3").  Please select a different address."""), \
                QMessageBox.Ok)
             return
 
@@ -8826,7 +8825,7 @@ class DlgSettings(ArmoryDialog):
          transactions so they confirm faster (%1 BTC is standard).""").arg(coin2strNZS(MIN_TX_FEE)))
 
       ttipDefaultFee = self.main.createToolTipWidget(self.tr("""
-         NOTE: some transactions will require a certain fee
+         NOTE: Some transactions will require a certain fee
          regardless of your settings -- in such cases
          you will be prompted to include the correct
          value or cancel the transaction"""))
@@ -8848,7 +8847,7 @@ class DlgSettings(ArmoryDialog):
          background, and you will still receive notifications.  Access Armory
          through the icon on your system tray.
          <br><br>
-         If select "Minimize on close", the 'x' on the top window bar will
+         If you select "Minimize on close", the 'x' on the top window bar will
          minimize Armory instead of exiting the application.  You can always use
          <i>"File"</i> -> <i>"Quit Armory"</i> to actually close it."""))
 
@@ -12323,7 +12322,7 @@ class DlgRestoreSingle(ArmoryDialog):
             return
       if self.chkEncrypt.isChecked() and self.advancedOptionsTab.getKdfBytes() == -1:
             QMessageBox.critical(self, self.tr('Invalid Max Memory Usage'), \
-               self.tr('You entered Max Memory Usage incorrectly.\n\nnter: <Number> (kb, mb)'), QMessageBox.Ok)
+               self.tr('You entered Max Memory Usage incorrectly.\n\nEnter: <Number> (kb, mb)'), QMessageBox.Ok)
             return
       if nError > 0:
          pluralStr = 'error' if nError == 1 else 'errors'
@@ -13050,7 +13049,7 @@ class DlgRestoreFragged(ArmoryDialog):
       if self.fragIDPrefix == UNKNOWN:
          self.fragIDPrefix = idBase58.split('-')[0]
       elif not self.fragIDPrefix == idBase58.split('-')[0]:
-         QMessageBox.critical(self, self.tr('Multiple Walletss'), self.tr("""
+         QMessageBox.critical(self, self.tr('Multiple Wallets'), self.tr("""
             The fragment you just entered is actually for a different wallet
             than the previous fragments you entered.  Please double-check that
             all the fragments you are entering belong to the same wallet and
@@ -13702,8 +13701,7 @@ def finishPrintingBackup(parent, btype=None):
    openTestDlg = False
    msg = parent.tr("""
          Please make sure that any printed backups you create  (excluding any "ID" lines) have <b>nine
-         columns</b> of four letters each
-         each.
+         columns</b> of four letters each.
          If you just made a paper backup, it is important that you test it
          to make sure that it was printed or copied correctly.  Most importantly,
          """)
@@ -14476,14 +14474,10 @@ class DlgCorruptWallet(DlgProgress):
          self.main.statusBar().showMessage('Failed to fix wallets!', 150000)
       elif len(goodWallets) == len(fixedWallets) and not anyNegImports:
          self.lblDescr2.setText(self.tr("""
-            <font size=4 color="%1"><b>Wallet consistent, nothing to
-            fix.</b></font>""", """
-            <font size=4 color="%1"><b>Wallets consistent, nothing to
-            fix.</b></font>""",
-            len(goodWallets)
-            ).arg(htmlColor("TextBlue")))
+            <font size=4 color="%1"><b>Wallet(s) consistent, nothing to
+            fix.</b></font>""", "", len(goodWallets)).arg(htmlColor("TextBlue")))
          self.main.statusBar().showMessage( \
-            self.tr("Wallet consistent!", "Wallets consistent!", len(goodWallets)) % \
+            self.tr("Wallet(s) consistent!", "", len(goodWallets)) % \
             15000)
       elif len(fixedWallets) > 0 or anyNegImports:
          if self.checkMode != RECOVERMODE.Check:
@@ -14663,7 +14657,7 @@ class DlgFactoryReset(ArmoryDialog):
             msg = self.tr("""
                You are about to delete <b>all</b>
                blockchain databases on your system.  The Bitcoin software will
-               have to redownload of blockchain data over the peer-to-peer
+               have to redownload all of the blockchain data over the peer-to-peer
                network again. This can take from 8 to 72 hours depending on
                your system's speed and connection.  <br><br><b>Are you absolutely
                sure you want to do this?</b>""")
@@ -14671,7 +14665,7 @@ class DlgFactoryReset(ArmoryDialog):
             msg = self.tr("""
                You are about to delete your settings and delete <b>all</b>
                blockchain databases on your system.  The Bitcoin software will
-               have to redownload of blockchain data over the peer-to-peer
+               have to redownload all of the blockchain data over the peer-to-peer
                network again. This can take from 8 to 72 hours depending on
                your system's speed and connection.  <br><br><b>Are you absolutely
                sure you want to do this?</b>""")
@@ -14700,7 +14694,7 @@ class DlgFactoryReset(ArmoryDialog):
 
             if not reply:
                QMessageBox.warning(self, self.tr('Aborted'), self.tr("""
-                  You canceled the factory-reset operation.  No changes were
+                  You canceled the factory reset operation.  No changes were
                   made."""), QMessageBox.Ok)
                self.reject()
                return
@@ -14754,7 +14748,7 @@ class DlgForkedImports(ArmoryDialog):
 
       descr4 = self.tr('<h1 style="color: orange;"> - Do not accept payments to these wallets anymore<br>\
       - Do not delete or overwrite these wallets. <br> \
-      - Transfer all funds to a fresh and backed up wallet<h1>')
+      - Transfer all funds to a fresh and backed up wallet</h1>')
 
       lblDescr1 = QRichLabel(descr1)
       lblDescr2 = QRichLabel(descr2)

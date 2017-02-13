@@ -750,7 +750,7 @@ class ArmoryMainWindow(QMainWindow):
       if not CLI_OPTIONS.satoshiHome in [BTC_HOME_DIR, DEFAULT]:
          QMessageBox.warning(self, self.tr('Bitcoin Directory'), self.tr("""
             Armory is using the default Bitcoin directory because
-            the Bitcoin director specified in the command line could
+            the Bitcoin directory specified in the command line could
             not be found."""), QMessageBox.Ok)
 
       if not self.getSettingOrSetDefault('DNAA_DeleteLevelDB', False) and \
@@ -1179,7 +1179,7 @@ class ArmoryMainWindow(QMainWindow):
       reply = QMessageBox.warning(self, self.tr('Queue Rebuild?'), self.tr("""
          The next time you restart Armory, it will rebuild and rescan
          the entire blockchain database.  This operation can take between
-         30 minutes and 4 hours depending on you system speed.
+         30 minutes and 4 hours depending on your system speed.
          <br><br>
          Do you wish to force a rebuild on the next Armory restart?"""), \
          QMessageBox.Yes | QMessageBox.No)
@@ -1190,7 +1190,7 @@ class ArmoryMainWindow(QMainWindow):
    def rescanBalanceNextLoad(self):
       reply = QMessageBox.warning(self, self.tr('Queue Balance Rescan?'), self.tr("""
          The next time you restart Armory, it will rescan the balance of
-         your wallets. This operation typically takes less than a minute
+         your wallets. This operation typically takes less than a minute.
          <br><br>
          Do you wish to force a balance rescan on the next Armory restart?"""), \
          QMessageBox.Yes | QMessageBox.No)
@@ -1652,7 +1652,7 @@ class ArmoryMainWindow(QMainWindow):
             if not dlgCrypt.exec_():
                QMessageBox.information(parent, self.tr('Aborted'), self.tr("""
                   No passphrase was selected for the encrypted backup.
-                  No backup was created"""), QMessageBox.Ok)
+                  No backup was created."""), QMessageBox.Ok)
             newPassphrase = SecureBinaryData(str(dlgCrypt.edtPasswd1.text()))
 
          wlt.makeEncryptedWalletCopy(savePath, newPassphrase)
@@ -3003,21 +3003,20 @@ class ArmoryMainWindow(QMainWindow):
       if finishedTx==None:
          if (outVal,fee)==(0,0):
             QMessageBox.critical(self, self.tr('Nothing to do'), \
-               self.tr('''The private %1 you have provided does not appear to contain
-               any funds.  There is nothing to sweep.''').arg(self.tr('keys') if gt1 else self.tr('key')), \
+               self.tr('''The private key(s) you have provided does not appear to contain
+               any funds.  There is nothing to sweep.''', "", len(sweepList)), \
                QMessageBox.Ok)
             return
          else:
             pladdr = (self.tr('addresses') if gt1 else self.tr('address'))
             QMessageBox.critical(self, self.tr('Cannot sweep'),\
-               self.tr('''You cannot sweep the funds from the %1 you specified, because
+               self.tr('''You cannot sweep the funds from the address(es) you specified, because
                the transaction fee would be equal to or greater than the amount 
                swept.
                <br><br>
-               <b>Balance of %2:</b> %3<br>
-               <b>Fee to sweep %4:</b> %5
-               <br><br>The sweep operation has been canceled.''').arg(pladdr, pladdr, \
-               coin2str(outVal+fee,maxZeros=0), pladdr, coin2str(fee,maxZeros=0)), \
+               <b>Balance of address(es):</b> %1<br>
+               <b>Fee to sweep address(es):</b> %2
+               <br><br>The sweep operation has been canceled.''', "", len(sweepList)).arg(coin2str(outVal+fee,maxZeros=0), coin2str(fee,maxZeros=0)), \
                QMessageBox.Ok)
             LOGERROR('Sweep amount (%s) is less than fee needed for sweeping (%s)', \
                      coin2str(outVal+fee, maxZeros=0), coin2str(fee, maxZeros=0))
@@ -3251,7 +3250,7 @@ class ArmoryMainWindow(QMainWindow):
       row = self.ledgerView.selectedIndexes()[0].row()
       txHash = str(self.ledgerView.model().index(row, LEDGERCOLS.TxHash).data().toString())
       wltID  = str(self.ledgerView.model().index(row, LEDGERCOLS.WltID).data().toString())
-      txtime = unstricode(self.ledgerView.model().index(row, LEDGERCOLS.DateStr).data().toString())
+      txtime = unicode(self.ledgerView.model().index(row, LEDGERCOLS.DateStr).data().toString())
 
       pytx = None
       txHashBin = hex_to_binary(txHash)
@@ -3844,7 +3843,7 @@ class ArmoryMainWindow(QMainWindow):
             self.dashBtns[DASHBTNS.Install][LBL] = QRichLabel( self.tr("""
                Download and Install Bitcoin Core for Ubuntu/Debian"""))
             self.dashBtns[DASHBTNS.Install][TTIP] = self.createToolTipWidget( self.tr("""
-               Will download and Bitcoin software and cryptographically verify it"""))
+               Will download, cryptographically verify, and install Bitcoin Core."""))
       elif OS_MACOSX:
          pass
       else:
@@ -4326,7 +4325,7 @@ class ArmoryMainWindow(QMainWindow):
          if phase==Cpp.BDMPhase_DBHeaders:
             self.lblDashModeBuild.setText( self.tr('Loading Database Headers'), \
                                         size=4, bold=True, color='Foreground')
-            self.lblDashModeScan.setText( 'Scan Transaction History', \
+            self.lblDashModeScan.setText( self.tr('Scan Transaction History'), \
                                         size=4, bold=True, color='DisableFG')
             self.barProgressBuild.setFormat('%p%')
             self.barProgressScan.setFormat('')
@@ -4473,7 +4472,7 @@ class ArmoryMainWindow(QMainWindow):
       """
       if func.lower() == 'scanning':
          return self.tr( \
-         'The following functionality is available while scanning in offline mode:'
+         'The following functionalities are available while scanning in offline mode:'
          '<ul>'
          '<li>Create new wallets</li>'
          '<li>Generate receiving addresses for your wallets</li>'
@@ -4489,7 +4488,7 @@ class ArmoryMainWindow(QMainWindow):
          'Armory is online.')
       elif func.lower() == 'offline':
          return self.tr( \
-         'The following functionality is available in offline mode:'
+         'The following functionalities are available in offline mode:'
          '<ul>'
          '<li>Create, import or recover wallets</li>'
          '<li>Generate new receiving addresses for your wallets</li>'
@@ -4580,7 +4579,7 @@ class ArmoryMainWindow(QMainWindow):
          '<br><br>'
          'Press the button to start the blockchain scan, which '
          'will also put Armory into offline mode for a few minutes '
-         'until the scan operation is complete')
+         'until the scan operation is complete.')
       elif state == 'OnlineDirty':
          return self.tr( \
          '<b>Wallet balances may '
@@ -4736,25 +4735,14 @@ class ArmoryMainWindow(QMainWindow):
          if state == 'InitializingDoneSoon':
             msg = self.tr( \
             'The software is downloading and processing the latest activity '
-            'on the network related to your wallet.  This should take only '
-            'a few minutes.  While you wait, you can manage your wallets.  '
+            'on the network related to your wallet(s).  This should take only '
+            'a few minutes.  While you wait, you can manage your wallet(s).  '
             '<br><br>'
             'Now would be a good time to make paper (or digital) backups of '
-            'your wallet if you have not done so already!  You are protected '
+            'your wallet(s) if you have not done so already!  You are protected '
             '<i>forever</i> from hard-drive loss, or forgetting you password. '
             'If you do not have a backup, you could lose all of your '
-            'Bitcoins forever!',
-            'The software is downloading and processing the latest activity '
-            'on the network related to your wallets.  This should take only '
-            'a few minutes.  While you wait, you can manage your wallets.  '
-            '<br><br>'
-            'Now would be a good time to make paper (or digital) backups of '
-            'your wallets if you have not done so already!  You are protected '
-            '<i>forever</i> from hard-drive loss, or forgetting you password. '
-            'If you do not have a backup, you could lose all of your '
-            'Bitcoins forever!',
-               len(self.walletMap)
-            )
+            'Bitcoins forever!', "", len(self.walletMap))
 
             return msg
          if state == 'OnlineDisconnected':
@@ -4803,8 +4791,8 @@ class ArmoryMainWindow(QMainWindow):
             '<br><br>'
             'You can either revert your installed Bitcoin software to the '
             'last known working version (but not earlier than version 0.8.1) '
-            'or delete everything <b>except</b> "wallet.dat" from the your Bitcoin '
-            'home directory:<br><br>'
+            'or delete everything <b>except</b> "wallet.dat" from your Bitcoin '
+            'home directory '
             '<font face="courier"><b>%1</b></font>'
             '<br><br>'
             'If you choose to delete the contents of the Bitcoin home '
@@ -5078,11 +5066,11 @@ class ArmoryMainWindow(QMainWindow):
             self.lblTimeLeftSync.setVisible(False)
             self.lblDashModeSync.setVisible(False)
 
-         if len(str(self.lblDashModeBuild.text()).strip()) == 0:
+         if len(unicode(self.lblDashModeBuild.text()).strip()) == 0:
             self.lblDashModeBuild.setText( self.tr('Preparing Databases'), \
                                           size=4, bold=True, color='Foreground')
             
-         if len(str(self.lblDashModeScan.text()).strip()) == 0:
+         if len(unicode(self.lblDashModeScan.text()).strip()) == 0:
             self.lblDashModeScan.setText( self.tr('Scan Transaction History'), \
                                           size=4, bold=True, color='DisableFG')
 
