@@ -129,7 +129,6 @@ class ArmoryMainWindow(QMainWindow):
       if not OS_MACOSX:
          self.setWindowIcon(QIcon(self.iconfile))
       else:
-         self.notifCtr = ArmoryMac.MacNotificationHandler.None
          if USE_TESTNET or USE_REGTEST:
             self.iconfile = ':/armory_icon_green_fullres.png'
             ArmoryMac.MacDockIconHandler.instance().setMainWindow(self)
@@ -720,17 +719,6 @@ class ArmoryMainWindow(QMainWindow):
 
       if OS_MACOSX:
          self.macNotifHdlr = ArmoryMac.MacNotificationHandler()
-         if self.macNotifHdlr.hasUserNotificationCenterSupport():
-            self.notifCtr = ArmoryMac.MacNotificationHandler.BuiltIn
-         else:
-            # In theory, Qt can support notifications via Growl on pre-10.8
-            # machines. It's shaky as hell, though, so we'll rely on alternate
-            # code for now. In the future, according to
-            # https://bugreports.qt-project.org/browse/QTBUG-33733 (which may not
-            # be accurate, as the official documentation is contradictory),
-            # showMessage() may have direct support for the OS X notification
-            # center in Qt5.1. Something to experiment with later....
-            self.notifCtr = self.macNotifHdlr.hasGrowl()
 
       # Now that construction of the UI is done
       # Check for warnings to be displayed

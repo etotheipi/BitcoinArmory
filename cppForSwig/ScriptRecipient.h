@@ -95,7 +95,7 @@ public:
    }
 
    //return size is static
-   uint64_t getSize(void) const { return 34; }
+   size_t getSize(void) const { return 34; }
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -124,7 +124,7 @@ public:
       script_ = move(bw.getData());
    }
 
-   uint64_t getSize(void) const { return 31; }
+   size_t getSize(void) const { return 31; }
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -154,7 +154,7 @@ public:
       script_ = move(bw.getData());
    }
 
-   uint64_t getSize(void) const { return 32; }
+   size_t getSize(void) const { return 32; }
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -183,7 +183,7 @@ public:
       script_ = move(bw.getData());
    }
 
-   uint64_t getSize(void) const { return 43; }
+   size_t getSize(void) const { return 43; }
 };
 
 #endif
