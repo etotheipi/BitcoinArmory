@@ -17,7 +17,17 @@ endif
 platform=$(shell uname)
 
 ifeq ($(shell uname), Darwin)
+# XCode 8 breaks when compiling for 10.7, XCode 7 and below does not
+XCODE_VERSION:=$(shell xcodebuild -version | awk '{ print $$2 }' | head -n1)
+XCODE_MAJOR_VERSION:=$(shell echo ${XCODE_VERSION} | cut -d "." -f 1)
+$(info XCode ${XCODE_VERSION} Detected.)
+ifeq ($(shell echo "${XCODE_MAJOR_VERSION} >= 8" | bc), 1)
+$(info Due to XCode 8+ changes, the deployment target is 10.8. Use XCode 7 if a target of 10.7 is needed.)
+MACOSX_DEPLOYMENT_TARGET=10.8
+else
+$(info A version of XCode below XCode 8 has been detected. The deployment target is 10.7.)
 MACOSX_DEPLOYMENT_TARGET=10.7
+endif
 export MACOSX_DEPLOYMENT_TARGET
 LDFLAGS += -undefined dynamic_lookup -headerpad_max_install_names
 endif
