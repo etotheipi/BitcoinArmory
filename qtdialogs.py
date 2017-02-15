@@ -969,7 +969,7 @@ class DlgInconsistentWltReport(ArmoryDialog):
                         continue
 
                # Exclude regular logs as well, if desired
-               if not includeReg and fn in ['armorylog.txt', 'armorycpplog.txt', dbLog.txt]:
+               if not includeReg and fn in ['armorylog.txt', 'armorycpplog.txt', 'dbLog.txt']:
                   continue
 
 
@@ -9670,9 +9670,9 @@ class DlgExportTxHistory(ArmoryDialog):
          f = open(fullpath, 'w')
 
          f.write(self.tr('Export Date: %1\n').arg(unixTimeToFormatStr(RightNow())))
-         f.write(self.tr('Total Funds: %1\n').argcoin2str(totalFunds, maxZeros=0).strip())
-         f.write(self.tr('Spendable Funds: %1\n').argcoin2str(spendFunds, maxZeros=0).strip())
-         f.write(self.tr('Unconfirmed Funds: %1\n').argcoin2str(unconfFunds, maxZeros=0).strip())
+         f.write(self.tr('Total Funds: %1\n').arg(coin2str(totalFunds, maxZeros=0).strip()))
+         f.write(self.tr('Spendable Funds: %1\n').arg(coin2str(spendFunds, maxZeros=0).strip()))
+         f.write(self.tr('Unconfirmed Funds: %1\n').arg(coin2str(unconfFunds, maxZeros=0).strip()))
          f.write('\n')
 
          f.write(self.tr('Included Wallets:\n'))

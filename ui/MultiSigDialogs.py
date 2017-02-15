@@ -1399,8 +1399,8 @@ class DlgLockboxManager(ArmoryDialog):
       if dev:   actionCopyHash160 = menu.addAction(self.tr("Copy hash160 value (hex)"))
       if True:  actionCopyBalance = menu.addAction(self.tr("Copy balance"))
       if True:  actionRemoveLB    = menu.addAction(self.tr("Delete Lockbox"))
-      if ENABLE_SUPERNODE is False:  
-         actionRescanLB    = menu.addAction(self.tr("Rescan Lockbox"))
+      #if ENABLE_SUPERNODE is False:  
+      #  actionRescanLB    = menu.addAction(self.tr("Rescan Lockbox"))
 
       selectedIndexes = self.lboxView.selectedIndexes()
 
@@ -1485,23 +1485,23 @@ class DlgLockboxManager(ArmoryDialog):
 
             return
          
-         elif action == actionRescanLB:
-            dispInfo = self.main.getDisplayStringForScript(lbox.binScript)            
-            reply = QMessageBox.warning(self, self.tr('Confirm Rescan'), self.tr("""
-               Rescaning a Lockbox will make it unavailable for the duration
-               of the process
-               <br><br>
-               You are about to rescan the following lockbox:
-               <br><br>
-               <font color="%1">%2</font> """).arg(htmlColor('TextBlue'),
-               dispInfo['String']), QMessageBox.Yes | QMessageBox.No) 
-
-            if reply==QMessageBox.Yes:    
-               lwlt = self.main.cppLockboxWltMap[lbox.uniqueIDB58]  
-               lwlt.forceScan()          
-               self.lboxModel.reset()
-               
-            return
+         #elif action == actionRescanLB:
+         #   dispInfo = self.main.getDisplayStringForScript(lbox.binScript)            
+         #   reply = QMessageBox.warning(self, self.tr('Confirm Rescan'), self.tr("""
+         #      Rescaning a Lockbox will make it unavailable for the duration
+         #      of the process
+         #      <br><br>
+         #      You are about to rescan the following lockbox:
+         #      <br><br>
+         #      <font color="%1">%2</font> """).arg(htmlColor('TextBlue'),
+         #      dispInfo['String']), QMessageBox.Yes | QMessageBox.No)
+         #
+         #   if reply==QMessageBox.Yes:    
+         #      lwlt = self.main.cppLockboxWltMap[lbox.uniqueIDB58]  
+         #      lwlt.forceScan()          
+         #      self.lboxModel.reset()
+         #      
+         #   return
          
          else:
             return

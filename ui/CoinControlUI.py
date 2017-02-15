@@ -9,9 +9,8 @@
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
-from qtdefines import ArmoryDialog, QRichLabel, SIGNAL, \
-   QCheckBox, QGridLayout, VLINE, HLINE, QFrame, makeHorizFrame, \
-   QMoneyLabel, saveTableView, restoreTableView
+from qtdefines import ArmoryDialog, QRichLabel, makeHorizFrame, \
+   saveTableView, restoreTableView
    
 from ui.TreeViewGUI import CoinControlTreeModel
 

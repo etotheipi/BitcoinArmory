@@ -1979,7 +1979,7 @@ class ArmoryMainWindow(QMainWindow):
             self.tr('''The address for the "bitcoin:" link you just %1 is
             for the wrong network!  You are on the <b>%2</b>
             and the address you supplied is for the 
-            <b>%3</b>!''').arg(clickOrEnter, NETWORKS[ADDRBYTE], net), \
+            <b>%3</b>!''').arg(ClickOrEnter, NETWORKS[ADDRBYTE], net), \
             QMessageBox.Ok)
          LOGERROR('URI link is for the wrong network!')
          return {}
@@ -3279,8 +3279,6 @@ class ArmoryMainWindow(QMainWindow):
 
       txHash = str(self.ledgerView.model().index(row, LEDGERCOLS.TxHash).data().toString())
       txHash = hex_switchEndian(txHash)
-      wltID  = str(self.ledgerView.model().index(row, LEDGERCOLS.WltID).data().toString())
-
 
       actViewTx     = menu.addAction(self.tr("View Details"))
       actViewBlkChn = menu.addAction(self.tr("View on %1").arg(BLOCKEXPLORE_NAME))
@@ -3343,7 +3341,6 @@ class ArmoryMainWindow(QMainWindow):
             QMessageBox.Ok)
          return
 
-      selectionMade = True
       if len(self.walletMap)==0:
          reply = QMessageBox.information(self, self.tr('No Wallets!'), self.tr('''
             You cannot send any bitcoins until you create a wallet and 
@@ -3373,7 +3370,6 @@ class ArmoryMainWindow(QMainWindow):
       elif haveLbl and not haveMsg:
          newMsg = uriDict['label']
 
-      descrStr = ''
       descrStr = self.tr('''You just clicked on a "bitcoin:" link requesting bitcoins
                 to be sent to the following address:<br> ''')
 
@@ -3401,19 +3397,18 @@ class ArmoryMainWindow(QMainWindow):
       uriDict['message'] = newMsg
 
       if not uri_has('amount'):
-          descrStr += (self.tr('''<br><br>There is no amount specified in the link, so
+         descrStr += (self.tr('''<br><br>There is no amount specified in the link, so
             you can decide the amount after selecting a wallet to use 
             for this transaction. '''))
       else:
-          descrStr += self.tr('''<br><br><b>The specified amount <u>can</u> be changed</b> on the
+         descrStr += self.tr('''<br><br><b>The specified amount <u>can</u> be changed</b> on the
             next screen before hitting the "Send" button. ''')
 
 
-      selectedWalletID = None
       if len(self.walletMap)==0:
          reply = QMessageBox.information(self, self.tr('No Wallets!'), self.tr('''
             You just clicked on a "bitcoin:" link to send money, but you 
-            urrently have no wallets!  Would you like to create a wallet 
+            currently have no wallets!  Would you like to create a wallet 
             now?'''), QMessageBox.Yes | QMessageBox.No)
          if reply==QMessageBox.Yes:
             self.startWalletWizard()

@@ -11,8 +11,8 @@ from PyQt4.QtGui import *
 
 from CppBlockUtils import AddressType_P2SH_P2PK, \
    AddressType_P2SH_P2WPKH, AddressType_P2PKH
-from armoryengine.ArmoryUtils import coin2str, hash160_to_addrStr, \
-   binary_to_hex
+from armoryengine.ArmoryUtils import coin2str, hash160_to_addrStr
+
 from qtdefines import GETFONT
 from armorycolors import Colors
 
