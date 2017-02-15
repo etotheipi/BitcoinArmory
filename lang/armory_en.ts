@@ -327,7 +327,7 @@
         <translation>&amp;Broadcast Raw Transaction...</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4978"/>
+        <location filename="ArmoryQt.py" line="4932"/>
         <source>Offline</source>
         <translation>Offline</translation>
     </message>
@@ -915,7 +915,7 @@
         <translation>entered</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3335"/>
+        <location filename="ArmoryQt.py" line="3333"/>
         <source>Offline Mode</source>
         <translation>Offline Mode</translation>
     </message>
@@ -1097,7 +1097,7 @@
         <translation>Custom Filter</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3442"/>
+        <location filename="ArmoryQt.py" line="3436"/>
         <source>No Wallets!</source>
         <translation>No Wallets!</translation>
     </message>
@@ -1454,37 +1454,37 @@
          Armory&apos;s database.  This is unusual...</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3292"/>
+        <location filename="ArmoryQt.py" line="3290"/>
         <source>View Details</source>
         <translation>View Details</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3293"/>
+        <location filename="ArmoryQt.py" line="3291"/>
         <source>View on %1</source>
         <translation>View on %1</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3294"/>
+        <location filename="ArmoryQt.py" line="3292"/>
         <source>Change Comment</source>
         <translation>Change Comment</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3295"/>
+        <location filename="ArmoryQt.py" line="3293"/>
         <source>Copy Transaction ID</source>
         <translation>Copy Transaction ID</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3296"/>
+        <location filename="ArmoryQt.py" line="3294"/>
         <source>Open Relevant Wallet</source>
         <translation>Open Relevant Wallet</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3306"/>
+        <location filename="ArmoryQt.py" line="3304"/>
         <source>Could not open browser</source>
         <translation>Could not open browser</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3306"/>
+        <location filename="ArmoryQt.py" line="3304"/>
         <source>
                Armory encountered an error opening your web browser.  To view 
                this transaction on blockchain.info, please copy and paste 
@@ -1497,7 +1497,7 @@
                &lt;br&gt;&lt;br&gt;%1</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3335"/>
+        <location filename="ArmoryQt.py" line="3333"/>
         <source>
            Armory is currently running in offline mode, and has no 
            ability to determine balances or create transactions. 
@@ -1516,12 +1516,12 @@
            wallet on an online computer.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3345"/>
+        <location filename="ArmoryQt.py" line="3343"/>
         <source>Armory Not Ready</source>
         <translation>Armory Not Ready</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3345"/>
+        <location filename="ArmoryQt.py" line="3343"/>
         <source>
            Armory is currently scanning the blockchain to collect 
            the information needed to create transactions.  This typically 
@@ -1534,7 +1534,7 @@
            balance appears on the main window, then try again.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3355"/>
+        <location filename="ArmoryQt.py" line="3352"/>
         <source>
             You cannot send any bitcoins until you create a wallet and 
             receive some coins.  Would you like to create a wallet?</source>
@@ -1543,34 +1543,34 @@
             receive some coins.  Would you like to create a wallet?</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3386"/>
+        <location filename="ArmoryQt.py" line="3381"/>
         <source>You just clicked on a &quot;bitcoin:&quot; link requesting bitcoins
                 to be sent to the following address:&lt;br&gt; </source>
         <translation>You just clicked on a &quot;bitcoin:&quot; link requesting bitcoins
                 to be sent to the following address:&lt;br&gt; </translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3389"/>
+        <location filename="ArmoryQt.py" line="3384"/>
         <source>&lt;br&gt;--&lt;b&gt;Address&lt;/b&gt;:<byte value="x9"/>%1 </source>
         <translation>&lt;br&gt;--&lt;b&gt;Address&lt;/b&gt;:&lt;byte value=&quot;x9&quot;/&gt;%1 </translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3401"/>
+        <location filename="ArmoryQt.py" line="3396"/>
         <source>&lt;br&gt;--&lt;b&gt;Amount&lt;/b&gt;:<byte value="x9"/>%1 BTC</source>
         <translation>&lt;br&gt;--&lt;b&gt;Amount&lt;/b&gt;:&lt;byte value=&quot;x9&quot;/&gt;%1 BTC</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3406"/>
+        <location filename="ArmoryQt.py" line="3401"/>
         <source>&lt;br&gt;--&lt;b&gt;Message&lt;/b&gt;:<byte value="x9"/>%1...</source>
         <translation>&lt;br&gt;--&lt;b&gt;Message&lt;/b&gt;:&lt;byte value=&quot;x9&quot;/&gt;%1...</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3408"/>
+        <location filename="ArmoryQt.py" line="3403"/>
         <source>&lt;br&gt;--&lt;b&gt;Message&lt;/b&gt;:<byte value="x9"/>%1</source>
         <translation>&lt;br&gt;--&lt;b&gt;Message&lt;/b&gt;:&lt;byte value=&quot;x9&quot;/&gt;%1</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3413"/>
+        <location filename="ArmoryQt.py" line="3408"/>
         <source>&lt;br&gt;&lt;br&gt;There is no amount specified in the link, so
             you can decide the amount after selecting a wallet to use 
             for this transaction. </source>
@@ -1579,7 +1579,7 @@
             for this transaction. </translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3417"/>
+        <location filename="ArmoryQt.py" line="3412"/>
         <source>&lt;br&gt;&lt;br&gt;&lt;b&gt;The specified amount &lt;u&gt;can&lt;/u&gt; be changed&lt;/b&gt; on the
             next screen before hitting the &quot;Send&quot; button. </source>
         <translation>&lt;br&gt;&lt;br&gt;&lt;b&gt;The specified amount &lt;u&gt;can&lt;/u&gt; be changed&lt;/b&gt; on the
@@ -1591,13 +1591,13 @@
             You just clicked on a &quot;bitcoin:&quot; link to send money, but you 
             urrently have no wallets!  Would you like to create a wallet 
             now?</source>
-        <translation>
+        <translation type="obsolete">
             You just clicked on a &quot;bitcoin:&quot; link to send money, but you 
             urrently have no wallets!  Would you like to create a wallet 
             now?</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3442"/>
+        <location filename="ArmoryQt.py" line="3436"/>
         <source>
             You have not created any wallets which means there is
             nowhere to store you bitcoins!  Would you like to
@@ -1608,17 +1608,17 @@
             create a wallet now?</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3459"/>
+        <location filename="ArmoryQt.py" line="3453"/>
         <source>Receive coins with wallet...</source>
         <translation>Receive coins with wallet...</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3561"/>
+        <location filename="ArmoryQt.py" line="3555"/>
         <source>Privacy Warning</source>
         <translation>Privacy Warning</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3525"/>
+        <location filename="ArmoryQt.py" line="3519"/>
         <source>
          &lt;b&gt;&lt;u&gt;&lt;font size=3&gt;Wallet Analysis Log Files&lt;/font&gt;&lt;/u&gt;&lt;/b&gt;
          &lt;br&gt;&lt;br&gt;
@@ -1685,7 +1685,7 @@
          Armory representative.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3561"/>
+        <location filename="ArmoryQt.py" line="3555"/>
         <source>
 
          Armory log files do not contain any &lt;u&gt;security&lt;/u&gt;-sensitive
@@ -1724,12 +1724,12 @@
          for us to help you with your problem. </translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3632"/>
+        <location filename="ArmoryQt.py" line="3626"/>
         <source>Already running!</source>
         <translation>Already running!</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3632"/>
+        <location filename="ArmoryQt.py" line="3626"/>
         <source>
                The Bitcoin software appears to be installed now, but it
                needs to be closed for Armory to work.  Would you like Armory
@@ -1740,12 +1740,12 @@
                to close it for you?</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3640"/>
+        <location filename="ArmoryQt.py" line="3634"/>
         <source>Still Missing</source>
         <translation>Still Missing</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3640"/>
+        <location filename="ArmoryQt.py" line="3634"/>
         <source>
                The Bitcoin software still appears to be missing.  If you
                just installed it, then please adjust your settings to point
@@ -1756,12 +1756,12 @@
                to the installation directory.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3647"/>
+        <location filename="ArmoryQt.py" line="3641"/>
         <source>Still Running</source>
         <translation>Still Running</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3647"/>
+        <location filename="ArmoryQt.py" line="3641"/>
         <source>
                Bitcoin Core is still running.  Armory cannot start until
                it is closed.  Do you want Armory to close it for you?</source>
@@ -1770,57 +1770,57 @@
                it is closed.  Do you want Armory to close it for you?</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3761"/>
+        <location filename="ArmoryQt.py" line="3755"/>
         <source>Close Bitcoin Process</source>
         <translation>Close Bitcoin Process</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3762"/>
+        <location filename="ArmoryQt.py" line="3756"/>
         <source>Download Bitcoin</source>
         <translation>Download Bitcoin</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3763"/>
+        <location filename="ArmoryQt.py" line="3757"/>
         <source>Open https://bitcoin.org</source>
         <translation>Open https://bitcoin.org</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3764"/>
+        <location filename="ArmoryQt.py" line="3758"/>
         <source>Installation Instructions</source>
         <translation>Installation Instructions</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3765"/>
+        <location filename="ArmoryQt.py" line="3759"/>
         <source>Change Settings</source>
         <translation>Change Settings</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3769"/>
+        <location filename="ArmoryQt.py" line="3763"/>
         <source>Preparing to shut down..</source>
         <translation>Preparing to shut down..</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3801"/>
+        <location filename="ArmoryQt.py" line="3795"/>
         <source>Stop existing Bitcoin processes so that Armory can open its own</source>
         <translation>Stop existing Bitcoin processes so that Armory can open its own</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3803"/>
+        <location filename="ArmoryQt.py" line="3797"/>
         <source>Open browser to Bitcoin webpage to download and install Bitcoin software</source>
         <translation>Open browser to Bitcoin webpage to download and install Bitcoin software</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3805"/>
+        <location filename="ArmoryQt.py" line="3799"/>
         <source>Instructions for manually installing Bitcoin for operating system</source>
         <translation>Instructions for manually installing Bitcoin for operating system</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3807"/>
+        <location filename="ArmoryQt.py" line="3801"/>
         <source>Open Armory settings window to change Bitcoin software management</source>
         <translation>Open Armory settings window to change Bitcoin software management</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3811"/>
+        <location filename="ArmoryQt.py" line="3805"/>
         <source>
            Will open your default browser to https://bitcoin.org where you can 
            download the latest version of Bitcoin Core, and get other information
@@ -1831,7 +1831,7 @@
            and links about Bitcoin, in general.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3815"/>
+        <location filename="ArmoryQt.py" line="3809"/>
         <source>
            Instructions are specific to your operating system and include 
            information to help you verify you are installing the correct software</source>
@@ -1840,7 +1840,7 @@
            information to help you verify you are installing the correct software</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3818"/>
+        <location filename="ArmoryQt.py" line="3812"/>
         <source>
            Change Bitcoin Core/bitcoind management settings or point Armory to
            a non-standard Bitcoin installation</source>
@@ -1849,7 +1849,7 @@
            a non-standard Bitcoin installation</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3821"/>
+        <location filename="ArmoryQt.py" line="3815"/>
         <source>
            Armory has detected a running Bitcoin Core or bitcoind instance and
            will force it to exit</source>
@@ -1858,17 +1858,17 @@
            will force it to exit</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3827"/>
+        <location filename="ArmoryQt.py" line="3821"/>
         <source>This option is not yet available yet!</source>
         <translation>This option is not yet available yet!</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3834"/>
+        <location filename="ArmoryQt.py" line="3828"/>
         <source>Securely download Bitcoin software for Windows %1</source>
         <translation>Securely download Bitcoin software for Windows %1</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3836"/>
+        <location filename="ArmoryQt.py" line="3830"/>
         <source>
             The downloaded files are cryptographically verified.  
             Using this option will start the installer, you will 
@@ -1879,7 +1879,7 @@
             have to click through it to complete installation.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3852"/>
+        <location filename="ArmoryQt.py" line="3846"/>
         <source>
                Download and Install Bitcoin Core for Ubuntu/Debian</source>
         <translation>
@@ -1893,12 +1893,12 @@
                Will download and Bitcoin software and cryptographically verify it</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4265"/>
+        <location filename="ArmoryQt.py" line="4259"/>
         <source>Not Found</source>
         <translation>Not Found</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4265"/>
+        <location filename="ArmoryQt.py" line="4259"/>
         <source>
          Attempted to kill the running Bitcoin Core/bitcoind instance,
          but it was not found.  </source>
@@ -1907,52 +1907,52 @@
          but it was not found.  </translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4336"/>
+        <location filename="ArmoryQt.py" line="4312"/>
         <source>Loading Database Headers</source>
         <translation>Loading Database Headers</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4345"/>
+        <location filename="ArmoryQt.py" line="4321"/>
         <source>Organizing Blockchain</source>
         <translation>Organizing Blockchain</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5090"/>
+        <location filename="ArmoryQt.py" line="5045"/>
         <source>Scan Transaction History</source>
         <translation>Scan Transaction History</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4356"/>
+        <location filename="ArmoryQt.py" line="4332"/>
         <source>Reading New Block Headers</source>
         <translation>Reading New Block Headers</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4364"/>
+        <location filename="ArmoryQt.py" line="4340"/>
         <source>Building Databases</source>
         <translation>Building Databases</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5024"/>
+        <location filename="ArmoryQt.py" line="4978"/>
         <source>Build Databases</source>
         <translation>Build Databases</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4374"/>
+        <location filename="ArmoryQt.py" line="4350"/>
         <source>Scanning Transaction History</source>
         <translation>Scanning Transaction History</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4384"/>
+        <location filename="ArmoryQt.py" line="4360"/>
         <source>Computing Balances</source>
         <translation>Computing Balances</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4394"/>
+        <location filename="ArmoryQt.py" line="4370"/>
         <source>Parsing Tx Hashes</source>
         <translation>Parsing Tx Hashes</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4408"/>
+        <location filename="ArmoryQt.py" line="4384"/>
         <source>Resolving Tx Hashes</source>
         <translation>Resolving Tx Hashes</translation>
     </message>
@@ -1967,12 +1967,12 @@
         <translation type="obsolete">The following functionality is available in offline mode:&lt;ul&gt;&lt;li&gt;Create, import or recover wallets&lt;/li&gt;&lt;li&gt;Generate new receiving addresses for your wallets&lt;/li&gt;&lt;li&gt;Create backups of your wallets (printed or digital)&lt;/li&gt;&lt;li&gt;Import private keys to wallets&lt;/li&gt;&lt;li&gt;Change wallet encryption settings&lt;/li&gt;&lt;li&gt;Sign messages&lt;/li&gt;&lt;li&gt;&lt;b&gt;Sign transactions created from an online system&lt;/b&gt;&lt;/li&gt;&lt;/ul&gt;&lt;br&gt;&lt;br&gt;&lt;b&gt;NOTE:&lt;/b&gt;  The Bitcoin network &lt;u&gt;will&lt;/u&gt; process transactions to your addresses, regardless of whether you are online.  It is perfectly okay to create and distribute payment addresses while Armory is offline, you just won&apos;t be able to verify those payments until the next time Armory is online.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4517"/>
+        <location filename="ArmoryQt.py" line="4493"/>
         <source>&lt;ul&gt;&lt;li&gt;Create, import or recover Armory wallets&lt;/li&gt;&lt;li&gt;Generate new addresses to receive coins&lt;/li&gt;&lt;li&gt;Send bitcoins to other people&lt;/li&gt;&lt;li&gt;Create one-time backups of your wallets (in printed or digital form)&lt;/li&gt;&lt;li&gt;Click on &quot;bitcoin:&quot; links in your web browser (not supported on all operating systems)&lt;/li&gt;&lt;li&gt;Import private keys to wallets&lt;/li&gt;&lt;li&gt;Monitor payments to watching-only wallets and create unsigned transactions&lt;/li&gt;&lt;li&gt;Sign messages&lt;/li&gt;&lt;li&gt;&lt;b&gt;Create transactions with watching-only wallets, to be signed by an offline wallets&lt;/b&gt;&lt;/li&gt;&lt;/ul&gt;</source>
         <translation>&lt;ul&gt;&lt;li&gt;Create, import or recover Armory wallets&lt;/li&gt;&lt;li&gt;Generate new addresses to receive coins&lt;/li&gt;&lt;li&gt;Send bitcoins to other people&lt;/li&gt;&lt;li&gt;Create one-time backups of your wallets (in printed or digital form)&lt;/li&gt;&lt;li&gt;Click on &quot;bitcoin:&quot; links in your web browser (not supported on all operating systems)&lt;/li&gt;&lt;li&gt;Import private keys to wallets&lt;/li&gt;&lt;li&gt;Monitor payments to watching-only wallets and create unsigned transactions&lt;/li&gt;&lt;li&gt;Sign messages&lt;/li&gt;&lt;li&gt;&lt;b&gt;Create transactions with watching-only wallets, to be signed by an offline wallets&lt;/b&gt;&lt;/li&gt;&lt;/ul&gt;</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4543"/>
+        <location filename="ArmoryQt.py" line="4519"/>
         <source>
          For more information about Armory, and even Bitcoin itself, you should
          visit the &lt;a href=&quot;https://bitcointalk.org/index.php?board=97.0&quot;&gt;Armory Forum&lt;/a&gt;
@@ -2005,17 +2005,17 @@
          &lt;br&gt;&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4559"/>
+        <location filename="ArmoryQt.py" line="4535"/>
         <source>&lt;p&gt;&lt;b&gt;You now have access to all the features Armory has to offer!&lt;/b&gt;&lt;br&gt;To see your balances and transaction history, please click on the &quot;Transactions&quot; tab above this text.  &lt;br&gt;Here&apos;s some things you can do with Armory Bitcoin Client:&lt;br&gt;</source>
         <translation>&lt;p&gt;&lt;b&gt;You now have access to all the features Armory has to offer!&lt;/b&gt;&lt;br&gt;To see your balances and transaction history, please click on the &quot;Transactions&quot; tab above this text.  &lt;br&gt;Here&apos;s some things you can do with Armory Bitcoin Client:&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4566"/>
+        <location filename="ArmoryQt.py" line="4542"/>
         <source>If you experience any performance issues with Armory, please confirm that Bitcoin Core is running and &lt;i&gt;fully synchronized with the Bitcoin network&lt;/i&gt;.  You will see a green checkmark in the bottom right corner of the Bitcoin Core window if it is synchronized.  If not, it is recommended you close Armory and restart it only when you see that checkmark.&lt;br&gt;&lt;br&gt;</source>
         <translation>If you experience any performance issues with Armory, please confirm that Bitcoin Core is running and &lt;i&gt;fully synchronized with the Bitcoin network&lt;/i&gt;.  You will see a green checkmark in the bottom right corner of the Bitcoin Core window if it is synchronized.  If not, it is recommended you close Armory and restart it only when you see that checkmark.&lt;br&gt;&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4566"/>
+        <location filename="ArmoryQt.py" line="4542"/>
         <source>&lt;b&gt;Please backup your wallets!&lt;/b&gt;  Armory wallets are &quot;deterministic&quot;, meaning they only need to be backed up one time (unless you have imported external addresses/keys). Make a backup and keep it in a safe place!  All funds from Armory-generated addresses will always be recoverable with a paper backup, any time in the future.  Use the &quot;Backup Individual Keys&quot; option for each wallet to backup imported keys.&lt;/p&gt;</source>
         <translation>&lt;b&gt;Please backup your wallets!&lt;/b&gt;  Armory wallets are &quot;deterministic&quot;, meaning they only need to be backed up one time (unless you have imported external addresses/keys). Make a backup and keep it in a safe place!  All funds from Armory-generated addresses will always be recoverable with a paper backup, any time in the future.  Use the &quot;Backup Individual Keys&quot; option for each wallet to backup imported keys.&lt;/p&gt;</translation>
     </message>
@@ -2025,62 +2025,62 @@
         <translation type="obsolete">Armory is currently online, but you have requested a sweep operation on one or more private keys.  This requires searching the global transaction history for the available balance of the keys to be swept. &lt;br&gt;&lt;br&gt;Press the button to start the blockchain scan, which will also put Armory into offline mode for a few minutes until the scan operation is complete</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4594"/>
+        <location filename="ArmoryQt.py" line="4570"/>
         <source>&lt;b&gt;Wallet balances may be incorrect until the rescan operation is performed!&lt;/b&gt;&lt;br&gt;&lt;br&gt;Armory is currently online, but addresses/keys have been added without rescanning the blockchain.  You may continue using Armory in online mode, but any transactions associated with the new addresses will not appear in the ledger. &lt;br&gt;&lt;br&gt;Pressing the button above will put Armory into offline mode for a few minutes until the scan operation is complete.</source>
         <translation>&lt;b&gt;Wallet balances may be incorrect until the rescan operation is performed!&lt;/b&gt;&lt;br&gt;&lt;br&gt;Armory is currently online, but addresses/keys have been added without rescanning the blockchain.  You may continue using Armory in online mode, but any transactions associated with the new addresses will not appear in the ledger. &lt;br&gt;&lt;br&gt;Pressing the button above will put Armory into offline mode for a few minutes until the scan operation is complete.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4606"/>
+        <location filename="ArmoryQt.py" line="4582"/>
         <source>There is no connection to the internet, and there is no other Bitcoin software running.  Most likely you are here because this is a system dedicated to manage offline wallets! &lt;br&gt;&lt;br&gt;&lt;b&gt;If you expected Armory to be in online mode&lt;/b&gt;, please verify your internet connection is active, then restart Armory.  If you think the lack of internet connection is in error (such as if you are using Tor), then you can restart Armory with the &quot;--skip-online-check&quot; option, or change it in the Armory settings.&lt;br&gt;&lt;br&gt;If you do not have Bitcoin Core installed, you can download it from &lt;a href=&quot;https://bitcoin.org&quot;&gt;https://bitcoin.org&lt;/a&gt;.</source>
         <translation>There is no connection to the internet, and there is no other Bitcoin software running.  Most likely you are here because this is a system dedicated to manage offline wallets! &lt;br&gt;&lt;br&gt;&lt;b&gt;If you expected Armory to be in online mode&lt;/b&gt;, please verify your internet connection is active, then restart Armory.  If you think the lack of internet connection is in error (such as if you are using Tor), then you can restart Armory with the &quot;--skip-online-check&quot; option, or change it in the Armory settings.&lt;br&gt;&lt;br&gt;If you do not have Bitcoin Core installed, you can download it from &lt;a href=&quot;https://bitcoin.org&quot;&gt;https://bitcoin.org&lt;/a&gt;.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4629"/>
+        <location filename="ArmoryQt.py" line="4605"/>
         <source>You are currently in offline mode, but can switch to online mode by pressing the button above.  However, it is not recommended that you switch until Bitcoin Core/bitcoind is fully synchronized with the bitcoin network.  You will see a green checkmark in the bottom-right corner of the Bitcoin Core window when it is finished.&lt;br&gt;&lt;br&gt;Switching to online mode will give you access to more Armory functionality, including sending and receiving bitcoins and viewing the balances and transaction histories of each of your wallets.&lt;br&gt;&lt;br&gt;</source>
         <translation>You are currently in offline mode, but can switch to online mode by pressing the button above.  However, it is not recommended that you switch until Bitcoin Core/bitcoind is fully synchronized with the bitcoin network.  You will see a green checkmark in the bottom-right corner of the Bitcoin Core window when it is finished.&lt;br&gt;&lt;br&gt;Switching to online mode will give you access to more Armory functionality, including sending and receiving bitcoins and viewing the balances and transaction histories of each of your wallets.&lt;br&gt;&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4643"/>
+        <location filename="ArmoryQt.py" line="4619"/>
         <source>You are currently in offline mode because Bitcoin Core is not running.  To switch to online mode, start Bitcoin Core and let it synchronize with the network -- you will see a green checkmark in the bottom-right corner when it is complete.  If Bitcoin Core is already running and you believe the lack of connection is an error (especially if using proxies), please see &lt;a href=&quot;https://bitcointalk.org/index.php?topic=155717.msg1719077#msg1719077&quot;&gt;this link&lt;/a&gt; for options.&lt;br&gt;&lt;br&gt;&lt;b&gt;If you prefer to have Armory do this for you&lt;/b&gt;, then please check &quot;Let Armory run Bitcoin Core in the background&quot; under &quot;File&quot;-&gt;&quot;Settings.&quot;&lt;br&gt;&lt;br&gt;If you already know what you&apos;re doing and simply need to fetch the latest version of Bitcoin Core, you can download it from &lt;a href=&quot;https://bitcoin.org&quot;&gt;https://bitcoin.org&lt;/a&gt;.</source>
         <translation>You are currently in offline mode because Bitcoin Core is not running.  To switch to online mode, start Bitcoin Core and let it synchronize with the network -- you will see a green checkmark in the bottom-right corner when it is complete.  If Bitcoin Core is already running and you believe the lack of connection is an error (especially if using proxies), please see &lt;a href=&quot;https://bitcointalk.org/index.php?topic=155717.msg1719077#msg1719077&quot;&gt;this link&lt;/a&gt; for options.&lt;br&gt;&lt;br&gt;&lt;b&gt;If you prefer to have Armory do this for you&lt;/b&gt;, then please check &quot;Let Armory run Bitcoin Core in the background&quot; under &quot;File&quot;-&gt;&quot;Settings.&quot;&lt;br&gt;&lt;br&gt;If you already know what you&apos;re doing and simply need to fetch the latest version of Bitcoin Core, you can download it from &lt;a href=&quot;https://bitcoin.org&quot;&gt;https://bitcoin.org&lt;/a&gt;.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4662"/>
+        <location filename="ArmoryQt.py" line="4638"/>
         <source>You are currently in offline mode because Armory could not detect an internet connection.  If you think this is in error, then restart Armory using the &quot; --skip-online-check&quot; option, or adjust the Armory settings.  Then restart Armory.&lt;br&gt;&lt;br&gt;If this is intended to be an offline computer, note that it is not necessary to have Bitcoin Core or bitcoind running.</source>
         <translation>You are currently in offline mode because Armory could not detect an internet connection.  If you think this is in error, then restart Armory using the &quot; --skip-online-check&quot; option, or adjust the Armory settings.  Then restart Armory.&lt;br&gt;&lt;br&gt;If this is intended to be an offline computer, note that it is not necessary to have Bitcoin Core or bitcoind running.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4673"/>
+        <location filename="ArmoryQt.py" line="4649"/>
         <source>You are currently in offline mode because Armory could not find the blockchain files produced by Bitcoin Core.  Do you run Bitcoin Core (or bitcoind) from a non-standard directory?   Armory expects to find the blkXXXX.dat files in &lt;br&gt;&lt;br&gt;%1&lt;br&gt;&lt;br&gt; If you know where they are located, please restart Armory using the &quot; --satoshi-datadir=[path]&quot; to notify Armory where to find them.</source>
         <translation>You are currently in offline mode because Armory could not find the blockchain files produced by Bitcoin Core.  Do you run Bitcoin Core (or bitcoind) from a non-standard directory?   Armory expects to find the blkXXXX.dat files in &lt;br&gt;&lt;br&gt;%1&lt;br&gt;&lt;br&gt; If you know where they are located, please restart Armory using the &quot; --satoshi-datadir=[path]&quot; to notify Armory where to find them.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4683"/>
+        <location filename="ArmoryQt.py" line="4659"/>
         <source>Armory was previously online, but the connection to Bitcoin Core/bitcoind was interrupted.  You will not be able to send bitcoins or confirm receipt of bitcoins until the connection is reestablished.  &lt;br&gt;&lt;br&gt;Please check that Bitcoin Core is open and synchronized with the network.  Armory will &lt;i&gt;try to reconnect&lt;/i&gt; automatically when the connection is available again.  If Bitcoin Core is available again, and reconnection does not happen, please restart Armory.&lt;br&gt;&lt;br&gt;</source>
         <translation>Armory was previously online, but the connection to Bitcoin Core/bitcoind was interrupted.  You will not be able to send bitcoins or confirm receipt of bitcoins until the connection is reestablished.  &lt;br&gt;&lt;br&gt;Please check that Bitcoin Core is open and synchronized with the network.  Armory will &lt;i&gt;try to reconnect&lt;/i&gt; automatically when the connection is available again.  If Bitcoin Core is available again, and reconnection does not happen, please restart Armory.&lt;br&gt;&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4693"/>
+        <location filename="ArmoryQt.py" line="4669"/>
         <source>Please wait while the global transaction history is scanned. Armory will go into online mode automatically, as soon as the scan is complete.</source>
         <translation>Please wait while the global transaction history is scanned. Armory will go into online mode automatically, as soon as the scan is complete.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4698"/>
+        <location filename="ArmoryQt.py" line="4674"/>
         <source>Armory is scanning the global transaction history to retrieve information about your wallets.  The &quot;Transactions&quot; tab will be updated with wallet balance and history as soon as the scan is complete.  You may manage your wallets while you wait.&lt;br&gt;&lt;br&gt;</source>
         <translation>Armory is scanning the global transaction history to retrieve information about your wallets.  The &quot;Transactions&quot; tab will be updated with wallet balance and history as soon as the scan is complete.  You may manage your wallets while you wait.&lt;br&gt;&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4710"/>
+        <location filename="ArmoryQt.py" line="4686"/>
         <source>It appears you are already running Bitcoin software (Bitcoin Core or bitcoind). Unlike previous versions of Armory, you should &lt;u&gt;not&lt;/u&gt; run this software yourself --  Armory will run it in the background for you.  Either close the Bitcoin application or adjust your settings.  If you change your settings, then please restart Armory.</source>
         <translation>It appears you are already running Bitcoin software (Bitcoin Core or bitcoind). Unlike previous versions of Armory, you should &lt;u&gt;not&lt;/u&gt; run this software yourself --  Armory will run it in the background for you.  Either close the Bitcoin application or adjust your settings.  If you change your settings, then please restart Armory.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4719"/>
+        <location filename="ArmoryQt.py" line="4695"/>
         <source>&lt;b&gt;Only one more step to getting online with Armory!&lt;/b&gt;   You must install the Bitcoin software from https://bitcoin.org in order for Armory to communicate with the Bitcoin network.  If the Bitcoin software is already installed and/or you would prefer to manage it yourself, please adjust your settings and restart Armory.</source>
         <translation>&lt;b&gt;Only one more step to getting online with Armory!&lt;/b&gt;   You must install the Bitcoin software from https://bitcoin.org in order for Armory to communicate with the Bitcoin network.  If the Bitcoin software is already installed and/or you would prefer to manage it yourself, please adjust your settings and restart Armory.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4727"/>
+        <location filename="ArmoryQt.py" line="4703"/>
         <source>
             &lt;b&gt;To maximize your security, the Bitcoin engine is downloading
             and verifying the global transaction ledger.  &lt;u&gt;This will take
@@ -2130,22 +2130,22 @@
         </translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4760"/>
+        <location filename="ArmoryQt.py" line="4736"/>
         <source>Armory&apos;s communication with the Bitcoin network was interrupted. This usually does not happen unless you closed the process that Armory was using to communicate with the network. Armory requires %1 to be running in the background, and this error pops up if it disappears.&lt;br&gt;&lt;br&gt;You may continue in offline mode, or you can close all Bitcoin processes and restart Armory.</source>
         <translation>Armory&apos;s communication with the Bitcoin network was interrupted. This usually does not happen unless you closed the process that Armory was using to communicate with the network. Armory requires %1 to be running in the background, and this error pops up if it disappears.&lt;br&gt;&lt;br&gt;You may continue in offline mode, or you can close all Bitcoin processes and restart Armory.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4769"/>
+        <location filename="ArmoryQt.py" line="4745"/>
         <source>Armory has experienced an issue trying to communicate with the Bitcoin software.  The software is running in the background, but Armory cannot communicate with it through RPC as it expects to be able to.  If you changed any settings in the Bitcoin home directory, please make sure that RPC is enabled and that it is accepting connections from localhost.  &lt;br&gt;&lt;br&gt;If you have not changed anything, please export the log file (from the &quot;File&quot; menu) and open an issue at https://github.com/goatpig/BitcoinArmory/issues</source>
         <translation>Armory has experienced an issue trying to communicate with the Bitcoin software.  The software is running in the background, but Armory cannot communicate with it through RPC as it expects to be able to.  If you changed any settings in the Bitcoin home directory, please make sure that RPC is enabled and that it is accepting connections from localhost.  &lt;br&gt;&lt;br&gt;If you have not changed anything, please export the log file (from the &quot;File&quot; menu) and open an issue at https://github.com/goatpig/BitcoinArmory/issues</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4780"/>
+        <location filename="ArmoryQt.py" line="4756"/>
         <source>Armory does not detect internet access, but it does detect running Bitcoin software.  Armory is in offline-mode. &lt;br&gt;&lt;br&gt;If you are intending to run an offline system, you will not need to have the Bitcoin software installed on the offline computer.  It is only needed for the online computer. If you expected to be online and the absence of internet is an error, please restart Armory using the &quot;--skip-online-check&quot; option.  </source>
         <translation>Armory does not detect internet access, but it does detect running Bitcoin software.  Armory is in offline-mode. &lt;br&gt;&lt;br&gt;If you are intending to run an offline system, you will not need to have the Bitcoin software installed on the offline computer.  It is only needed for the online computer. If you expected to be online and the absence of internet is an error, please restart Armory using the &quot;--skip-online-check&quot; option.  </translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4790"/>
+        <location filename="ArmoryQt.py" line="4766"/>
         <source>Armory was started in offline-mode, but detected you are running Bitcoin software.  If you are intending to run an offline system, you will &lt;u&gt;not&lt;/u&gt; need to have the Bitcoin software installed or running on the offline computer.  It is only required for being online. </source>
         <translation>Armory was started in offline-mode, but detected you are running Bitcoin software.  If you are intending to run an offline system, you will &lt;u&gt;not&lt;/u&gt; need to have the Bitcoin software installed or running on the offline computer.  It is only required for being online. </translation>
     </message>
@@ -2155,7 +2155,7 @@
         <translation type="obsolete">The Bitcoin software indicates there is a problem with its databases.  This can occur when Bitcoin Core/bitcoind is upgraded or downgraded, or sometimes just by chance after an unclean shutdown.&lt;br&gt;&lt;br&gt;You can either revert your installed Bitcoin software to the last known working version (but not earlier than version 0.8.1) or delete everything &lt;b&gt;except&lt;/b&gt; &quot;wallet.dat&quot; from the your Bitcoin home directory:&lt;br&gt;&lt;br&gt;&lt;font face=&quot;courier&quot;&gt;&lt;b&gt;%1&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;br&gt;If you choose to delete the contents of the Bitcoin home directory, you will have to do a fresh download of the blockchain again, which will require a few hours the first time.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4821"/>
+        <location filename="ArmoryQt.py" line="4797"/>
         <source>
                There was an error starting the underlying Bitcoin engine.
                This should not normally happen.  Usually it occurs when you
@@ -2170,7 +2170,7 @@
                Output from bitcoind:&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4830"/>
+        <location filename="ArmoryQt.py" line="4806"/>
         <source>
                   There was an error starting the underlying Bitcoin engine.
                   This should not normally happen.  Usually it occurs when you
@@ -2193,122 +2193,122 @@
                   We apologize for the inconvenience!</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4985"/>
+        <location filename="ArmoryQt.py" line="4939"/>
         <source>Armory is &lt;u&gt;offline&lt;/u&gt;</source>
         <translation>Armory is &lt;u&gt;offline&lt;/u&gt;</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4969"/>
+        <location filename="ArmoryQt.py" line="4923"/>
         <source>In case you actually do have internet access, you can use the following links to get Armory installed.  Or change your settings.</source>
         <translation>In case you actually do have internet access, you can use the following links to get Armory installed.  Or change your settings.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4989"/>
+        <location filename="ArmoryQt.py" line="4943"/>
         <source>Cannot find Bitcoin Home Directory</source>
         <translation>Cannot find Bitcoin Home Directory</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4997"/>
+        <location filename="ArmoryQt.py" line="4951"/>
         <source>Check Again</source>
         <translation>Check Again</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5019"/>
+        <location filename="ArmoryQt.py" line="4973"/>
         <source>Initializing Bitcoin Engine</source>
         <translation>Initializing Bitcoin Engine</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5078"/>
+        <location filename="ArmoryQt.py" line="5033"/>
         <source>Synchronizing with Network</source>
         <translation>Synchronizing with Network</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5033"/>
+        <location filename="ArmoryQt.py" line="4987"/>
         <source>Since version 0.88, Armory runs bitcoind in the background.  You can switch back to the old way in the Settings dialog. </source>
         <translation>Since version 0.88, Armory runs bitcoind in the background.  You can switch back to the old way in the Settings dialog. </translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5051"/>
+        <location filename="ArmoryQt.py" line="5005"/>
         <source>Armory is disconnected</source>
         <translation>Armory is disconnected</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5058"/>
+        <location filename="ArmoryQt.py" line="5012"/>
         <source>Armory is online!</source>
         <translation>Armory is online!</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5086"/>
+        <location filename="ArmoryQt.py" line="5041"/>
         <source>Preparing Databases</source>
         <translation>Preparing Databases</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5253"/>
+        <location filename="ArmoryQt.py" line="5208"/>
         <source>&lt;font color=%1&gt;Connected (%2 blocks)&lt;/font&gt; </source>
         <translation>&lt;font color=%1&gt;Connected (%2 blocks)&lt;/font&gt; </translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5259"/>
+        <location filename="ArmoryQt.py" line="5214"/>
         <source>Last block received %1 ago</source>
         <translation>Last block received %1 ago</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5265"/>
+        <location filename="ArmoryQt.py" line="5220"/>
         <source>&lt;font color=%1&gt;Node offline (%2 blocks)&lt;/font&gt; </source>
         <translation>&lt;font color=%1&gt;Node offline (%2 blocks)&lt;/font&gt; </translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5270"/>
+        <location filename="ArmoryQt.py" line="5225"/>
         <source>Disconnected from Bitcoin Node, cannot update history &lt;br&gt;&lt;br&gt;Last known block: %1 &lt;br&gt;Received %2 ago</source>
         <translation>Disconnected from Bitcoin Node, cannot update history &lt;br&gt;&lt;br&gt;Last known block: %1 &lt;br&gt;Received %2 ago</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5408"/>
+        <location filename="ArmoryQt.py" line="5363"/>
         <source>BDM error!</source>
         <translation>BDM error!</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5402"/>
+        <location filename="ArmoryQt.py" line="5357"/>
         <source>Rebuild and rescan on next start</source>
         <translation>Rebuild and rescan on next start</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5408"/>
+        <location filename="ArmoryQt.py" line="5363"/>
         <source>Factory reset on next start</source>
         <translation>Factory reset on next start</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5414"/>
+        <location filename="ArmoryQt.py" line="5369"/>
         <source>BlockDataManager Warning</source>
         <translation>BlockDataManager Warning</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5463"/>
+        <location filename="ArmoryQt.py" line="5418"/>
         <source>Disconnected</source>
         <translation>Disconnected</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5463"/>
+        <location filename="ArmoryQt.py" line="5418"/>
         <source>Connection to Bitcoin Core client lost!  Armory cannot send nor receive bitcoins until connection is re-established.</source>
         <translation>Connection to Bitcoin Core client lost!  Armory cannot send nor receive bitcoins until connection is re-established.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5469"/>
+        <location filename="ArmoryQt.py" line="5424"/>
         <source>Connected</source>
         <translation>Connected</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5469"/>
+        <location filename="ArmoryQt.py" line="5424"/>
         <source>Connection to Bitcoin Core re-established</source>
         <translation>Connection to Bitcoin Core re-established</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="6152"/>
+        <location filename="ArmoryQt.py" line="6107"/>
         <source>Database Error</source>
         <translation>Database Error</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5514"/>
+        <location filename="ArmoryQt.py" line="5469"/>
         <source>
                            The DB has returned the following
                            error: &lt;br&gt;&lt;br&gt;
@@ -2321,117 +2321,117 @@
                            Armory will now shutdown. </translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5612"/>
+        <location filename="ArmoryQt.py" line="5567"/>
         <source>Wallet %1 (%2)</source>
         <translation>Wallet %1 (%2)</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5619"/>
+        <location filename="ArmoryQt.py" line="5574"/>
         <source>Lockbox %1 (%2)</source>
         <translation>Lockbox %1 (%2)</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5713"/>
+        <location filename="ArmoryQt.py" line="5668"/>
         <source>Bitcoins Received!</source>
         <translation>Bitcoins Received!</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5732"/>
+        <location filename="ArmoryQt.py" line="5687"/>
         <source>Amount:  %1 BTC</source>
         <translation>Amount:  %1 BTC</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5629"/>
+        <location filename="ArmoryQt.py" line="5584"/>
         <source>Recipient:  %1</source>
         <translation>Recipient:  %1</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5731"/>
+        <location filename="ArmoryQt.py" line="5686"/>
         <source>Bitcoins Sent!</source>
         <translation>Bitcoins Sent!</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5634"/>
+        <location filename="ArmoryQt.py" line="5589"/>
         <source>Sender:  %1</source>
         <translation>Sender:  %1</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5685"/>
+        <location filename="ArmoryQt.py" line="5640"/>
         <source>Wallet &quot;%1&quot; (%2)</source>
         <translation>Wallet &quot;%1&quot; (%2)</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5693"/>
+        <location filename="ArmoryQt.py" line="5648"/>
         <source>Lockbox %1-of-%2 &quot;%3&quot; (%4)</source>
         <translation>Lockbox %1-of-%2 &quot;%3&quot; (%4)</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5704"/>
+        <location filename="ArmoryQt.py" line="5659"/>
         <source>Your bitcoins just did a lap!</source>
         <translation>Your bitcoins just did a lap!</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5704"/>
+        <location filename="ArmoryQt.py" line="5659"/>
         <source>%1 just sent some BTC to itself!</source>
         <translation>%1 just sent some BTC to itself!</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5715"/>
+        <location filename="ArmoryQt.py" line="5670"/>
         <source>From:    %2</source>
         <translation>From:    %2</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5729"/>
+        <location filename="ArmoryQt.py" line="5684"/>
         <source>&lt;Multiple Recipients&gt;</source>
         <translation>&lt;Multiple Recipients&gt;</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5733"/>
+        <location filename="ArmoryQt.py" line="5688"/>
         <source>From:    %1</source>
         <translation>From:    %1</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5734"/>
+        <location filename="ArmoryQt.py" line="5689"/>
         <source>To:      %1</source>
         <translation>To:      %1</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5750"/>
+        <location filename="ArmoryQt.py" line="5705"/>
         <source>Minimize or Close</source>
         <translation>Minimize or Close</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5750"/>
+        <location filename="ArmoryQt.py" line="5705"/>
         <source>Would you like to minimize Armory to the system tray instead of closing it?</source>
         <translation>Would you like to minimize Armory to the system tray instead of closing it?</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5750"/>
+        <location filename="ArmoryQt.py" line="5705"/>
         <source>Remember my answer</source>
         <translation>Remember my answer</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5750"/>
+        <location filename="ArmoryQt.py" line="5705"/>
         <source>Minimize</source>
         <translation>Minimize</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5750"/>
+        <location filename="ArmoryQt.py" line="5705"/>
         <source>Close</source>
         <translation>Close</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5953"/>
+        <location filename="ArmoryQt.py" line="5908"/>
         <source>All wallets are consistent</source>
         <translation>All wallets are consistent</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5957"/>
+        <location filename="ArmoryQt.py" line="5912"/>
         <source>Consistency Check Failed!</source>
         <translation>Consistency Check Failed!</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5969"/>
+        <location filename="ArmoryQt.py" line="5924"/>
         <source>
                The wallet analysis tool will become available
                as soon as Armory is done loading.   You can close this
@@ -2442,7 +2442,7 @@
                window and it will reappear when ready.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="6002"/>
+        <location filename="ArmoryQt.py" line="5957"/>
         <source>
                   &lt;b&gt;The following dialogs need closed before you can
                   run the wallet analysis tool:&lt;/b&gt;</source>
@@ -2451,12 +2451,12 @@
                   run the wallet analysis tool:&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="6026"/>
+        <location filename="ArmoryQt.py" line="5981"/>
         <source>Wallet Consistency Check: %p%</source>
         <translation>Wallet Consistency Check: %p%</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="6152"/>
+        <location filename="ArmoryQt.py" line="6107"/>
         <source>
                            Armory failed to spawn the DB!&lt;br&gt; 
                            Continuing operations in offline mode instead. &lt;br&gt;
@@ -2467,12 +2467,12 @@
                            Refer to the dbLog.txt for more information.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="6270"/>
+        <location filename="ArmoryQt.py" line="6225"/>
         <source>Filter:</source>
         <translation>Filter:</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="6288"/>
+        <location filename="ArmoryQt.py" line="6243"/>
         <source>Transactions</source>
         <translation>Transactions</translation>
     </message>
@@ -2511,7 +2511,7 @@
         </translation>
     </message>
     <message numerus="yes">
-        <location filename="ArmoryQt.py" line="4747"/>
+        <location filename="ArmoryQt.py" line="4723"/>
         <source>The software is downloading and processing the latest activity on the network related to your wallet(s).  This should take only a few minutes.  While you wait, you can manage your wallet(s).  &lt;br&gt;&lt;br&gt;Now would be a good time to make paper (or digital) backups of your wallet(s) if you have not done so already!  You are protected &lt;i&gt;forever&lt;/i&gt; from hard-drive loss, or forgetting you password. If you do not have a backup, you could lose all of your Bitcoins forever!</source>
         <translation type="unfinished">
             <numerusform>The software is downloading and processing the latest activity on the network related to your wallet.  This should take only a few minutes.  While you wait, you can manage your wallet.  &lt;br&gt;&lt;br&gt;Now would be a good time to make paper (or digital) backups of your wallet if you have not done so already!  You are protected &lt;i&gt;forever&lt;/i&gt; from hard-drive loss, or forgetting you password. If you do not have a backup, you could lose all of your Bitcoins forever!</numerusform>
@@ -2528,12 +2528,12 @@
         </translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4484"/>
+        <location filename="ArmoryQt.py" line="4460"/>
         <source>The following functionalities are available while scanning in offline mode:&lt;ul&gt;&lt;li&gt;Create new wallets&lt;/li&gt;&lt;li&gt;Generate receiving addresses for your wallets&lt;/li&gt;&lt;li&gt;Create backups of your wallets (printed or digital)&lt;/li&gt;&lt;li&gt;Change wallet encryption settings&lt;/li&gt;&lt;li&gt;Sign transactions created from an online system&lt;/li&gt;&lt;li&gt;Sign messages&lt;/li&gt;&lt;/ul&gt;&lt;br&gt;&lt;br&gt;&lt;b&gt;NOTE:&lt;/b&gt;  The Bitcoin network &lt;u&gt;will&lt;/u&gt; process transactions to your addresses, even if you are offline.  It is perfectly okay to create and distribute payment addresses while Armory is offline, you just won&apos;t be able to verify those payments until the next time Armory is online.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4500"/>
+        <location filename="ArmoryQt.py" line="4476"/>
         <source>The following functionalities are available in offline mode:&lt;ul&gt;&lt;li&gt;Create, import or recover wallets&lt;/li&gt;&lt;li&gt;Generate new receiving addresses for your wallets&lt;/li&gt;&lt;li&gt;Create backups of your wallets (printed or digital)&lt;/li&gt;&lt;li&gt;Import private keys to wallets&lt;/li&gt;&lt;li&gt;Change wallet encryption settings&lt;/li&gt;&lt;li&gt;Sign messages&lt;/li&gt;&lt;li&gt;&lt;b&gt;Sign transactions created from an online system&lt;/b&gt;&lt;/li&gt;&lt;/ul&gt;&lt;br&gt;&lt;br&gt;&lt;b&gt;NOTE:&lt;/b&gt;  The Bitcoin network &lt;u&gt;will&lt;/u&gt; process transactions to your addresses, regardless of whether you are online.  It is perfectly okay to create and distribute payment addresses while Armory is offline, you just won&apos;t be able to verify those payments until the next time Armory is online.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2572,19 +2572,27 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4584"/>
+        <location filename="ArmoryQt.py" line="4560"/>
         <source>Armory is currently online, but you have requested a sweep operation on one or more private keys.  This requires searching the global transaction history for the available balance of the keys to be swept. &lt;br&gt;&lt;br&gt;Press the button to start the blockchain scan, which will also put Armory into offline mode for a few minutes until the scan operation is complete.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3854"/>
+        <location filename="ArmoryQt.py" line="3848"/>
         <source>
                Will download, cryptographically verify, and install Bitcoin Core.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4797"/>
+        <location filename="ArmoryQt.py" line="4773"/>
         <source>The Bitcoin software indicates there is a problem with its databases.  This can occur when Bitcoin Core/bitcoind is upgraded or downgraded, or sometimes just by chance after an unclean shutdown.&lt;br&gt;&lt;br&gt;You can either revert your installed Bitcoin software to the last known working version (but not earlier than version 0.8.1) or delete everything &lt;b&gt;except&lt;/b&gt; &quot;wallet.dat&quot; from your Bitcoin home directory &lt;font face=&quot;courier&quot;&gt;&lt;b&gt;%1&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;br&gt;If you choose to delete the contents of the Bitcoin home directory, you will have to do a fresh download of the blockchain again, which will require a few hours the first time.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="ArmoryQt.py" line="3417"/>
+        <source>
+            You just clicked on a &quot;bitcoin:&quot; link to send money, but you 
+            currently have no wallets!  Would you like to create a wallet 
+            now?</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -2634,17 +2642,17 @@
 <context>
     <name>CoinControlDlg</name>
     <message>
-        <location filename="CoinControlUI.py" line="27"/>
+        <location filename="CoinControlUI.py" line="26"/>
         <source>By default, transactions are created using any available coins from all addresses in this wallet.  You can control the source addresses used for this transaction by selecting them below, and unchecking all other addresses.</source>
         <translation>By default, transactions are created using any available coins from all addresses in this wallet.  You can control the source addresses used for this transaction by selecting them below, and unchecking all other addresses.</translation>
     </message>
     <message>
-        <location filename="CoinControlUI.py" line="33"/>
+        <location filename="CoinControlUI.py" line="32"/>
         <source>Use all selected UTXOs</source>
         <translation>Use all selected UTXOs</translation>
     </message>
     <message>
-        <location filename="CoinControlUI.py" line="34"/>
+        <location filename="CoinControlUI.py" line="33"/>
         <source>
       By default, Armory will pick a a subset of the UTXOs you pick 
       explicitly through the coin control feature to best suit the
@@ -2667,17 +2675,17 @@
       </translation>
     </message>
     <message>
-        <location filename="CoinControlUI.py" line="51"/>
+        <location filename="CoinControlUI.py" line="50"/>
         <source>Accept</source>
         <translation>Accept</translation>
     </message>
     <message>
-        <location filename="CoinControlUI.py" line="52"/>
+        <location filename="CoinControlUI.py" line="51"/>
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <location filename="CoinControlUI.py" line="75"/>
+        <location filename="CoinControlUI.py" line="74"/>
         <source>Coin Control (Expert)</source>
         <translation>Coin Control (Expert)</translation>
     </message>
@@ -7343,7 +7351,7 @@ Does this ID match the &quot;Wallet Unique ID&quot;
     <message>
         <location filename="MultiSigDialogs.py" line="1407"/>
         <source>Rescan Lockbox</source>
-        <translation>Rescan Lockbox</translation>
+        <translation type="obsolete">Rescan Lockbox</translation>
     </message>
     <message>
         <location filename="MultiSigDialogs.py" line="1435"/>
@@ -7424,7 +7432,7 @@ Does this ID match the &quot;Wallet Unique ID&quot;
     <message>
         <location filename="MultiSigDialogs.py" line="1494"/>
         <source>Confirm Rescan</source>
-        <translation>Confirm Rescan</translation>
+        <translation type="obsolete">Confirm Rescan</translation>
     </message>
     <message>
         <location filename="MultiSigDialogs.py" line="1494"/>
@@ -7435,7 +7443,7 @@ Does this ID match the &quot;Wallet Unique ID&quot;
                You are about to rescan the following lockbox:
                &lt;br&gt;&lt;br&gt;
                &lt;font color=&quot;%1&quot;&gt;%2&lt;/font&gt; </source>
-        <translation>
+        <translation type="obsolete">
                Rescaning a Lockbox will make it unavailable for the duration
                of the process
                &lt;br&gt;&lt;br&gt;

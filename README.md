@@ -67,14 +67,6 @@ Armory contains over 25,000 lines of code, between the C++ and python libraries.
 * C++ -   [BlockUtilsTest.cpp](cppForSwig/BlockUtilsTest.cpp)
 * Python -   [Unit Tests](pytest/), [sample_armory_code.py](extras/sample_armory_code.py)
 
-### Translations
-
-Armory is currently accepting [translations on Transifex](https://www.transifex.com/bitcoin-armory/bitcoin-armory-software)
-In order to compile the translation resource files from all of the python files containing strings that need to be translated, run
-
-    pylupdate4 ArmoryQt.py armorymodels.py qtdefines.py qtdialogs.py ui/MultiSigDialogs.py ui/MultiSigModels.py ui/TxFrames.py ui/WalletFrames.py ui/Wizards.py ui/toolsDialogs.py ui/AddressTypeSelectDialog.py ui/CoinControlUI.py ui/FeeSelectUI.py ui/TreeViewGUI.py ui/WalletMirrorDialog.py -ts lang/armory_en.ts
-
-
 ## License
 
 Distributed partially under the GNU Affero General Public License (AGPL v3)  
