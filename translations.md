@@ -1,4 +1,4 @@
-# Translations Instructions
+# Translations
 
 ## Writing strings for translating
 
@@ -38,7 +38,7 @@ If a new file has been added that has strings that require translating, add it t
 
 ## Pull down translations from Transifex
 
-The translations that are being used are those that have 5% or greater strings translated. These can be downloaded manually from Transifex's resource page for all languages and clicking on each language that will be downloaded. Then click the link for `Download for Use` and save that file as `lang/armory_<code>.ts` where <code> is the two letter ISO 639-1 language code.
+The translations that are being used are those that have 5% or greater strings translated. These can be downloaded manually from Transifex's resource page for all languages and clicking on each language that will be downloaded. Then click the link for `Download for Use` and save that file as `lang/armory_<code>.ts` where `<code>` is the two letter ISO 639-1 language code.
 
 This can also be done automatically if you have [installed the Transifex client](https://docs.transifex.com/client/installing-the-client). Once the client is installed, run the following command:
 

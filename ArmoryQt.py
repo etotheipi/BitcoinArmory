@@ -41,15 +41,11 @@ from twisted.internet.defer import Deferred
 from twisted.internet.protocol import Protocol, ClientFactory
 
 import CppBlockUtils as Cpp
-#from announcefetch import AnnounceDataFetcher, ANNOUNCE_URL, ANNOUNCE_URL_BACKUP, \
- #  DEFAULT_FETCH_INTERVAL
 from armorycolors import Colors, htmlColor, QAPP
 from armoryengine.ALL import *
 from armoryengine.Block import PyBlock
 from armoryengine.Decorators import RemoveRepeatingExtensions
 from armoryengine.PyBtcWalletRecovery import WalletConsistencyCheck
-from armoryengine.parseAnnounce import changelogParser, downloadLinkParser, \
-   notificationParser
 
 import qt4reactor
 qt4reactor.install()
@@ -66,7 +62,6 @@ from qtdefines import *
 from qtdialogs import *
 from ui.MultiSigDialogs import DlgSelectMultiSigOption, DlgLockboxManager, \
                     DlgMergePromNotes, DlgCreatePromNote, DlgImportAsciiBlock
-from ui.VerifyOfflinePackage import VerifyOfflinePackageDialog
 from ui.Wizards import WalletWizard, TxWizard
 from ui.toolsDialogs import MessageSigningVerificationDialog
 from dynamicImport import MODULE_PATH_KEY, ZIP_EXTENSION, getModuleList, importModule,\
@@ -166,7 +161,6 @@ class ArmoryMainWindow(QMainWindow):
       self.lastVersionsTxtHash = ''
       self.dlgCptWlt = None
       self.wasSynchronizing = False
-      self.announceIsSetup = False
       self.entropyAccum = []
       self.allLockboxes = []
       self.lockboxIDMap = {}
@@ -180,7 +174,6 @@ class ArmoryMainWindow(QMainWindow):
 
       # Full list of notifications, and notify IDs that should trigger popups
       # when sending or receiving.
-      self.lastAnnounceUpdate = {}
       self.changelog = []
       self.downloadLinks = {}
       self.almostFullNotificationList = {}
@@ -199,11 +192,6 @@ class ArmoryMainWindow(QMainWindow):
       # We only need a single connection to bitcoind since it's a
       # reconnecting connection, so we keep it around.
       self.SingletonConnectedNetworkingFactory = None
-
-      # # Kick off announcement checking, unless they explicitly disabled it
-      # # The fetch happens in the background, we check the results periodically
-      # self.announceFetcher = None
-      # self.setupAnnouncementFetcher()
 
       #delayed URI parsing dict
       self.delayedURIData = {}
@@ -423,7 +411,7 @@ class ArmoryMainWindow(QMainWindow):
       self.frmTotals.setLayout(frmTotalsLayout)
 
       # Add the available tabs to the main tab widget
-      self.MAINTABS  = enum('Dash','Ledger','Announce')
+      self.MAINTABS  = enum('Dash','Ledger')
 
       self.mainDisplayTabs.addTab(self.tabDashboard, self.tr('Dashboard'))
 
@@ -643,37 +631,21 @@ class ArmoryMainWindow(QMainWindow):
       self.menusList[MENUS.Wallets].addSeparator()
       self.menusList[MENUS.Wallets].addAction(actRecoverWlt)
 
-      # def execVersion():
-      #    self.explicitCheckAnnouncements()
-      #    self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Announce)
-
       execAbout   = lambda: DlgHelpAbout(self).exec_()
-      # execTrouble = lambda: webbrowser.open('https://bitcoinarmory.com/troubleshooting/')
-      # execBugReport = lambda: DlgBugReport(self, self).exec_()
 
 
       execVerifySigned = lambda: VerifyOfflinePackageDialog(self, self).exec_()
       actAboutWindow  = self.createAction(self.tr('&About Armory...'), execAbout)
-      # actVersionCheck = self.createAction(self.tr('Armory Version'), execVersion)
-      # actDownloadUpgrade = self.createAction(self.tr('Update Software...'), self.openDownloaderAll)
       actVerifySigned = self.createAction(self.tr('Verify Signed Package...'), execVerifySigned)
-      # actTroubleshoot = self.createAction(self.tr('Troubleshooting Armory'), execTrouble)
-      # actSubmitBug    = self.createAction(self.tr('Submit Bug Report'), execBugReport)
       actClearMemPool = self.createAction(self.tr('Clear All Unconfirmed'), self.clearMemoryPool)
       actRescanDB     = self.createAction(self.tr('Rescan Databases'), self.rescanNextLoad)
       actRebuildDB    = self.createAction(self.tr('Rebuild and Rescan Databases'), self.rebuildNextLoad)
       actRescanBalance = self.createAction(self.tr('Rescan Balance'), self.rescanBalanceNextLoad)
       actFactoryReset = self.createAction(self.tr('Factory Reset'), self.factoryReset)
-      # actPrivacyPolicy = self.createAction(self.tr('Armory Privacy Policy'), self.showPrivacyGeneric)
 
       self.menusList[MENUS.Help].addAction(actAboutWindow)
-      # self.menusList[MENUS.Help].addAction(actVersionCheck)
-      # self.menusList[MENUS.Help].addAction(actDownloadUpgrade)
       self.menusList[MENUS.Help].addAction(actVerifySigned)
       self.menusList[MENUS.Help].addSeparator()
-      # self.menusList[MENUS.Help].addAction(actTroubleshoot)
-      # self.menusList[MENUS.Help].addAction(actSubmitBug)
-      # self.menusList[MENUS.Help].addAction(actPrivacyPolicy)
       self.menusList[MENUS.Help].addSeparator()
       self.menusList[MENUS.Help].addAction(actClearMemPool)
       self.menusList[MENUS.Help].addAction(actRescanBalance)
@@ -2483,7 +2455,6 @@ class ArmoryMainWindow(QMainWindow):
       self.settings.set('FailedLoadCount', 0)
 
       # This will force the table to refresh with new data
-      # self.updateAnnounceTab()  # make sure satoshi version info is up to date
       self.removeBootstrapDat()  # if we got here, we're *really* done with it
       self.walletModel.reset()
 
@@ -3493,16 +3464,6 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def exportLogFile(self):
       LOGDEBUG('exportLogFile')
-      # reply = QMessageBox.warning(self, self.tr('Bug Reporting'), self.tr("""<qt>
-      #    As of version 0.91, Armory now includes a form for reporting
-      #    problems with the software.  Please use
-      #    <i>"Help"</i>→<i>"Submit Bug Report"</i>
-      #    to send a report directly to the Armory team, which will include
-      #    your log file automatically.</qt>"""), QMessageBox.Ok | QMessageBox.Cancel)
-      #
-      # if not reply==QMessageBox.Ok:
-      #    return
-
       if self.logFilePrivacyWarning(wCancel=True):
          self.saveCombinedLogFile()
 
@@ -3745,9 +3706,7 @@ class ArmoryMainWindow(QMainWindow):
       BTN,LBL,TTIP = range(3)
       self.dashBtns = [[None]*3 for i in range(5)]
       self.dashBtns[DASHBTNS.Close   ][BTN] = QPushButton(self.tr('Close Bitcoin Process'))
-      self.dashBtns[DASHBTNS.Install ][BTN] = QPushButton(self.tr('Download Bitcoin'))
       self.dashBtns[DASHBTNS.Browse  ][BTN] = QPushButton(self.tr('Open https://bitcoin.org'))
-      self.dashBtns[DASHBTNS.Instruct][BTN] = QPushButton(self.tr('Installation Instructions'))
       self.dashBtns[DASHBTNS.Settings][BTN] = QPushButton(self.tr('Change Settings'))
 
       # The "Now shutting down" frame
@@ -3775,21 +3734,15 @@ class ArmoryMainWindow(QMainWindow):
 
       self.connect(self.dashBtns[DASHBTNS.Close][BTN], SIGNAL('clicked()'), \
                                                    self.closeExistingBitcoin)
-      self.connect(self.dashBtns[DASHBTNS.Install][BTN], SIGNAL('clicked()'), \
-                                                     self.openDLSatoshi)
       self.connect(self.dashBtns[DASHBTNS.Browse][BTN], SIGNAL('clicked()'), \
                                                              openBitcoinOrg)
       self.connect(self.dashBtns[DASHBTNS.Settings][BTN], SIGNAL('clicked()'), \
                                                            self.openSettings)
-      #self.connect(self.dashBtns[DASHBTNS.Instruct][BTN], SIGNAL('clicked()'), \
-                                                     #self.openInstructWindow)
 
       self.dashBtns[DASHBTNS.Close][LBL] = QRichLabel( \
            self.tr('Stop existing Bitcoin processes so that Armory can open its own'))
       self.dashBtns[DASHBTNS.Browse][LBL]     = QRichLabel( \
            self.tr('Open browser to Bitcoin webpage to download and install Bitcoin software'))
-      self.dashBtns[DASHBTNS.Instruct][LBL] = QRichLabel( \
-           self.tr('Instructions for manually installing Bitcoin for operating system'))
       self.dashBtns[DASHBTNS.Settings][LBL]  = QRichLabel( \
            self.tr('Open Armory settings window to change Bitcoin software management'))
 
@@ -3798,52 +3751,12 @@ class ArmoryMainWindow(QMainWindow):
            Will open your default browser to https://bitcoin.org where you can 
            download the latest version of Bitcoin Core, and get other information
            and links about Bitcoin, in general.'''))
-      self.dashBtns[DASHBTNS.Instruct][TTIP] = self.createToolTipWidget( self.tr('''
-           Instructions are specific to your operating system and include 
-           information to help you verify you are installing the correct software'''))
       self.dashBtns[DASHBTNS.Settings][TTIP] = self.createToolTipWidget( self.tr('''
            Change Bitcoin Core/bitcoind management settings or point Armory to
            a non-standard Bitcoin installation'''))
       self.dashBtns[DASHBTNS.Close][TTIP] = self.createToolTipWidget( self.tr('''
            Armory has detected a running Bitcoin Core or bitcoind instance and
            will force it to exit'''))
-
-      self.dashBtns[DASHBTNS.Install][BTN].setEnabled(False)
-      self.dashBtns[DASHBTNS.Install][LBL] = QRichLabel('')
-      self.dashBtns[DASHBTNS.Install][LBL].setText( \
-          self.tr('This option is not yet available yet!'), color='DisableFG')
-      self.dashBtns[DASHBTNS.Install][TTIP] = QRichLabel('') # disabled
-
-      if OS_WINDOWS:
-         self.dashBtns[DASHBTNS.Install][BTN].setEnabled(True)
-         self.dashBtns[DASHBTNS.Install][LBL] = QRichLabel('')
-         self.dashBtns[DASHBTNS.Install][LBL].setText( \
-            self.tr('Securely download Bitcoin software for Windows %1').arg(OS_VARIANT[0]))
-         self.dashBtns[DASHBTNS.Install][TTIP] = self.createToolTipWidget( self.tr('''
-            The downloaded files are cryptographically verified.  
-            Using this option will start the installer, you will 
-            have to click through it to complete installation.'''))
-
-         #self.lblDashInstallForMe = QRichLabel( \
-           #'Armory will download, verify, and start the Bitcoin installer for you')
-         #self.ttipInstallForMe = self.createToolTipWidget( \
-           #'Armory will download the latest version of the Bitcoin software '
-           #'for Windows and verify its digital signatures.  You will have to '
-           #'click through the installation options.<u></u>')
-      elif OS_LINUX:
-         # Only display the install button if using a debian-based distro
-         dist = platform.linux_distribution()
-         if dist[0] in ['Ubuntu','LinuxMint'] or 'debian' in dist:
-            self.dashBtns[DASHBTNS.Install][BTN].setEnabled(True)
-            self.dashBtns[DASHBTNS.Install][LBL] = QRichLabel( self.tr("""
-               Download and Install Bitcoin Core for Ubuntu/Debian"""))
-            self.dashBtns[DASHBTNS.Install][TTIP] = self.createToolTipWidget( self.tr("""
-               Will download, cryptographically verify, and install Bitcoin Core."""))
-      elif OS_MACOSX:
-         pass
-      else:
-         LOGERROR('Unrecognized OS!')
-
 
       self.frmDashMgmtButtons = QFrame()
       self.frmDashMgmtButtons.setFrameStyle(STYLE_SUNKEN)
@@ -3878,361 +3791,6 @@ class ArmoryMainWindow(QMainWindow):
       scrollLayout.addWidget(self.dashScrollArea)
       self.tabDashboard.setLayout(scrollLayout)
       self.frmDashSubExit.setVisible(False)
-
-
-
-   # #############################################################################
-   # def setupAnnounceTab(self):
-   #
-   #    self.lblAlertStr = QRichLabel(self.tr("""
-   #       <font size=4><b>Announcements and alerts from <i>Armory Technologies,
-   #       Inc.</i></b></font>"""), doWrap=False, hAlign=Qt.AlignHCenter)
-   #
-   #    def checkUpd():
-   #       lastUpdate = self.announceFetcher.getLastSuccessfulFetchTime()
-   #       self.explicitCheckAnnouncements(5)
-   #       lastUpdate2 = self.announceFetcher.getLastSuccessfulFetchTime()
-   #       if lastUpdate==lastUpdate2:
-   #          QMessageBox.warning(self, self.tr('Not Available'), self.tr("""
-   #             Could not access the <font color="%s"><b>Armory
-   #             Technologies, Inc.</b></font> announcement feeder.
-   #             Try again in a couple minutes.""") % \
-   #             htmlColor('TextGreen'), QMessageBox.Ok)
-   #       else:
-   #          QMessageBox.warning(self, self.tr('Update'), self.tr("""
-   #             Announcements are now up to date!"""), QMessageBox.Ok)
-   #
-   #
-   #    self.lblLastUpdated = QRichLabel('', doWrap=False)
-   #    self.btnCheckForUpdates  = QPushButton(self.tr('Check for Updates'))
-   #    self.connect(self.btnCheckForUpdates, SIGNAL(CLICKED), checkUpd)
-   #
-   #
-   #    frmLastUpdate = makeHorizFrame(['Stretch', \
-   #                                    self.lblLastUpdated, \
-   #                                    self.btnCheckForUpdates, \
-   #                                    'Stretch'])
-   #
-   #    self.icoArmorySWVersion = QLabel('')
-   #    self.lblArmorySWVersion = QRichLabel(self.tr("""
-   #       No version information is available"""), doWrap=False)
-   #    self.icoSatoshiSWVersion = QLabel('')
-   #    self.lblSatoshiSWVersion = QRichLabel('', doWrap=False)
-   #
-   #    self.btnSecureDLArmory  = QPushButton(self.tr('Secure Downloader'))
-   #    self.btnSecureDLSatoshi = QPushButton(self.tr('Secure Downloader'))
-   #    self.btnSecureDLArmory.setVisible(False)
-   #    self.btnSecureDLSatoshi.setVisible(False)
-   #    self.connect(self.btnSecureDLArmory, SIGNAL(CLICKED), self.openDLArmory)
-   #    self.connect(self.btnSecureDLSatoshi, SIGNAL(CLICKED), self.openDLSatoshi)
-   #
-   #
-   #    frmVersions = QFrame()
-   #    layoutVersions = QGridLayout()
-   #    layoutVersions.addWidget(self.icoArmorySWVersion, 0,0)
-   #    layoutVersions.addWidget(self.lblArmorySWVersion, 0,1)
-   #    layoutVersions.addWidget(self.btnSecureDLArmory,  0,2)
-   #    layoutVersions.addWidget(self.icoSatoshiSWVersion, 1,0)
-   #    layoutVersions.addWidget(self.lblSatoshiSWVersion, 1,1)
-   #    layoutVersions.addWidget(self.btnSecureDLSatoshi,  1,2)
-   #    layoutVersions.setColumnStretch(0,0)
-   #    layoutVersions.setColumnStretch(1,1)
-   #    layoutVersions.setColumnStretch(2,0)
-   #    frmVersions.setLayout(layoutVersions)
-   #    frmVersions.setFrameStyle(STYLE_RAISED)
-   #
-   #    lblVerHeader = QRichLabel(self.tr("""<font size=4><b>
-   #       Software Version Updates:</b></font>"""), doWrap=False, \
-   #       hAlign=Qt.AlignHCenter)
-   #    lblTableHeader = QRichLabel(self.tr("""<font size=4><b>
-   #       All Available Notifications:</b></font>"""), doWrap=False, \
-   #       hAlign=Qt.AlignHCenter)
-   #
-   #
-   #    # We need to generate popups when a widget is clicked, and be able
-   #    # change that particular widget's target, when the table is updated.
-   #    # Create one of these DlgGen objects for each of the 10 rows, simply
-   #    # update it's nid and notifyMap when the table is updated
-   #    class DlgGen():
-   #       def setParams(self, parent, nid, notifyMap):
-   #          self.parent = parent
-   #          self.nid = nid
-   #          self.notifyMap = notifyMap
-   #
-   #       def __call__(self):
-   #          return DlgNotificationWithDNAA(self.parent, self.parent, \
-   #                                        self.nid, self.notifyMap, False).exec_()
-   #
-   #    self.announceTableWidgets = \
-   #       [[QLabel(''), QRichLabel(''), QLabelButton('+'), DlgGen()] \
-   #                                                    for i in range(10)]
-   #
-   #
-   #
-   #    layoutTable = QGridLayout()
-   #    for i in range(10):
-   #       for j in range(3):
-   #          layoutTable.addWidget(self.announceTableWidgets[i][j], i,j)
-   #       self.connect(self.announceTableWidgets[i][2], SIGNAL(CLICKED), \
-   #                    self.announceTableWidgets[i][3])
-   #
-   #    layoutTable.setColumnStretch(0,0)
-   #    layoutTable.setColumnStretch(1,1)
-   #    layoutTable.setColumnStretch(2,0)
-   #
-   #    frmTable = QFrame()
-   #    frmTable.setLayout(layoutTable)
-   #    frmTable.setFrameStyle(STYLE_SUNKEN)
-   #
-   #    self.updateAnnounceTable()
-   #
-   #
-   #    frmEverything = makeVertFrame( [ self.lblAlertStr,
-   #                                     frmLastUpdate,
-   #                                     'Space(30)',
-   #                                     lblTableHeader,
-   #                                     frmTable,
-   #                                     'Space(30)',
-   #                                     lblVerHeader,
-   #                                     frmVersions,
-   #                                     'Stretch'])
-   #
-   #    frmEverything.setMinimumWidth(300)
-   #    frmEverything.setMaximumWidth(800)
-   #
-   #    frmFinal = makeHorizFrame(['Stretch', frmEverything, 'Stretch'])
-   #
-   #    self.announceScrollArea = QScrollArea()
-   #    self.announceScrollArea.setWidgetResizable(True)
-   #    self.announceScrollArea.setWidget(frmFinal)
-   #    scrollLayout = QVBoxLayout()
-   #    scrollLayout.addWidget(self.announceScrollArea)
-   #    self.tabAnnounce.setLayout(scrollLayout)
-   #
-   #    self.announceIsSetup = True
-   #
-   #
-   # #############################################################################
-   # def openDownloaderAll(self):
-   #    dl,cl = self.getDownloaderData()
-   #    if not dl is None and not cl is None:
-   #       UpgradeDownloaderDialog(self, self, None, dl, cl).exec_()
-   #
-   # #############################################################################
-   # def openDLArmory(self):
-   #    dl,cl = self.getDownloaderData()
-   #    if not dl is None and not cl is None:
-   #       UpgradeDownloaderDialog(self, self, 'Armory', dl, cl).exec_()
-   #
-   #############################################################################
-   def openDLSatoshi(self):
-      dl,cl = self.getDownloaderData()
-      if not dl is None and not cl is None:
-         UpgradeDownloaderDialog(self, self, 'Satoshi', dl, cl).exec_()
-
-   # #############################################################################
-   # def getDownloaderData(self):
-   #    dl = self.announceFetcher.getAnnounceFile('downloads')
-   #    cl = self.announceFetcher.getAnnounceFile('changelog')
-   #
-   #    dlObj = downloadLinkParser().parseDownloadList(dl)
-   #    clObj = changelogParser().parseChangelogText(cl)
-   #
-   #    if dlObj is None or clObj is None:
-   #       QMessageBox.warning(self, self.tr('No Data'), self.tr("""
-   #          The secure downloader has not received any download
-   #          data to display.  Either the <font color="%s"><b>Armory
-   #          Technologies, Inc.</b></font> announcement feeder is
-   #          down, or this computer cannot access the server.""") % \
-   #          htmlColor('TextGreen'), QMessageBox.Ok)
-   #       return None,None
-   #
-   #    lastUpdate = self.announceFetcher.getLastSuccessfulFetchTime()
-   #    sinceLastUpd = RightNow() - lastUpdate
-   #    if lastUpdate < RightNow()-1*WEEK:
-   #       QMessageBox.warning(self, self.tr('Old Data'), self.tr("""
-   #          The last update retrieved from the <font color="%(color)s"><b>Armory
-   #          Technologies, Inc.</b></font> announcement feeder was <b>%(time)s</b>
-   #          ago.  The following downloads may not be the latest
-   #          available.""") % { 'color' : htmlColor("TextGreen"), \
-   #          'time' : secondsToHumanTime(sinceLastUpd)}, QMessageBox.Ok)
-   #
-   #    dl = self.announceFetcher.getAnnounceFile('downloads')
-   #    cl = self.announceFetcher.getAnnounceFile('changelog')
-   #
-   #    return dl,cl
-   #
-   #
-   #
-   # #############################################################################
-   # def updateAnnounceTab(self, *args):
-   #
-   #    if not self.announceIsSetup:
-   #       return
-   #
-   #    iconArmory   = ':/armory_icon_32x32.png'
-   #    iconSatoshi  = ':/bitcoinlogo.png'
-   #    iconInfoFile = ':/MsgBox_info48.png'
-   #    iconGoodFile = ':/MsgBox_good48.png'
-   #    iconWarnFile = ':/MsgBox_warning48.png'
-   #    iconCritFile = ':/MsgBox_critical24.png'
-   #
-   #    lastUpdate = self.announceFetcher.getLastSuccessfulFetchTime()
-   #    noAnnounce = (lastUpdate == 0)
-   #
-   #    if noAnnounce:
-   #       self.lblLastUpdated.setText(self.tr("No announcement data was found!"))
-   #       self.btnSecureDLArmory.setVisible(False)
-   #       self.icoArmorySWVersion.setVisible(True)
-   #       self.lblArmorySWVersion.setText(self.tr(""" You are running Armory
-   #          version %s""") % getVersionString(BTCARMORY_VERSION))
-   #    else:
-   #       updTimeStr = unixTimeToFormatStr(lastUpdate)
-   #       self.lblLastUpdated.setText(self.tr("<u>Last Updated</u>: %s") % updTimeStr)
-   #
-   #
-   #    verStrToInt = lambda s: getVersionInt(readVersionString(s))
-   #
-   #    # Notify of Armory updates
-   #    self.icoArmorySWVersion.setPixmap(QPixmap(iconArmory).scaled(24,24))
-   #    self.icoSatoshiSWVersion.setPixmap(QPixmap(iconSatoshi).scaled(24,24))
-   #
-   #    try:
-   #       armCurrent = verStrToInt(self.armoryVersions[0])
-   #       armLatest  = verStrToInt(self.armoryVersions[1])
-   #       if armCurrent >= armLatest:
-   #          dispIcon = QPixmap(iconArmory).scaled(24,24)
-   #          self.icoArmorySWVersion.setPixmap(dispIcon)
-   #          self.btnSecureDLArmory.setVisible(False)
-   #          self.lblArmorySWVersion.setText(tr(
-   #             "You are using the latest version of Armory (%s)"
-   #             % self.armoryVersions[0]))
-   #       else:
-   #          dispIcon = QPixmap(iconWarnFile).scaled(24,24)
-   #          self.icoArmorySWVersion.setPixmap(dispIcon)
-   #          self.btnSecureDLArmory.setVisible(True)
-   #          self.lblArmorySWVersion.setText(self.tr("""
-   #             <b>There is a newer version of Armory available!</b>"""))
-   #       self.btnSecureDLArmory.setVisible(True)
-   #       self.icoArmorySWVersion.setVisible(True)
-   #    except:
-   #       self.btnSecureDLArmory.setVisible(False)
-   #       self.lblArmorySWVersion.setText(self.tr(""" You are running Armory
-   #          version %s""") % getVersionString(BTCARMORY_VERSION))
-   #
-   #
-   #    try:
-   #       satCurrStr,satLastStr = self.satoshiVersions
-   #       satCurrent = verStrToInt(satCurrStr) if satCurrStr else 0
-   #       satLatest  = verStrToInt(satLastStr) if satLastStr else 0
-   #
-   #    # Show CoreBTC updates
-   #       if satCurrent and satLatest:
-   #          if satCurrent >= satLatest:
-   #             dispIcon = QPixmap(iconGoodFile).scaled(24,24)
-   #             self.btnSecureDLSatoshi.setVisible(False)
-   #             self.icoSatoshiSWVersion.setPixmap(dispIcon)
-   #             self.lblSatoshiSWVersion.setText(self.tr(""" You are using
-   #                the latest version of core Bitcoin (%s)""") % satCurrStr)
-   #          else:
-   #             dispIcon = QPixmap(iconWarnFile).scaled(24,24)
-   #             self.btnSecureDLSatoshi.setVisible(True)
-   #             self.icoSatoshiSWVersion.setPixmap(dispIcon)
-   #             self.lblSatoshiSWVersion.setText(self.tr("""
-   #                <b>There is a newer version of the core Bitcoin software
-   #                available!</b>"""))
-   #       elif satCurrent:
-   #          # satLatest is not available
-   #          dispIcon = QPixmap(iconGoodFile).scaled(24,24)
-   #          self.btnSecureDLSatoshi.setVisible(False)
-   #          self.icoSatoshiSWVersion.setPixmap(None)
-   #          self.lblSatoshiSWVersion.setText(self.tr(""" You are using
-   #             core Bitcoin version %s""") % satCurrStr)
-   #       elif satLatest:
-   #          # only satLatest is avail (maybe offline)
-   #          dispIcon = QPixmap(iconSatoshi).scaled(24,24)
-   #          self.btnSecureDLSatoshi.setVisible(True)
-   #          self.icoSatoshiSWVersion.setPixmap(dispIcon)
-   #          self.lblSatoshiSWVersion.setText(self.tr("""Core Bitcoin version
-   #             %s is available.""") % satLastStr)
-   #       else:
-   #          # only satLatest is avail (maybe offline)
-   #          dispIcon = QPixmap(iconSatoshi).scaled(24,24)
-   #          self.btnSecureDLSatoshi.setVisible(False)
-   #          self.icoSatoshiSWVersion.setPixmap(dispIcon)
-   #          self.lblSatoshiSWVersion.setText(self.tr("""No version information
-   #             is available for core Bitcoin""") )
-   #
-   #
-   #
-   #
-   #       #self.btnSecureDLSatoshi.setVisible(False)
-   #       #if self.satoshiVersions[0]:
-   #          #self.lblSatoshiSWVersion.setText(self.tr(""" You are running
-   #             #core Bitcoin software version %s""") % self.satoshiVersions[0])
-   #       #else:
-   #          #self.lblSatoshiSWVersion.setText(self.tr("""No information is
-   #          #available for the core Bitcoin software"""))
-   #    except:
-   #       LOGEXCEPT('Failed to process satoshi versions')
-   #
-   #
-   #    self.updateAnnounceTable()
-   #
-   #
-   # #############################################################################
-   # def updateAnnounceTable(self):
-   #
-   #    # Default: Make everything non-visible except first row, middle column
-   #    for i in range(10):
-   #       for j in range(3):
-   #          self.announceTableWidgets[i][j].setVisible(i==0 and j==1)
-   #
-   #    if len(self.almostFullNotificationList)==0:
-   #       self.announceTableWidgets[0][1].setText(self.tr("""
-   #          There are no announcements or alerts to display"""))
-   #       return
-   #
-   #
-   #    alertsForSorting = []
-   #    for nid,nmap in self.almostFullNotificationList.iteritems():
-   #       alertsForSorting.append([nid, int(nmap['PRIORITY'])])
-   #
-   #    sortedAlerts = sorted(alertsForSorting, key=lambda a: -a[1])[:10]
-   #
-   #    i = 0
-   #    for nid,priority in sortedAlerts:
-   #       if priority>=4096:
-   #          pixm = QPixmap(':/MsgBox_critical64.png')
-   #       elif priority>=3072:
-   #          pixm = QPixmap(':/MsgBox_warning48.png')
-   #       elif priority>=2048:
-   #          pixm = QPixmap(':/MsgBox_info48.png')
-   #       else:
-   #          pixm = QPixmap(':/MsgBox_info48.png')
-   #
-   #
-   #       shortDescr = self.almostFullNotificationList[nid]['SHORTDESCR']
-   #       if priority>=4096:
-   #          shortDescr = '<font color="%s">' + shortDescr + '</font>'
-   #          shortDescr = shortDescr % htmlColor('TextWarn')
-   #
-   #       self.announceTableWidgets[i][0].setPixmap(pixm.scaled(24,24))
-   #       self.announceTableWidgets[i][1].setText(shortDescr)
-   #       self.announceTableWidgets[i][2].setVisible(True)
-   #       self.announceTableWidgets[i][3].setParams(self, nid, \
-   #                               self.almostFullNotificationList[nid])
-   #
-   #       for j in range(3):
-   #          self.announceTableWidgets[i][j].setVisible(True)
-   #
-   #       i += 1
-   #
-   # #############################################################################
-   # def explicitCheckAnnouncements(self, waitTime=3):
-   #    self.announceFetcher.fetchRightNow(waitTime)
-   #    self.processAnnounceData()
-   #    self.updateAnnounceTab()
 
    #############################################################################
    def closeExistingBitcoin(self):

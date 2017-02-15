@@ -38,16 +38,6 @@ STYLE_NONE   = QFrame.NoFrame
 VERTICAL = 'vertical'
 HORIZONTAL = 'horizontal'
 CHANGE_ADDR_DESCR_STRING = '[[ Change received ]]'
-HTTP_VERSION_FILE = 'https://bitcoinarmory.com/versions.txt'
-BUG_REPORT_URL = 'https://bitcoinarmory.com/scripts/receive_debug.php'
-PRIVACY_URL = 'https://bitcoinarmory.com/privacy-policy'
-# For announcements handling
-ANNOUNCE_FETCH_INTERVAL = 1 * HOUR
-if CLI_OPTIONS.testAnnounceCode:
-   HTTP_ANNOUNCE_FILE = \
-      'https://s3.amazonaws.com/bitcoinarmory-testing/testannounce.txt'
-else:
-   HTTP_ANNOUNCE_FILE = 'https://bitcoinarmory.com/atiannounce.txt'
 
 # Keep track of dialogs and wizard that are executing
 runningDialogsList = []
@@ -60,63 +50,6 @@ def AddToRunningDialogsList(func):
       return result
    return wrapper
 
-################################################################################
-#def tr(txt, y=None, z=None):
-#   """
-#   This is a common convention for implementing translations, where all 
-#   translatable strings are put int the _(...) function, and that method 
-#   does some fancy stuff to present the translation if needed. 
-#
-#   This is being implemented here, to not only do translations in the 
-#   future, but also to clean up the typical text fields I use.  I've 
-#   ended up with a program full of stuff like this:
-#
-#      myLabel = QRichLabel( \
-#         'This text is split across mulitple lines '
-#         'with a space after each one, and single '
-#         'quotes on either side.')
-#   
-#   Instead it should really look like: 
-#      
-#      myLabel = QRichLabel( tr('''
-#         This text is split across mulitple lines 
-#         and it will acquire a space after each line 
-#         as well as include newlines because it's HTML
-#         and uses <br>. ''' ))
-#
-#   Added easy plural handling:
-#
-#      Just add an extra argument to specify a variable on which plurality
-#      should be chosen, and then decorate your text with 
-#
-#         @{singular|plural}@
-#   
-#   For instance:
-#
-#      tr('The @{cat|cats}@ danced.  @{It was|They were}@ happy.', nCat)
-#      tr('The @{cat|%d cats}@ danced.  @{It was|They were}@ happy.'%nCat, nCat)
-#      tr('The @{cat|cats}@ attacked the @{dog|dogs}@', nCat, nDog)
-#
-#   This should work well for 
-#   """
-#
-#   txt = toUnicode(txt)
-#   lines = [l.strip() for l in txt.split('\n')]
-#   txt = (' '.join(lines)).strip()
-#
-#   # Eventually we do something cool with this transalate function.
-#   # It will be defined elsewhere, but for now stubbed with identity fn
-#   TRANSLATE = lambda x: x
-#
-#   txt = TRANSLATE(txt)
-#
-#   if z == None:
-#      return txt
-#   elif z == 1:
-#      return txt
-#   else:
-#      return y
-#
 ################################################################################
 def HLINE(style=QFrame.Plain):
    qf = QFrame()

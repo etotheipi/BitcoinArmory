@@ -106,15 +106,12 @@ parser.add_option("--netlog",          dest="netlog",      default=False,     ac
 parser.add_option("--logfile",         dest="logFile",     default=DEFAULT, type='str',          help="Specify a non-default location to send logging information")
 parser.add_option("--mtdebug",         dest="mtdebug",     default=False,     action="store_true", help="Log multi-threaded call sequences")
 parser.add_option("--skip-online-check",dest="forceOnline", default=False,   action="store_true", help="Go into online mode, even if internet connection isn't detected")
-parser.add_option("--skip-stats-report", dest="skipStatsReport", default=False, action="store_true", help="Does announcement checking without any OS/version reporting (for ATI statistics)")
-parser.add_option("--skip-announce-check",dest="skipAnnounceCheck", default=False, action="store_true", help="Do not query for Armory announcements")
 parser.add_option("--tor",             dest="useTorSettings", default=False, action="store_true", help="Enable common settings for when Armory connects through Tor")
 parser.add_option("--keypool",         dest="keypool",     default=100, type="int",                help="Default number of addresses to lookahead in Armory wallets")
 parser.add_option("--redownload",      dest="redownload",  default=False,     action="store_true", help="Delete Bitcoin Core/bitcoind databases; redownload")
 parser.add_option("--rebuild",         dest="rebuild",     default=False,     action="store_true", help="Rebuild blockchain database and rescan")
 parser.add_option("--rescan",          dest="rescan",      default=False,     action="store_true", help="Rescan existing blockchain DB")
 parser.add_option("--rescanBalance",   dest="rescanBalance", default=False,     action="store_true", help="Rescan balance")
-parser.add_option("--test-announce", dest="testAnnounceCode", default=False,     action="store_true", help="Only used for developers needing to test announcement code with non-offline keys")
 parser.add_option("--nospendzeroconfchange",dest="ignoreAllZC",default=False, action="store_true", help="All zero-conf funds will be unspendable, including sent-to-self coins")
 parser.add_option("--multisigfile",  dest="multisigFile",  default=DEFAULT, type='str',          help="File to store information about multi-signature transactions")
 parser.add_option("--force-wallet-check", dest="forceWalletCheck", default=False, action="store_true", help="Force the wallet sanity check on startup")
@@ -1078,23 +1075,10 @@ if CLI_OPTIONS.rebuild and os.path.exists(ARMORY_DB_DIR):
    shutil.rmtree(ARMORY_DB_DIR)
    os.mkdir(ARMORY_DB_DIR)
 
-
-####
-if CLI_OPTIONS.testAnnounceCode:
-   LOGERROR('*'*60)
-   LOGERROR('You are currently using a developer mode intended for ')
-   LOGERROR('to help with testing of announcements, which is considered')
-   LOGERROR('a security risk.  ')
-   LOGERROR('*'*60)
-
-
-
-
 ####
 if CLI_OPTIONS.useTorSettings:
-   LOGWARN('Option --tor was supplied, forcing --skip-announce-check,')
+   LOGWARN('Option --tor was supplied, forcing')
    LOGWARN('--skip-online-check and --skip-stats-report')
-   CLI_OPTIONS.skipAnnounceCheck = True
    CLI_OPTIONS.skipStatsReport = True
    CLI_OPTIONS.forceOnline = True
 
