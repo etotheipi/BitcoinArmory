@@ -28,6 +28,7 @@ _CppBlockUtils.*
 /cppForSwig/gtest/*.a
 /cppForSwig/gtest/*.out.*
 /cppForSwig/gtest/blkfiletest/*
+/cppForSwig/gtest/ldbtestdir/*
 /cppForSwig/gtest/*.dSYM
 /cppForSwig/gtest/*.lmdb*
 /cppForSwig/gtest/DB1kIterTest

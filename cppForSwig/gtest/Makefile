@@ -46,7 +46,7 @@ OBJS_UnitTests = UniversalTimer.o BinaryData.o lmdb_wrapper.o \
 	fcgiapp.o os_unix.o FcgiMessage.o \
 	SwigClient.o StringSockets.o BlockDataManagerConfig.o \
 	Transactions.o Script.o Signer.o Wallets.o WalletManager.o \
-	libcryptopp.a 
+	CoinSelection.o nodeRPC.o ReentrantLock.o JSON_codec.o libcryptopp.a 
 
 ALL_HEADERS_FOUND=$(wildcard $(USER_DIR)/*.h)
 FCGI_DIR= $(USER_DIR)/BlockDataManager/fcgi
@@ -164,5 +164,3 @@ ContainerTests : ContainerTests.o gtest.a
 
 DB1kIterTest : $(OBJS_UnitTests) DB1kIterTest.o gtest.a ../libcryptopp.a
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -Wl,-rpath,$(PWD)/../.. ../libcryptopp.a $^ -lpthread -o $@
-
-

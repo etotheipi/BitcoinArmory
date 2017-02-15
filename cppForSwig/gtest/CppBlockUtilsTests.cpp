@@ -10248,8 +10248,6 @@ TEST_F(BlockUtilsBare, FCGIStack)
    delete theBDMt_;
    clients_ = nullptr;
 
-   config.spawnID_ = "abc";
-
    FCGX_Init();
    ScrAddrFilter::init();
    theBDMt_ = new BlockDataManagerThread(config);
