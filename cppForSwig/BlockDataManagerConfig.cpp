@@ -200,6 +200,9 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
    with a certain type, it will always function according to that type.
    Specifying another type will do nothing. Build a new db to change type.
 
+   --cookie: create a cookie file holding a random authentication key to allow
+   local clients to make use of elevated commands, like shutdown.
+
    ***/
 
    try
@@ -228,7 +231,7 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
       //figure out datadir
       auto argIter = args.find("datadir");
       if (argIter != args.end())
-      { 
+      {
          dataDir_ = argIter->second;
          args.erase(argIter);
       }
@@ -281,8 +284,8 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
       expandPath(dbDir_);
       expandPath(blkFileLocation_);
 
-      if (blkFileLocation_.size() < 6 || 
-          blkFileLocation_.substr(blkFileLocation_.length() - 6, 6) != "blocks")
+      if (blkFileLocation_.size() < 6 ||
+         blkFileLocation_.substr(blkFileLocation_.length() - 6, 6) != "blocks")
       {
          appendPath(blkFileLocation_, "blocks");
       }
@@ -328,6 +331,9 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
       testPath(blkFileLocation_, 2);
 
       //cookie file
+      if (!useCookie_)
+         return;
+
       auto cookiePath = dataDir_;
       appendPath(cookiePath, ".cookie_");
       fstream fs(cookiePath, ios_base::out | ios_base::trunc);
@@ -435,6 +441,10 @@ void BlockDataManagerConfig::processArgs(const map<string, string>& args,
          ramUsage_ = val;
    }
 
+   //cookie
+   iter = args.find("cookie");
+   if (iter != args.end())
+      useCookie_ = true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

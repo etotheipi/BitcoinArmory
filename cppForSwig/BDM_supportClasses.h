@@ -562,11 +562,12 @@ struct BDV_Notification_Progress : public BDV_Notification
    double progress_;
    unsigned time_;
    unsigned numericProgress_;
+   const vector<string> walletIDs_;
 
    BDV_Notification_Progress(BDMPhase phase, double prog,
-      unsigned time, unsigned numProg) :
+      unsigned time, unsigned numProg, const vector<string>& walletIDs) :
       phase_(phase), progress_(prog), time_(time),
-      numericProgress_(numProg)
+      numericProgress_(numProg), walletIDs_(walletIDs)
    {}
 
    BDV_Action action_type(void)

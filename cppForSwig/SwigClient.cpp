@@ -868,7 +868,7 @@ void PythonCallback::remoteLoop(void)
             case CBO_progress:
             {
                auto&& pd = args.get<ProgressData>();
-               progress(pd.phase_, vector<string>(), pd.progress_,
+               progress(pd.phase_, pd.wltIDs_, pd.progress_,
                   pd.time_, pd.numericProgress_);
 
                break;

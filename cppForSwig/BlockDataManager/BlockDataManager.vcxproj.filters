@@ -218,5 +218,8 @@
     <ClInclude Include="..\JSON_codec.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\BlockDataManagerConfig.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

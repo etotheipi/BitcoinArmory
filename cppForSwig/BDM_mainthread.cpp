@@ -172,7 +172,7 @@ try
    {
       //pass empty walletID for main build&scan calls
       auto&& notifPtr = make_unique<BDV_Notification_Progress>(
-         phase, prog, time, numericProgress);
+         phase, prog, time, numericProgress, vector<string>());
 
       bdm->notificationStack_.push_back(move(notifPtr));
 

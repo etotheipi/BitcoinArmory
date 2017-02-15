@@ -188,6 +188,17 @@ void ProgressData::serialize(BinaryWriter& bw) const
    bw.put_double(progress_);
    bw.put_uint32_t(time_);
    bw.put_uint32_t(numericProgress_);
+   
+   //wlt IDs
+   bw.put_var_int(wltIDs_.size());
+
+   for (auto& id : wltIDs_)
+   {
+      bw.put_var_int(id.size());
+
+      BinaryDataRef idBdr((uint8_t*)id.c_str(), id.size());
+      bw.put_BinaryDataRef(idBdr);
+   }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -202,6 +213,16 @@ ProgressData ProgressData::deserialize(BinaryRefReader& brr)
    pd.progress_ = brr.get_double();
    pd.time_ = brr.get_uint32_t();
    pd.numericProgress_ = brr.get_uint32_t();
+
+   //wlt IDs
+   auto idCount = brr.get_var_int();
+   for (unsigned i = 0; i < idCount; i++)
+   {
+      auto idLen = brr.get_var_int();
+      auto idBdr = brr.get_BinaryDataRef(idLen);
+
+      pd.wltIDs_.push_back(move(string((char*)idBdr.getPtr(), idLen)));
+   }
 
    return pd;
 }

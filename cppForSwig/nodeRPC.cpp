@@ -96,8 +96,9 @@ RpcStatus NodeRPC::testConnection()
    {
       return RpcStatus_Disabled;
    }
-   catch (JSON_Exception)
+   catch (JSON_Exception& e)
    {
+      LOGERR << "RPC connection test error: " << e.what();
       return RpcStatus_BadAuth;
    }
 

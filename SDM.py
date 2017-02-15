@@ -14,7 +14,8 @@ from urllib import quote_plus as urlquote
 from threading import Event
 from bitcoinrpc_jsonrpc import ServiceProxy
 from CppBlockUtils import SecureBinaryData, CryptoECDSA, NodeStatusStruct, \
-   RpcStatus_Disabled
+   RpcStatus_Disabled, RpcStatus_Online, RpcStatus_Error_28, \
+   NodeStatus_Online, NodeStatus_Offline, ChainStatus_Unknown, ChainStatus_Syncing
    
 from armoryengine.ArmoryUtils import BITCOIN_PORT, LOGERROR, hex_to_binary, \
    ARMORY_INFO_SIGN_PUBLICKEY, LOGINFO, BTC_HOME_DIR, LOGDEBUG, OS_MACOSX, \
@@ -357,6 +358,7 @@ class SatoshiDaemonManager(object):
       pargs = [self.dbExecutable]
 
       pargs.append('--db-type="' + ARMORY_DB_TYPE + '"')
+      pargs.append('--cookie')
 
       if USE_TESTNET:
          pargs.append('--testnet')
@@ -543,6 +545,36 @@ class SatoshiDaemonManager(object):
    #############################################################################
    def getSDMState(self):
       return self.nodeState
+   
+   #############################################################################
+   def getSDMStateStr(self):
+      sdmStr = ""
+      
+      if self.nodeState == NodeStatus_Offline:
+         sdmStr = "NodeStatus_Offline"
+         
+         if self.nodeState.rpcStatus_ == RpcStatus_Online or \
+            self.nodeState.rpcStatus_ == RpcStatus_Error_28: 
+            sdmStr = "NodeStatus_Initializing"
+         elif not os.path.exists(self.executable):
+            sdmStr = "NodeStatus_BadPath"
+      
+      else:
+         sdmStr = "NodeStatus_Ready"
+         
+         if self.nodeState.rpcStatus_ == RpcStatus_Disabled:
+            return sdmStr
+         
+         if self.nodeState.rpcStatus_ != RpcStatus_Online:
+            sdmStr = "NodeStatus_Initializing"
+            
+         else:
+            if self.nodeState.chainState_.state() == ChainStatus_Unknown:
+               sdmStr = "NodeStatus_Initializing"
+            elif self.nodeState.chainState_.state() == ChainStatus_Syncing:
+               sdmStr = "NodeStatus_Syncing"   
+               
+      return sdmStr
    
    #############################################################################
    def satoshiIsAvailable(self):

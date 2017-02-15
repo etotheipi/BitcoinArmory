@@ -814,7 +814,7 @@ protected:
          = [&](BDMPhase phase, double prog, unsigned time, unsigned numericProgress)
       {
          auto&& notifPtr = make_unique<BDV_Notification_Progress>(
-            phase, prog, time, numericProgress);
+            phase, prog, time, numericProgress, wltIDs);
 
          bdm_->notificationStack_.push_back(move(notifPtr));
       };

@@ -113,14 +113,15 @@ struct ProgressData
    double progress_;
    unsigned time_;
    unsigned numericProgress_;
+   vector<string> wltIDs_;
 
    ProgressData(void)
    {}
 
    ProgressData(BDMPhase phase, double prog, 
-      unsigned time, unsigned numProg) :
+      unsigned time, unsigned numProg, vector<string> wltIDs) :
       phase_(phase), progress_(prog), time_(time),
-      numericProgress_(numProg)
+      numericProgress_(numProg), wltIDs_(wltIDs)
    {}
 
    void serialize(BinaryWriter& bw) const;

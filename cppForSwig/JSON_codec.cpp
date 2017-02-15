@@ -313,8 +313,9 @@ void JSON_state::unserialize(istream& s)
    {
    case 'n':
    {
-      string val_null(4, ' ');
-      s.read(&val_null[0], 4);
+      string val_null;
+      val_null.resize(4);
+      s.read(&val_null[0], 5);
 
       if (val_null != "null")
          throw JSON_Exception("invalid state");
@@ -325,8 +326,9 @@ void JSON_state::unserialize(istream& s)
 
    case 't':
    {
-      string val_true(4, ' ');
-      s.getline(&val_true[0], 4);
+      string val_true;
+      val_true.resize(4);
+      s.getline(&val_true[0], 5);
 
       if (val_true != "true")
          throw JSON_Exception("invalid state");
@@ -337,8 +339,9 @@ void JSON_state::unserialize(istream& s)
 
    case 'f':
    {
-      string val_false(5, ' ');
-      s.getline(&val_false[0], 5);
+      string val_false;
+      val_false.resize(5);
+      s.getline(&val_false[0], 6);
 
       if (val_false != "false")
          throw JSON_Exception("invalid state");

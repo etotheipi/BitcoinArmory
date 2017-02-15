@@ -1411,7 +1411,7 @@ void BDV_Server_Object::maintenanceThread(void)
                dynamic_pointer_cast<BDV_Notification_Progress>(notifPtr);
 
             ProgressData pd(payload->phase_, payload->progress_,
-               payload->time_, payload->numericProgress_);
+               payload->time_, payload->numericProgress_, payload->walletIDs_);
 
             Arguments args2;
             BinaryDataObject bdo("BDV_Progress");
@@ -1449,16 +1449,6 @@ void BDV_Server_Object::zcCallback(
 {
    auto notificationPtr = make_unique<BDV_Notification_ZC>(
       move(zcMap));
-
-   notificationStack_.push_back(move(notificationPtr));
-}
-
-///////////////////////////////////////////////////////////////////////////////
-void BDV_Server_Object::progressCallback(BDMPhase phase, double progress,
-   unsigned time, unsigned numericProgress)
-{
-   auto notificationPtr = make_unique<BDV_Notification_Progress>(
-      phase, progress, time, numericProgress);
 
    notificationStack_.push_back(move(notificationPtr));
 }

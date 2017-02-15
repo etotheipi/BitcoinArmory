@@ -70,6 +70,7 @@ struct BlockDataManagerConfig
    bool checkChain_ = false;
 
    const string cookie_;
+   bool useCookie_ = false;
 
    /////////////
    static uint8_t pubkeyHashPrefix_;

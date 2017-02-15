@@ -4276,31 +4276,14 @@ class ArmoryMainWindow(QMainWindow):
          return
       
       sdmState = TheSDM.getSDMState()
-      sdmStr = ""
-      
-      if sdmState.status_ == NodeStatus_Offline:
-         sdmStr = "NodeStatus_Offline"
-         
-         if self.doAutoBitcoind:
-            if TheSDM.isRunningBitcoind():
-               sdmStr = "NodeStatus_Initializing"
-            elif not os.path.exists(TheSDM.executable):
-               sdmStr = "NodeStatus_BadPath"
-      
-      else:
-         sdmStr = "NodeStatus_Ready"
-         
-         if sdmState.rpcStatus_ != RpcStatus_Online:
-            sdmStr = "NodeStatus_Initializing"
-            
-         else:
-            if sdmState.chainState_.state() == ChainStatus_Unknown:
-               sdmStr = "NodeStatus_Initializing"
-            elif sdmState.chainState_.state() == ChainStatus_Syncing:
-               sdmStr = "NodeStatus_Syncing"
+      sdmStr = TheSDM.getSDMStateStr()
                
 
       if TheBDM.getState()==BDM_SCANNING:
+         
+         self.lblDashModeSync.setVisible(False)
+         self.barProgressSync.setVisible(False)
+         self.lblTimeLeftSync.setVisible(False)
 
          self.lblDashModeSync.setVisible(self.doAutoBitcoind)
          self.barProgressSync.setVisible(self.doAutoBitcoind)
@@ -4833,29 +4816,7 @@ class ArmoryMainWindow(QMainWindow):
       if self.isShuttingDown:
          return
 
-      sdmState = TheSDM.getSDMState()
-      sdmStr = ""
-      
-      if sdmState.status_ == NodeStatus_Offline:
-         sdmStr = "NodeStatus_Offline"
-         
-         if self.doAutoBitcoind:
-            if TheSDM.isRunningBitcoind():
-               sdmStr = "NodeStatus_Initializing"
-            elif not os.path.exists(TheSDM.executable):
-               sdmStr = "NodeStatus_BadPath"
-      
-      else:
-         sdmStr = "NodeStatus_Ready"
-         
-         if sdmState.rpcStatus_ != RpcStatus_Online:
-            sdmStr = "NodeStatus_Initializing"
-            
-         else:
-            if sdmState.chainState_.state() == ChainStatus_Unknown:
-               sdmStr = "NodeStatus_Initializing"
-            elif sdmState.chainState_.state() == ChainStatus_Syncing:
-               sdmStr = "NodeStatus_Syncing"
+      sdmStr = TheSDM.getSDMStateStr()
       
       bdmState = TheBDM.getState()
       descr  = ''
@@ -4910,6 +4871,7 @@ class ArmoryMainWindow(QMainWindow):
          if sdmStr == "NodeStatus_Offline":
             # User is letting Armory manage the Satoshi client for them.
    
+            setSyncRowVisible(False)
             self.lblBusy.setVisible(False)
             self.btnModeSwitch.setVisible(False)
    
@@ -5043,6 +5005,7 @@ class ArmoryMainWindow(QMainWindow):
 
       elif bdmState == BDM_SCANNING:
          LOGINFO('Dashboard switched to "Scanning" mode')
+         setSyncRowVisible(False)
          self.lblDashModeScan.setVisible(True)
          self.barProgressScan.setVisible(True)
          self.lblTimeLeftScan.setVisible(True)
@@ -5229,7 +5192,7 @@ class ArmoryMainWindow(QMainWindow):
    def updateStatusBarText(self):
       if self.nodeStatus.status_ == Cpp.NodeStatus_Online:
          self.lblArmoryStatus.setText(self.tr('<font color=%1>Connected (%2 blocks)</font> ').arg(
-            htmlColor('TextGreen'), TheBDM.getTopBlockHeight()))
+            htmlColor('TextGreen'), str(TheBDM.getTopBlockHeight())))
          
          
          def getToolTipTextOnline():
@@ -5704,9 +5667,9 @@ class ArmoryMainWindow(QMainWindow):
                   recipStr = self.tr('<Multiple Recipients>')
 
             title = self.tr('Bitcoins Sent!')
-            dispLines.append(self.tr('Amount:  %1 BTC').arg(totalStr))
-            dispLines.append(self.tr('From:    %1').arg(wltName ))
-            dispLines.append(self.tr('To:      %1').arg(recipStr))
+            dispLines.append(unicode(self.tr('Amount:  %1 BTC').arg(totalStr)))
+            dispLines.append(unicode(self.tr('From:    %1').arg(wltName )))
+            dispLines.append(unicode(self.tr('To:      %1').arg(recipStr)))
 
          self.showTrayMsg(title, '\n'.join(dispLines), \
                           QSystemTrayIcon.Information, 10000)
