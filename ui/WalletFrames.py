@@ -250,8 +250,6 @@ class SelectWalletFrame(ArmoryFrame):
       nUtxo = len(self.customUtxoList)
       if self.altBalance == wlt.getBalance('Spendable'):
          self.lblCoinCtrl.setText(self.tr('Source: All addresses'))
-         self.customUtxoList = None
-         self.altBalance = None
       elif nUtxo == 0:
          self.lblCoinCtrl.setText(self.tr('Source: None selected'))
       elif nUtxo == 1:
@@ -305,9 +303,10 @@ class SelectWalletFrame(ArmoryFrame):
             self.updateOnCoinControl()
       
    def updateOnCoinControl(self):
-      useAllAddr = (self.altBalance == None)
       wlt = self.main.walletMap[self.getSelectedWltID()]
-      fullBal = wlt.getBalance('Spendable')
+      fullBal = wlt.getBalance('Spendable')      
+      useAllAddr = (self.altBalance == fullBal or self.altBalance == None)
+
       if useAllAddr:
          self.dispID.setText(wlt.uniqueIDB58)
          self.dispName.setText(wlt.labelName)

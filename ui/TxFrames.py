@@ -441,15 +441,19 @@ class SendBitcoinsFrame(ArmoryFrame):
             self.coinSelection.selectUTXOs(fee, feePerByte, adjust_fee)
          else:
             
-            rawUtxoList = []
+            serializedUtxoList = []
             for utxo in self.customUtxoList:
                bp = BinaryPacker()
                bp.put(UINT64, utxo.getValue())
-               bp.put(VAR_STR, utxo.getScript())
-               rawUtxoList.append(bp.getBinaryString())
+               bp.put(UINT32, utxo.getTxHeight())
+               bp.put(UINT16, utxo.getTxIndex())
+               bp.put(UINT16, utxo.getTxOutIndex())
+               bp.put(BINARY_CHUNK, utxo.getTxHash())
+               bp.put(BINARY_CHUNK, utxo.getScript())
+               serializedUtxoList.append(bp.getBinaryString())
                
             self.coinSelection.processCustomUtxoList(\
-               rawUtxoList, fee, feePerByte, self.useCustomListInFull, adjust_fee)   
+               serializedUtxoList, fee, feePerByte, self.useCustomListInFull, adjust_fee)   
               
          self.feeDialog.updateLabelButton(self.coinSelection)
       except:

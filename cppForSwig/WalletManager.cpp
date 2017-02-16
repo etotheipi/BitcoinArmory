@@ -471,16 +471,16 @@ void CoinSelectionInstance::checkSpendVal() const
 
 ////////////////////////////////////////////////////////////////////////////////
 void CoinSelectionInstance::processCustomUtxoList(
-   const vector<BinaryData>& rawUtxos,
+   const vector<BinaryData>& serializedUtxos,
    uint64_t fee, float fee_byte,
    bool useExhaustiveList, bool adjustFee)
 {
    vector<UTXO> utxoVec;
 
-   for (auto& rawUtxo : rawUtxos)
+   for (auto& serializedUtxo : serializedUtxos)
    {
       UTXO utxo;
-      utxo.unserializeRaw(rawUtxo);
+      utxo.unserialize(serializedUtxo);
       utxoVec.push_back(move(utxo));
    }
 

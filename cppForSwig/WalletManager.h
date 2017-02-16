@@ -76,7 +76,7 @@ public:
 
    void selectUTXOs(uint64_t fee, float fee_byte, bool adjustFee);
    void processCustomUtxoList(
-      const vector<BinaryData>& rawUtxos, 
+      const vector<BinaryData>& serializedUtxos, 
       uint64_t fee, float fee_byte,
       bool useExhaustiveList, bool adjustFee);
 

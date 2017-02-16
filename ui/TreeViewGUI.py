@@ -60,8 +60,10 @@ class CoinControlUtxoItem():
    def __init__(self, parent, utxo):
       self.utxo = utxo
       self.parent = parent
-      self.name = self.tr("Block: #%1 | Tx: #%2 | TxOut: #%3").arg(utxo.getTxHeight(),
-         utxo.getTxIndex(), utxo.getTxOutIndex())
+      self.name = QObject().tr("Block: #%1 | Tx: #%2 | TxOut: #%3").arg(\
+         unicode(utxo.getTxHeight()), \
+         unicode(utxo.getTxIndex()), \
+         unicode(utxo.getTxOutIndex()))
          
       
       self.state = Qt.Checked
@@ -365,7 +367,8 @@ class TreeStructure_AddressDisplay():
 ################################################################################
 class TreeStructure_CoinControl():
    
-   def __init__(self, wallet):
+   def __init__(self, main, wallet):
+      self.main = main
       self.wallet = wallet
       self.root = None
       
@@ -454,9 +457,9 @@ class TreeStructure_CoinControl():
          return nodeMain
       
       #create top 3 nodes
-      nodeUTXO   = createChildNode(self.tr("Unspent Outputs"), "Unspent")
-      nodeRBF = createChildNode(self.tr("RBF Eligible"), "RBF")
-      nodeCPFP = createChildNode(self.tr("CPFP Outputs"), "CPFP")
+      nodeUTXO   = createChildNode(self.main.tr("Unspent Outputs"), "Unspent")
+      nodeRBF = createChildNode(self.main.tr("RBF Eligible"), "RBF")
+      nodeCPFP = createChildNode(self.main.tr("CPFP Outputs"), "CPFP")
       
       self.root.appendEntry(nodeUTXO)
       self.root.appendEntry(nodeRBF)
@@ -610,7 +613,7 @@ class CoinControlTreeModel(ArmoryTreeModel):
 
       self.wlt = wlt
       
-      self.treeStruct = TreeStructure_CoinControl(self.wlt)
+      self.treeStruct = TreeStructure_CoinControl(main, self.wlt)
       self.root = NodeItem(0, None, self.treeStruct.root)
       
    def columnCount(self, index=QModelIndex()):
