@@ -5780,9 +5780,8 @@ struct TestResolverFeed : public ResolverFeed
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(TransactionsTest, CheckChain_Test)
 {
-   /***this test fails because the p2sh tx in our unit test chain are botched
-   (the input script has opcode when it should only be push data)
-   ***/
+   //this test fails because the p2sh tx in our unit test chain are botched
+   //(the input script has opcode when it should only be push data)
 
    config.threadCount_ = 1;
    config.checkChain_ = true;

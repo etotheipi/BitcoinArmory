@@ -98,14 +98,14 @@ enum WalletMetaType
 ////
 struct WalletMeta
 {
-   LMDBEnv* dbEnv_;
+   shared_ptr<LMDBEnv> dbEnv_;
    WalletMetaType type_;
    BinaryData parentID_;
    BinaryData walletID_;
    string dbName_;
 
    //tors
-   WalletMeta(LMDBEnv* env, WalletMetaType type) :
+   WalletMeta(shared_ptr<LMDBEnv> env, WalletMetaType type) :
       dbEnv_(env), type_(type)
    {}
 
@@ -128,7 +128,7 @@ struct WalletMeta
    virtual bool shouldLoad(void) const = 0;
 
    //static
-   static shared_ptr<WalletMeta> deserialize(LMDBEnv* env,
+   static shared_ptr<WalletMeta> deserialize(shared_ptr<LMDBEnv> env,
       BinaryDataRef key, BinaryDataRef val);
 };
 
@@ -136,7 +136,7 @@ struct WalletMeta
 struct WalletMeta_Single : public WalletMeta
 {
    //tors
-   WalletMeta_Single(LMDBEnv* dbEnv) :
+   WalletMeta_Single(shared_ptr<LMDBEnv> dbEnv) :
       WalletMeta(dbEnv, WalletMetaType_Single)
    {}
 
@@ -149,7 +149,7 @@ struct WalletMeta_Single : public WalletMeta
 struct WalletMeta_Multisig : public WalletMeta
 {
    //tors
-   WalletMeta_Multisig(LMDBEnv* dbEnv) :
+   WalletMeta_Multisig(shared_ptr<LMDBEnv> dbEnv) :
       WalletMeta(dbEnv, WalletMetaType_Multisig)
    {}
 
@@ -162,7 +162,7 @@ struct WalletMeta_Multisig : public WalletMeta
 struct WalletMeta_Subwallet : public WalletMeta
 {
    //tors
-   WalletMeta_Subwallet(LMDBEnv* dbEnv) :
+   WalletMeta_Subwallet(shared_ptr<LMDBEnv> dbEnv) :
       WalletMeta(dbEnv, WalletMetaType_Subwallet)
    {}
 
@@ -785,10 +785,9 @@ class AssetWallet : protected Lockable
    friend class ResolvedFeed_AssetWalletMS;
 
 protected:
-   LMDBEnv* dbEnv_ = nullptr;
+   shared_ptr<LMDBEnv> dbEnv_ = nullptr;
    LMDB* db_ = nullptr;
    const string dbName_;
-   bool ownsEnv_ = false;
 
    atomic<int> highestUsedAddressIndex_;
 
@@ -811,12 +810,12 @@ protected:
    AssetWallet(shared_ptr<WalletMeta> metaPtr) :
       dbEnv_(metaPtr->dbEnv_), dbName_(metaPtr->dbName_)
    {
-      db_ = new LMDB(dbEnv_, dbName_);
+      db_ = new LMDB(dbEnv_.get(), dbName_);
    }
 
-   static LMDBEnv* getEnvFromFile(const string& path, unsigned dbCount = 3)
+   static shared_ptr<LMDBEnv> getEnvFromFile(const string& path, unsigned dbCount = 3)
    {
-      LMDBEnv* env = new LMDBEnv(dbCount);
+      auto env = make_shared<LMDBEnv>(dbCount);
       env->open(path);
 
       return env;
@@ -848,14 +847,14 @@ protected:
    //static
    static BinaryDataRef getDataRefForKey(const BinaryData& key, LMDB* db);
    static unsigned getDbCountAndNames(
-      LMDBEnv* dbEnv, 
+      shared_ptr<LMDBEnv> dbEnv, 
       map<BinaryData, shared_ptr<WalletMeta>>&, 
       BinaryData& masterID, 
       BinaryData& mainWalletID);
    static void putDbName(LMDB* db, shared_ptr<WalletMeta>);
    static void setMainWallet(LMDB* db, shared_ptr<WalletMeta>);
    static void putData(LMDB* db, const BinaryData& key, const BinaryData& data);
-   static void initWalletMetaDB(LMDBEnv*, const string&);
+   static void initWalletMetaDB(shared_ptr<LMDBEnv>, const string&);
 
 public:
    //tors
@@ -868,14 +867,6 @@ public:
          db_->close();
          delete db_;
          db_ = nullptr;
-      }
-
-      if (dbEnv_ != nullptr && 
-          ownsEnv_)
-      {
-         dbEnv_->close();
-         delete dbEnv_;
-         dbEnv_ = nullptr;
       }
 
       addresses_.clear();

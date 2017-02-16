@@ -1195,6 +1195,15 @@ public:
       shared_ptr<SignerProxy> proxy) :
       script_(script), feed_(feed), proxy_(proxy)
    {}
+
+   ~StackResolver(void)
+   {
+      for (auto& stackEntry : stack_)
+      {
+         stackEntry->parent_ = nullptr;
+         stackEntry->opcodes_.clear();
+      }
+   }
    
    shared_ptr<ResolvedStack> getResolvedStack();
    unsigned getFlags(void) const { return flags_; }

@@ -79,7 +79,7 @@ bool WalletMeta_Subwallet::shouldLoad() const
 
 ////////////////////////////////////////////////////////////////////////////////
 shared_ptr<WalletMeta> WalletMeta::deserialize(
-   LMDBEnv* env, BinaryDataRef key, BinaryDataRef val)
+   shared_ptr<LMDBEnv> env, BinaryDataRef key, BinaryDataRef val)
 {
    if (key.getSize() < 2)
       throw WalletException("invalid meta key");
@@ -171,9 +171,9 @@ createFromPrivateRoot_Armory135(
       LMDB dbMeta;
 
       {
-         dbMeta.open(dbenv, WALLETMETA_DBNAME);
+         dbMeta.open(dbenv.get(), WALLETMETA_DBNAME);
 
-        LMDBEnv::Transaction metatx(dbenv, LMDB::ReadWrite);
+        LMDBEnv::Transaction metatx(dbenv.get(), LMDB::ReadWrite);
         setMainWallet(&dbMeta, wltMetaPtr);
       }
 
@@ -220,9 +220,9 @@ createFromPublicRoot_Armory135(
       LMDB dbMeta;
 
       {
-         dbMeta.open(dbenv, WALLETMETA_DBNAME);
+         dbMeta.open(dbenv.get(), WALLETMETA_DBNAME);
 
-         LMDBEnv::Transaction metatx(dbenv, LMDB::ReadWrite);
+         LMDBEnv::Transaction metatx(dbenv.get(), LMDB::ReadWrite);
          setMainWallet(&dbMeta, wltMetaPtr);
       }
 
@@ -253,8 +253,7 @@ shared_ptr<AssetWallet> AssetWallet::loadMainWalletFromFile(const string& path)
    }
 
    //close env, reopen env with proper count
-   dbenv->close();
-   delete dbenv;
+   dbenv.reset();
 
    auto metaIter = metaMap.find(mainWalletID);
    if (metaIter == metaMap.end())
@@ -293,7 +292,6 @@ shared_ptr<AssetWallet> AssetWallet::loadMainWalletFromFile(const string& path)
       throw WalletException("unexpected main wallet type");
    }
 
-   wltPtr->ownsEnv_ = true;
    return wltPtr;
 }
 
@@ -320,11 +318,12 @@ void AssetWallet::setMainWallet(LMDB* db, shared_ptr<WalletMeta> wltMetaPtr)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void AssetWallet::initWalletMetaDB(LMDBEnv* dbenv, const string& masterID)
+void AssetWallet::initWalletMetaDB(
+   shared_ptr<LMDBEnv> dbenv, const string& masterID)
 {
    LMDB db;
    {
-      db.open(dbenv, WALLETMETA_DBNAME);
+      db.open(dbenv.get(), WALLETMETA_DBNAME);
 
       BinaryWriter bwKey;
       bwKey.put_uint32_t(MASTERID_KEY);
@@ -336,7 +335,7 @@ void AssetWallet::initWalletMetaDB(LMDBEnv* dbenv, const string& masterID)
       idRef.setRef(masterID);
       bwData.put_BinaryDataRef(idRef);
 
-      LMDBEnv::Transaction tx(dbenv, LMDB::ReadWrite);
+      LMDBEnv::Transaction tx(dbenv.get(), LMDB::ReadWrite);
       putData(&db, bwKey.getData(), bwData.getData());
    }
 
@@ -344,7 +343,7 @@ void AssetWallet::initWalletMetaDB(LMDBEnv* dbenv, const string& masterID)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-unsigned AssetWallet::getDbCountAndNames(LMDBEnv* dbEnv,
+unsigned AssetWallet::getDbCountAndNames(shared_ptr<LMDBEnv> dbEnv,
    map<BinaryData, shared_ptr<WalletMeta>>& metaMap,
    BinaryData& masterID, BinaryData& mainWalletID)
 {
@@ -354,10 +353,10 @@ unsigned AssetWallet::getDbCountAndNames(LMDBEnv* dbEnv,
    unsigned dbcount = 0;
 
    LMDB db;
-   db.open(dbEnv, WALLETMETA_DBNAME);
+   db.open(dbEnv.get(), WALLETMETA_DBNAME);
 
    {
-      LMDBEnv::Transaction tx(dbEnv, LMDB::ReadOnly);
+      LMDBEnv::Transaction tx(dbEnv.get(), LMDB::ReadOnly);
 
       {
          //masterID
@@ -487,9 +486,9 @@ shared_ptr<AssetWallet_Single> AssetWallet_Single::initWalletDb(
       LMDB metadb;
 
       {
-         metadb.open(walletPtr->dbEnv_, WALLETMETA_DBNAME);
+         metadb.open(walletPtr->dbEnv_.get(), WALLETMETA_DBNAME);
 
-         LMDBEnv::Transaction tx(walletPtr->dbEnv_, LMDB::ReadWrite);
+         LMDBEnv::Transaction tx(walletPtr->dbEnv_.get(), LMDB::ReadWrite);
          putDbName(&metadb, metaPtr);
       }
 
@@ -498,7 +497,7 @@ shared_ptr<AssetWallet_Single> AssetWallet_Single::initWalletDb(
 
 
    /**insert the original entries**/
-   LMDBEnv::Transaction tx(walletPtr->dbEnv_, LMDB::ReadWrite);
+   LMDBEnv::Transaction tx(walletPtr->dbEnv_.get(), LMDB::ReadWrite);
    walletPtr->putHeaderData(
       metaPtr->parentID_, metaPtr->walletID_, derScheme, addressType, 0);
 
@@ -559,9 +558,9 @@ shared_ptr<AssetWallet_Single> AssetWallet_Single::initWalletDbFromPubRoot(
       LMDB metadb;
 
       {
-         metadb.open(walletPtr->dbEnv_, WALLETMETA_DBNAME);
+         metadb.open(walletPtr->dbEnv_.get(), WALLETMETA_DBNAME);
 
-         LMDBEnv::Transaction tx(walletPtr->dbEnv_, LMDB::ReadWrite);
+         LMDBEnv::Transaction tx(walletPtr->dbEnv_.get(), LMDB::ReadWrite);
          putDbName(&metadb, metaPtr);
       }
 
@@ -569,7 +568,7 @@ shared_ptr<AssetWallet_Single> AssetWallet_Single::initWalletDbFromPubRoot(
    }
 
    /**insert the original entries**/
-   LMDBEnv::Transaction tx(walletPtr->dbEnv_, LMDB::ReadWrite);
+   LMDBEnv::Transaction tx(walletPtr->dbEnv_.get(), LMDB::ReadWrite);
    walletPtr->putHeaderData(
       metaPtr->parentID_, metaPtr->walletID_, derScheme, addressType, 0);
 
@@ -605,7 +604,7 @@ void AssetWallet_Single::putHeaderData(const BinaryData& parentID,
    shared_ptr<DerivationScheme> derScheme,
    AddressEntryType aet, int topUsedIndex)
 {
-   LMDBEnv::Transaction tx(dbEnv_, LMDB::ReadWrite);
+   LMDBEnv::Transaction tx(dbEnv_.get(), LMDB::ReadWrite);
 
    {
       //wallet type
@@ -671,9 +670,9 @@ shared_ptr<AssetWallet_Multisig> AssetWallet_Multisig::createFromPrivateRoot(
    LMDB dbMeta;
    {
       //put main name in meta db
-      dbMeta.open(dbenv, WALLETMETA_DBNAME);
+      dbMeta.open(dbenv.get(), WALLETMETA_DBNAME);
    
-      LMDBEnv::Transaction metatx(dbenv, LMDB::ReadWrite);
+      LMDBEnv::Transaction metatx(dbenv.get(), LMDB::ReadWrite);
       putDbName(&dbMeta, mainWltMetaPtr);
       setMainWallet(&dbMeta, mainWltMetaPtr);
    }
@@ -708,7 +707,7 @@ shared_ptr<AssetWallet_Multisig> AssetWallet_Multisig::createFromPrivateRoot(
       subWallets, N, M);
 
    {
-      LMDBEnv::Transaction tx(walletPtr->dbEnv_, LMDB::ReadWrite);
+      LMDBEnv::Transaction tx(walletPtr->dbEnv_.get(), LMDB::ReadWrite);
 
       {
          //wallet type
@@ -755,7 +754,7 @@ void AssetWallet::putHeaderData(const BinaryData& parentID,
    shared_ptr<DerivationScheme> derScheme,
    AddressEntryType aet, int topUsedIndex)
 {
-   LMDBEnv::Transaction tx(dbEnv_, LMDB::ReadWrite);
+   LMDBEnv::Transaction tx(dbEnv_.get(), LMDB::ReadWrite);
 
    {
       //parent ID
@@ -848,7 +847,7 @@ void AssetWallet_Single::readFromFile()
    if (dbEnv_ == nullptr || db_ == nullptr)
       throw WalletException("uninitialized wallet object");
 
-   LMDBEnv::Transaction tx(dbEnv_, LMDB::ReadOnly);
+   LMDBEnv::Transaction tx(dbEnv_.get(), LMDB::ReadOnly);
 
    {
       //parentId
@@ -960,7 +959,7 @@ void AssetWallet_Multisig::readFromFile()
       throw WalletException("uninitialized wallet object");
 
    {
-      LMDBEnv::Transaction tx(dbEnv_, LMDB::ReadOnly);
+      LMDBEnv::Transaction tx(dbEnv_.get(), LMDB::ReadOnly);
 
       {
          //parentId
@@ -1092,7 +1091,7 @@ void AssetWallet::putData(BinaryWriter& key, BinaryWriter& data)
 ////////////////////////////////////////////////////////////////////////////////
 unsigned AssetWallet::getAndBumpHighestUsedIndex()
 {
-   LMDBEnv::Transaction tx(dbEnv_, LMDB::ReadWrite);
+   LMDBEnv::Transaction tx(dbEnv_.get(), LMDB::ReadWrite);
 
    auto index = highestUsedAddressIndex_.fetch_add(1, memory_order_relaxed);
 
@@ -1387,7 +1386,7 @@ void AssetWallet::writeAssetEntry(shared_ptr<AssetEntry> entryPtr)
    CharacterArrayRef keyRef(dbKey.getSize(), dbKey.getPtr());
    CharacterArrayRef dataRef(serializedEntry.getSize(), serializedEntry.getPtr());
 
-   LMDBEnv::Transaction tx(dbEnv_, LMDB::ReadWrite);
+   LMDBEnv::Transaction tx(dbEnv_.get(), LMDB::ReadWrite);
    db_->insert(keyRef, dataRef);
 
    entryPtr->doNotCommit();
@@ -1399,7 +1398,7 @@ void AssetWallet::deleteAssetEntry(shared_ptr<AssetEntry> entryPtr)
    auto&& dbKey = entryPtr->getDbKey();
    CharacterArrayRef keyRef(dbKey.getSize(), dbKey.getPtr());
 
-   LMDBEnv::Transaction tx(dbEnv_, LMDB::ReadWrite);
+   LMDBEnv::Transaction tx(dbEnv_.get(), LMDB::ReadWrite);
    db_->erase(keyRef);
 }
 
@@ -1407,7 +1406,7 @@ void AssetWallet::deleteAssetEntry(shared_ptr<AssetEntry> entryPtr)
 ////////////////////////////////////////////////////////////////////////////////
 void AssetWallet::update()
 {
-   LMDBEnv::Transaction tx(dbEnv_, LMDB::ReadWrite);
+   LMDBEnv::Transaction tx(dbEnv_.get(), LMDB::ReadWrite);
 
    for (auto& entryPtr : assets_)
       writeAssetEntry(entryPtr.second);
@@ -1809,7 +1808,7 @@ void AssetWallet::extendChain(shared_ptr<AssetEntry> assetPtr, unsigned count)
 
    auto&& assetVec = derScheme_->extendChain(assetPtr, count);
 
-   LMDBEnv::Transaction tx(dbEnv_, LMDB::ReadWrite);
+   LMDBEnv::Transaction tx(dbEnv_.get(), LMDB::ReadWrite);
 
    {
       for (auto& asset : assetVec)
