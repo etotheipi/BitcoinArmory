@@ -214,6 +214,7 @@
     <ClCompile Include="..\BlockUtils.cpp" />
     <ClCompile Include="..\BtcUtils.cpp" />
     <ClCompile Include="..\BtcWallet.cpp" />
+    <ClCompile Include="..\CoinSelection.cpp" />
     <ClCompile Include="..\DatabaseBuilder.cpp" />
     <ClCompile Include="..\DataObject.cpp" />
     <ClCompile Include="..\DBUtils.cpp" />
@@ -222,6 +223,7 @@
     <ClCompile Include="..\gtest\CppBlockUtilsTests.cpp" />
     <ClCompile Include="..\gtest\gtest-all.cc" />
     <ClCompile Include="..\HistoryPager.cpp" />
+    <ClCompile Include="..\JSON_codec.cpp" />
     <ClCompile Include="..\LedgerEntry.cpp" />
     <ClCompile Include="..\leveldb_windows_port\win32_posix\dirent_win32.cpp" />
     <ClCompile Include="..\leveldb_windows_port\win32_posix\mman.cpp" />
@@ -229,7 +231,9 @@
     <ClCompile Include="..\leveldb_windows_port\win32_posix\win32_posix.cc" />
     <ClCompile Include="..\leveldb_windows_port\win32_posix\Win_TranslatePath.cpp" />
     <ClCompile Include="..\lmdb_wrapper.cpp" />
+    <ClCompile Include="..\nodeRPC.cpp" />
     <ClCompile Include="..\Progress.cpp" />
+    <ClCompile Include="..\ReentrantLock.cpp" />
     <ClCompile Include="..\ScrAddrObj.cpp" />
     <ClCompile Include="..\Script.cpp" />
     <ClCompile Include="..\Signer.cpp" />

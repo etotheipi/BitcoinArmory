@@ -1915,6 +1915,8 @@ class BtcUtilsTest : public ::testing::Test
 protected:
    virtual void SetUp(void) 
    {
+      BlockDataManagerConfig().selectNetwork("Main");
+
       rawHead_ = READHEX(
          "010000001d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5bb5d0000"
          "000000009762547903d36881a86751f3f5049e23050113f779735ef82734ebf0"
@@ -10427,7 +10429,7 @@ TEST_F(BlockUtilsBare, FCGIStack)
    //cleanup
    bdvObj.unregisterFromDB();
    pCallback.shutdown();
-   bdvObj.shutdown("abc");
+   bdvObj.shutdown(config.cookie_);
    
    if (tID.joinable())
       tID.join();

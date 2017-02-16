@@ -31,6 +31,12 @@ void BtcWallet::addScrAddress(const BinaryData& scrAddr)
    vector<BinaryData> saVec;
    saVec.push_back(scrAddr);
 
+   {
+      auto scrAddrMap = scrAddrMap_.get();
+      for (auto& scraddr : *scrAddrMap)
+         saVec.push_back(scraddr.first);
+   }
+
    string IDstr(walletID_.getCharPtr(), walletID_.getSize());
 
    bdvPtr_->registerAddresses(saVec, IDstr, false);
