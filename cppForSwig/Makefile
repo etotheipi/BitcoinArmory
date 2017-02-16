@@ -42,7 +42,7 @@ OBJS_Client = UniversalTimer.o BinaryData.o \
 	BlockDataManagerConfig.o TxClasses.o \
 	WalletManager.o Wallets.o Script.o Signer.o \
 	Transactions.o mdb.o midl.o lmdbpp.o \
-        CoinSelection.o ReentrantLock.o \
+        CoinSelection.o ReentrantLock.o JSON_codec.o \
 	libcryptopp.a
 
 OBJS_Server = UniversalTimer.o BinaryData.o lmdb_wrapper.o \
