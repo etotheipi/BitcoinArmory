@@ -33,22 +33,35 @@ RpcStatus NodeRPC::setupConnection()
 {
    ReentrantLock lock(this);
 
-   basicAuthString_ = move(getAuthString());
-      
-   if (basicAuthString_.size() == 0)
+   //test the socket
+   if (!socket_->testConnection())
+      return RpcStatus_Disabled;
+
+   auto&& authString = getAuthString();
+   if (authString.size() == 0)
       return RpcStatus_BadAuth;
 
-   auto&& b64_ba = BtcUtils::base64_encode(basicAuthString_);
+   if (basicAuthString_ != authString)
+   {
+      basicAuthString_ = move(authString);
+      auto&& b64_ba = BtcUtils::base64_encode(basicAuthString_);
 
-   socket_->resetHeaders();
-   stringstream auth_header;
-   auth_header << "Authorization: Basic " << b64_ba;
-   socket_->addHeader(auth_header.str());
+      socket_->resetHeaders();
+      stringstream auth_header;
+      auth_header << "Authorization: Basic " << b64_ba;
+      socket_->addHeader(auth_header.str());
 
-   goodNode_ = true;
-   nodeChainState_.reset();
+      goodNode_ = true;
+      nodeChainState_.reset();
+      
+      auto status = testConnection();
+      if (status == RpcStatus_Online)
+         LOGINFO << "RPC connection established";
 
-   return testConnection();
+      return status;
+   }
+
+   return RpcStatus_Disabled;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -62,7 +75,7 @@ RpcStatus NodeRPC::testConnection()
    goodNode_ = false;
 
    JSON_object json_obj;
-   json_obj.add_pair("method", "getinfo");
+   json_obj.add_pair("method", "getblockcount");
 
    string response;
    try
@@ -72,7 +85,6 @@ RpcStatus NodeRPC::testConnection()
 
       if (response_obj.isResponseValid(json_obj.id_))
       {
-         LOGINFO << "RPC connection established";
          goodNode_ = true;
          return RpcStatus_Online;
       }
@@ -156,20 +168,6 @@ string NodeRPC::getAuthString()
       auto&& lines = BlockDataManagerConfig::getLines(confPath);
       auto&& keyVals = BlockDataManagerConfig::getKeyValsFromLines(lines, '=');
       
-      //check node is running rpc server
-      auto keyIter = keyVals.find("server");
-      if (keyIter == keyVals.end())
-      {
-         LOGERR << "missing server option in node configuration file";
-         throw runtime_error("");
-      }
-
-      if (keyIter->second != "1")
-      {
-         LOGERR << "server option is disabled";
-         throw runtime_error("");
-      }
-
       //get rpcuser
       auto userIter = keyVals.find("rpcuser");
       if (userIter == keyVals.end())
@@ -227,15 +225,22 @@ bool NodeRPC::updateChainStatus(void)
    ReentrantLock lock(this);
 
    //get top block header
-   JSON_object json_getbestblockhash;
-   json_getbestblockhash.add_pair("method", "getbestblockhash");
+   JSON_object json_getblockchaininfo;
+   json_getblockchaininfo.add_pair("method", "getblockchaininfo");
 
    auto&& response = JSON_decode(
-      socket_->writeAndRead(JSON_encode(json_getbestblockhash)));
-   if (!response.isResponseValid(json_getbestblockhash.id_))
+      socket_->writeAndRead(JSON_encode(json_getblockchaininfo)));
+   if (!response.isResponseValid(json_getblockchaininfo.id_))
       throw JSON_Exception("invalid response");
 
-   auto hash_obj = response.getValForKey("result");
+   auto getblockchaininfo_result = response.getValForKey("result");
+   auto getblockchaininfo_object = dynamic_pointer_cast<JSON_object>(
+                                    getblockchaininfo_result);
+
+   auto hash_obj = getblockchaininfo_object->getValForKey("bestblockhash");
+   if (hash_obj == nullptr)
+      return false;
+   
    auto params_obj = make_shared<JSON_array>();
    params_obj->add_value(hash_obj);
 
@@ -268,7 +273,7 @@ bool NodeRPC::updateChainStatus(void)
    nodeChainState_.appendHeightAndTime(height_val->val_, time_val->val_);
 
    //figure out state
-   return nodeChainState_.processState();
+   return nodeChainState_.processState(getblockchaininfo_object);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

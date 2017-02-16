@@ -65,7 +65,6 @@ from armoryengine.ArmoryUtils import CheckHash160, binary_to_hex, coin2str, \
 from armoryengine.Timer import TimeThisFunction
 from armoryengine.Transaction import *
 import BDM
-from bitcoinrpc_jsonrpc.authproxy import JSONRPCException
 
 ################################################################################
 # These would normally be defined by C++ and fed in, but I've recreated

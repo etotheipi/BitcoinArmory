@@ -11,6 +11,7 @@
 #include "DBUtils.h"
 #include "DbHeader.h"
 #include "EncryptionUtils.h"
+#include "JSON_codec.h"
 
 #ifndef _WIN32
 #include "sys/stat.h"
@@ -600,10 +601,25 @@ NodeStatusStruct NodeStatusStruct::cast_to_NodeStatusStruct(void* ptr)
 // NodeChainState
 //
 ////////////////////////////////////////////////////////////////////////////////
-bool NodeChainState::processState()
+bool NodeChainState::processState(
+   shared_ptr<JSON_object> const getblockchaininfo_obj)
 {
    if (state_ == ChainStatus_Ready)
       return false;
+
+   //progress status
+   auto pct_obj = getblockchaininfo_obj->getValForKey("verificationprogress");
+   auto pct_val = dynamic_pointer_cast<JSON_number>(pct_obj);
+   if (pct_val == nullptr)
+      return false;
+
+   pct_ = min(pct_val->val_, 1.0);
+
+   if (pct_ >= 0.999)
+   {
+      state_ = ChainStatus_Ready;
+      return true;
+   }
 
    //compare top block timestamp to now
    if (heightTimeVec_.size() == 0)
@@ -611,19 +627,7 @@ bool NodeChainState::processState()
 
    uint64_t now = time(0);
    auto blocktime = get<1>(heightTimeVec_.back());
-
-   if (blocktime > now)
-   {
-      state_ = ChainStatus_Ready;
-      return true;
-   }
-
    auto diff = now - blocktime;
-   if (diff < 7200) //admissible timestamp variation for valid blocks
-   {
-      state_ = ChainStatus_Ready;
-      return true;
-   }
 
    //we got this far, node is still syncing, let's compute progress and eta
    state_ = ChainStatus_Syncing;
@@ -648,11 +652,6 @@ bool NodeChainState::processState()
    auto timediff = time_end - time_begin;
    blockSpeed_ = float(blockdiff) / float(timediff);
    eta_ = uint64_t(float(blocksLeft) * blockSpeed_);
-
-   //pct progress
-   auto height_end = get<0>(*iterend);
-   auto chainLength = height_end + blocksLeft;
-   pct_ = min(float(blocksLeft) / float(chainLength), 1.0f);
 
    return true;
 }

@@ -3704,7 +3704,7 @@ class ArmoryMainWindow(QMainWindow):
       self.lblDashBtnDescr = QRichLabel('')
       self.lblDashBtnDescr.setOpenExternalLinks(True)
       BTN,LBL,TTIP = range(3)
-      self.dashBtns = [[None]*3 for i in range(5)]
+      self.dashBtns = [[None]*3 for i in range(3)]
       self.dashBtns[DASHBTNS.Close   ][BTN] = QPushButton(self.tr('Close Bitcoin Process'))
       self.dashBtns[DASHBTNS.Browse  ][BTN] = QPushButton(self.tr('Open https://bitcoin.org'))
       self.dashBtns[DASHBTNS.Settings][BTN] = QPushButton(self.tr('Change Settings'))
@@ -3762,7 +3762,7 @@ class ArmoryMainWindow(QMainWindow):
       self.frmDashMgmtButtons.setFrameStyle(STYLE_SUNKEN)
       layoutButtons = QGridLayout()
       layoutButtons.addWidget(self.lblDashBtnDescr, 0,0, 1,3)
-      for r in range(5):
+      for r in range(3):
          for c in range(3):
             if c==LBL:
                wMin = tightSizeNChar(self, 50)[0]
@@ -3982,8 +3982,8 @@ class ArmoryMainWindow(QMainWindow):
 
          
          if sdmStr == 'NodeStatus_Syncing':
-            sdmPercent = sdmState.chainState_.pct_
-            self.lblTimeLeftSync.setText(sdmState.chainState_.eta_)
+            sdmPercent = sdmState.chainState_.getProgressPct()
+            self.lblTimeLeftSync.setText(sdmState.chainState_.getETA())
 
          elif sdmStr == 'NodeStatus_Initializing':
             sdmPercent = 0

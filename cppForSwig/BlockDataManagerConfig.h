@@ -137,6 +137,8 @@ enum ChainStatus
    ChainStatus_Ready
 };
 
+struct JSON_object;
+
 ////////////////////////////////////////////////////////////////////////////////
 class NodeChainState
 {
@@ -149,7 +151,7 @@ private:
 
 public:
    void appendHeightAndTime(unsigned, uint64_t);
-   bool processState(void);
+   bool processState(shared_ptr<JSON_object> const getblockchaininfo_obj);
    unsigned getTopBlock(void) const;
    ChainStatus state(void) const { return state_; }
    float getBlockSpeed(void) const { return blockSpeed_; }
@@ -158,6 +160,9 @@ public:
    void unserialize(const BinaryData&);
 
    void reset();
+   
+   float getProgressPct(void) const { return pct_; }
+   uint64_t getETA(void) const { return eta_; }
 };
 
 ////////////////////////////////////////////////////////////////////////////////

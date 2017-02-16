@@ -12,7 +12,6 @@ import stat
 import time
 from urllib import quote_plus as urlquote
 from threading import Event
-from bitcoinrpc_jsonrpc import ServiceProxy
 from CppBlockUtils import SecureBinaryData, CryptoECDSA, NodeStatusStruct, \
    RpcStatus_Disabled, RpcStatus_Online, RpcStatus_Error_28, \
    NodeStatus_Online, NodeStatus_Offline, ChainStatus_Unknown, ChainStatus_Syncing
@@ -27,7 +26,6 @@ from armoryengine.ArmoryUtils import BITCOIN_PORT, LOGERROR, hex_to_binary, \
    MEGABYTE, ARMORY_HOME_DIR, CLI_OPTIONS, AllowAsync, ARMORY_RAM_USAGE,\
    ARMORY_THREAD_COUNT, ARMORY_DB_TYPE, ARMORYDB_IP, ARMORYDB_DEFAULT_IP, ARMORYDB_PORT, \
    ARMORYDB_DEFAULT_PORT
-from bitcoinrpc_jsonrpc import authproxy
 
 
 ################################################################################
