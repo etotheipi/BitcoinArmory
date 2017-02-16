@@ -918,6 +918,9 @@ void UtxoSelection::computeSizeAndFee(
    if (sw)
       size_ += 2 + witnessSize_ + utxoVec_.size();
 
+   targetVal = payStruct.spendVal_ + compiled_fee;
+   changeVal = value_ - targetVal;
+
    if (payStruct.adjustFee_ && payStruct.fee_byte_ != 0 && changeVal > 0)
    {
       auto spendVal_ZeroCount = 
