@@ -16,8 +16,8 @@
 #include <future>
 
 #include "BitcoinP2p.h"
-#include "./BlockDataManager/fcgi/include/fcgiapp.h"
-#include "./BlockDataManager/fcgi/include/fcgios.h"
+#include "./fcgi/include/fcgiapp.h"
+#include "./fcgi/include/fcgios.h"
 
 #include "BlockDataViewer.h"
 #include "DataObject.h"

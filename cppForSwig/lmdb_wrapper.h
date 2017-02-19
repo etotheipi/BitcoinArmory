@@ -23,7 +23,7 @@
 #include "BlockObj.h"
 #include "StoredBlockObj.h"
 
-#include "lmdbpp.h"
+#include "lmdb/lmdbpp.h"
 
 class Blockchain;
 

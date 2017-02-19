@@ -142,6 +142,8 @@ struct JSON_object;
 ////////////////////////////////////////////////////////////////////////////////
 class NodeChainState
 {
+   friend class NodeRPC;
+
 private:
    list<tuple<unsigned, uint64_t, uint64_t> > heightTimeVec_;
    ChainStatus state_ = ChainStatus_Unknown;
@@ -149,9 +151,12 @@ private:
    uint64_t eta_ = 0;
    float pct_ = 0.0f;
 
+private:
+   //so that SWIG 2.0 doesn't try to parse a shared_ptr object (and choke)
+   bool processState(shared_ptr<JSON_object> const getblockchaininfo_obj);
+
 public:
    void appendHeightAndTime(unsigned, uint64_t);
-   bool processState(shared_ptr<JSON_object> const getblockchaininfo_obj);
    unsigned getTopBlock(void) const;
    ChainStatus state(void) const { return state_; }
    float getBlockSpeed(void) const { return blockSpeed_; }

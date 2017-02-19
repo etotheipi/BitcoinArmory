@@ -13,7 +13,7 @@
 #include <vector>
 #include <string>
 #include <sstream>
-#include "./BlockDataManager/fcgi/include/fastcgi.h"
+#include "./fcgi/include/fastcgi.h"
 
 using namespace std;
 

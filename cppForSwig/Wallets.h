@@ -19,7 +19,7 @@
 
 #include "BinaryData.h"
 #include "EncryptionUtils.h"
-#include "lmdbpp.h"
+#include "lmdb/lmdbpp.h"
 #include "Script.h"
 #include "Signer.h"
 #include "ReentrantLock.h"
