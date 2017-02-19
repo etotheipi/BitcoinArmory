@@ -1,6 +1,6 @@
 AC_PREREQ(2.60)
 AC_INIT([BitcoinArmory], [0.95.99], [moothecowlord@gmail.com])
-AM_INIT_AUTOMAKE([1.10 foreign -Wall -Werror])
+AM_INIT_AUTOMAKE([1.10 subdir-objects foreign -Wall -Werror])
 LT_INIT
 
 AC_PROG_CC
@@ -35,6 +35,8 @@ AS_IF([test -z "$PYTHON_INCLUDE"], [
 AC_SUBST([PYTHONINC], [$PYTHON_INCLUDE])
 
 AC_SUBST([CXX_STANDARD])
+
+AC_CONFIG_SUBDIRS([cppForSwig/fcgi])
 
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES(Makefile 
