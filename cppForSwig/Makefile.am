@@ -1,4 +1,4 @@
-SUBDIRS = lmdb fcgi
+SUBDIRS = lmdb fcgi cryptopp
 
 SWIG_OPTS = -c++ -python -threads
 
@@ -61,16 +61,13 @@ libCppBlockUtils_la_CXXFLAGS = 	-Ilmdb \
 				$(PYTHONINC) \
 				-D__STDC_LIMIT_MACROS -fPIC -pipe
 
-libCppBlockUtils_la_LDFLAGS = -shared
+libCppBlockUtils_la_LDFLAGS = 	-shared
 
 libCppBlockUtils_la_LIBADD = 	-Llmdb -llmdb \
 		 	 	-Lcryptopp -lcryptopp \
 		 	 	-lpthread
 
 #custom rules
-cryptopp/libcryptopp.a: Makefile
-	$(MAKE) -C cryptopp libcryptopp.a
-
 CppBlockUtils_wrap.cxx: CppBlockUtils.i
 	swig -c++ -python -threads CppBlockUtils.i 
 

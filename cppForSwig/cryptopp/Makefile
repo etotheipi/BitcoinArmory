@@ -152,7 +152,7 @@ LIBIMPORTOBJS = $(LIBOBJS:.o=.import.o)
 TESTIMPORTOBJS = $(TESTOBJS:.o=.import.o)
 DLLTESTOBJS = dlltest.dllonly.o
 
-all: cryptest.exe
+all: libcryptopp.a libcryptopp.so
 
 test: cryptest.exe
 	./cryptest.exe v
