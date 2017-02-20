@@ -1,8 +1,6 @@
 AC_PREREQ(2.60)
 AC_INIT([BitcoinArmory], [0.95.99], [moothecowlord@gmail.com])
 
-AC_CONFIG_AUX_DIR([cppForSwig/fcgi])
-
 AM_INIT_AUTOMAKE([1.10 foreign -Wall -Werror])
 
 AM_PROG_AR
@@ -44,7 +42,7 @@ AC_SUBST([CXX_STANDARD])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES(Makefile 
 		cppForSwig/Makefile 
-		cppForSwig/lmdb/Makefile 
-		cppForSwig/fcgi/Makefile)
+		cppForSwig/lmdb/Makefile)
+AC_CONFIG_SUBDIRS([cppForSwig/fcgi])
 
 AC_OUTPUT
