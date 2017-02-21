@@ -2,6 +2,12 @@
 
 SUBDIRS = cppForSwig
 
+EXTRA_DIST = *.py *.md LICENSE LICENSE-ATI LICENSE-MIT \
+	nginx_example.conf imgList.xml autogen.sh \
+	armoryengine/*.py ui/*.py \
+	img/* lang/* \
+	windowsbuild/* linuxbuild/* osxbuild/*
+
 ACLOCAL_AMFLAGS = -I m4
 
 lrelease:
