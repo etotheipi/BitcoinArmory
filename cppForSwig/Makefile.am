@@ -66,16 +66,13 @@ libCppBlockUtils_la_CXXFLAGS = 	-Ilmdb \
 libCppBlockUtils_la_LDFLAGS = 	-shared
 
 libCppBlockUtils_la_LIBADD = 	-Llmdb -llmdb \
-		 	 	-Lcryptopp -lcryptopp \
+		 	 	cryptopp/libcryptopp.a \
 		 	 	-lpthread
 
 #custom rules
 CppBlockUtils_wrap.cxx: CppBlockUtils.i
 	swig -c++ -python -threads CppBlockUtils.i 
 
-all:
-	cp ./ArmoryDB ../ArmoryDB
-	cp ./CppBlockUtils.py ../CppBlockUtils.py
-	cp ./.libs/libCppBlockUtils.so ../_CppBlockUtils.so
+.PHONY: CppBlockUtils_wrap.cxx
 
 
