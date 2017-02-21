@@ -1,6 +1,6 @@
-noinst_LIBRARIES = liblmdb.a
+noinst_LTLIBRARIES = liblmdb.la
 
-liblmdb_a_SOURCES = lmdb.h midl.h \
+liblmdb_la_SOURCES = lmdb.h midl.h \
 		    mdb.c midl.c \
 		    lmdbpp.h lmdbpp.cpp
 

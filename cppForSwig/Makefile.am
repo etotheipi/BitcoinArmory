@@ -9,7 +9,7 @@ INCLUDE_FILES = UniversalTimer.h BinaryData.h lmdb_wrapper.h \
 	BlockDataViewer.h HistoryPager.h Progress.h \
 	txio.h TxClasses.h StoredBlockObj.h \
 	DatabaseBuilder.h BlockchainScanner.h BlockDataMap.h \
-	DataObject.h BitcoinP2P.h BDM_Server.h BDM_seder.h SocketObject.h \
+	DataObject.h BitcoinP2p.h BDM_Server.h BDM_seder.h SocketObject.h \
 	FcgiMessage.h BlockDataManagerConfig.h \
 	Transactions.h Script.h Signer.h nodeRPC.h JSON_codec.h \
 	ReentrantLock.h StringSockets.h log.h OS_TranslatePath.h
@@ -47,8 +47,8 @@ ArmoryDB_CXXFLAGS = -Ilmdb \
 		    -Ifcgi -Ifcgi/include \
 		    -D__STDC_LIMIT_MACROS -fPIC -pipe
 
-ArmoryDB_LDADD = lmdb/liblmdb.a \
-		 cryptopp/libcryptopp.a \
+ArmoryDB_LDADD = -Llmdb -llmdb \
+		 -Lcryptopp -lcryptopp \
 		 -Lfcgi/libfcgi/ -lfcgi \
 		 -lpthread
 
@@ -63,10 +63,8 @@ libCppBlockUtils_la_CXXFLAGS = 	-Ilmdb \
 				$(PYTHONINC) \
 				-D__STDC_LIMIT_MACROS -fPIC -pipe
 
-libCppBlockUtils_la_LDFLAGS = 	-shared
-
 libCppBlockUtils_la_LIBADD = 	-Llmdb -llmdb \
-		 	 	cryptopp/libcryptopp.a \
+		 	 	-Lcryptopp -lcryptopp \
 		 	 	-lpthread
 
 #custom rules
