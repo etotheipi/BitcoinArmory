@@ -47,10 +47,12 @@ ArmoryDB_CXXFLAGS = -Ilmdb \
 		    -Ifcgi -Ifcgi/include \
 		    -D__STDC_LIMIT_MACROS -fPIC -pipe
 
-ArmoryDB_LDADD = -Llmdb -llmdb \
-		 -Lcryptopp -lcryptopp \
-		 -Lfcgi/libfcgi/.libs/ -lfcgi \
+ArmoryDB_LDADD = lmdb/liblmdb.a \
+		 cryptopp/libcryptopp.a \
+		 -Lfcgi/libfcgi/ -lfcgi \
 		 -lpthread
+
+ArmoryDB_LDFLAGS = -static
 
 #libCppBlockUtils
 libCppBlockUtils_la_SOURCES = 	$(INCLUDE_FILES) \
