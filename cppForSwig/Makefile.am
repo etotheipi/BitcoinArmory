@@ -60,7 +60,7 @@ libCppBlockUtils_la_SOURCES = 	$(INCLUDE_FILES) \
 				CppBlockUtils_wrap.cxx
 libCppBlockUtils_la_CXXFLAGS = 	-Ilmdb \
 		    		-Icryptopp \
-				$(PYTHONINC) \
+				$(AX_SWIG_PYTHON_CPPFLAGS) \
 				-D__STDC_LIMIT_MACROS -fPIC -pipe
 
 libCppBlockUtils_la_LIBADD = 	-Llmdb -llmdb \

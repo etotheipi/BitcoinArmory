@@ -20,7 +20,7 @@ endif
 AM_CXXFLAGS += -mtune=generic
 endif
 
-AM_CXXFLAGS += -mpclmul -maes X86_FEATURE_CFLAGS
+AM_CXXFLAGS += -mpclmul -maes $(X86_FEATURE_CFLAGS)
 endif	# ISX86
 
 if UNAME_LINUX

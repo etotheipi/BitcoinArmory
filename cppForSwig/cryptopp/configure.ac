@@ -4,6 +4,8 @@
 AC_PREREQ([2.69])
 AC_INIT([Cryptopp], [1], [weidai@github])
 AM_INIT_AUTOMAKE([1.10 foreign -Wall -Werror])
+
+AM_PROG_AR
 LT_INIT
 
 # Checks for programs.
@@ -49,7 +51,7 @@ AC_DEFUN_ONCE([_AX_GCC_X86_CPU_INIT],
       [ax_cv_gcc_check_x86_cpu_init=no])])])
 
 AS_IF([test "X$ax_cv_gcc_check_x86_cpu_init" = "Xyes"],
-   [AX_CHECK_X86_FEATURES([$HAS_X86 = true])])
+   [AX_CHECK_X86_FEATURES([HAS_X86=true])])
 
 AM_CONDITIONAL([IS_X86], [test $HAS_X86 == true])
 
