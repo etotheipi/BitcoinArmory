@@ -1,4 +1,32 @@
-noinst_LTLIBRARIES = libcryptopp.la
+lib_LTLIBRARIES = libcryptopp.la
+
+libcryptopp_la_LIBADD =
+AM_LDFLAGS =
+AM_CXXFLAGS = -fPIC -pipe
+
+#compilation flags
+if HAVE_CLANG
+AM_CXXFLAGS += -DCRYPTOPP_DISABLE_ASM
+endif
+
+if IS_X86
+
+if HAVE_GCC
+if UNAME_DARWIN
+AM_CXXFLAGS += -arch x86_64 -arch i386
+else
+AM_CXXFLAGS += -march=native
+endif
+AM_CXXFLAGS += -mtune=generic
+endif
+
+AM_CXXFLAGS += -mpclmul -maes X86_FEATURE_CFLAGS
+endif	# ISX86
+
+if UNAME_LINUX
+AM_CXXFLAGS += -std=c++11
+AM_LDFLAGS += -pthread
+endif
 
 INCLUDE_FILES = 3way.h	    crc.h	gcm.h	    modexppc.h	ripemd.h     tea.h \
 	adler32.h   cryptlib.h	gf2_32.h    mqueue.h	rng.h	     tiger.h \
@@ -55,5 +83,3 @@ EXTRA_DIST = bench2.cpp bench.cpp test.cpp validat1.cpp validat2.cpp validat3.cp
 	datatest.cpp regtest.cpp fipsalgt.cpp dlltest.cpp fipstest.cpp
 
 libcryptopp_la_SOURCES = $(INCLUDE_FILES) $(SOURCE_FILES)
-
-AM_CXXFLAGS = -fPIC

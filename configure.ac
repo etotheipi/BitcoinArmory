@@ -42,8 +42,7 @@ AC_SUBST([CXX_STANDARD])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES(Makefile 
 		cppForSwig/Makefile 
-		cppForSwig/lmdb/Makefile
-		cppForSwig/cryptopp/Makefile)
-AC_CONFIG_SUBDIRS([cppForSwig/fcgi])
+		cppForSwig/lmdb/Makefile)
+AC_CONFIG_SUBDIRS([cppForSwig/fcgi, cppForSwig/cryptopp])
 
 AC_OUTPUT
