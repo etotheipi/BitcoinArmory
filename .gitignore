@@ -5,6 +5,8 @@
 *.lo
 *.Plo
 *.la
+*.qm
+*.in
 
 *libtool.m4
 *ltoptions.m4
