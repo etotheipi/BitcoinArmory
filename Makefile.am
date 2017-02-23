@@ -25,6 +25,10 @@ copy-script:
 
 all-local: copy-script lrelease qrc_img_resources.py
 
+install-local-exec: all
+	sed "s: /usr: $(PREFIX):g" < dpkgfiles/armory > $(DESTDIR)$(PREFIX)/bin/armory
+chmod +x $(DESTDIR)$(PREFIX)/bin/armory
+
 clean-local:
 	rm -f ArmoryDB
 	rm -f CppBlockUtils.py

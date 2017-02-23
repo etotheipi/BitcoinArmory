@@ -12,7 +12,6 @@ AC_PROG_CXX
 AC_CONFIG_MACRO_DIR([m4])
 m4_include([m4/ax_check_compile_flag.m4])
 m4_include([m4/ax_swig_python.m4])
-m4_include([m4/ax_python_devel.m4])
 
 AX_CHECK_COMPILE_FLAG([-std=c++11], [compile_flag_cxx11=yes])
 if test "x${compile_flag_cxx11}" = "xyes"; then
