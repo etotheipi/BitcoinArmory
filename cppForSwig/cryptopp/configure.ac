@@ -50,8 +50,8 @@ AC_CHECK_TYPES([ptrdiff_t])
 AC_FUNC_MALLOC
 AC_CHECK_FUNCS([gethostbyname gettimeofday memmove memset pow select setlocale socket])
 
-AM_CONDITIONAL([HAVE_CLANG], [test $CXX == clang++])
-AM_CONDITIONAL([HAVE_GCC], [test $CXX == g++])
+AM_CONDITIONAL([CRYPTOPP_HAVE_CLANG], [test $CXX == clang++])
+AM_CONDITIONAL([CRYPTOPP_HAVE_GCC], [test $CXX == g++])
 
 AM_CONDITIONAL([UNAME_DARWIN], [test $(uname) == Darwin])
 AM_CONDITIONAL([UNAME_LINUX], [test $(uname) == Linux])

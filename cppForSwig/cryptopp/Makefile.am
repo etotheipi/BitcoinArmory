@@ -5,13 +5,13 @@ AM_LDFLAGS =
 AM_CXXFLAGS = -fPIC -pipe
 
 #compilation flags
-if HAVE_CLANG
+if CRYPTOPP_HAVE_CLANG
 AM_CXXFLAGS += -DCRYPTOPP_DISABLE_ASM
 endif
 
 if IS_X86
 
-if HAVE_GCC
+if CRYPTOPP_HAVE_GCC
 if UNAME_DARWIN
 AM_CXXFLAGS += -arch x86_64 -arch i386
 else

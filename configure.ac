@@ -61,7 +61,10 @@ AS_IF([test $HAVE_PYRCC4 == yes], [],
 AX_PYTHON_MODULE([psutil], [fatal])
 AX_PYTHON_MODULE([twisted], [fatal])
 
-AC_SUBST([CXX_STANDARD])
+AC_SUBST([CXX_STANDARD], $CXX_STANDARD)
+
+AM_CONDITIONAL([HAVE_CLANG], [test $CXX == clang++])
+AM_CONDITIONAL([HAVE_GCC], [test $CXX == g++])
 
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES(Makefile 

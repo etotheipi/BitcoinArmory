@@ -1,6 +1,14 @@
 SUBDIRS = lmdb fcgi cryptopp
 
-SWIG_OPTS = -c++ -python -threads
+SWIG_FLAGS = -c++ -python -threads
+
+if HAVE_GCC
+SWIG_FLAGS += -D__GNUC__
+endif
+
+if HAVE_CLANG
+SWIG_FLAGS += -D__CLANG__
+endif
 
 INCLUDE_FILES = UniversalTimer.h BinaryData.h lmdb_wrapper.h \
 	BtcUtils.h DBUtils.h BlockObj.h BlockUtils.h EncryptionUtils.h \
@@ -69,7 +77,11 @@ libCppBlockUtils_la_LIBADD = 	-Llmdb -llmdb \
 
 #custom rules
 CppBlockUtils_wrap.cxx: CppBlockUtils.i
-	swig -c++ -python -threads CppBlockUtils.i 
+	swig $(SWIG_FLAGS) CppBlockUtils.i 
 
+clean-local:
+	rm -f CppBlockUtils.py
+	rm -f CppBlockUtils_wrap.cxx
+	rm -f CppBlockUtils_wrap.h
 
 
