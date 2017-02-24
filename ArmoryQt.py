@@ -2220,7 +2220,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
       types = list(ffilter)
-      types.append(self.tr('All files (*)'))
+      types.append('All files (*)')
       typesStr = ';; '.join(types)
 
       # Open the native file load dialog and grab the loaded file/path unless
@@ -4768,8 +4768,7 @@ class ArmoryMainWindow(QMainWindow):
             blkRecvAgo  = RightNow() - self.blkReceived
             tt = self.tr(
             'Disconnected from Bitcoin Node, cannot update history '
-            '<br><br>Last known block: %1 <br>Received %2 ago').arg(TheBDM.getTopBlockHeight(), 
-               secondsToHumanTime(blkRecvAgo))
+            '<br><br>Last known block: %1 <br>Received %2 ago').arg(TheBDM.getTopBlockHeight(), str(secondsToHumanTime(blkRecvAgo)))
             return tt
          
          self.lblArmoryStatus.setToolTipLambda(getToolTipTextOffline)     
@@ -5011,10 +5010,8 @@ class ArmoryMainWindow(QMainWindow):
 
       if TheBDM.exception != "":
          QMessageBox.warning(self, self.tr('Database Error'), self.tr("""
-                           The DB has returned the following
-                           error: <br><br>
-                           <b> %1 </b> <br><br>
-                           Armory will now shutdown. """).arg(TheBDM.exception), QMessageBox.Ok)
+                           The DB has returned the following error: <br><br>
+                           <b> %1 </b> <br><br> Armory will now shutdown.""").arg(TheBDM.exception), QMessageBox.Ok)
          self.closeForReal()
 
       # SatoshiDaemonManager
@@ -5096,7 +5093,7 @@ class ArmoryMainWindow(QMainWindow):
       Function that prints a notification for a transaction that affects an
       address we control.
       '''
-      dispLines = []
+      dispLines = QStringList()
       title = ''
       totalStr = coin2strNZS(txAmt)
 
@@ -5131,7 +5128,7 @@ class ArmoryMainWindow(QMainWindow):
          dispLines.append(self.tr('Amount:  %1 BTC').arg(totalStr))
          dispLines.append(self.tr('Sender:  %1').arg(dispName))
 
-      self.showTrayMsg(title, '\n'.join(dispLines), \
+      self.showTrayMsg(title, dispLines.join('\n'), \
                        QSystemTrayIcon.Information, 10000)
       LOGINFO(title)
 
@@ -5204,7 +5201,7 @@ class ArmoryMainWindow(QMainWindow):
             return
 
          # If coins were either received or sent from the loaded wlt/lbox
-         dispLines = []
+         dispLines = QStringList()
          totalStr = coin2strNZS(abs(le.getValue()))
          if le.getValue() > 0:
             title = self.tr('Bitcoins Received!')
@@ -5229,9 +5226,9 @@ class ArmoryMainWindow(QMainWindow):
             dispLines.append(unicode(self.tr('From:    %1').arg(wltName )))
             dispLines.append(unicode(self.tr('To:      %1').arg(recipStr)))
 
-         self.showTrayMsg(title, '\n'.join(dispLines), \
+         self.showTrayMsg(title, dispLines.join("\n"), \
                           QSystemTrayIcon.Information, 10000)
-         LOGINFO(title + '\n' + '\n'.join(dispLines))
+         LOGINFO(title + '\n' + dispLines.join("\n"))
 
          # Wait for 5 seconds before processing the next queue object.
          self.notifyBlockedUntil = RightNow() + 5

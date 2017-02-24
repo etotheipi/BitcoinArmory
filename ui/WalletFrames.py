@@ -803,7 +803,7 @@ class WalletBackupFrame(ArmoryFrame):
          concerned about physical security, not just online security."""))
 
 
-      MkFeatLabel = lambda x: QRichLabel(tr(x), doWrap=False)
+      MkFeatLabel = lambda x: QRichLabel(x, doWrap=False)
       self.featuresLbls[F.ProtGen] = MkFeatLabel(self.tr('Protects All Future Addresses'))
       self.featuresLbls[F.ProtImport] = MkFeatLabel(self.tr('Protects Imported Addresses'))
       self.featuresLbls[F.LostPass] = MkFeatLabel(self.tr('Forgotten Passphrase'))
@@ -868,7 +868,7 @@ class WalletBackupFrame(ArmoryFrame):
       self.hasImportedAddr = self.wlt.hasAnyImported()
       # Highlight imported-addr feature if their wallet contains them
       pcolor = 'TextWarn' if self.hasImportedAddr else 'DisableFG'
-      self.featuresLbls[self.FEATURES.ProtImport].setText(tr(\
+      self.featuresLbls[self.FEATURES.ProtImport].setText(self.tr(\
          'Protects Imported Addresses'), color=pcolor)
 
       if self.hasImportedAddr:
@@ -890,7 +890,7 @@ class WalletBackupFrame(ArmoryFrame):
       else:
          # Highlight imported-addr feature if their wallet contains them
          pcolor = 'TextWarn' if self.hasImportedAddr else 'DisableFG'
-         self.featuresLbls[self.FEATURES.ProtImport].setText(tr(\
+         self.featuresLbls[self.FEATURES.ProtImport].setText(self.tr(\
             'Protects Imported Addresses'), color=pcolor)
 
          txtPaper = self.tr("""
