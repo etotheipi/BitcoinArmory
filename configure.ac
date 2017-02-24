@@ -3,8 +3,29 @@ AC_INIT([BitcoinArmory], [0.95.99], [moothecowlord@gmail.com])
 
 AM_INIT_AUTOMAKE([1.10 foreign -Wall -Werror])
 
+AC_CONFIG_SUBDIRS([cppForSwig/fcgi cppForSwig/cryptopp])
+
 AM_PROG_AR
 LT_INIT
+
+#reset these flags if they are the default -g -02
+AS_IF([test "$CFLAGS" = "-g -O2"] ,[AC_SUBST(CFLAGS, [ ])])
+AS_IF([test "$CXXFLAGS" = "-g -O2"] ,[AC_SUBST(CXXFLAGS, [ ])])
+
+#debug flag
+AC_ARG_ENABLE([debug],
+              AC_HELP_STRING([--enable-debug],
+              [compile with debug symbols @<:@default=no@:>@]),
+              [want_debug="$enableval"], [want_debug=no])
+
+if test "x$want_debug" = "xyes" -a $ac_cv_c_compiler_gnu != no; then
+  CFLAGS="$CFLAGS -O0 -g"
+  CXXFLAGS="$CXXFLAGS -O0 -g"
+  AC_DEFINE([DEBUG], 1, [Define for debugging])
+else
+  CFLAGS="$CFLAGS -O2 -D_FORTIFY_SOURCE=2"
+  CXXFLAGS="$CXXFLAGS -O2 -D_FORTIFY_SOURCE=2"
+fi
 
 AC_PROG_CC
 AC_PROG_CXX
@@ -46,6 +67,5 @@ AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES(Makefile 
 		cppForSwig/Makefile 
 		cppForSwig/lmdb/Makefile)
-AC_CONFIG_SUBDIRS([cppForSwig/fcgi cppForSwig/cryptopp])
 
 AC_OUTPUT

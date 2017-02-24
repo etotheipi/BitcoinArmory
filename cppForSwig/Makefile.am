@@ -71,6 +71,5 @@ libCppBlockUtils_la_LIBADD = 	-Llmdb -llmdb \
 CppBlockUtils_wrap.cxx: CppBlockUtils.i
 	swig -c++ -python -threads CppBlockUtils.i 
 
-.PHONY: CppBlockUtils_wrap.cxx
 
 

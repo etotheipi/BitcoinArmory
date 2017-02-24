@@ -5,7 +5,7 @@ SUBDIRS = cppForSwig
 EXTRA_DIST = *.py *.md LICENSE LICENSE-ATI LICENSE-MIT \
 	nginx_example.conf imgList.xml autogen.sh \
 	armoryengine/*.py ui/*.py \
-	img/* lang/* \
+	img/* lang/* dpkgfiles/* \
 	windowsbuild/* linuxbuild/* osxbuild/*
 
 ACLOCAL_AMFLAGS = -I m4
@@ -25,8 +25,19 @@ copy-script:
 
 all-local: copy-script lrelease qrc_img_resources.py
 
-install-local-exec: all
-	sed "s: /usr: $(PREFIX):g" < dpkgfiles/armory > $(DESTDIR)$(PREFIX)/bin/armory chmod +x $(DESTDIR)$(PREFIX)/bin/armory
+install-exec-hook: all
+	mkdir $(DESTDIR)$(PREXIX)/lib/armory
+	cp *.py *.so README.md $(DESTDIR)$(PREXIX)/lib/armory
+	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/ui
+	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/armoryengine
+	cp -r ui/* $(DESTDIR)$(PREFIX)/lib/armory/ui
+	cp -r armoryengine/* $(DESTDIR)$(PREFIX)/lib/armory/armoryengine
+	sed "s: /usr: $(PREFIX):g" < dpkgfiles/armory > $(DESTDIR)$(PREFIX)/bin/armory 
+	chmod +x $(DESTDIR)$(PREFIX)/bin/armory
+
+uninstall-hook: 
+	rm -rf $(DESTDIR)$(PREXIX)/lib/armory
+	rm -f $(DESTDIR)$(PREFIX)/bin/armory
 
 clean-local:
 	rm -f ArmoryDB
