@@ -56,9 +56,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       feetip = self.main.createToolTipWidget(\
             self.tr('Transaction fees go to users who contribute computing power to '
             'keep the Bitcoin network secure, and in return they get your transaction '
-            'included in the blockchain faster.  <b>Most transactions '
-            'do not require a fee</b> but it is recommended anyway '
-            'since it guarantees quick processing and helps the network.'))
+            'included in the blockchain faster.'))
 
       self.feeDialog = FeeSelectionDialog(self, self.main)
       self.feeLblButton = self.feeDialog.getLabelButton()
@@ -507,7 +505,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       numChkFail = sum([1 if len(b)==0 else 0 for b in scripts])
       if not self.freeOfErrors:
          QMessageBox.critical(self, self.tr('Invalid Address'),
-               self.tr("You have entered an invalid address. The error has been highlighted on the entrry screen.",
+               self.tr("You have entered an invalid address. The error has been highlighted on the entry screen.",
                "You have entered %1 invalid addresses. The errors have been highlighted on the entry screen").arg(numChkFail), QMessageBox.Ok)
 
          for row in range(len(self.widgetTable)):
@@ -565,35 +563,6 @@ class SendBitcoinsFrame(ArmoryFrame):
 
          script = self.widgetTable[row]['FUNC_GETSCRIPT']()['Script']
          #scraddr = script_to_scrAddr(script)
-
-         # Checking for sending bitcoins to a Lockbox using P2SH that is
-         # non-standard to spend.
-         # only P2SH matters, if it's a bare multi sig, you won't be able to
-         # deposit if it's non-standard. In other words if it standard to spend from
-         # a bare sig lockbox it's standard to deposit into it.
-         # This is not necessarily so for P2SH. Must warn the user or else they
-         # may get some bitcoins stuck in a lockbox until they upgrade to bitcoin
-         # 0.10.0
-         if isP2SHLockbox(recipStr):
-            lbox = self.main.getLockboxByID(readLockboxEntryStr(recipStr))
-            if isMofNNonStandardToSpend(lbox.M, lbox.N):
-               reply = QMessageBox.warning(self, self.tr('Non-Standard to Spend'), self.tr("""
-                  Due to the Lockbox size (%1-of-%2) of recipient %3, spending
-                  funds from this Lockbox is valid but non-standard for versions
-                  of Bitcoin prior to 0.10.0. This means if your version of
-                  Bitcoin is 0.9.x or below, and you try to broadcast a
-                  transaction that spends from this Lockbox the transaction
-                  will not be accepted. If you have version 0.10.0, but all
-                  of your peers have an older version your transaction will
-                  not be forwarded to the rest of the network. If you deposit
-                  Bitcoins into this Lockbox you may have to wait until you
-                  and at least some of your peers have upgraded to 0.10.0
-                  before those Bitcoins can be spent. Alternatively, if you
-                  have enough computing power to mine your own transactions,
-                  or know someone who does, you can arrange to have any valid
-                  but non-standard transaction included in the block chain.""").arg(lbox.M, lbox.N, row+1), QMessageBox.Ok | QMessageBox.Cancel)
-               if not reply==QMessageBox.Ok:
-                  return
 
          scriptValPairs.append([script, value])
          self.comments.append((str(self.widgetTable[row]['QLE_COMM'].text()), value))
@@ -960,7 +929,7 @@ class SendBitcoinsFrame(ArmoryFrame):
    def createSetMaxButton(self, targWidget):
       newBtn = QPushButton('MAX')
       newBtn.setMaximumWidth(relaxedSizeStr(self, 'MAX')[0])
-      newBtn.setToolTip(self.tr('<u></u>Fills in the maximum spendable amount minus '
+      newBtn.setToolTip(self.tr('Fills in the maximum spendable amount minus '
                          'the amounts specified for other recipients '
                          'and the transaction fee '))
       funcSetMax = lambda:  self.setMaximum(targWidget)

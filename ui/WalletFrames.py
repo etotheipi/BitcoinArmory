@@ -32,7 +32,7 @@ class LockboxSelectFrame(ArmoryFrame):
          return
 
       lblSpendFromLB = QRichLabel(self.tr(""" <font color="%1" size=4><b><u>Lockbox
-         %2 (%3-of-%4)</u></b></font>""").arg(htmlColor('TextBlue'), self.lbox.uniqueIDB58, self.lbox.M, self.lbox.N))
+         %2 (%3-of-%4)</u></b></font>""").arg(htmlColor('TextBlue'), self.lbox.uniqueIDB58).arg(self.lbox.M).arg(self.lbox.N))
       lblSpendFromLB.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
       lbls = []
@@ -876,7 +876,7 @@ class WalletBackupFrame(ArmoryFrame):
             When imported addresses are present, backups only protects those
             imported before the backup was made!  You must replace that
             backup if you import more addresses!
-            <i>Your wallet <u>does</u> contain imported addresses<i>."""))
+            <i>Your wallet <u>does</u> contain imported addresses</i>."""))
 
 
          
