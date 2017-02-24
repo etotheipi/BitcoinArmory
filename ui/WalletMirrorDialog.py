@@ -7,7 +7,7 @@
 ##############################################################################
 
 from PyQt4.QtGui import QFrame
-from PyQt4.QtCore import Qt
+from PyQt4.QtCore import Qt, QObject
 import time
 
 from qtdefines import ArmoryDialog, QLabel, QGridLayout, \
@@ -70,7 +70,7 @@ class WalletComparisonClass(object):
       
       #mirror missing wallets
       for wltID in mirrorList:
-         reportTextProgress(self.tr("Mirroring wallet %1").arg(wltID))
+         reportTextProgress(QObject().tr("Mirroring wallet %1").arg(wltID))
          
          wlt = self.main.walletMap[wltID]
          rootEntry = wlt.addrMap['ROOT']
@@ -81,7 +81,7 @@ class WalletComparisonClass(object):
          
       #synchronize wallets
       for wltID in syncList:
-         reportTextProgress(self.tr("Synchronizing wallet %1").arg(wltID))
+         reportTextProgress(QObject().tr("Synchronizing wallet %1").arg(wltID))
          
          wlt = self.main.walletMap[wltID]
          self.main.walletManager.synchronizeWallet(
