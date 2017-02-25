@@ -85,7 +85,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>./fcgi/include;./fcgi;../cryptopp;../leveldb_windows_port/win32_posix;../mdb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../fcgi/include;../fcgi;../cryptopp;../leveldb_windows_port/win32_posix;../lmdb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>CONSOLE;_CRT_SECURE_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;_WINSOCKAPI_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <BasicRuntimeChecks>UninitializedLocalUsageCheck</BasicRuntimeChecks>
@@ -120,7 +120,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>./fcgi/include;./fcgi;../cryptopp;../leveldb_windows_port/win32_posix;../mdb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../fcgi/include;../fcgi;../cryptopp;../leveldb_windows_port/win32_posix;../lmdb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>CONSOLE;_CRT_SECURE_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;_WINSOCKAPI_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
@@ -156,6 +156,8 @@
     <ClCompile Include="..\DBUtils.cpp" />
     <ClCompile Include="..\EncryptionUtils.cpp" />
     <ClCompile Include="..\FcgiMessage.cpp" />
+    <ClCompile Include="..\fcgi\libfcgi\fcgiapp.c" />
+    <ClCompile Include="..\fcgi\libfcgi\os_win32.c" />
     <ClCompile Include="..\HistoryPager.cpp" />
     <ClCompile Include="..\JSON_codec.cpp" />
     <ClCompile Include="..\LedgerEntry.cpp" />
@@ -177,8 +179,6 @@
     <ClCompile Include="..\TxClasses.cpp" />
     <ClCompile Include="..\txio.cpp" />
     <ClCompile Include="..\UniversalTimer.cpp" />
-    <ClCompile Include="fcgi\libfcgi\fcgiapp.c" />
-    <ClCompile Include="fcgi\libfcgi\os_win32.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\bdmenums.h" />

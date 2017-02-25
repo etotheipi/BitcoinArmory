@@ -18,9 +18,6 @@
     <ClCompile Include="..\leveldb_windows_port\win32_posix\Win_TranslatePath.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="fcgi\libfcgi\os_win32.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\BDM_seder.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -90,9 +87,6 @@
     <ClCompile Include="..\leveldb_windows_port\win32_posix\mman.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="fcgi\libfcgi\fcgiapp.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\DataObject.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -142,6 +136,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\ReentrantLock.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\fcgi\libfcgi\fcgiapp.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\fcgi\libfcgi\os_win32.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
