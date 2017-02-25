@@ -221,5 +221,8 @@
     <ClInclude Include="..\BlockDataManagerConfig.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\BinaryData.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

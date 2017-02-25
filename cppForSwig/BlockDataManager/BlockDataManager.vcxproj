@@ -182,6 +182,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\bdmenums.h" />
+    <ClInclude Include="..\BinaryData.h" />
     <ClInclude Include="..\BitcoinP2p.h" />
     <ClInclude Include="..\BlockDataManagerConfig.h" />
     <ClInclude Include="..\BlockObj.h" />
