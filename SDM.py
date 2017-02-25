@@ -551,14 +551,15 @@ class SatoshiDaemonManager(object):
    def getSDMStateStr(self):
       sdmStr = ""
       
-      if self.nodeState == NodeStatus_Offline:
+      if self.nodeState.status_ == NodeStatus_Offline:
          sdmStr = "NodeStatus_Offline"
          
          if self.nodeState.rpcStatus_ == RpcStatus_Online or \
             self.nodeState.rpcStatus_ == RpcStatus_Error_28: 
             sdmStr = "NodeStatus_Initializing"
-         elif not os.path.exists(self.executable):
-            sdmStr = "NodeStatus_BadPath"
+         elif isinstance(self.executable, str):
+            if not os.path.exists(self.executable):
+               sdmStr = "NodeStatus_BadPath"
       
       else:
          sdmStr = "NodeStatus_Ready"

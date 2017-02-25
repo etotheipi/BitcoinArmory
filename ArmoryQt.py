@@ -4439,9 +4439,7 @@ class ArmoryMainWindow(QMainWindow):
             # There's a whole bunch of stuff that has to be hidden/shown
             # depending on the state... set some reasonable defaults here
             setBtnFrameVisible(False)
-            setBtnRowVisible(DASHBTNS.Install, False)
             setBtnRowVisible(DASHBTNS.Browse, False)
-            setBtnRowVisible(DASHBTNS.Instruct, False)
             setBtnRowVisible(DASHBTNS.Settings, True)
             setBtnRowVisible(DASHBTNS.Close, False)
    
@@ -4473,11 +4471,10 @@ class ArmoryMainWindow(QMainWindow):
                      'the following links to get Armory installed.  Or change '
                      'your settings.'))
                   setBtnRowVisible(DASHBTNS.Browse, True)
-                  setBtnRowVisible(DASHBTNS.Install, True)
                   setBtnRowVisible(DASHBTNS.Settings, True)
                   #setBtnRowVisible(DASHBTNS.Instruct, not OS_WINDOWS)
                   descr1 += self.GetDashStateText('Auto','OfflineNoSatoshiNoInternet')
-                  descr2 += self.GetDashFunctionalityText(self.tr('Offline'))
+                  descr2 += self.GetDashFunctionalityText('Offline')
                   self.lblDashDescr1.setText(descr1)
                   self.lblDashDescr2.setText(descr2)
                   
@@ -4605,6 +4602,8 @@ class ArmoryMainWindow(QMainWindow):
          self.lblDashDescr1.setText(descr)
          self.lblDashDescr2.setText('')
          self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dash)
+      elif bdmState == BDM_OFFLINE:
+         pass
       else:
          LOGERROR('What the heck blockchain mode are we in?  %s', bdmState)
 
@@ -4765,13 +4764,14 @@ class ArmoryMainWindow(QMainWindow):
          
       elif self.nodeStatus.status_ == Cpp.NodeStatus_Offline:
          self.lblArmoryStatus.setText(self.tr('<font color=%1>Node offline (%2 blocks)</font> ').arg(
-            htmlColor('TextRed'), TheBDM.getTopBlockHeight()))    
+            htmlColor('TextRed'), str(TheBDM.getTopBlockHeight())))    
          
          def getToolTipTextOffline():
             blkRecvAgo  = RightNow() - self.blkReceived
             tt = self.tr(
             'Disconnected from Bitcoin Node, cannot update history '
-            '<br><br>Last known block: %1 <br>Received %2 ago').arg(TheBDM.getTopBlockHeight(), str(secondsToHumanTime(blkRecvAgo)))
+            '<br><br>Last known block: %1 <br>Received %2 ago').arg(
+               str(TheBDM.getTopBlockHeight()), str(secondsToHumanTime(blkRecvAgo)))
             return tt
          
          self.lblArmoryStatus.setToolTipLambda(getToolTipTextOffline)     

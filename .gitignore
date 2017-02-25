@@ -116,3 +116,6 @@ _CppBlockUtils.*
 /dpkgfiles/control
 
 /r-pi/RPI_CROSSCOMPILE/*
+
+/cppForSwig/BDM_Client/build/*.*
+/cppForSwig/BDM_Client/x64/*.*
