@@ -25,7 +25,11 @@ copy-script:
 
 all-local: copy-script lrelease qrc_img_resources.py
 
-install-exec-hook: all
+#target to clean up pre autotools installation left overs
+uninstall-old: 
+	rm -f $(DESTDIR)$(PREFIX)/bin/ArmoryDB 
+
+install-exec-hook: uninstall-old
 	mkdir $(DESTDIR)$(PREXIX)/lib/armory
 	cp *.py *.so README.md $(DESTDIR)$(PREXIX)/lib/armory
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/ui
@@ -34,10 +38,15 @@ install-exec-hook: all
 	cp -r armoryengine/* $(DESTDIR)$(PREFIX)/lib/armory/armoryengine
 	sed "s: /usr: $(PREFIX):g" < dpkgfiles/armory > $(DESTDIR)$(PREFIX)/bin/armory 
 	chmod +x $(DESTDIR)$(PREFIX)/bin/armory
+	mkdir -p $(DESTDIR)$(PREFIX)/share/applications
+	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armory.desktop > $(DESTDIR)$(PREFIX)/share/applications/armory.desktop
+	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armoryoffline.desktop > $(DESTDIR)$(PREFIX)/share/applications/armoryoffline.desktop
+	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armorytestnet.desktop > $(DESTDIR)$(PREFIX)/share/applications/armorytestnet.desktop
 
-uninstall-hook: 
+uninstall-hook: uninstall-old
 	rm -rf $(DESTDIR)$(PREXIX)/lib/armory
-	rm -f $(DESTDIR)$(PREFIX)/bin/armory
+	rm -rf $(DESTDIR)$(PREFIX)/bin/armory
+	rm -f $(DESTDIR)$(PREFIX)/share/applications/armory.*
 
 clean-local:
 	rm -f ArmoryDB

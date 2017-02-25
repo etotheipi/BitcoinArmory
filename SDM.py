@@ -146,7 +146,7 @@ class SatoshiDaemonManager(object):
          #if there is no local armorydb in the execution folder, 
          #look for an installed one
          if not os.path.exists(self.dbExecutable):
-            self.dbExecutable = "/usr/bin/ArmoryDB"
+            self.dbExecutable = "ArmoryDB"
 
    #############################################################################
    def setupSDM(self, pathToBitcoindExe=None, satoshiHome=None, \
@@ -388,6 +388,9 @@ class SatoshiDaemonManager(object):
          #import win32process
          kargs['shell'] = True
          #kargs['creationflags'] = win32process.CREATE_NO_WINDOW
+
+      argStr = " ".join(astr for astr in pargs)
+      LOGWARN('Spawning DB with command:' + argStr)
 
       launchProcess(pargs, **kargs)
 

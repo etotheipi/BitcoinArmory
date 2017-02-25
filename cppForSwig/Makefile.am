@@ -79,6 +79,8 @@ libCppBlockUtils_la_LIBADD = 	-Llmdb -llmdb \
 CppBlockUtils_wrap.cxx: CppBlockUtils.i
 	swig $(SWIG_FLAGS) CppBlockUtils.i 
 
+.PHONY: CppBlockUtils_wrap.cxx
+
 clean-local:
 	rm -f CppBlockUtils.py
 	rm -f CppBlockUtils_wrap.cxx

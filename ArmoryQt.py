@@ -1762,6 +1762,7 @@ class ArmoryMainWindow(QMainWindow):
    ############################################################################
    def startArmoryDBIfNecessary(self):
       if CLI_OPTIONS.offline:
+         LOGWARN("Offline instance, not startig the DB")
          return False
       try:
          if TheBDM.bdv().hasRemoteDB() == False:
@@ -1785,6 +1786,8 @@ class ArmoryMainWindow(QMainWindow):
                if TheBDM.bdv().hasRemoteDB == False:
                   LOGERROR("Failed to spawn ArmoryDB")
                   return False
+         else:
+            LOGWARN("DB is already running")
    
          return True
       except Exception, e:
