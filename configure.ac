@@ -36,14 +36,9 @@ m4_include([m4/ax_swig_python.m4])
 m4_include([m4/ax_pkg_swig.m4])
 m4_include([m4/ax_python_devel.m4])
 m4_include([m4/ax_python_module.m4])
+m4_include([m4/ax_cxx_compile_stdcxx.m4])
 
-AX_CHECK_COMPILE_FLAG([-std=c++11], [compile_flag_cxx11=yes])
-if test "x${compile_flag_cxx11}" = "xyes"; then
-	CXXFLAGS="-std=c++11 $CXXFLAGS"
-	CXX_STANDARD=201103L
-else
-    AC_MSG_ERROR([need c++ 11 compiler])
-fi
+AX_CXX_COMPILE_STDCXX([11], [noext], [mandatory], [nodefault])
 
 AX_SWIG_PYTHON([no])
 AS_IF([test -z $AX_SWIG_PYTHON_CPPFLAGS], 
