@@ -119,5 +119,19 @@ _CppBlockUtils.*
 
 /r-pi/RPI_CROSSCOMPILE/*
 
-/cppForSwig/BDM_Client/build/*.*
-/cppForSwig/BDM_Client/x64/*.*
+/cppForSwig/BitcoinArmory.sdf
+/cppForSwig/BitcoinArmory.v12.suo
+/cppForSwig/BitcoinArmory.opensdf
+*.vcxproj.user
+
+/cppForSwig/BDM_Client/build*
+/cppForSwig/BDM_Client/x64*
+/cppForSwig/BitcoinArmory_CppTests/x64*
+/cppForSwig/BlockDataManager/x64*
+/cppForSwig/ContainerTests/Release*
+/cppForSwig/ContainerTests/x64*
+/cppForSwig/cryptopp/x64*
+/cppForSwig/guardian/x64*
+/cppForSwig/x64*
+/cppForSwig/LMDB_Win/x64*
+/cppForSwig/x64/*.*
