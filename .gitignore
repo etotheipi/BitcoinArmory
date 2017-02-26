@@ -92,6 +92,8 @@ _CppBlockUtils.*
 /*.txt
 /sandbox.py
 
+/lang/*.qm
+
 /webshop/orders/m*
 /webshop/orders/n*
 /webshop/orders/2*
