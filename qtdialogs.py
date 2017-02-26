@@ -3880,10 +3880,14 @@ class DlgSetComment(ArmoryDialog):
 
       layout = QGridLayout()
       lbl = None
-      if     ctype and     currcomment: lbl = QLabel(self.tr('Change %1 %2:').arg(ctype, cwhat))
-      if not ctype and     currcomment: lbl = QLabel(self.tr('Change %1:').arg(cwhat))
-      if     ctype and not currcomment: lbl = QLabel(self.tr('Add %2 %2:').arg(ctype, cwhat))
-      if not ctype and not currcomment: lbl = QLabel(self.tr('Add %1:').arg(cwhat))
+      if     ctype and     currcomment: 
+         lbl = QLabel(self.tr('Change %1 %2:').arg(ctype, cwhat))
+      if not ctype and     currcomment: 
+         lbl = QLabel(self.tr('Change %1:').arg(cwhat))
+      if     ctype and not currcomment: 
+         lbl = QLabel(self.tr('Add %1 %2:').arg(ctype, cwhat))
+      if not ctype and not currcomment: 
+         lbl = QLabel(self.tr('Add %1:').arg(cwhat))
       self.edtComment = QLineEdit()
       self.edtComment.setText(currcomment[:maxChars])
       h, w = relaxedSizeNChar(self, 50)

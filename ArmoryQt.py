@@ -4561,7 +4561,7 @@ class ArmoryMainWindow(QMainWindow):
             descr += self.GetDashStateText('User', 'OnlineFull2')
             self.lblDashDescr1.setText(descr)
 
-      elif bdmState == BDM_SCANNING:
+      elif bdmState == BDM_SCANNING or bdmState == BDM_UNINITIALIZED:
          LOGINFO('Dashboard switched to "Scanning" mode')
          setSyncRowVisible(False)
          self.lblDashModeScan.setVisible(True)
