@@ -19,7 +19,11 @@ qrc_img_resources.py: imgList.xml
 copy-script:
 	cp cppForSwig/ArmoryDB ./ArmoryDB
 	cp cppForSwig/CppBlockUtils.py ./CppBlockUtils.py
+if BUILD_DARWIN
+	cp cppForSwig/.libs/libCppBlockUtils.dylib ./_CppBlockUtils.so
+else
 	cp cppForSwig/.libs/libCppBlockUtils.so ./_CppBlockUtils.so
+endif
 
 .PHONY: copy-script lrelease qrc_img_resources.py
 

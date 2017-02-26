@@ -8,6 +8,9 @@ AM_INIT_AUTOMAKE([1.10 foreign -Wall -Werror])
 AM_PROG_AR
 LT_INIT
 
+AC_CANONICAL_BUILD
+AC_CANONICAL_HOST
+
 #reset these flags if they are the default -g -02
 AS_IF([test "$CFLAGS" = "-g -O2"] ,[AC_SUBST(CFLAGS, [ ])])
 AS_IF([test "$CXXFLAGS" = "-g -O2"] ,[AC_SUBST(CXXFLAGS, [ ])])
@@ -50,13 +53,46 @@ AC_CHECK_TYPES([ptrdiff_t])
 AC_FUNC_MALLOC
 AC_CHECK_FUNCS([gethostbyname gettimeofday memmove memset pow select setlocale socket])
 
-AM_CONDITIONAL([CRYPTOPP_HAVE_CLANG], [test $CXX == clang++])
+dnl Determine build OS.
+BUILD_OS=
+case $host in
+  *darwin*)
+    BUILD_OS=darwin
+    ;;
+  *linux*)
+    BUILD_OS=linux
+    ;;
+esac
+
+dnl Are we building for X86?
+dnl For now, this may break Raspberry Pi cross-compiles. Fix later.
+HOST_MACHINE=
+AS_CASE([$host_cpu],
+  [i?86], [HOST_MACHINE=x86],
+  [x86_64], [HOST_MACHINE=x86],
+  [AC_MSG_ERROR("No assembler code for CPU $host_cpu")]
+)
+
+dnl Clang detection is complicated since it comes up as GCC too.
+AC_LANG_PUSH([C++])
+AC_COMPILE_IFELSE(
+[AC_LANG_PROGRAM([], [[
+#ifndef __clang__
+       not clang
+#endif
+]])],
+[CLANG=yes], [CLANG=no])
+AC_LANG_POP([C++])
+
+AC_MSG_RESULT([$CLANG])
+AC_SUBST([CLANG])
+
+AM_CONDITIONAL([CRYPTOPP_HAVE_CLANG], [test x$CLANG = xyes])
 AM_CONDITIONAL([CRYPTOPP_HAVE_GCC], [test $CXX == g++])
 
-AM_CONDITIONAL([UNAME_DARWIN], [test $(uname) == Darwin])
 AM_CONDITIONAL([UNAME_LINUX], [test $(uname) == Linux])
 
-AC_SUBST([HAS_X86], [false])
+AM_CONDITIONAL([BUILD_DARWIN], [test x$BUILD_OS = xdarwin])
 
 AC_DEFUN_ONCE([_AX_GCC_X86_CPU_INIT],
  [AC_LANG_PUSH([C])
@@ -72,7 +108,7 @@ AC_DEFUN_ONCE([_AX_GCC_X86_CPU_INIT],
 AS_IF([test "X$ax_cv_gcc_check_x86_cpu_init" = "Xyes"],
    [AX_CHECK_X86_FEATURES([HAS_X86=true])])
 
-AM_CONDITIONAL([IS_X86], [test $HAS_X86 == true])
+AM_CONDITIONAL([IS_X86], [test x$HOST_MACHINE = xx86])
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT

@@ -52,6 +52,7 @@ INSTALLDIR    = path.join(WORKDIR, 'install')
 PYPREFIX      = path.join(APPDIR, 'Contents/Frameworks/Python.framework/Versions/%s' % pyMajorVer)
 PYSITEPKGS    = path.join(PYPREFIX, 'lib/python%s/site-packages' % pyMajorVer)
 MAKEFLAGS     = '-j4'
+CONFIGFLAGS   = ''
 
 QTBUILTFLAG   = path.join(UNPACKDIR, 'qt/qt_install_success.txt')
 
@@ -677,6 +678,8 @@ def compile_armory():
    os.chdir("..")
    execAndWait('python update_version.py')
    os.chdir(currentDir)
+   execAndWait('./autogen.sh', cwd='..')
+   execAndWait('./configure %s' % CONFIGFLAGS, cwd='..')
    execAndWait('make all %s' % MAKEFLAGS, cwd='..')
    execAndWait('make DESTDIR="%s" install' % pydir, cwd='..')
    copyfile('Armory-script.sh', armoryAppScript)

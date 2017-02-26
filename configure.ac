@@ -8,6 +8,8 @@ AC_CONFIG_SUBDIRS([cppForSwig/fcgi cppForSwig/cryptopp])
 AM_PROG_AR
 LT_INIT
 
+AC_CANONICAL_HOST
+
 #reset these flags if they are the default -g -02
 AS_IF([test "$CFLAGS" = "-g -O2"] ,[AC_SUBST(CFLAGS, [ ])])
 AS_IF([test "$CXXFLAGS" = "-g -O2"] ,[AC_SUBST(CXXFLAGS, [ ])])
@@ -58,8 +60,34 @@ AX_PYTHON_MODULE([twisted], [fatal])
 
 AC_SUBST([CXX_STANDARD], $CXX_STANDARD)
 
-AM_CONDITIONAL([HAVE_CLANG], [test $CXX == clang++])
+dnl Determine build OS.
+case $host in
+  *darwin*)
+    BUILD_OS=darwin
+    ;;
+  *linux*)
+    BUILD_OS=linux
+    ;;
+esac
+
+dnl Clang detection is complicated since it comes up as GCC too.
+AC_LANG_PUSH([C++])
+AC_COMPILE_IFELSE(
+[AC_LANG_PROGRAM([], [[
+#ifndef __clang__
+       not clang
+#endif
+]])],
+[CLANG=yes], [CLANG=no])
+AC_LANG_POP([C++])
+
+AC_MSG_RESULT([$CLANG])
+AC_SUBST([CLANG])
+
+AM_CONDITIONAL([HAVE_CLANG], [test x$CLANG = xyes])
 AM_CONDITIONAL([HAVE_GCC], [test $CXX == g++])
+
+AM_CONDITIONAL([BUILD_DARWIN], [test x$BUILD_OS = xdarwin])
 
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES(Makefile 
