@@ -11119,7 +11119,7 @@ class DlgRestoreSingle(ArmoryDialog):
             return
       if self.chkEncrypt.isChecked() and self.advancedOptionsTab.getKdfBytes() == -1:
             QMessageBox.critical(self, self.tr('Invalid Max Memory Usage'), \
-               self.tr('You entered Max Memory Usage incorrectly.\n\nEnter: <Number> (kB, mB)'), QMessageBox.Ok)
+               self.tr('You entered Max Memory Usage incorrectly.\n\nEnter: <Number> (kB, MB)'), QMessageBox.Ok)
             return
       if nError > 0:
          pluralStr = 'error' if nError == 1 else 'errors'
@@ -11899,7 +11899,7 @@ class DlgRestoreFragged(ArmoryDialog):
             return
       if self.chkEncrypt.isChecked() and self.advancedOptionsTab.getKdfBytes() == -1:
             QMessageBox.critical(self, self.tr('Invalid Max Memory Usage'), \
-               self.tr('You entered Max Memory Usage incorrectly.\n\nEnter: <Number> (kB, mB)'), QMessageBox.Ok)
+               self.tr('You entered Max Memory Usage incorrectly.\n\nEnter: <Number> (kB, MB)'), QMessageBox.Ok)
             return
       SECPRINT = HardcodedKeyMaskParams()
       pwd, ekey = '', ''

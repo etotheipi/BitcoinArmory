@@ -582,7 +582,7 @@ class ArmoryMainWindow(QMainWindow):
          if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
             QMessageBox.warning(self, self.tr('Offline'), self.tr("""
                Armory is currently offline, and cannot determine what funds are
-               available for simulfunding.  Please try again when Armory is in
+               available for Simulfunding.  Please try again when Armory is in
                online mode."""), QMessageBox.Ok)
          else:
             DlgCreatePromNote(self, self).exec_()
