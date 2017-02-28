@@ -1427,11 +1427,19 @@ void BDV_Server_Object::maintenanceThread(void)
       
          case BDV_Refresh:
          {
-            //ignore refresh type and refreshID for now
+            auto&& payload =
+               dynamic_pointer_cast<BDV_Notification_Refresh>(notifPtr);
+
+            IntType refreshType(payload->refresh_);
+            BinaryData bdId = payload->refreshID_;
+            BinaryDataVector bdvec;
+            bdvec.push_back(move(bdId));
 
             Arguments args2;
             BinaryDataObject bdo("BDV_Refresh");
             args2.push_back(move(bdo));
+            args2.push_back(move(refreshType));
+            args2.push_back(move(bdvec));
             cb_->callback(move(args2), OrderRefresh);
             break;
          }
@@ -1628,7 +1636,7 @@ Arguments SocketCallback::respond(const string& command)
    }
 
    //consolidate NewBlock and Refresh notifications
-   bool refreshNotification = false;
+   Arguments* refreshOrderPtr = nullptr;
    int32_t newBlock = -1;
 
    Arguments arg;
@@ -1653,7 +1661,7 @@ Arguments SocketCallback::respond(const string& command)
 
          case OrderRefresh:
          {
-            refreshNotification = true;
+            refreshOrderPtr = &order.order_;
             break;
          }
 
@@ -1670,11 +1678,8 @@ Arguments SocketCallback::respond(const string& command)
       }
    }
 
-   if (refreshNotification)
-   {
-      BinaryDataObject bdo("BDV_Refresh");
-      arg.push_back(move(bdo));
-   }
+   if (refreshOrderPtr != nullptr)
+      arg.merge(*refreshOrderPtr);
 
    if (newBlock > -1)
    {

@@ -1042,6 +1042,7 @@ void WalletGroup::updateLedgerFilter(const vector<BinaryData>& walletsList)
       iter->second->uiFilter_ = true;
    }
 
+   pageHistory(false, true);
    bdvPtr_->flagRefresh(BDV_filterChanged, BinaryData());
 }
 

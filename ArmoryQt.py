@@ -4838,7 +4838,7 @@ class ArmoryMainWindow(QMainWindow):
       elif action == REFRESH_ACTION:
          #The wallet ledgers have been updated from an event outside of new ZC
          #or new blocks (usually a wallet or address was imported, or the
-         #wallet filter was modified
+         #wallet filter was modified)
          self.updateWalletData()
          reset  = False
          if len(args) == 0:

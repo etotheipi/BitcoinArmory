@@ -892,8 +892,19 @@ void PythonCallback::remoteLoop(void)
 
             case CBO_BDV_Refresh:
             {
-               vector<BinaryData> bdVector;
-               run(BDMAction::BDMAction_Refresh, &bdVector, 0);
+               auto&& refreshType = args.get<IntType>();
+               auto&& idVec = args.get<BinaryDataVector>();
+
+               auto refresh = BDV_refresh(refreshType.getVal());
+   
+               if (refresh != BDV_filterChanged)
+                  run(BDMAction::BDMAction_Refresh, (void*)&idVec.get(), 0);
+               else
+               {
+                  vector<BinaryData> bdvec;
+                  bdvec.push_back(BinaryData("wallet_filter_changed"));
+                  run(BDMAction::BDMAction_Refresh, (void*)&bdvec, 0);
+               }
 
                break;
             }
