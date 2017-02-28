@@ -226,9 +226,7 @@ vector<size_t> Payload::processPacket(
       offset += 4;
 
       if (*length + MESSAGE_HEADER_LEN > totalsize - localOffset)
-      {
-         throw BitcoinMessageDeserError("payload length mismatch", localOffset);
-      }
+         return retvec;
 
       //get checksum
       uint32_t* checksum = (uint32_t*)(ptr + CHECKSUM_OFFSET);
@@ -260,6 +258,7 @@ shared_ptr<Payload::DeserializedPayloads> Payload::deserialize(
    {
       auto result = make_shared<DeserializedPayloads>();
       auto& payloadVec = result->payloads_;
+      uint64_t lastValidOffset = 0;
 
       for (unsigned y = 0; y < offsetVec.size(); y++)
       {
@@ -318,6 +317,8 @@ shared_ptr<Payload::DeserializedPayloads> Payload::deserialize(
                      payloadptr, *length)));
                }
             }
+
+            lastValidOffset = offset + *length;
          }
          catch (PayloadDeserError& excpt)
          {
@@ -329,6 +330,13 @@ shared_ptr<Payload::DeserializedPayloads> Payload::deserialize(
 
             LOGWARN << "carrying " << data.size() - offset << " bytes of data spill over";
             result->spillOffset_ = offset;
+            result->data_ = move(data);
+         }
+
+         if (lastValidOffset < data.size())
+         {
+            LOGWARN << "carrying " << data.size() - lastValidOffset << " bytes of data spill over";
+            result->spillOffset_ = lastValidOffset;
             result->data_ = move(data);
          }
 
