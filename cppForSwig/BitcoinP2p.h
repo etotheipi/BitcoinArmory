@@ -118,7 +118,10 @@ public:
 
 struct BitcoinMessageDeserError : public BitcoinP2P_Exception
 {
-   BitcoinMessageDeserError(const string& e) : BitcoinP2P_Exception(e)
+   const size_t offset_;
+
+   BitcoinMessageDeserError(const string& e, size_t off) : 
+      BitcoinP2P_Exception(e), offset_(off)
    {}
 };
 
@@ -145,10 +148,21 @@ class Payload
 {
 protected:
    virtual size_t serialize_inner(uint8_t*) const = 0;
-  
-public:
-   static vector<unique_ptr<Payload>> deserialize(
+   static vector<size_t> processPacket(
       vector<uint8_t>& data, uint32_t magic_word);
+
+public:
+   struct DeserializedPayloads
+   {
+      vector<uint8_t> data_;
+      vector<unique_ptr<Payload>> payloads_;
+      size_t spillOffset_ = SIZE_MAX;
+   };
+
+public:
+   static shared_ptr<DeserializedPayloads> deserialize(
+      vector<uint8_t>& data, uint32_t magic_word, 
+      shared_ptr<DeserializedPayloads> prevPacket);
 
 public:
    virtual ~Payload() 

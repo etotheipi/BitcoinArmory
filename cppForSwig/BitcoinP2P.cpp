@@ -165,17 +165,14 @@ vector<uint8_t> Payload::serialize(uint32_t magic_word) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-vector<unique_ptr<Payload>> Payload::deserialize(
+vector<size_t> Payload::processPacket(
    vector<uint8_t>& data, uint32_t magic_word)
 {
-   //TODO: add trailing uncomplete payload data replay in next deser call
-   //(mostly useful for grabbing data during blocks over p2p syncing)
-
    if (data.size() < MESSAGE_HEADER_LEN)
-      throw BitcoinMessageDeserError("invalid header size");
-   
+      throw BitcoinMessageDeserError("invalid header size", 0);
+
    size_t offset = 0, totalsize = data.size();
-   vector<unique_ptr<Payload>> retvec;
+   vector<size_t> retvec;
 
    while (offset < totalsize)
    {
@@ -223,104 +220,172 @@ vector<unique_ptr<Payload>> Payload::deserialize(
       //get and verify length
       uint32_t* length = (uint32_t*)(ptr + PAYLOAD_LENGTH_OFFSET);
       auto localOffset = offset;
-      
+
       //at this point we don't want to reparse this message if the the
       //deser operation fails
       offset += 4;
 
-      try
+      if (*length + MESSAGE_HEADER_LEN > totalsize - localOffset)
       {
-         if (*length + MESSAGE_HEADER_LEN > totalsize - localOffset)
-         {
-            //TODO: maybe we only got a partial payload from the node, we
-            //should prepend the next payload with the left over of this one
-            //for the good measure
-            throw BitcoinMessageDeserError("payload length mismatch");
-         }
-
-         //get checksum
-         uint32_t* checksum = (uint32_t*)(ptr + CHECKSUM_OFFSET);
-
-         //grab payload
-         BinaryDataRef payloadRef(ptr + MESSAGE_HEADER_LEN, *length);
-
-         //verify checksum
-         auto&& payloadHash = BtcUtils::getHash256(payloadRef);
-         uint32_t* hashChecksum = (uint32_t*)payloadHash.getPtr();
-
-         if (*hashChecksum != *checksum)
-         {
-            localOffset += 4;
-            continue;
-         }
-
-         //instantiate relevant Payload child class and return it
-         auto payloadIter = BitcoinP2P::strToPayload_.find(messagetype);
-         if (payloadIter != BitcoinP2P::strToPayload_.end())
-         {
-            uint8_t* payloadptr = nullptr;
-            if (*length > 0)
-               payloadptr = &data[localOffset] + MESSAGE_HEADER_LEN;
-
-            switch (payloadIter->second)
-            {
-            case Payload_version:
-               retvec.push_back(move(make_unique<Payload_Version>(
-                  payloadptr, *length)));
-               break;
-
-            case Payload_verack:
-               retvec.push_back(move(make_unique<Payload_Verack>()));
-               break;
-
-            case Payload_ping:
-               retvec.push_back(move(make_unique<Payload_Ping>(
-                  payloadptr, *length)));
-               break;
-
-            case Payload_pong:
-               retvec.push_back(move(make_unique<Payload_Pong>(
-                  payloadptr, *length)));
-               break;
-
-            case Payload_inv:
-               retvec.push_back(move(make_unique<Payload_Inv>(
-                  payloadptr, *length)));
-               break;
-
-            case Payload_tx:
-               retvec.push_back(move(make_unique<Payload_Tx>(
-                  payloadptr, *length)));
-               break;
-
-            case Payload_getdata:
-               retvec.push_back(move(make_unique<Payload_GetData>(
-                  payloadptr, *length)));
-               break;
-
-            case Payload_reject:
-               retvec.push_back(move(make_unique<Payload_Reject>(
-                  payloadptr, *length)));
-            }
-         }
+         throw BitcoinMessageDeserError("payload length mismatch", localOffset);
       }
-      catch (BitcoinMessageDeserError&)
-      {
-         //ignore payloads that failed to deser properly
+
+      //get checksum
+      uint32_t* checksum = (uint32_t*)(ptr + CHECKSUM_OFFSET);
+
+      //grab payload
+      BinaryDataRef payloadRef(ptr + MESSAGE_HEADER_LEN, *length);
+
+      //verify checksum
+      auto&& payloadHash = BtcUtils::getHash256(payloadRef);
+      uint32_t* hashChecksum = (uint32_t*)payloadHash.getPtr();
+
+      if (*hashChecksum != *checksum)
          continue;
-      }
 
+      retvec.push_back(localOffset);
       offset += MESSAGE_HEADER_LEN + *length - 4;
    }
-
+      
    return retvec;
 }
+
+////////////////////////////////////////////////////////////////////////////////
+shared_ptr<Payload::DeserializedPayloads> Payload::deserialize(
+   vector<uint8_t>& data, uint32_t magic_word,
+   shared_ptr<DeserializedPayloads> prevPacket)
+{
+   auto parsepayloads = [](vector<uint8_t>& data, vector<size_t>& offsetVec)->
+      shared_ptr<DeserializedPayloads>
+   {
+      auto result = make_shared<DeserializedPayloads>();
+      auto& payloadVec = result->payloads_;
+
+      for (unsigned y = 0; y < offsetVec.size(); y++)
+      {
+         auto& offset = offsetVec[y];
+         auto length = (uint32_t*)(&data[offset] + PAYLOAD_LENGTH_OFFSET);
+         auto messagetype = (char*)(&data[offset] + MESSAGE_TYPE_OFFSET);
+
+         try
+         {
+            //instantiate relevant Payload child class and return it
+            auto payloadIter = BitcoinP2P::strToPayload_.find(messagetype);
+            if (payloadIter != BitcoinP2P::strToPayload_.end())
+            {
+               uint8_t* payloadptr = nullptr;
+               if (*length > 0)
+                  payloadptr = &data[offset] + MESSAGE_HEADER_LEN;
+
+               switch (payloadIter->second)
+               {
+               case Payload_version:
+                  payloadVec.push_back(move(make_unique<Payload_Version>(
+                     payloadptr, *length)));
+                  break;
+
+               case Payload_verack:
+                  payloadVec.push_back(move(make_unique<Payload_Verack>()));
+                  break;
+
+               case Payload_ping:
+                  payloadVec.push_back(move(make_unique<Payload_Ping>(
+                     payloadptr, *length)));
+                  break;
+
+               case Payload_pong:
+                  payloadVec.push_back(move(make_unique<Payload_Pong>(
+                     payloadptr, *length)));
+                  break;
+
+               case Payload_inv:
+                  payloadVec.push_back(move(make_unique<Payload_Inv>(
+                     payloadptr, *length)));
+                  break;
+
+               case Payload_tx:
+                  payloadVec.push_back(move(make_unique<Payload_Tx>(
+                     payloadptr, *length)));
+                  break;
+
+               case Payload_getdata:
+                  payloadVec.push_back(move(make_unique<Payload_GetData>(
+                     payloadptr, *length)));
+                  break;
+
+               case Payload_reject:
+                  payloadVec.push_back(move(make_unique<Payload_Reject>(
+                     payloadptr, *length)));
+               }
+            }
+         }
+         catch (PayloadDeserError& excpt)
+         {
+            LOGWARN << "failed to deser payload with error: " << excpt.what();
+
+            //ignore payloads that failed to deser unless we're at the end of the packet
+            if (offsetVec.size() - y > 1)
+               continue;
+
+            LOGWARN << "carrying " << data.size() - offset << " bytes of data spill over";
+            result->spillOffset_ = offset;
+            result->data_ = move(data);
+         }
+
+         return result;
+      }
+   };
+
+   auto&& offsetVec = processPacket(data, magic_word);
+
+   unique_ptr<Payload> extraPacket;
+   if (prevPacket != nullptr)
+   {
+      //get new packet prespill
+      if (offsetVec.size() == 0)
+         LOGERR << "not enough data in this packet to complete left over";
+
+      auto& spillSize = offsetVec[0];
+      if (spillSize == 0)
+         LOGERR << "not enough data in this packet to complete left over";
+
+      LOGWARN << spillSize << " bytes of prespill data found";
+
+      prevPacket->data_.insert(prevPacket->data_.end(),
+         data.begin(), data.begin() + spillSize);
+
+      vector<size_t> offvec;
+      offvec.push_back(prevPacket->spillOffset_);
+
+      auto spillResult = parsepayloads(prevPacket->data_, offvec);
+      if (spillResult->payloads_.size() == 0)
+         LOGERR << "failed to complete spilled packet";
+
+      extraPacket = move(spillResult->payloads_[0]);
+      LOGWARN << "succesfully completed spill packet!";
+   }
+
+   auto result = parsepayloads(data, offsetVec);
+   if (extraPacket != nullptr)
+   {
+      typedef vector<unique_ptr<Payload>>::iterator vecUP;
+
+      vector<unique_ptr<Payload>> newvec;
+      newvec.push_back(move(extraPacket));
+      newvec.insert(newvec.end(), 
+         move_iterator<vecUP>(result->payloads_.begin()), 
+         move_iterator<vecUP>(result->payloads_.end()));
+   }
+
+   return result;
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 void BitcoinNetAddr::deserialize(BinaryRefReader brr)
 {
    if (brr.getSize() != NETADDR_NOTIME)
-      throw BitcoinMessageDeserError("invalid netaddr size");
+      throw PayloadDeserError("invalid netaddr size");
 
    services_ = brr.get_uint64_t(); 
    auto ipv6bdr = brr.get_BinaryDataRef(16);
@@ -442,7 +507,7 @@ void Payload_Ping::deserialize(uint8_t* dataptr, size_t len)
    if (len == 0)
       nonce_ = UINT64_MAX;
    else if (len != 8)
-      throw BitcoinMessageDeserError("invalid ping payload len");
+      throw PayloadDeserError("invalid ping payload len");
    else
       nonce_ = *(uint64_t*)dataptr;
 }
@@ -466,7 +531,7 @@ size_t Payload_Ping::serialize_inner(uint8_t* dataptr) const
 void Payload_Pong::deserialize(uint8_t* dataptr, size_t len)
 {
    if (len != 8)
-      throw BitcoinMessageDeserError("invalid pong payload len");
+      throw PayloadDeserError("invalid pong payload len");
 
    nonce_ = *(uint64_t*)dataptr;
 }
@@ -493,7 +558,7 @@ void Payload_Inv::deserialize(uint8_t* dataptr, size_t len)
    auto varintlen = get_varint(invCount, dataptr, len);
 
    if (invCount > INV_MAX)
-      throw BitcoinMessageDeserError("inv count > INV_MAX");
+      throw PayloadDeserError("inv count > INV_MAX");
 
    invVector_.resize(invCount);
 
@@ -503,11 +568,11 @@ void Payload_Inv::deserialize(uint8_t* dataptr, size_t len)
    for (auto& entry : invVector_)
    {
       if (remaining < INV_ENTRY_LEN)
-         throw BitcoinMessageDeserError("inv deser size mismatch");
+         throw PayloadDeserError("inv deser size mismatch");
 
       auto entrytype = *(uint32_t*)(ptr);
       if (entrytype > 3)
-         throw BitcoinMessageDeserError("invalid inv entry type");
+         throw PayloadDeserError("invalid inv entry type");
 
       entry.invtype_ = (InvType)entrytype;
       memcpy(entry.hash, ptr + 4, 32);
@@ -571,7 +636,7 @@ void Payload_GetData::deserialize(uint8_t* dataptr, size_t len)
    auto varintlen = get_varint(invCount, dataptr, len);
 
    if (invCount > INV_MAX)
-      throw BitcoinMessageDeserError("inv count > INV_MAX");
+      throw PayloadDeserError("inv count > INV_MAX");
 
    invVector_.resize(invCount);
 
@@ -581,11 +646,11 @@ void Payload_GetData::deserialize(uint8_t* dataptr, size_t len)
    for (auto& entry : invVector_)
    {
       if (remaining < INV_ENTRY_LEN)
-         throw BitcoinMessageDeserError("inv deser size mismatch");
+         throw PayloadDeserError("inv deser size mismatch");
 
       auto entrytype = *(uint32_t*)(ptr);
       if ((entrytype & ~Inv_Witness) > 3)
-         throw BitcoinMessageDeserError("invalid inv entry type");
+         throw PayloadDeserError("invalid inv entry type");
 
       entry.invtype_ = (InvType)entrytype;
       memcpy(entry.hash, ptr + 4, 32);
@@ -632,12 +697,11 @@ void Payload_Reject::deserialize(uint8_t* dataptr, size_t len)
    auto remaining = len;
    auto varintlen = get_varint(typeLen, dataptr, len);
    auto ptr = dataptr + varintlen;
-   remaining -= (varintlen + typeLen + 1);
 
    string msgtype((char*)ptr, typeLen);
    auto typeIter = BitcoinP2P::strToPayload_.find(msgtype);
    if (typeIter == BitcoinP2P::strToPayload_.end())
-      throw BitcoinMessageDeserError("unknown reject type");
+      throw PayloadDeserError("unknown reject type");
 
    rejectType_ = typeIter->second;
    ptr += typeLen;
@@ -841,12 +905,20 @@ void BitcoinP2P::processDataStackThread()
 {
    try
    {
+      shared_ptr<Payload::DeserializedPayloads> packetPtr;
+
       while (1)
       {
-         auto&& data = dataStack_->pop_front();
-         auto&& payload = Payload::deserialize(data, magic_word_);
+         shared_ptr<Payload::DeserializedPayloads> prevPacket = packetPtr;
+         packetPtr.reset();
 
-         processPayload(move(payload));
+         auto&& data = dataStack_->pop_front();
+         auto&& processedPacket = Payload::deserialize(data, magic_word_, prevPacket);
+
+         if (processedPacket->spillOffset_ != SIZE_MAX)
+            packetPtr = processedPacket;
+
+         processPayload(move(processedPacket->payloads_));
       }
    }
    catch (SocketError& e)
