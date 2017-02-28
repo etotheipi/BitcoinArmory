@@ -371,6 +371,11 @@ namespace SwigClient
       NodeStatusStruct getNodeStatus(void);
       unsigned getTopBlock(void) const { return topBlock_; }
       float estimateFee(unsigned);
+
+      vector<LedgerEntryData> getHistoryForWalletSelection(
+         const vector<string>& wldIDs, const string& orderingStr);
+
+      uint64_t getValueForTxOut(const BinaryData& txHash, unsigned inputId);
    };
 };
 

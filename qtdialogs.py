@@ -9185,10 +9185,10 @@ class DlgExportTxHistory(ArmoryDialog):
          else:
             pass
 
-      order = order_ascending
+      order = "ascending"
       sortTxt = str(self.cmbSortSelect.currentText())
       if 'newest' in sortTxt:
-         order = order_descending
+         order = "descending"
 
       totalFunds, spendFunds, unconfFunds = 0, 0, 0
       wltBalances = {}
@@ -9196,10 +9196,10 @@ class DlgExportTxHistory(ArmoryDialog):
          if wltID in self.main.walletMap:
             wlt = self.main.walletMap[wltID]
 
-            totalFunds += wlt.getBalance(self.tr('Total'))
-            spendFunds += wlt.getBalance(self.tr('Spendable'))
-            unconfFunds += wlt.getBalance(self.tr('Unconfirmed'))
-            if order == order_ascending:
+            totalFunds += wlt.getBalance('Total')
+            spendFunds += wlt.getBalance('Spendable')
+            unconfFunds += wlt.getBalance('Unconfirmed')
+            if order == "ascending":
                wltBalances[wltID] = 0   # will be accumulated
             else:
                wltBalances[wltID] = wlt.getBalance('Total')
@@ -9210,12 +9210,12 @@ class DlgExportTxHistory(ArmoryDialog):
             totalFunds += cppwlt.getFullBalance()
             spendFunds += cppwlt.getSpendableBalance(TheBDM.getTopBlockHeight(), IGNOREZC)
             unconfFunds += cppwlt.getUnconfirmedBalance(TheBDM.getTopBlockHeight(), IGNOREZC)
-            if order == order_ascending:
+            if order == "ascending":
                wltBalances[wltID] = 0   # will be accumulated
             else:
                wltBalances[wltID] = cppwlt.getFullBalance()
 
-      if order == order_ascending:
+      if order == "ascending":
          allBalances = 0
       else:
          allBalances = totalFunds
@@ -9258,77 +9258,72 @@ class DlgExportTxHistory(ArmoryDialog):
                       self.tr('Wallet Name'), self.tr('Credit'), self.tr('Debit'), self.tr('Fee (paid by this wallet)'),
                       self.tr('Wallet Balance'), self.tr('Total Balance'), self.tr('Label')]
 
-         f.write(','.join(headerRow) + '\n')
+         f.write(','.join(unicode(header) for header in headerRow) + '\n')
 
-         #create pager object
-         walletGroup = TheBDM.bdv().getStandAloneWalletGroup(wltIDList, order)
-         nPages = walletGroup.getPageCount()
+         #get history
+         historyLedger = TheBDM.bdv().getHistoryForWalletSelection(wltIDList, order)
 
-         #run through all pages
-         for page in range(0, nPages):
-            # Each value in COL.Amount will be exactly how much the wallet balance
-            # increased or decreased as a result of this transaction.
-            combinedLedger = walletGroup.getHistoryPage(page, False, False)
-            ledgerTable = self.main.convertLedgerToTable(combinedLedger,
-                                                         showSentToSelfAmt=True)
+         # Each value in COL.Amount will be exactly how much the wallet balance
+         # increased or decreased as a result of this transaction.
+         ledgerTable = self.main.convertLedgerToTable(historyLedger,
+                                                      showSentToSelfAmt=True)
 
-            # Sort the data chronologically first, compute the running balance for
-            # each row, then sort it the way that was requested by the user.
-            for row in ledgerTable:
+         # Sort the data chronologically first, compute the running balance for
+         # each row, then sort it the way that was requested by the user.
+         for row in ledgerTable:
+            if row[COL.toSelf] == False:
+               rawAmt = str2coin(row[COL.Amount])
+            else:
+               #if SentToSelf, balance and total rolling balance should only take fee in account
+               rawAmt = getFeeForTx(hex_to_binary(row[COL.TxHash])) * -1
+
+            if order == "ascending":
+               wltBalances[row[COL.WltID]] += rawAmt
+               allBalances += rawAmt
+
+            row.append(wltBalances[row[COL.WltID]])
+            row.append(allBalances)
+
+            if order == "descending":
+               wltBalances[row[COL.WltID]] -= rawAmt
+               allBalances -= rawAmt
+
+
+         for row in ledgerTable:
+            vals = []
+
+            fmtstr = str(self.edtDateFormat.text())
+            unixTime = row[COL.UnixTime]
+            vals.append(unixTimeToFormatStr(unixTime, fmtstr))
+            vals.append(hex_switchEndian(row[COL.TxHash]))
+            vals.append(row[COL.NumConf])
+            vals.append(row[COL.WltID])
+            if row[COL.WltID] in self.main.walletMap:
+               vals.append(self.main.walletMap[row[COL.WltID]].labelName.replace(',', ';'))
+            else:
+               vals.append(self.main.allLockboxes[self.main.lockboxIDMap[row[COL.WltID]]].shortName.replace(',', ';'))
+
+            wltEffect = row[COL.Amount]
+            txFee = getFeeForTx(hex_to_binary(row[COL.TxHash]))
+            if float(wltEffect) >= 0:
                if row[COL.toSelf] == False:
-                  rawAmt = str2coin(row[COL.Amount])
-               else:
-                  #if SentToSelf, balance and total rolling balance should only take fee in account
-                  rawAmt = getFeeForTx(hex_to_binary(row[COL.TxHash])) * -1
-
-               if order == order_ascending:
-                  wltBalances[row[COL.WltID]] += rawAmt
-                  allBalances += rawAmt
-
-               row.append(wltBalances[row[COL.WltID]])
-               row.append(allBalances)
-
-               if order == order_descending:
-                  wltBalances[row[COL.WltID]] -= rawAmt
-                  allBalances -= rawAmt
-
-
-            for row in ledgerTable:
-               vals = []
-
-               fmtstr = str(self.edtDateFormat.text())
-               unixTime = row[COL.UnixTime]
-               vals.append(unixTimeToFormatStr(unixTime, fmtstr))
-               vals.append(hex_switchEndian(row[COL.TxHash]))
-               vals.append(row[COL.NumConf])
-               vals.append(row[COL.WltID])
-               if row[COL.WltID] in self.main.walletMap:
-                  vals.append(self.main.walletMap[row[COL.WltID]].labelName.replace(',', ';'))
-               else:
-                  vals.append(self.main.allLockboxes[self.main.lockboxIDMap[row[COL.WltID]]].shortName.replace(',', ';'))
-
-               wltEffect = row[COL.Amount]
-               txFee = getFeeForTx(hex_to_binary(row[COL.TxHash]))
-               if float(wltEffect) >= 0:
-                  if row[COL.toSelf] == False:
-                     vals.append(wltEffect.strip())
-                     vals.append('')
-                     vals.append('')
-                  else:
-                     vals.append(wltEffect.strip() + ' (STS)')
-                     vals.append('')
-                     vals.append(coin2str(txFee).strip())
-               else:
+                  vals.append(wltEffect.strip())
                   vals.append('')
-                  vals.append(wltEffect.strip()[1:]) # remove negative sign
+                  vals.append('')
+               else:
+                  vals.append(wltEffect.strip() + ' (STS)')
+                  vals.append('')
                   vals.append(coin2str(txFee).strip())
+            else:
+               vals.append('')
+               vals.append(wltEffect.strip()[1:]) # remove negative sign
+               vals.append(coin2str(txFee).strip())
 
-               vals.append(coin2str(row[-2]))
-               vals.append(coin2str(row[-1]))
-               vals.append(row[COL.Comment])
+            vals.append(coin2str(row[-2]))
+            vals.append(coin2str(row[-1]))
+            vals.append(row[COL.Comment])
 
-               f.write('%s,%s,%d,%s,%s,%s,%s,%s,%s,%s,"%s"\n' % tuple(vals))
-      #
+            f.write('%s,%s,%d,%s,%s,%s,%s,%s,%s,%s,"%s"\n' % tuple(vals))
 
       f.close()
       return True

@@ -679,6 +679,65 @@ void BDV_Server_Object::buildMethodMap()
 
    methodMap_["estimateFee"] = estimateFee;
 
+   //getHistoryForWalletSelection
+   auto getHistoryForWalletSelection = [this]
+      (const vector<string>& ids, Arguments& args)->Arguments
+   {
+      auto&& wltIDs = args.get<BinaryDataVector>();
+      auto orderingBdo = args.get<BinaryDataObject>().get();
+      auto orderingStr = string(orderingBdo.getCharPtr(), orderingBdo.getSize());
+
+      HistoryOrdering ordering;
+      if (orderingStr == "ascending")
+         ordering = order_ascending;
+      else if (orderingStr == "descending")
+         ordering = order_descending;
+      else
+         throw runtime_error("invalid ordering str");
+
+      auto&& wltGroup = this->getStandAloneWalletGroup(wltIDs.get(), ordering);
+            
+      LedgerEntryVector lev;
+      for (unsigned y = 0; y < wltGroup.getPageCount(); y++)
+      {
+         auto&& histPage = wltGroup.getHistoryPage(y, false, false);
+         for (auto& le : histPage)
+         {
+            LedgerEntryData led(le.getWalletID(),
+               le.getValue(), le.getBlockNum(), le.getTxHash(),
+               le.getIndex(), le.getTxTime(), le.isCoinbase(),
+               le.isSentToSelf(), le.isChangeBack(), le.isOptInRBF());
+            lev.push_back(move(led));
+         }
+      }
+
+      Arguments retarg;
+      retarg.push_back(move(lev));
+      return move(retarg);
+   };
+
+   methodMap_["getHistoryForWalletSelection"] = getHistoryForWalletSelection;
+
+   //getValueForTxOut
+   auto getValueForTxOut = [this]
+      (const vector<string>& ids, Arguments& args)->Arguments
+   {
+      auto&& txHashObj = args.get<BinaryDataObject>();
+      auto& txHash = txHashObj.get();
+      auto txoutIndex = args.get<IntType>().getVal();
+         
+      auto&& theTx = this->getTxByHash(txHash);
+      if (!theTx.isInitialized())
+         throw runtime_error("failed to find tx");
+
+      auto&& txOut = theTx.getTxOutCopy(txoutIndex);
+
+      Arguments retarg;
+      retarg.push_back(move(IntType(txOut.getValue())));
+      return move(retarg);
+   };
+
+   methodMap_["getValueForTxOut"] = getValueForTxOut;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -2897,16 +2897,18 @@ def PyCreateAndSignTx_old(srcTxOuts, dstAddrsVals):
 def getFeeForTx(txHash):
    if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
       try:
-         txref = TheBDM.getTxByHash(txHash)
-         if not txref.isInitialized():
+         tx = TheBDM.getTxByHash(txHash)
+         if not tx.isInitialized():
             LOGERROR('Attempted to get fee for tx we don\'t have...?  %s', \
                                                 binary_to_hex(txHash,BIGENDIAN))
             return 0
          valIn, valOut = 0,0
-         for i in range(txref.getNumTxIn()):
-            valIn += TheBDM.bdv().getSentValue(txref.getTxInCopy(i))
-         for i in range(txref.getNumTxOut()):
-            valOut += txref.getTxOutCopy(i).getValue()
+         for i in range(tx.getNumTxIn()):
+            outpoint = tx.getTxInCopy(i).getOutPoint()
+            valIn += TheBDM.bdv().getValueForTxOut(
+                        outpoint.getTxHash(), outpoint.getTxOutIndex())
+         for i in range(tx.getNumTxOut()):
+            valOut += tx.getTxOutCopy(i).getValue()
          return valIn - valOut
       except:
          LOGERROR('Couldn\'t get tx fee. Ignore this message in Fullnode') 

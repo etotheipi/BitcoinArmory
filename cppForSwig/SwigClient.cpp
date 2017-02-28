@@ -351,13 +351,63 @@ float BlockDataViewer::estimateFee(unsigned blocksToConfirm)
    cmd.args_.push_back(move(inttype));
    cmd.serialize();
 
-   auto && result = sock_->writeAndRead(cmd.command_);
+   auto&& result = sock_->writeAndRead(cmd.command_);
    Arguments args(result);
    auto serData = args.get<BinaryDataObject>();
 
    BinaryRefReader brr(serData.get().getRef());
    
    return float(brr.get_double());
+}
+
+///////////////////////////////////////////////////////////////////////////////
+vector<LedgerEntryData> BlockDataViewer::getHistoryForWalletSelection(
+   const vector<string>& wldIDs, const string& orderingStr)
+{
+   Command cmd;
+   cmd.method_ = "getHistoryForWalletSelection";
+   cmd.ids_.push_back(bdvID_);
+
+   BinaryDataVector bdVec;
+   for (auto& id : wldIDs)
+   {
+      BinaryData bd((uint8_t*)id.c_str(), id.size());
+      bdVec.push_back(move(bd));
+   }
+
+   BinaryDataObject bdo(orderingStr);
+
+   cmd.args_.push_back(move(bdVec));
+   cmd.args_.push_back(move(bdo));
+   cmd.serialize();
+
+   auto&& result = sock_->writeAndRead(cmd.command_);
+   Arguments args(result);
+
+   auto&& lev = args.get<LedgerEntryVector>();
+   return lev.toVector();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+uint64_t BlockDataViewer::getValueForTxOut(
+   const BinaryData& txHash, unsigned inputId)
+{
+   Command cmd;
+   cmd.method_ = "getValueForTxOut";
+   cmd.ids_.push_back(bdvID_);
+
+   BinaryDataObject bdo(txHash);
+   IntType it_inputid(inputId);
+
+   cmd.args_.push_back(move(bdo));
+   cmd.args_.push_back(move(it_inputid));
+   cmd.serialize();
+
+   auto&& result = sock_->writeAndRead(cmd.command_);
+   Arguments args(result);
+
+   auto value = args.get<IntType>();
+   return value.getVal();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

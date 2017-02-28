@@ -521,9 +521,18 @@ TxIn Tx::getTxInCopy(int i) const
 TxOut Tx::getTxOutCopy(int i) const
 {
    assert(isInitialized());
+   
+   if (i >= offsetsTxOut_.size() - 1)
+      throw range_error("index out of bound");
+
    uint32_t txoutSize = offsetsTxOut_[i + 1] - offsetsTxOut_[i];
    TxOut out;
-   out.unserialize_checked(dataCopy_.getPtr() + offsetsTxOut_[i], dataCopy_.getSize() - offsetsTxOut_[i], txoutSize, txRefObj_, i);
+   out.unserialize_checked(
+      dataCopy_.getPtr() + offsetsTxOut_[i], 
+      dataCopy_.getSize() - offsetsTxOut_[i], 
+      txoutSize, txRefObj_, 
+      i);
+
    out.setParentHash(getThisHash());
 
    if (txRefObj_.isInitialized())
