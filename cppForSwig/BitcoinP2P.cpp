@@ -332,16 +332,16 @@ shared_ptr<Payload::DeserializedPayloads> Payload::deserialize(
             result->spillOffset_ = offset;
             result->data_ = move(data);
          }
-
-         if (lastValidOffset < data.size())
-         {
-            LOGWARN << "carrying " << data.size() - lastValidOffset << " bytes of data spill over";
-            result->spillOffset_ = lastValidOffset;
-            result->data_ = move(data);
-         }
-
-         return result;
       }
+
+      if (lastValidOffset < data.size())
+      {
+         LOGWARN << "carrying " << data.size() - lastValidOffset << " bytes of data spill over";
+         result->spillOffset_ = lastValidOffset;
+         result->data_ = move(data);
+      }
+
+      return result;
    };
 
    auto&& offsetVec = processPacket(data, magic_word);
