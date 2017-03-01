@@ -168,11 +168,12 @@ vector<uint8_t> Payload::serialize(uint32_t magic_word) const
 vector<size_t> Payload::processPacket(
    vector<uint8_t>& data, uint32_t magic_word)
 {
+   vector<size_t> retvec;   
    if (data.size() < MESSAGE_HEADER_LEN)
-      throw BitcoinMessageDeserError("invalid header size", 0);
+      return retvec;
 
    size_t offset = 0, totalsize = data.size();
-   vector<size_t> retvec;
+
 
    while (offset < totalsize)
    {
@@ -228,6 +229,7 @@ vector<size_t> Payload::processPacket(
       if (*length + MESSAGE_HEADER_LEN > totalsize - localOffset)
          return retvec;
 
+
       //get checksum
       uint32_t* checksum = (uint32_t*)(ptr + CHECKSUM_OFFSET);
 
@@ -244,7 +246,7 @@ vector<size_t> Payload::processPacket(
       retvec.push_back(localOffset);
       offset += MESSAGE_HEADER_LEN + *length - 4;
    }
-      
+
    return retvec;
 }
 
@@ -253,16 +255,18 @@ shared_ptr<Payload::DeserializedPayloads> Payload::deserialize(
    vector<uint8_t>& data, uint32_t magic_word,
    shared_ptr<DeserializedPayloads> prevPacket)
 {
-   auto parsepayloads = [](vector<uint8_t>& data, vector<size_t>& offsetVec)->
+   size_t bytesConsumed = 0;
+
+   auto parsepayloads = [&bytesConsumed](vector<uint8_t>& data, vector<size_t>& offsetVec)->
       shared_ptr<DeserializedPayloads>
    {
       auto result = make_shared<DeserializedPayloads>();
+
       auto& payloadVec = result->payloads_;
-      uint64_t lastValidOffset = 0;
 
       for (unsigned y = 0; y < offsetVec.size(); y++)
       {
-         auto& offset = offsetVec[y];
+         auto offset = offsetVec[y];
          auto length = (uint32_t*)(&data[offset] + PAYLOAD_LENGTH_OFFSET);
          auto messagetype = (char*)(&data[offset] + MESSAGE_TYPE_OFFSET);
 
@@ -318,60 +322,66 @@ shared_ptr<Payload::DeserializedPayloads> Payload::deserialize(
                }
             }
 
-            lastValidOffset = offset + *length;
+            bytesConsumed = offset + *length + MESSAGE_HEADER_LEN;
          }
          catch (PayloadDeserError& excpt)
          {
-            LOGWARN << "failed to deser payload with error: " << excpt.what();
-
-            //ignore payloads that failed to deser unless we're at the end of the packet
-            if (offsetVec.size() - y > 1)
-               continue;
-
-            LOGWARN << "carrying " << data.size() - offset << " bytes of data spill over";
-            result->spillOffset_ = offset;
-            result->data_ = move(data);
+            continue;
          }
       }
 
-      if (lastValidOffset < data.size())
+      if (bytesConsumed < data.size())
       {
-         LOGWARN << "carrying " << data.size() - lastValidOffset << " bytes of data spill over";
-         result->spillOffset_ = lastValidOffset;
+         LOGINFO << "carrying " << data.size() - bytesConsumed << " bytes of data spill over";
+         result->spillOffset_ = bytesConsumed;
          result->data_ = move(data);
       }
 
       return result;
    };
 
-   auto&& offsetVec = processPacket(data, magic_word);
-
-   unique_ptr<Payload> extraPacket;
-   if (prevPacket != nullptr)
+   auto patchspill = [&parsepayloads, &bytesConsumed](
+                     shared_ptr<DeserializedPayloads> prevpacket, 
+                     const vector<uint8_t>& data,
+                     const vector<size_t> offsets) -> unique_ptr<Payload>
    {
-      //get new packet prespill
-      if (offsetVec.size() == 0)
-         LOGERR << "not enough data in this packet to complete left over";
+      if (prevpacket == nullptr)
+         return nullptr;
 
-      auto& spillSize = offsetVec[0];
+      size_t spillSize = 0;
+      if (offsets.size() == 0)
+         spillSize = data.size();
+      else
+         spillSize = offsets[0];
+
       if (spillSize == 0)
+      {
          LOGERR << "not enough data in this packet to complete left over";
+         return nullptr;
+      }
+         
+      LOGINFO << spillSize << " bytes of prespill data found";
 
-      LOGWARN << spillSize << " bytes of prespill data found";
-
-      prevPacket->data_.insert(prevPacket->data_.end(),
+      prevpacket->data_.insert(prevpacket->data_.end(),
          data.begin(), data.begin() + spillSize);
 
       vector<size_t> offvec;
-      offvec.push_back(prevPacket->spillOffset_);
+      offvec.push_back(prevpacket->spillOffset_);
 
-      auto spillResult = parsepayloads(prevPacket->data_, offvec);
+      auto spillResult = parsepayloads(prevpacket->data_, offvec);
       if (spillResult->payloads_.size() == 0)
+      {
          LOGERR << "failed to complete spilled packet";
+         return nullptr;
+      }
 
-      extraPacket = move(spillResult->payloads_[0]);
-      LOGWARN << "succesfully completed spill packet!";
-   }
+      LOGINFO << "succesfully completed spill packet!";
+      bytesConsumed += spillSize;
+      return move(spillResult->payloads_[0]);
+   };
+
+   auto&& offsetVec = processPacket(data, magic_word);
+   auto&& extraPacket = patchspill(prevPacket, data, offsetVec);
 
    auto result = parsepayloads(data, offsetVec);
    if (extraPacket != nullptr)
@@ -380,9 +390,12 @@ shared_ptr<Payload::DeserializedPayloads> Payload::deserialize(
 
       vector<unique_ptr<Payload>> newvec;
       newvec.push_back(move(extraPacket));
-      newvec.insert(newvec.end(), 
-         move_iterator<vecUP>(result->payloads_.begin()), 
+
+      newvec.insert(newvec.end(),
+         move_iterator<vecUP>(result->payloads_.begin()),
          move_iterator<vecUP>(result->payloads_.end()));
+
+      result->payloads_ = move(newvec);
    }
 
    return result;
