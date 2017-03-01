@@ -31,6 +31,7 @@ fi
 
 AC_PROG_CC
 AC_PROG_CXX
+AM_CONDITIONAL([HAVE_GCC], [test $CXX = g++])
 
 AC_CONFIG_MACRO_DIR([m4])
 m4_include([m4/ax_check_compile_flag.m4])
@@ -81,12 +82,10 @@ AC_COMPILE_IFELSE(
 [CLANG=yes], [CLANG=no])
 AC_LANG_POP([C++])
 
-AC_MSG_RESULT([$CLANG])
+AC_MSG_RESULT([is compiler clang: $CLANG])
 AC_SUBST([CLANG])
 
 AM_CONDITIONAL([HAVE_CLANG], [test x$CLANG = xyes])
-AM_CONDITIONAL([HAVE_GCC], [test $CXX == g++])
-
 AM_CONDITIONAL([BUILD_DARWIN], [test x$BUILD_OS = xdarwin])
 
 AC_CONFIG_HEADERS([config.h])
