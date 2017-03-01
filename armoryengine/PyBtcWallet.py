@@ -1065,7 +1065,7 @@ class PyBtcWallet(object):
       if doRegister and self.isRegistered() and numToCreate > 0:
          try:
             self.cppWallet.registerWithBDV(isActuallyNew)
-            self.actionsToTakeAfterScan.append([self.detectHighestUsedIndex])
+            self.actionsToTakeAfterScan.append([self.detectHighestUsedIndex], [])
          except:
             pass
          
