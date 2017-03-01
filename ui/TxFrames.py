@@ -603,33 +603,33 @@ class SendBitcoinsFrame(ArmoryFrame):
       fee_byte = self.coinSelection.getFeeByte()
 
       # Warn user of excessive fee specified
-      if fee_byte > 10 * MIN_FEE_BYTE:
-         reply = QMessageBox.warning(self, self.tr('Excessive Fee'), self.tr("""
-            Your specified fee results in a rate of <b>%1 satoshis per byte/b>. 
-            This is much higher than the median satoshi/byte rate of <b>%2 BTC</b>.
-            Are you <i>absolutely sure</i> that you want to send with this
-            fee?  
-            <br><br>
-            If you do not want this fee, click "No" and then change the fee
-            at the bottom of the "Send Bitcoins" window before trying 
-            again.""").arg(fee_byte, MIN_FEE_BYTE), QMessageBox.Yes | QMessageBox.No)
-
-         if not reply==QMessageBox.Yes:
-            return False
-         
-      elif fee_byte < MIN_FEE_BYTE / 10:
-         reply = QMessageBox.warning(self, self.tr('Insufficient Fee'), self.tr("""
-            Your specified fee results in a rate of <b>%d satoshis per byte/b>. 
-            This is much lower than the median satoshi/byte rate of <b>%s BTC</b>.
-            Are you <i>absolutely sure</i> that you want to send with this
-            fee?  
-            <br><br>
-            If you do not want this fee, click "No" and then change the fee
-            at the bottom of the "Send Bitcoins" window before trying 
-            again.""").arg(fee_byte, MIN_FEE_BYTE), QMessageBox.Yes | QMessageBox.No)
-
-         if not reply==QMessageBox.Yes:
-            return False         
+      if peek == False:
+         feebyteStr = "%.2f" % fee_byte
+         if fee_byte > 10 * MIN_FEE_BYTE:
+            reply = QMessageBox.warning(self, self.tr('Excessive Fee'), self.tr("""
+               Your transaction comes with a fee rate of <b>%1 satoshis per byte</b>.
+               </br></br> 
+               This is much higher than the median fee rate of <b>%2 satoshi/Byte</b>.
+               <br><br>
+               Are you <i>absolutely sure</i> that you want to send with this
+               fee? If you do not want to proceed with this fee rate, click "No".""").arg(\
+                  feebyteStr, unicode(MIN_FEE_BYTE)), QMessageBox.Yes | QMessageBox.No)
+   
+            if not reply==QMessageBox.Yes:
+               return False
+            
+         elif fee_byte < MIN_FEE_BYTE / 10:
+            reply = QMessageBox.warning(self, self.tr('Insufficient Fee'), self.tr("""
+               Your transaction comes with a fee rate of <b>%1 satoshi/Byte</b>.
+               </br><br> 
+               This is much lower than the median fee rate of <b>%2 satoshi/Byte</b>.
+               <br><br>
+               Are you <i>absolutely sure</i> that you want to send with this
+               fee? If you do not want to proceed with this fee rate, click "No".""").arg(\
+                  feebyteStr, unicode(MIN_FEE_BYTE)), QMessageBox.Yes | QMessageBox.No)
+   
+            if not reply==QMessageBox.Yes:
+               return False         
 
 
       if len(utxoSelect) == 0:
