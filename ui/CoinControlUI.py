@@ -1,4 +1,4 @@
-##############################################################################
+ ##############################################################################
 #                                                                            #
 # Copyright (C) 2016-17, goatpig                                             #
 #  Distributed under the MIT license                                         #
@@ -31,7 +31,7 @@ class CoinControlDlg(ArmoryDialog):
       
       self.useAllCheckBox = QCheckBox(self.tr("Use all selected UTXOs"))
       useAllToolTip = self.main.createToolTipWidget(self.tr('''
-      By default, Armory will pick a a subset of the UTXOs you pick 
+      By default, Armory will pick a subset of the UTXOs you chose 
       explicitly through the coin control feature to best suit the
       total spend value of the transaction you are constructing.
       

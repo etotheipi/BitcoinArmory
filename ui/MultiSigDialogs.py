@@ -110,7 +110,7 @@ class DlgLockboxEditor(ArmoryDialog):
          self.widgetMap[i] = {}
          self.widgetMap[i]['IMG_ICON'] = QLabel()
          self.widgetMap[i]['LBL_ROWN'] = QRichLabel(self.tr("""
-            Public Key #<font size=4 color="%1">%2</font>:""").arg(htmlColor('TextBlue'), i+1), doWrap=False, hAlign=Qt.AlignRight)
+            Public Key #<font size=4 color="%1">%2</font>:""").arg(htmlColor('TextBlue')).arg(i+1), doWrap=False, hAlign=Qt.AlignRight)
          self.widgetMap[i]['LBL_WLTN'] = QRichLabel(self.tr('Name or ID:'), \
                                                     doWrap=False, \
                                                     hAlign=Qt.AlignRight)
@@ -289,8 +289,10 @@ class DlgLockboxEditor(ArmoryDialog):
    #############################################################################
    def clickNameButton(self, i):
       currName = unicode(self.widgetMap[i]['LBL_NAME'].text())
-      dlgComm = DlgSetComment(self, self.main, currName, \
-                              'public key', 'ID or contact info')
+      if not currName:
+         dlgComm = DlgSetComment(self, self.main, currName, self.tr('Add public key ID or contact info'))
+      else:
+         dlgComm = DlgSetComment(self, self.main, currName, self.tr('Change public key ID or contact info'))
       if dlgComm.exec_():
          self.widgetMap[i]['LBL_NAME'].setText(dlgComm.edtComment.text())
 
@@ -392,7 +394,7 @@ class DlgLockboxEditor(ArmoryDialog):
             Using the <font color="%1"><b>%2</b></font> public keys above,
             a multi-sig lockbox will be created requiring
             <font color="%3"><b>%4</b></font> signatures to spend
-            money.""").arg(htmlColor('TextBlue'),  M, htmlColor('TextBlue'), N))
+            money.""").arg(htmlColor('TextBlue')).arg(M).arg(htmlColor('TextBlue')).arg(N))
 
 
          
@@ -817,13 +819,13 @@ class DlgLockboxManager(ArmoryDialog):
                'callbk':  self.doCreate,
                'organiz': True,
                'lbltxt':  self.tr('Collect public keys'),
-               'tiptxt':  self.tr("""Create a lockbox by collecting public keys
-                                from each device or person that will be 
-                                a signing authority over the funds.  Once
-                                created you will be given a chunk of text
-                                to send to each party so they can recognize
-                                and sign transactions related to the 
-                                lockbox."""),
+               'tiptxt':  self.tr('Create a lockbox by collecting public keys '
+                                'from each device or person that will be '
+                                'a signing authority over the funds.  Once '
+                                'created you will be given a chunk of text '
+                                'to send to each party so they can recognize '
+                                'and sign transactions related to the '
+                                'lockbox.'),
                'select':  None,
                'offline': None},
 
@@ -832,12 +834,12 @@ class DlgLockboxManager(ArmoryDialog):
                'callbk':  self.doSelectKey,
                'organiz': False,
                'lbltxt':  self.tr('Send to organizer'),
-               'tiptxt':  self.tr("""In order to create a lockbox all devices 
-                                and/or parties need to provide a public key 
-                                that they control to be merged by the 
-                                organizer.  Once all keys are collected,
-                                the organizer will send you the final
-                                lockbox definition to import."""),
+               'tiptxt':  self.tr('In order to create a lockbox all devices '
+                                'and/or parties need to provide a public key '
+                                'that they control to be merged by the '
+                                'organizer.  Once all keys are collected, '
+                                'the organizer will send you the final '
+                                'lockbox definition to import.'),
                'select':  None,
                'offline': None},
 
@@ -846,12 +848,12 @@ class DlgLockboxManager(ArmoryDialog):
                'callbk':  self.doExport,
                'organiz': False,
                'lbltxt':  self.tr('Send to other devices or parties'),
-               'tiptxt':  self.tr("""Export a lockbox definition to be imported
-                                by other devices or parties.  Normally the 
-                                lockbox organizer will do this after all public
-                                keys are collected, but any participant who 
-                                already has it can send it, such as if one 
-                                party/device accidentally deletes it."""),
+               'tiptxt':  self.tr('Export a lockbox definition to be imported '
+                                'by other devices or parties.  Normally the '
+                                'lockbox organizer will do this after all public '
+                                'keys are collected, but any participant who '
+                                'already has it can send it, such as if one '
+                                'party/device accidentally deletes it.'),
                'select':  self.tr('Select lockbox to export'),
                'offline': None},
 
@@ -860,13 +862,13 @@ class DlgLockboxManager(ArmoryDialog):
                'callbk':  self.doImport,
                'organiz': False,
                'lbltxt':  self.tr('From organizer or other device'),
-               'tiptxt':  self.tr("""Import a lockbox definition to begin
-                                tracking its funds and to be able to
-                                sign related transactions.
-                                Normally, the organizer will send you 
-                                the data to import after you
-                                provide a public key from one of your
-                                wallets."""),
+               'tiptxt':  self.tr('Import a lockbox definition to begin '
+                                'tracking its funds and to be able to '
+                                'sign related transactions. '
+                                'Normally, the organizer will send you '
+                                'the data to import after you '
+                                'provide a public key from one of your '
+                                'wallets.'),
                'select':  None,
                'offline': None},
 
@@ -907,10 +909,10 @@ class DlgLockboxManager(ArmoryDialog):
                'callbk':  self.doMergeProm,
                'organiz': True,
                'lbltxt':  '',
-               'tiptxt':  self.tr("""Collect promissory notes from all funders
-                                of a simulfunding transaction.  Use this to
-                                merge them into a single transaction that 
-                                the funders can review and sign."""),
+               'tiptxt':  self.tr('Collect promissory notes from all funders '
+                                'of a simulfunding transaction.  Use this to '
+                                'merge them into a single transaction that '
+                                'the funders can review and sign.'),
                'select':  None,
                'offline': None},
 
@@ -919,14 +921,14 @@ class DlgLockboxManager(ArmoryDialog):
                'callbk':  self.doCreateProm,
                'organiz': False,
                'lbltxt':  self.tr('Make a funding commitment to a lockbox'),
-               'tiptxt':  self.tr("""A "promissory note" provides blockchain
-                                information about how your wallet will 
-                                contribute funds to a simulfunding transaction.
-                                A promissory note does <b>not</b>
-                                move any money in your wallet.  The organizer
-                                will create a single transaction that includes
-                                all promissory notes and you will be able to 
-                                review it in its entirety before signing."""),
+               'tiptxt':  self.tr('A "promissory note" provides blockchain '
+                                'information about how your wallet will '
+                                'contribute funds to a simulfunding transaction. '
+                                'A promissory note does <b>not</b> '
+                                'move any money in your wallet.  The organizer '
+                                'will create a single transaction that includes '
+                                'all promissory notes and you will be able to  '
+                                'review it in its entirety before signing.'),
                'select':  self.tr('Select lockbox to commit funds to'),
                'offline': self.tr('Must be online to create')},
 
@@ -935,12 +937,12 @@ class DlgLockboxManager(ArmoryDialog):
                'callbk':  self.doReview,
                'organiz': False,
                'lbltxt':  self.tr('Multi-sig spend or simulfunding'),
-               'tiptxt':  self.tr("""Review and sign any lockbox-related
-                                transaction that requires multiple 
-                                signatures.  This includes spending 
-                                transactions from a regular lockbox,
-                                as well as completing a simulfunding
-                                transaction."""),
+               'tiptxt':  self.tr('Review and sign any lockbox-related '
+                                'transaction that requires multiple '
+                                'signatures.  This includes spending '
+                                'transactions from a regular lockbox, '
+                                'as well as completing a simulfunding '
+                                'transaction.'),
                'select':  None,
                'offline': None},
 
@@ -949,11 +951,11 @@ class DlgLockboxManager(ArmoryDialog):
                'callbk':  self.doSpend,
                'organiz': True,
                'lbltxt':  self.tr('Send bitcoins from lockbox'),
-               'tiptxt':  self.tr("""Create a proposed transaction sending bitcoins
-                                to an address, wallet or another lockbox.  
-                                The transaction will not be final until enough
-                                signatures have been collected and then 
-                                broadcast from an online computer."""),
+               'tiptxt':  self.tr('Create a proposed transaction sending bitcoins '
+                                'to an address, wallet or another lockbox. '
+                                'The transaction will not be final until enough '
+                                'signatures have been collected and then '
+                                'broadcast from an online computer.'),
                'select':  self.tr('Select lockbox to spend from'),
                'offline': self.tr('Must be online to spend')},
 
@@ -1282,7 +1284,10 @@ class DlgLockboxManager(ArmoryDialog):
       index = view.selectedIndexes()[0]
       row, col = index.row(), index.column()
       currComment = str(view.model().index(row, LEDGERCOLS.Comment).data().toString())
-      dialog = DlgSetComment(self, self.main, currComment, 'Transaction')
+      if not currComment:
+          dialog = DlgSetComment(self, self.main, currComment, self.tr('Add Transaction Comment'))
+      else:          
+          dialog = DlgSetComment(self, self.main, currComment, self.tr('Change Transaction Comment'))
       if dialog.exec_():
          newComment = str(dialog.edtComment.text())
          lboxId = str(view.model().index(row, LEDGERCOLS.WltID).data().toString())
@@ -1489,7 +1494,7 @@ class DlgLockboxManager(ArmoryDialog):
          #   dispInfo = self.main.getDisplayStringForScript(lbox.binScript)            
          #   reply = QMessageBox.warning(self, self.tr('Confirm Rescan'), self.tr("""
          #      Rescaning a Lockbox will make it unavailable for the duration
-         #      of the process
+         #      of the process.
          #      <br><br>
          #      You are about to rescan the following lockbox:
          #      <br><br>
@@ -1742,7 +1747,7 @@ class DlgLockboxManager(ArmoryDialog):
             <li>This lockbox is being used for personal savings</li>
          </ul>
          If the above does not apply to you, please press "Cancel" and 
-         select the "Simul" checkbox on the lockbox dashboard.
+         select the "SimulFund" checkbox on the lockbox dashboard.
          """).arg( htmlColor('TextWarn')),
          QMessageBox.Ok | QMessageBox.Cancel)
 
@@ -2017,11 +2022,10 @@ class DlgSimulfundSelect(ArmoryDialog):
             Note creation is not available when offline."""))
 
       lblCollect = QRichLabel(self.tr("""
-         Collect multiple promissory notes into a single simulfunding
-         transaction"""))
+         Collect multiple promissory notes into a single simulfunding transaction"""))
 
       lblReview = QRichLabel(self.tr("""
-         Review and signed a simulfunding transaction (after all promissory
+         Review and sign a simulfunding transaction (after all promissory
          notes have been collected)"""))
 
       self.connect(btnCreate,  SIGNAL('clicked()'), self.doCreate)
@@ -2159,7 +2163,7 @@ class DlgSelectPublicKey(ArmoryDialog):
          same way you would a regular offline transaction.  Additionally the 
          offline computer will need to have Armory version 0.92 or later.
          <br><br>
-         <b><font color="%1">BACKUP WARNING</b></b>:
+         <b><font color="%1">BACKUP WARNING</font></b>:
          It is highly recommended that you select a public key from a
          wallet for which you have good backups!  If you are creating a lockbox
          requiring the same number of signatures as there are authorities 
