@@ -7,13 +7,13 @@
 ##############################################################################
 
 from PyQt4.QtGui import QFrame, QRadioButton, QLineEdit, QGridLayout, \
-   QLabel, QPushButton, QCheckBox
-from PyQt4.QtCore import SIGNAL
+   QLabel, QPushButton, QCheckBox, QSlider
+from PyQt4.QtCore import Qt, SIGNAL
 
 from qtdefines import ArmoryDialog, STYLE_RAISED, GETFONT, tightSizeNChar, \
    QLabelButton, makeHorizFrame, STYLE_NONE
 from armoryengine.ArmoryUtils import str2coin, coin2str
-from armoryengine.CoinSelection import estimateFee
+from armoryengine.CoinSelection import estimateFee, NBLOCKS_TO_CONFIRM
 from armoryengine.ArmoryUtils import MIN_TX_FEE, MIN_FEE_BYTE, DEFAULT_FEE_TYPE
 
 class FeeSelectionDialog(ArmoryDialog):
@@ -29,11 +29,13 @@ class FeeSelectionDialog(ArmoryDialog):
       flatFee = self.main.getSettingOrSetDefault("Default_Fee", MIN_TX_FEE)
       flatFee = coin2str(flatFee, maxZeros=1).strip()
       fee_byte = str(self.main.getSettingOrSetDefault("Default_FeeByte", MIN_FEE_BYTE))
+      blocksToConfirm = self.main.getSettingOrSetDefault(\
+         "Default_FeeByte_BlocksToConfirm", NBLOCKS_TO_CONFIRM)
       
       self.coinSelection = None
       self.validAutoFee = True
       try:
-         autoFee_byte = str(estimateFee() / 1000.0)
+         autoFee_byte = str(estimateFee(blocksToConfirm) / 1000.0)
       except:
          autoFee_byte = "N/A"
          self.validAutoFee = False
@@ -47,8 +49,9 @@ class FeeSelectionDialog(ArmoryDialog):
             return self.selectType('FlatFee')
          return callbck
       
-      def updateLblOnValueChange():
-         self.updateLabelButton(self.lastKnownTxSize)
+      def updateLbl():
+         self.updateCoinSelection()
+         self.updateLabelButton(self.coinSelection)
       
       self.radioFlatFee = QRadioButton(self.tr("Flat Fee (BTC)"))
       self.edtFeeAmt = QLineEdit(flatFee)
@@ -57,7 +60,7 @@ class FeeSelectionDialog(ArmoryDialog):
       self.edtFeeAmt.setMaximumWidth(tightSizeNChar(self.edtFeeAmt, 12)[0])
       
       self.connect(self.radioFlatFee, SIGNAL('clicked()'), setFlatFee())
-      self.connect(self.edtFeeAmt, SIGNAL('textChanged(QString)'), updateLblOnValueChange)
+      self.connect(self.edtFeeAmt, SIGNAL('textChanged(QString)'), updateLbl)
       
       frmFlatFee = QFrame()
       frmFlatFee.setFrameStyle(STYLE_RAISED)
@@ -79,7 +82,7 @@ class FeeSelectionDialog(ArmoryDialog):
       self.edtFeeByte.setMaximumWidth(tightSizeNChar(self.edtFeeByte, 12)[0])
       
       self.connect(self.radioFeeByte, SIGNAL('clicked()'), setFeeByte())
-      self.connect(self.edtFeeByte, SIGNAL('textChanged(QString)'), updateLblOnValueChange)
+      self.connect(self.edtFeeByte, SIGNAL('textChanged(QString)'), updateLbl)
             
       frmFeeByte = QFrame()
       frmFeeByte.setFrameStyle(STYLE_RAISED)
@@ -94,24 +97,51 @@ class FeeSelectionDialog(ArmoryDialog):
             return self.selectType('Auto')
          return callbck      
       
-      self.radioAutoFeeByte = QRadioButton(self.tr("Auto Fee/Byte (Satoshi/Byte)"))
+      radioButtonTxt = self.tr("Fee rate from node (sat/Byte): ")
+      if not self.validAutoFee:      
+         radioButtonTxt = self.tr("Failed to fetch fee/byte from node")
+         
+      self.radioAutoFeeByte = QRadioButton(radioButtonTxt)
       self.lblAutoFeeByte = QLabel(autoFee_byte)
       self.lblAutoFeeByte.setFont(GETFONT('Fixed'))
       self.lblAutoFeeByte.setMinimumWidth(tightSizeNChar(self.lblAutoFeeByte, 6)[0])
       self.lblAutoFeeByte.setMaximumWidth(tightSizeNChar(self.lblAutoFeeByte, 12)[0])
+      
+      self.sliderAutoFeeByte = QSlider(Qt.Horizontal, self)
+      self.sliderAutoFeeByte.setMinimum(2)
+      self.sliderAutoFeeByte.setMaximum(6)
+      self.sliderAutoFeeByte.setValue(blocksToConfirm)
+      self.lblSlider = QLabel()
+      
+      def getSliderLabelTxt():
+         return self.tr("Blocks to confirm: %1").arg(\
+               unicode(self.sliderAutoFeeByte.value()))
+         
+      def updateAutoFeeByte():
+         blocksToConfirm = self.sliderAutoFeeByte.value()
+         try:
+            autoFee_byte = str(estimateFee(blocksToConfirm) / 1000.0)
+
+         except:
+            autoFee_byte = "N/A"
+         
+         self.lblSlider.setText(getSliderLabelTxt())         
+         self.lblAutoFeeByte.setText(autoFee_byte)
+         updateLbl()
+         
+      self.lblSlider.setText(getSliderLabelTxt())
+      
       self.connect(self.radioAutoFeeByte, SIGNAL('clicked()'), setAutoFeeByte())
-      
-      if self.validAutoFee:
-         self.lblAutoFeeDescr = QLabel(self.tr("Fetch fee/byte from your network node"))
-      else:
-         self.lblAutoFeeDescr = QLabel(self.tr("Failed to fetch fee/byte from node"))
-      
+      self.sliderAutoFeeByte.valueChanged.connect(updateAutoFeeByte)
+      self.sliderAutoFeeByte.setEnabled(False)
+            
       frmAutoFeeByte = QFrame()
       frmAutoFeeByte.setFrameStyle(STYLE_RAISED)
       layoutAutoFeeByte = QGridLayout()
       layoutAutoFeeByte.addWidget(self.radioAutoFeeByte, 0, 0, 1, 1)
       layoutAutoFeeByte.addWidget(self.lblAutoFeeByte, 0, 1, 1, 1)  
-      layoutAutoFeeByte.addWidget(self.lblAutoFeeDescr, 1, 0, 1, 2)
+      layoutAutoFeeByte.addWidget(self.lblSlider, 1, 0, 1, 2)
+      layoutAutoFeeByte.addWidget(self.sliderAutoFeeByte, 2, 0, 1, 2)
       frmAutoFeeByte.setLayout(layoutAutoFeeByte)
       
       if not self.validAutoFee:
@@ -124,11 +154,7 @@ class FeeSelectionDialog(ArmoryDialog):
       self.checkBoxAdjust = QCheckBox(self.tr('Adjust fee/byte for privacy'))
       self.checkBoxAdjust.setChecked(\
          self.main.getSettingOrSetDefault('AdjustFee', True))
-      
-      def updateLbl():
-         self.updateCoinSelection()
-         self.updateLabelButton(self.coinSelection)
-      
+            
       self.connect(self.checkBoxAdjust, SIGNAL('clicked()'), updateLbl)
       
       frmClose = makeHorizFrame(\
@@ -153,6 +179,7 @@ class FeeSelectionDialog(ArmoryDialog):
       self.radioFlatFee.setChecked(False)
       self.radioFeeByte.setChecked(False)
       self.radioAutoFeeByte.setChecked(False)
+      self.sliderAutoFeeByte.setEnabled(False)
       
       if strType == 'FlatFee':
          self.radioFlatFee.setChecked(True)
@@ -163,6 +190,7 @@ class FeeSelectionDialog(ArmoryDialog):
             self.radioFeeByte.setChecked(True)
          else:
             self.radioAutoFeeByte.setChecked(True)
+            self.sliderAutoFeeByte.setEnabled(True)
             
       self.updateCoinSelection()
       self.updateLabelButton(self.coinSelection)

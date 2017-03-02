@@ -8572,19 +8572,6 @@ class DlgSettings(ArmoryDialog):
       frmLayout.addWidget(frmBtnDefaultURI, i, 0, 1, 3)
       i += 1
       frmLayout.addWidget(self.chkAskURIAtStartup, i, 0, 1, 3)
-
-      '''
-      i += 1
-      frmLayout.addWidget(HLINE(), i, 0, 1, 3)
-
-      i += 1
-      frmLayout.addWidget(lblDefaultFee, i, 0)
-      frmLayout.addWidget(ttipDefaultFee, i, 1)
-      frmLayout.addWidget(self.edtDefaultFee, i, 2)
-
-      i += 1
-      frmLayout.addWidget(lblDefaultDescr, i, 0, 1, 3)
-      '''
       
       i += 1
       frmLayout.addWidget(HLINE(), i, 0, 1, 3)
@@ -8658,7 +8645,7 @@ class DlgSettings(ArmoryDialog):
       self.setupFeeAndChangeTab()      
       frmFeeChange = makeVertFrame([self.frmFee, self.frmChange, 'Stretch'])
       
-      self.settingsTab.addTab(frmFeeChange, self.tr("Fee & Change"))
+      self.settingsTab.addTab(frmFeeChange, self.tr("Fee and Change Settings"))
       
       self.scrollOptions = QScrollArea()
       self.scrollOptions.setWidget(self.settingsTab)
@@ -8683,6 +8670,8 @@ class DlgSettings(ArmoryDialog):
       txFee = self.main.getSettingOrSetDefault('Default_Fee', MIN_TX_FEE)
       adjustFee = self.main.getSettingOrSetDefault('AdjustFee', True)
       feeOpt = self.main.getSettingOrSetDefault('FeeOption', DEFAULT_FEE_TYPE)
+      blocksToConfirm = self.main.getSettingOrSetDefault(\
+         "Default_FeeByte_BlocksToConfirm", NBLOCKS_TO_CONFIRM)
       
       def feeRadio(strArg):
          self.radioAutoFee.setChecked(False)
@@ -8713,8 +8702,24 @@ class DlgSettings(ArmoryDialog):
       
       self.radioAutoFee = QRadioButton(self.tr("Auto fee/byte"))
       self.connect(self.radioAutoFee, SIGNAL('clicked()'), getCallbck('Auto'))
+      self.sliderAutoFee = QSlider(Qt.Horizontal, self)
+      self.sliderAutoFee.setMinimum(2)
+      self.sliderAutoFee.setMaximum(6)
+      self.sliderAutoFee.setValue(blocksToConfirm)
+      self.lblSlider = QLabel()
+      
+      def getLblSliderText():
+         blocksToConfirm = unicode(self.sliderAutoFee.value())
+         return self.tr("Blocks to confirm: %1").arg(blocksToConfirm)
+      
+      def setLblSliderText():
+         self.lblSlider.setText(getLblSliderText())
+      
+      setLblSliderText()
+      self.sliderAutoFee.valueChanged.connect(setLblSliderText)
+      
       toolTipAutoFee = self.main.createToolTipWidget(self.tr("""
-      Fetch fee/byte from local Bitcoin node. 
+      Fetch fee/byte from local Bitcoin node.
       Defaults to manual fee/byte on failure. 
       """))
       
@@ -8751,19 +8756,20 @@ class DlgSettings(ArmoryDialog):
       frmFeeLayout = QGridLayout()
       frmFeeLayout.addWidget(labelFee, 0, 0, 1, 1)
       
-      frmAutoFee = makeHorizFrame([self.radioAutoFee, toolTipAutoFee, STRETCH])
+      frmAutoFee = makeHorizFrame([self.radioAutoFee, self.lblSlider, toolTipAutoFee])
       frmFeeLayout.addWidget(frmAutoFee, 1, 0, 1, 1)
+      frmFeeLayout.addWidget(self.sliderAutoFee, 2, 0, 1, 2)
       
       frmFeeByte = makeHorizFrame([self.radioFeeByte, self.leFeeByte, \
                                    toolTipFeeByte, STRETCH, STRETCH])
-      frmFeeLayout.addWidget(frmFeeByte, 2, 0, 1, 1)
+      frmFeeLayout.addWidget(frmFeeByte, 3, 0, 1, 1)
       
       frmFlatFee = makeHorizFrame([self.radioFlatFee, self.leFlatFee, \
                                    toolTipFlatFee, STRETCH, STRETCH])
-      frmFeeLayout.addWidget(frmFlatFee, 3, 0, 1, 1)     
+      frmFeeLayout.addWidget(frmFlatFee, 4, 0, 1, 1)     
       
       frmCheckAdjust = makeHorizFrame([self.checkAdjust, feeToolTip, STRETCH])
-      frmFeeLayout.addWidget(frmCheckAdjust, 4, 0, 1, 2)
+      frmFeeLayout.addWidget(frmCheckAdjust, 5, 0, 1, 2)
       
       feeRadio(feeOpt)
 
@@ -8941,6 +8947,8 @@ class DlgSettings(ArmoryDialog):
       self.main.writeSetting('Default_FeeByte', str(self.leFeeByte.text()))
       self.main.writeSetting('Default_Fee', str2coin(str(self.leFlatFee.text())))
       self.main.writeSetting('AdjustFee', self.checkAdjust.isChecked())
+      self.main.writeSetting('Default_FeeByte_BlocksToConfirm', 
+                             self.sliderAutoFee.value())
       
       #change
       self.main.writeSetting('Default_ChangeType', self.changeType)      
@@ -12969,7 +12977,7 @@ class DlgProgress(ArmoryDialog):
          self.HBarCount = 0
 
          if self.HBar:
-            self.hbarProgress.setFormat(self.tr( "%1: %2%%").arg(self.Title, "%p"))
+            self.hbarProgress.setFormat(self.tr( "%1: %2%").arg(self.Title, "%p"))
       else:
          layoutMgmt.addWidget(self.lblDesc)
 
