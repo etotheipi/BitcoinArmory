@@ -8504,9 +8504,9 @@ class DlgSettings(ArmoryDialog):
       # User mode selection
       self.cmbUsermode = QComboBox()
       self.cmbUsermode.clear()
-      self.cmbUsermode.addItem('Standard')
-      self.cmbUsermode.addItem('Advanced')
-      self.cmbUsermode.addItem('Expert')
+      self.cmbUsermode.addItem(self.tr('Standard'))
+      self.cmbUsermode.addItem(self.tr('Advanced'))
+      self.cmbUsermode.addItem(self.tr('Expert'))
 
       self.usermodeInit = self.main.usermode
 
@@ -8912,13 +8912,7 @@ class DlgSettings(ArmoryDialog):
          return
 
       if not self.usermodeInit == self.cmbUsermode.currentIndex():
-         modestr = str(self.cmbUsermode.currentText())
-         if modestr.lower() == 'standard':
-            self.main.setUserMode(USERMODE.Standard)
-         elif modestr.lower() == 'advanced':
-            self.main.setUserMode(USERMODE.Advanced)
-         elif modestr.lower() == 'expert':
-            self.main.setUserMode(USERMODE.Expert)
+         self.main.setUserMode(self.cmbUsermode.currentIndex())
 
       if not self.langInit == self.cmbLang.currentText()[-3:-1]:
          self.main.setLang(LANGUAGES[self.cmbLang.currentIndex()])
@@ -8959,20 +8953,20 @@ class DlgSettings(ArmoryDialog):
    #############################################################################
    def setUsermodeDescr(self):
       strDescr = ''
-      modestr = str(self.cmbUsermode.currentText())
-      if modestr.lower() == 'standard':
+      modeIdx = self.cmbUsermode.currentIndex()
+      if modeIdx == USERMODE.Standard:
          strDescr += \
             self.tr('"Standard" is for users that only need the core set of features '
              'to send and receive bitcoins.  This includes maintaining multiple '
              'wallets, wallet encryption, and the ability to make backups '
              'of your wallets.')
-      elif modestr.lower() == 'advanced':
+      elif modeIdx == USERMODE.Advanced:
          strDescr += \
             self.tr('"Advanced" mode provides '
              'extra Armory features such as private key '
              'importing & sweeping, message signing, and the offline wallet '
              'interface.  But, with advanced features come advanced risks...')
-      elif modestr.lower() == 'expert':
+      elif modeIdx == USERMODE.Expert:
          strDescr += \
             self.tr('"Expert" mode is similar to "Advanced" but includes '
              'access to lower-level info about transactions, scripts, keys '

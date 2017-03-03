@@ -2782,7 +2782,7 @@
         <translation type="obsolete">%1: %2%</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13784"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Loading: %1%</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3304,12 +3304,12 @@
 <context>
     <name>DlgBackupCenter</name>
     <message>
-        <location filename="qtdialogs.py" line="9967"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Done</source>
         <translation>Done</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9978"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Backup Center</source>
         <translation>Backup Center</translation>
     </message>
@@ -3381,7 +3381,7 @@
 <context>
     <name>DlgBroadcastBlindTx</name>
     <message>
-        <location filename="qtdialogs.py" line="13634"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          Copy a raw, hex-encoded transaction below to have Armory
          broadcast it to the Bitcoin network.  This function is
@@ -3436,39 +3436,39 @@
          &lt;/ul&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13668"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Parsed Transaction:</source>
         <translation>Parsed Transaction:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13678"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13679"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Broadcast</source>
         <translation>Broadcast</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13695"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Broadcast Raw Transaction</source>
         <translation>Broadcast Raw Transaction</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13721"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&lt;font color=&quot;%1&quot;&gt;&lt;b&gt;Raw transaction
             is invalid!&lt;/font&gt;&lt;/b&gt;</source>
         <translation>&lt;font color=&quot;%1&quot;&gt;&lt;b&gt;Raw transaction
             is invalid!&lt;/font&gt;&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13748"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Broadcast!</source>
         <translation>Broadcast!</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13748"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          Your transaction was successfully sent to the local Bitcoin
          Core instance, though there is no guarantees that it was
@@ -3746,17 +3746,17 @@
 <context>
     <name>DlgCorruptWallet</name>
     <message>
-        <location filename="qtdialogs.py" line="13092"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Wallet Consistency Check Failed!</source>
         <translation>Wallet Consistency Check Failed!</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13094"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Perform Wallet Consistency Check</source>
         <translation>Perform Wallet Consistency Check</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13096"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          &lt;font color=&quot;%1&quot; size=5&gt;&lt;b&gt;&lt;u&gt;%2&lt;/u&gt;&lt;/b&gt;&lt;/font&gt;
          &lt;br&gt;&lt;br&gt;
@@ -3771,7 +3771,7 @@
          &lt;br&gt; </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13107"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
             Armory has detected that wallet file &lt;b&gt;Wallet &quot;%1&quot; (%2)&lt;/b&gt;
             is inconsistent and should be further analyzed to ensure that your
@@ -3788,7 +3788,7 @@
             Armory until the wallet has been analyzed and fixed!&lt;/font&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13115"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
             Armory will perform a consistency check on &lt;b&gt;Wallet &quot;%1&quot; (%2)&lt;/b&gt;
             and determine if any further action is required to keep your funds
@@ -3803,17 +3803,17 @@
             check.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13146"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Hide</source>
         <translation>Hide</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13147"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Run Analysis and Recovery Tool</source>
         <translation>Run Analysis and Recovery Tool</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13157"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          &lt;u&gt;Your wallets will be ready to fix once the scan is over&lt;/u&gt;&lt;br&gt;
          You can hide this window until then&lt;br&gt;</source>
@@ -3822,22 +3822,22 @@
          You can hide this window until then&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13179"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Wallet Error</source>
         <translation>Wallet Error</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13205"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Close</source>
         <translation>Close</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13294"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Continue</source>
         <translation>Continue</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13309"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
             &lt;font size=4 color=&quot;%1&quot;&gt;&lt;b&gt;Failed to fix wallets!&lt;/b&gt;&lt;/font&gt;</source>
         <translation>
@@ -3868,7 +3868,7 @@
         </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13321"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
                &lt;font color=&quot;%1&quot;&gt;&lt;b&gt;
                &lt;font size=4&gt;&lt;b&gt;&lt;u&gt;There may still be issues with your
@@ -3887,12 +3887,12 @@
                further risk to your funds!&lt;/b&gt;&lt;/font&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13331"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&lt;h2 style=&quot;color: red;&quot;&gt;                                     Consistency check failed! &lt;/h2&gt;</source>
         <translation>&lt;h2 style=&quot;color: red;&quot;&gt;                                     Consistency check failed! &lt;/h2&gt;</translation>
     </message>
     <message numerus="yes">
-        <location filename="qtdialogs.py" line="13313"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
             &lt;font size=4 color=&quot;%1&quot;&gt;&lt;b&gt;Wallet(s) consistent, nothing to
             fix.&lt;/b&gt;&lt;/font&gt;</source>
@@ -3902,7 +3902,7 @@
         </translation>
     </message>
     <message numerus="yes">
-        <location filename="qtdialogs.py" line="13316"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Wallet(s) consistent!</source>
         <translation>
             <numerusform>Wallet consistent!</numerusform>
@@ -4904,12 +4904,12 @@
 <context>
     <name>DlgEnterOneFrag</name>
     <message>
-        <location filename="qtdialogs.py" line="12263"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source> You have entered fragments %1, so far.  </source>
         <translation> You have entered fragments %1, so far.  </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12265"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          &lt;b&gt;&lt;u&gt;Enter Another Fragment...&lt;/u&gt;&lt;/b&gt; &lt;br&gt;&lt;br&gt; %1
          The fragments can be entered in any order, as long as you provide
@@ -4926,32 +4926,32 @@
          require it.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12315"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&lt;b&gt;Backup Type:&lt;/b&gt;</source>
         <translation>&lt;b&gt;Backup Type:&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12347"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>SecurePrint&#xe2;&#x84;&#xa2; Code:</source>
         <translation>SecurePrintâ¢ Code:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12362"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Done</source>
         <translation>Done</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12363"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12379"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Restore Single-Sheet Backup</source>
         <translation>Restore Single-Sheet Backup</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12445"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
                The ID field indicates that this is a SecurePrint&#xe2;&#x84;&#xa2;
                Backup Type. You have either entered the ID incorrectly or
@@ -4962,12 +4962,12 @@
                have chosen an incorrect Backup Type.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12463"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Verify Wallet ID</source>
         <translation>Verify Wallet ID</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12463"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
                There is an error in the data you entered that could not be
                fixed automatically.  Please double-check that you entered the
@@ -4980,12 +4980,12 @@
                The error occured on the &quot;%1&quot; line.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12482"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Verify Fragment ID</source>
         <translation>Verify Fragment ID</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12482"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          The data you entered is for fragment:
          &lt;br&gt;&lt;br&gt; &lt;font color=&quot;%1 size=3&gt;&lt;b&gt;%2&lt;/b&gt;&lt;/font&gt;  &lt;br&gt;&lt;br&gt;
@@ -5001,7 +5001,7 @@
 <context>
     <name>DlgEnterSecurePrintCode</name>
     <message>
-        <location filename="qtdialogs.py" line="12217"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          This fragment file requires a SecurePrint&#xe2;&#x84;&#xa2; code.
          You will only have to enter this code once since it is the same
@@ -5012,22 +5012,22 @@
          on all fragments.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12222"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>SecurePrint&#xe2;&#x84;&#xa2; Code: </source>
         <translation>SecurePrintâ¢ Code: </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12226"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Done</source>
         <translation>Done</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12227"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12239"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Enter Secure Print Code</source>
         <translation>Enter Secure Print Code</translation>
     </message>
@@ -5043,27 +5043,27 @@
 <context>
     <name>DlgExpWOWltData</name>
     <message>
-        <location filename="qtdialogs.py" line="10087"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Export Watching-Only Wallet File</source>
         <translation>Export Watching-Only Wallet File</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10088"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Copy to clipboard</source>
         <translation>Copy to clipboard</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10090"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Save to Text File</source>
         <translation>Save to Text File</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10091"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Print Root Data</source>
         <translation>Print Root Data</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10103"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          Watch-Only Root ID:&lt;br&gt;&lt;b&gt;%1&lt;/b&gt;
          &lt;br&gt;&lt;br&gt;
@@ -5074,17 +5074,17 @@
          Watch-Only Root Data:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10110"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Watch-Only Wallet Export</source>
         <translation>Watch-Only Wallet Export</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10122"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&lt;i&gt;Copied!&lt;/i&gt;</source>
         <translation>&lt;i&gt;Copied!&lt;/i&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10127"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          &lt;center&gt;&lt;b&gt;&lt;u&gt;&lt;font size=4 color=&quot;%1&quot;&gt;Export Watch-Only
          Wallet: %2&lt;/font&gt;&lt;/u&gt;&lt;/b&gt;&lt;/center&gt;
@@ -5101,7 +5101,7 @@
          without the ability to move the funds.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10135"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          &lt;center&gt;&lt;b&gt;&lt;u&gt;Entire Wallet File&lt;/u&gt;&lt;/b&gt;&lt;/center&gt;
          &lt;br&gt;
@@ -5120,7 +5120,7 @@
          from this system to the target system.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10144"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          &lt;center&gt;&lt;b&gt;&lt;u&gt;Only Root Data&lt;/u&gt;&lt;/b&gt;&lt;/center&gt;
          &lt;br&gt;
@@ -5137,7 +5137,7 @@
          it.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10152"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Done</source>
         <translation>Done</translation>
     </message>
@@ -5198,107 +5198,107 @@
 <context>
     <name>DlgExportTxHistory</name>
     <message>
-        <location filename="qtdialogs.py" line="9047"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>My Wallets</source>
         <translation>My Wallets</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9048"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Offline Wallets</source>
         <translation>Offline Wallets</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9049"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Other Wallets</source>
         <translation>Other Wallets</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9052"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>All Wallets</source>
         <translation>All Wallets</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9053"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>All Lockboxes</source>
         <translation>All Lockboxes</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9054"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>All Wallets &amp; Lockboxes</source>
         <translation>All Wallets &amp; Lockboxes</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9067"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Date (newest first)</source>
         <translation>Date (newest first)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9068"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Date (oldest first)</source>
         <translation>Date (oldest first)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9073"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Comma-Separated Values (*.csv)</source>
         <translation>Comma-Separated Values (*.csv)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9077"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Use any of the following symbols:&lt;br&gt;</source>
         <translation>Use any of the following symbols:&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9088"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Reset to Default</source>
         <translation>Reset to Default</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9098"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9099"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Export</source>
         <translation>Export</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9108"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Export Format:</source>
         <translation>Export Format:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9115"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Wallet(s) to export:</source>
         <translation>Wallet(s) to export:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9122"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Sort Table:</source>
         <translation>Sort Table:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9128"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Date Format:</source>
         <translation>Date Format:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9153"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Example: %1</source>
         <translation>Example: %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9156"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Example: [[invalid date format]]</source>
         <translation>Example: [[invalid date format]]</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9168"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Invalid date format</source>
         <translation>Invalid date format</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9168"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Cannot create CSV without a valid format for transaction dates and times</source>
         <translation>Cannot create CSV without a valid format for transaction dates and times</translation>
     </message>
@@ -5318,99 +5318,99 @@
         <translation type="obsolete">Unconfirmed</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9264"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Export Date: %1
 </source>
         <translation>Export Date: %1
 </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9265"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Total Funds: %1
 </source>
         <translation>Total Funds: %1
 </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9266"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Spendable Funds: %1
 </source>
         <translation>Spendable Funds: %1
 </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9267"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Unconfirmed Funds: %1
 </source>
         <translation>Unconfirmed Funds: %1
 </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9270"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Included Wallets:
 </source>
         <translation>Included Wallets:
 </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9277"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>%1 (lockbox),%2
 </source>
         <translation>%1 (lockbox),%2
 </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9281"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Date</source>
         <translation>Date</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9281"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Transaction ID</source>
         <translation>Transaction ID</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9281"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Number of Confirmations</source>
         <translation>Number of Confirmations</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9281"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Wallet ID</source>
         <translation>Wallet ID</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9282"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Wallet Name</source>
         <translation>Wallet Name</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9282"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Credit</source>
         <translation>Credit</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9282"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Debit</source>
         <translation>Debit</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9282"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Fee (paid by this wallet)</source>
         <translation>Fee (paid by this wallet)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9283"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Wallet Balance</source>
         <translation>Wallet Balance</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9283"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Total Balance</source>
         <translation>Total Balance</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9283"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Label</source>
         <translation>Label</translation>
     </message>
@@ -5418,7 +5418,7 @@
 <context>
     <name>DlgFactoryReset</name>
     <message>
-        <location filename="qtdialogs.py" line="13363"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          &lt;b&gt;&lt;u&gt;Armory Factory Reset&lt;/u&gt;&lt;/b&gt;
          &lt;br&gt;&lt;br&gt;
@@ -5447,14 +5447,14 @@
          extreme options.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13381"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          &lt;b&gt;Delete settings and rescan (lightest option)&lt;/b&gt;</source>
         <translation>
          &lt;b&gt;Delete settings and rescan (lightest option)&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13383"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          Only delete the settings file and transient network data.  The
          databases built by Armory will be rescanned (about 5-45 minutes)</source>
@@ -5463,14 +5463,14 @@
          databases built by Armory will be rescanned (about 5-45 minutes)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13388"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          &lt;b&gt;Also delete databases and rebuild&lt;/b&gt;</source>
         <translation>
          &lt;b&gt;Also delete databases and rebuild&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13390"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          Will delete settings, network data, and delete Armory&apos;s databases. The databases
          will be rebuilt and rescanned (45 min to 3 hours)</source>
@@ -5479,14 +5479,14 @@
          will be rebuilt and rescanned (45 min to 3 hours)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13395"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          &lt;b&gt;Also re-download the blockchain (extreme)&lt;/b&gt;</source>
         <translation>
          &lt;b&gt;Also re-download the blockchain (extreme)&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13397"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          This will delete settings, network data, Armory&apos;s databases,
          &lt;b&gt;and&lt;/b&gt; Bitcoin Core&apos;s databases.  Bitcoin Core will
@@ -5503,32 +5503,32 @@
          on the dashboard.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13406"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Do not delete settings files</source>
         <translation>Do not delete settings files</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13437"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Continue</source>
         <translation>Continue</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13438"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13452"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Factory Reset</source>
         <translation>Factory Reset</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13511"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Confirmation</source>
         <translation>Confirmation</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13462"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
             You are about to delete your settings and force Armory to rescan
             its databases.  Are you sure you want to do this?</source>
@@ -5537,7 +5537,7 @@
             its databases.  Are you sure you want to do this?</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13477"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
             You are about to delete your settings and force Armory to delete
             and rebuild its databases.  Are you sure you want to do this?</source>
@@ -5580,12 +5580,12 @@
                sure you want to do this?&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13549"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Aborted</source>
         <translation>Aborted</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13549"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
                   You canceled the factory reset operation.  No changes were
                   made.</source>
@@ -5594,12 +5594,12 @@
                   made.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13565"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Restart Armory</source>
         <translation>Restart Armory</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13524"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
                &lt;b&gt;Bitcoin Core (or bitcoind) must be closed to do the reset!&lt;/b&gt;
                Please close all Bitcoin software, &lt;u&gt;&lt;b&gt;right now&lt;/b&gt;&lt;/u&gt;,
@@ -5627,7 +5627,7 @@
                   made.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13543"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
                Armory will now close to apply the requested changes.  Please
                restart it when you are ready to start the blockchain download
@@ -5638,7 +5638,7 @@
                again.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13565"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          Armory will now close so that the requested changes can
          be applied.</source>
@@ -5647,7 +5647,7 @@
          be applied.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13495"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
                You are about to delete &lt;b&gt;all&lt;/b&gt;
                blockchain databases on your system.  The Bitcoin software will
@@ -5658,7 +5658,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13503"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
                You are about to delete your settings and delete &lt;b&gt;all&lt;/b&gt;
                blockchain databases on your system.  The Bitcoin software will
@@ -5672,17 +5672,17 @@
 <context>
     <name>DlgForkedImports</name>
     <message>
-        <location filename="qtdialogs.py" line="13576"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&lt;h2 style=&quot;color: red; text-align: center;&quot;&gt;Forked imported addresses have been       detected in your wallets!!!&lt;/h2&gt;</source>
         <translation>&lt;h2 style=&quot;color: red; text-align: center;&quot;&gt;Forked imported addresses have been       detected in your wallets!!!&lt;/h2&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13579"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>The following wallets have forked imported addresses: &lt;br&gt;&lt;br&gt;&lt;b&gt;</source>
         <translation>The following wallets have forked imported addresses: &lt;br&gt;&lt;br&gt;&lt;b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13582"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>When you fix a corrupted wallet, any damaged private keys will be off       the deterministic chain. It means these private keys cannot be recreated       by your paper backup. If such private keys are encountered, Armory saves       them as forked imported private keys after it fixes the relevant wallets.</source>
         <translation>When you fix a corrupted wallet, any damaged private keys will be off       the deterministic chain. It means these private keys cannot be recreated       by your paper backup. If such private keys are encountered, Armory saves       them as forked imported private keys after it fixes the relevant wallets.</translation>
     </message>
@@ -5692,12 +5692,12 @@
         <translation type="obsolete">&lt;h1 style=&quot;color: orange;&quot;&gt; - Do not accept payments to these wallets anymore&lt;br&gt;      - Do not delete or overwrite these wallets. &lt;br&gt;       - Transfer all funds to a fresh and backed up wallet&lt;h1&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13623"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Forked Imported Addresses</source>
         <translation>Forked Imported Addresses</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13587"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&lt;h1 style=&quot;color: orange;&quot;&gt; - Do not accept payments to these wallets anymore&lt;br&gt;      - Do not delete or overwrite these wallets. &lt;br&gt;       - Transfer all funds to a fresh and backed up wallet&lt;/h1&gt;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5705,26 +5705,26 @@
 <context>
     <name>DlgFragBackup</name>
     <message>
-        <location filename="qtdialogs.py" line="10440"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          &lt;b&gt;&lt;u&gt;Create M-of-N Fragmented Backup&lt;/u&gt; of &quot;%1&quot; (%2)&lt;/b&gt;</source>
         <translation>
          &lt;b&gt;&lt;u&gt;Create M-of-N Fragmented Backup&lt;/u&gt; of &quot;%1&quot; (%2)&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10479"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Close</source>
         <translation>Close</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10496"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source> Use SecurePrint&#xe2;&#x84;&#xa2;
          to prevent exposing keys to printer or other devices</source>
         <translation> Use SecurePrintâ¢
          to prevent exposing keys to printer or other devices</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10503"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          SecurePrint&#xe2;&#x84;&#xa2; encrypts your backup with a code displayed on
          the screen, so that no other devices or processes has access to the
@@ -5739,7 +5739,7 @@
          &lt;u&gt;You must keep the SecurePrintâ¢ code with the backup!&lt;/u&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10509"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          &lt;b&gt;&lt;font color=&quot;%1&quot;&gt;&lt;u&gt;IMPORTANT:&lt;/u&gt;  You must keep the
          SecurePrint&#xe2;&#x84;&#xa2; encryption code with your backup!
@@ -5756,22 +5756,22 @@
          same code.&lt;/font&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10569"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&lt;u&gt;&lt;b&gt;Required Fragments&lt;/b&gt;&lt;/u&gt; </source>
         <translation>&lt;u&gt;&lt;b&gt;Required Fragments&lt;/b&gt;&lt;/u&gt; </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10570"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&lt;u&gt;&lt;b&gt;Total Fragments&lt;/b&gt;&lt;/u&gt; </source>
         <translation>&lt;u&gt;&lt;b&gt;Total Fragments&lt;/b&gt;&lt;/u&gt; </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10574"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Print All Fragments</source>
         <translation>Print All Fragments</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10601"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          Any &lt;font color=&quot;%1&quot;&gt;&lt;b&gt;%2&lt;/b&gt;&lt;/font&gt; of these
              &lt;font color=&quot;%1&quot;&gt;&lt;b&gt;%3&lt;/b&gt;&lt;/font&gt;
@@ -5786,32 +5786,32 @@
          same fragment ID are compatible with each other!</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10616"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&lt;b&gt;Fragment ID:&lt;br&gt;%1-%2&lt;/b&gt;</source>
         <translation>&lt;b&gt;Fragment ID:&lt;br&gt;%1-%2&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10648"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>View/Print</source>
         <translation>View/Print</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10649"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Save to File</source>
         <translation>Save to File</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10683"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Fragments</source>
         <translation>Fragments</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10693"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Secure Backup?</source>
         <translation>Secure Backup?</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10693"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
             You have selected to use SecurePrint&#xe2;&#x84;&#xa2; for the printed
             backups, which can also be applied to fragments saved to file.
@@ -5828,17 +5828,17 @@
             file with the same SecurePrintâ¢ code?</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10719"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Save Fragment</source>
         <translation>Save Fragment</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10719"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Wallet Fragments (*.frag)</source>
         <translation>Wallet Fragments (*.frag)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10754"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          The fragment was successfully saved to the following location:
          &lt;br&gt;&lt;br&gt; %1 &lt;br&gt;&lt;br&gt; </source>
@@ -5847,7 +5847,7 @@
          &lt;br&gt;&lt;br&gt; %1 &lt;br&gt;&lt;br&gt; </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10759"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
             &lt;b&gt;&lt;u&gt;&lt;font color=&quot;%1&quot;&gt;Important&lt;/font&lt;/u&gt;&lt;/b&gt;:
             The fragment was encrypted with the
@@ -5868,7 +5868,7 @@
             The above code &lt;u&gt;&lt;b&gt;is&lt;/b&gt;&lt;/u&gt; case-sensitive!</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10769"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Success</source>
         <translation>Success</translation>
     </message>
@@ -8913,12 +8913,12 @@ Does this ID match the &quot;Wallet Unique ID&quot;
 <context>
     <name>DlgProgress</name>
     <message>
-        <location filename="qtdialogs.py" line="12907"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Close</source>
         <translation>Close</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12938"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Enter Passphrase</source>
         <translation>Enter Passphrase</translation>
     </message>
@@ -8928,7 +8928,7 @@ Does this ID match the &quot;Wallet Unique ID&quot;
         <translation type="obsolete">%1: %2%%</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13057"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Progress Bar</source>
         <translation>Progress Bar</translation>
     </message>
@@ -8941,7 +8941,7 @@ Does this ID match the &quot;Wallet Unique ID&quot;
 <context>
     <name>DlgRegAndTest</name>
     <message>
-        <location filename="qtdialogs.py" line="13798"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Error: You cannot run the Regression Test network and Bitcoin Test Network at the same time.</source>
         <translation>Error: You cannot run the Regression Test network and Bitcoin Test Network at the same time.</translation>
     </message>
@@ -9262,7 +9262,7 @@ Does this ID match the &quot;Wallet Unique ID&quot;
 <context>
     <name>DlgReplaceWallet</name>
     <message>
-        <location filename="qtdialogs.py" line="12557"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
                        &lt;b&gt;You already have this wallet loaded!&lt;/b&gt;&lt;br&gt;
                        You can choose to:&lt;br&gt;
@@ -9279,22 +9279,22 @@ Does this ID match the &quot;Wallet Unique ID&quot;
                        </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12572"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12573"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Overwrite</source>
         <translation>Overwrite</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12574"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Merge</source>
         <translation>Merge</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12622"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Ripping Meta Data</source>
         <translation>Ripping Meta Data</translation>
     </message>
@@ -9302,198 +9302,198 @@ Does this ID match the &quot;Wallet Unique ID&quot;
 <context>
     <name>DlgRequestPayment</name>
     <message>
-        <location filename="qtdialogs.py" line="9757"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Other Options &gt;&gt;&gt;</source>
         <translation>Other Options &gt;&gt;&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9443"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Copy to Clipboard</source>
         <translation>Copy to Clipboard</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9444"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Copy Raw HTML</source>
         <translation>Copy Raw HTML</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9445"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Copy Raw URL</source>
         <translation>Copy Raw URL</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9446"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Copy All Text</source>
         <translation>Copy All Text</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9469"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Create a clickable link that you can copy into email or webpage to request a payment.   If the user is running a Bitcoin program that supports &quot;bitcoin:&quot; links, that program will open with all this information pre-filled after they click the link.</source>
         <translation>Create a clickable link that you can copy into email or webpage to request a payment.   If the user is running a Bitcoin program that supports &quot;bitcoin:&quot; links, that program will open with all this information pre-filled after they click the link.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9479"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>The following Bitcoin desktop applications &lt;i&gt;try&lt;/i&gt; to register themselves with your computer to handle &quot;bitcoin:&quot; links: Armory, Multibit, Electrum</source>
         <translation>The following Bitcoin desktop applications &lt;i&gt;try&lt;/i&gt; to register themselves with your computer to handle &quot;bitcoin:&quot; links: Armory, Multibit, Electrum</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9483"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>This is the text to be shown as the clickable link.  It should usually begin with &quot;Click here...&quot; to reaffirm to the user it is is clickable.</source>
         <translation>This is the text to be shown as the clickable link.  It should usually begin with &quot;Click here...&quot; to reaffirm to the user it is is clickable.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9487"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>All amounts are specifed in BTC</source>
         <translation>All amounts are specifed in BTC</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9489"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>The person clicking the link will be sending bitcoins to this address</source>
         <translation>The person clicking the link will be sending bitcoins to this address</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9491"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>This will be pre-filled as the label/comment field after the user clicks the link. They can modify it if desired, but you can provide useful info such as contact details, order number, etc, as convenience to them.</source>
         <translation>This will be pre-filled as the label/comment field after the user clicks the link. They can modify it if desired, but you can provide useful info such as contact details, order number, etc, as convenience to them.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9499"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Close</source>
         <translation>Close</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9507"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&lt;b&gt;Link Text:&lt;/b&gt;</source>
         <translation>&lt;b&gt;Link Text:&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9512"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&lt;b&gt;Address (yours):&lt;/b&gt;</source>
         <translation>&lt;b&gt;Address (yours):&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9517"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&lt;b&gt;Request (BTC):&lt;/b&gt;</source>
         <translation>&lt;b&gt;Request (BTC):&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9521"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&lt;b&gt;Label:&lt;/b&gt;</source>
         <translation>&lt;b&gt;Label:&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9527"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Copy and paste the following text into email or other document:</source>
         <translation>Copy and paste the following text into email or other document:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9536"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Creating QR Code Please Wait</source>
         <translation>Creating QR Code Please Wait</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9540"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>This QR code contains address &lt;b&gt;and&lt;/b&gt; the other payment information shown to the left.</source>
         <translation>This QR code contains address &lt;b&gt;and&lt;/b&gt; the other payment information shown to the left.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9574"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Create Payment Request Link</source>
         <translation>Create Payment Request Link</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9632"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Amount</source>
         <translation>Amount</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9642"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Message</source>
         <translation>Message</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9647"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Address</source>
         <translation>Address</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9652"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Inputs</source>
         <translation>Inputs</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9656"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&lt;font color=&quot;red&quot;&gt;Invalid %1&lt;/font&gt;</source>
         <translation>&lt;font color=&quot;red&quot;&gt;Invalid %1&lt;/font&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9672"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>If clicking on the line above does not work, use this payment info:</source>
         <translation>If clicking on the line above does not work, use this payment info:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9674"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&lt;b&gt;Pay to&lt;/b&gt;:<byte value="x9"/>%1&lt;br&gt;</source>
         <translation>&lt;b&gt;Pay to&lt;/b&gt;:&lt;byte value=&quot;x9&quot;/&gt;%1&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9676"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&lt;b&gt;Amount&lt;/b&gt;:<byte value="x9"/>%1 BTC&lt;br&gt;</source>
         <translation>&lt;b&gt;Amount&lt;/b&gt;:&lt;byte value=&quot;x9&quot;/&gt;%1 BTC&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9678"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&lt;b&gt;Message&lt;/b&gt;:<byte value="x9"/>%1&lt;br&gt;</source>
         <translation>&lt;b&gt;Message&lt;/b&gt;:&lt;byte value=&quot;x9&quot;/&gt;%1&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9688"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>If clicking on the line above does not work, use this payment info:
 </source>
         <translation>If clicking on the line above does not work, use this payment info:
 </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9689"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Pay to:  %1</source>
         <translation>Pay to:  %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9691"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
 Amount:  %1 BTC</source>
         <translation>
 Amount:  %1 BTC</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9693"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
 Message: %1</source>
         <translation>
 Message: %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9697"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt; &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;meta http-equiv=&quot;Content-Type&quot; content=&quot;text/html; charset=utf-8&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt; p, li { white-space: pre-wrap; } &lt;/style&gt;&lt;/head&gt;&lt;body&gt;&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;!--StartFragment--&gt;&lt;a href=&quot;%1&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;%2&lt;/span&gt;&lt;/a&gt;&lt;br /&gt;If clicking on the line above does not work, use this payment info:&lt;br /&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Pay to&lt;/span&gt;: %3</source>
         <translation>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt; &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;meta http-equiv=&quot;Content-Type&quot; content=&quot;text/html; charset=utf-8&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt; p, li { white-space: pre-wrap; } &lt;/style&gt;&lt;/head&gt;&lt;body&gt;&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;!--StartFragment--&gt;&lt;a href=&quot;%1&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;%2&lt;/span&gt;&lt;/a&gt;&lt;br /&gt;If clicking on the line above does not work, use this payment info:&lt;br /&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Pay to&lt;/span&gt;: %3</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9711"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&lt;br /&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Amount&lt;/span&gt;: %1</source>
         <translation>&lt;br /&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Amount&lt;/span&gt;: %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9714"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&lt;br /&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Message&lt;/span&gt;: %1</source>
         <translation>&lt;br /&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Message&lt;/span&gt;: %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9777"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&lt;i&gt;Copied!&lt;/i&gt;</source>
         <translation>&lt;i&gt;Copied!&lt;/i&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9755"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Hide Buttons &lt;&lt;&lt;</source>
         <translation>Hide Buttons &lt;&lt;&lt;</translation>
     </message>
@@ -9501,19 +9501,19 @@ Message: %1</translation>
 <context>
     <name>DlgRestoreFragged</name>
     <message>
-        <location filename="qtdialogs.py" line="11560"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&lt;font color=&quot;blue&quot; size=&quot;4&quot;&gt;Testing a
                      Fragmented Backup&lt;/font&gt;</source>
         <translation>&lt;font color=&quot;blue&quot; size=&quot;4&quot;&gt;Testing a
                      Fragmented Backup&lt;/font&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11563"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Restore Wallet from Fragments</source>
         <translation>Restore Wallet from Fragments</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11565"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          &lt;b&gt;&lt;u&gt;%1&lt;/u&gt;&lt;/b&gt; &lt;br&gt;&lt;br&gt;
          Use this form to enter all the fragments to be restored.  Fragments
@@ -9530,7 +9530,7 @@ Message: %1</translation>
          all fragments of any given wallet. </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11574"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source> &lt;br&gt;&lt;br&gt;
             &lt;b&gt;For testing purposes, you may enter more fragments than needed
             and Armory will test all subsets of the entered fragments to verify
@@ -9541,92 +9541,92 @@ Message: %1</translation>
             that each one still recovers the wallet successfully.&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11589"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Input Fragments Below:</source>
         <translation>Input Fragments Below:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11590"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>+Frag</source>
         <translation>+Frag</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11591"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>-Frag</source>
         <translation>-Frag</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11595"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Encrypt Restored Wallet</source>
         <translation>Encrypt Restored Wallet</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11604"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Test Backup</source>
         <translation>Test Backup</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11604"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Restore from Fragments</source>
         <translation>Restore from Fragments</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11606"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11613"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>SecurePrint&#xe2;&#x84;&#xa2; Code:</source>
         <translation>SecurePrintâ¢ Code:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11654"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Fragments</source>
         <translation>Fragments</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11656"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Advanced Options</source>
         <translation>Advanced Options</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11671"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Restore wallet from fragments</source>
         <translation>Restore wallet from fragments</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11689"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Type Data</source>
         <translation>Type Data</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11690"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Load File</source>
         <translation>Load File</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11691"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Clear</source>
         <translation>Clear</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11758"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Load Fragment File</source>
         <translation>Load Fragment File</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11758"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Wallet Fragments (*.frag)</source>
         <translation>Wallet Fragments (*.frag)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11766"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>File Does Not Exist</source>
         <translation>File Does Not Exist</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11766"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
             The file you select somehow does not exist...?
             &lt;br&gt;&lt;br&gt;%1&lt;br&gt;&lt;br&gt; Try a different file</source>
@@ -9635,12 +9635,12 @@ Message: %1</translation>
             &lt;br&gt;&lt;br&gt;%1&lt;br&gt;&lt;br&gt; Try a different file</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11800"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Fragment Error</source>
         <translation>Fragment Error</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11800"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
                   There was an unfixable error in the fragment file:
                   &lt;br&gt;&lt;br&gt; File: %1 &lt;br&gt; Line: %2 &lt;br&gt;</source>
@@ -9649,39 +9649,39 @@ Message: %1</translation>
                   &lt;br&gt;&lt;br&gt; File: %1 &lt;br&gt; Line: %2 &lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11828"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          &lt;b&gt;Start entering fragments into the table to left...&lt;/b&gt;</source>
         <translation>
          &lt;b&gt;Start entering fragments into the table to left...&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11833"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&lt;b&gt;&lt;u&gt;Wallet Being Restored:&lt;/u&gt;&lt;/b&gt;</source>
         <translation>&lt;b&gt;&lt;u&gt;Wallet Being Restored:&lt;/u&gt;&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11835"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&lt;b&gt;Frags Needed:&lt;/b&gt; %1</source>
         <translation>&lt;b&gt;Frags Needed:&lt;/b&gt; %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11836"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&lt;b&gt;Wallet:&lt;/b&gt; %1</source>
         <translation>&lt;b&gt;Wallet:&lt;/b&gt; %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11837"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&lt;b&gt;Fragments:&lt;/b&gt; %1</source>
         <translation>&lt;b&gt;Fragments:&lt;/b&gt; %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11879"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Mixed fragment types</source>
         <translation>Mixed fragment types</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11879"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
             You entered a fragment for a different wallet type.  Please check
             that all fragments are for the same wallet, of the same version,
@@ -9697,7 +9697,7 @@ Message: %1</translation>
         <translation type="obsolete">Multiple Walletss</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11899"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
             The fragment you just entered is actually for a different wallet
             than the previous fragments you entered.  Please double-check that
@@ -9710,12 +9710,12 @@ Message: %1</translation>
             have the &quot;number of needed fragments&quot; (M-value, in M-of-N).</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11910"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Duplicate Fragment</source>
         <translation>Duplicate Fragment</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11910"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
             You just input fragment #%1, but that fragment has already been
             entered!</source>
@@ -9724,12 +9724,12 @@ Message: %1</translation>
             entered!</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11947"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Invalid Target Compute Time</source>
         <translation>Invalid Target Compute Time</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11947"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>You entered Target Compute Time incorrectly.
 
 Enter: &lt;Number&gt; (ms, s)</source>
@@ -9738,7 +9738,7 @@ Enter: &lt;Number&gt; (ms, s)</source>
 Enter: &lt;Number&gt; (ms, s)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11951"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Invalid Max Memory Usage</source>
         <translation>Invalid Max Memory Usage</translation>
     </message>
@@ -9752,12 +9752,12 @@ nter: &lt;Number&gt; (kb, mb)</source>
 nter: &lt;Number&gt; (kb, mb)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12022"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Verify Wallet ID</source>
         <translation>Verify Wallet ID</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12022"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          The data you entered corresponds to a wallet with a wallet
          ID:&lt;blockquote&gt;&lt;b&gt;{}&lt;/b&gt;&lt;/blockquote&gt;Does this ID
@@ -9772,12 +9772,12 @@ nter: &lt;Number&gt; (kb, mb)</translation>
          again.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12038"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Cannot Encrypt</source>
         <translation>Cannot Encrypt</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12038"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
                You requested your restored wallet be encrypted, but no
                valid passphrase was supplied.  Aborting wallet
@@ -9788,17 +9788,17 @@ nter: &lt;Number&gt; (kb, mb)</translation>
                recovery.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12080"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Computing New Addresses</source>
         <translation>Computing New Addresses</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11899"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Multiple Wallets</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11951"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>You entered Max Memory Usage incorrectly.
 
 Enter: &lt;Number&gt; (kB, MB)</source>
@@ -9808,7 +9808,7 @@ Enter: &lt;Number&gt; (kB, MB)</source>
 <context>
     <name>DlgRestoreSingle</name>
     <message>
-        <location filename="qtdialogs.py" line="10992"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          &lt;b&gt;&lt;u&gt;&lt;font color=&quot;blue&quot; size=&quot;4&quot;&gt;Test a Paper Backup&lt;/font&gt;&lt;/u&gt;&lt;/b&gt;
          &lt;br&gt;&lt;br&gt;
@@ -9821,7 +9821,7 @@ Enter: &lt;Number&gt; (kB, MB)</source>
          backup includes imported keys, those will not be covered by this test.  </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10998"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          &lt;b&gt;&lt;u&gt;Restore a Wallet from Paper Backup&lt;/u&gt;&lt;/b&gt;
          &lt;br&gt;&lt;br&gt;
@@ -9840,97 +9840,97 @@ Enter: &lt;Number&gt; (kB, MB)</source>
          Keys&quot; from the right-hand menu. </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11008"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&lt;b&gt;Backup Type:&lt;/b&gt;</source>
         <translation>&lt;b&gt;Backup Type:&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11010"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Version 1.35 (4 lines)</source>
         <translation>Version 1.35 (4 lines)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11011"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Version 1.35a (4 lines Unencrypted)</source>
         <translation>Version 1.35a (4 lines Unencrypted)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11012"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Version 1.35a (4 lines + SecurePrint&#xe2;&#x84;&#xa2;)</source>
         <translation>Version 1.35a (4 lines + SecurePrintâ¢)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11013"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Version 1.35c (2 lines Unencrypted)</source>
         <translation>Version 1.35c (2 lines Unencrypted)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11014"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Version 1.35c (2 lines + SecurePrint&#xe2;&#x84;&#xa2;)</source>
         <translation>Version 1.35c (2 lines + SecurePrintâ¢)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11037"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>SecurePrint&#xe2;&#x84;&#xa2; Code:</source>
         <translation>SecurePrintâ¢ Code:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11039"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Root Key:</source>
         <translation>Root Key:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11039"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Chaincode:</source>
         <translation>Chaincode:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11056"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Test Backup</source>
         <translation>Test Backup</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11056"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Restore Wallet</source>
         <translation>Restore Wallet</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11059"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11066"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Encrypt Wallet</source>
         <translation>Encrypt Wallet</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11072"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Backup</source>
         <translation>Backup</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11074"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Advanced Options</source>
         <translation>Advanced Options</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11088"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Test Single-Sheet Backup</source>
         <translation>Test Single-Sheet Backup</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11090"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Restore Single-Sheet Backup</source>
         <translation>Restore Single-Sheet Backup</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11147"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Invalid Data</source>
         <translation>Invalid Data</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11147"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
                There is an error in the data you entered that could not be
                fixed automatically.  Please double-check that you entered the
@@ -9943,12 +9943,12 @@ Enter: &lt;Number&gt; (kB, MB)</source>
                The error occured on &lt;font color=&quot;red&quot;&gt;line #%1&lt;/font&gt;.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11160"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Invalid Target Compute Time</source>
         <translation>Invalid Target Compute Time</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11160"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>You entered Target Compute Time incorrectly.
 
 Enter: &lt;Number&gt; (ms, s)</source>
@@ -9957,7 +9957,7 @@ Enter: &lt;Number&gt; (ms, s)</source>
 Enter: &lt;Number&gt; (ms, s)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11164"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Invalid Max Memory Usage</source>
         <translation>Invalid Max Memory Usage</translation>
     </message>
@@ -9971,7 +9971,7 @@ nter: &lt;Number&gt; (kb, mb)</source>
 nter: &lt;Number&gt; (kb, mb)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11170"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
             Detected errors in the data you entered.
             Armory attempted to fix the errors but it is not
@@ -9984,17 +9984,17 @@ nter: &lt;Number&gt; (kb, mb)</translation>
             closely on the next window.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11177"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Errors Corrected</source>
         <translation>Errors Corrected</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11226"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Verify Wallet ID</source>
         <translation>Verify Wallet ID</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11226"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>The data you entered corresponds to a wallet with a wallet ID: 
 
  <byte value="x9"/>
@@ -10013,22 +10013,22 @@ Does this ID match the &quot;Wallet Unique ID&quot;
                   key and chain-code data again.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11241"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Cannot Encrypt</source>
         <translation>Cannot Encrypt</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11241"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>You requested your restored wallet be encrypted, but no valid passphrase was supplied.  Aborting wallet recovery.</source>
         <translation>You requested your restored wallet be encrypted, but no valid passphrase was supplied.  Aborting wallet recovery.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11285"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Computing New Addresses</source>
         <translation>Computing New Addresses</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11164"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>You entered Max Memory Usage incorrectly.
 
 Enter: &lt;Number&gt; (kB, MB)</source>
@@ -10038,7 +10038,7 @@ Enter: &lt;Number&gt; (kB, MB)</source>
 <context>
     <name>DlgRestoreWOData</name>
     <message>
-        <location filename="qtdialogs.py" line="11321"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          &lt;b&gt;&lt;u&gt;&lt;font color=&quot;blue&quot; size=&quot;4&quot;&gt;Test a Watch-Only Wallet Restore
          &lt;/font&gt;&lt;/u&gt;&lt;/b&gt;&lt;br&gt;&lt;br&gt;
@@ -10053,7 +10053,7 @@ Enter: &lt;Number&gt; (kB, MB)</source>
          printout or import the data from a file.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11328"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          &lt;b&gt;&lt;u&gt;&lt;font color=&quot;blue&quot; size=&quot;4&quot;&gt;Restore a Watch-Only Wallet
          &lt;/font&gt;&lt;/u&gt;&lt;/b&gt;&lt;br&gt;&lt;br&gt;
@@ -10068,62 +10068,62 @@ Enter: &lt;Number&gt; (kB, MB)</source>
          the data from a file.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11336"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Watch-Only Root ID:</source>
         <translation>Watch-Only Root ID:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11344"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Data:</source>
         <translation>Data:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11363"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Test Backup</source>
         <translation>Test Backup</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11363"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Restore Wallet</source>
         <translation>Restore Wallet</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11364"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Load From Text File</source>
         <translation>Load From Text File</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11366"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11393"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Test Watch-Only Wallet Backup</source>
         <translation>Test Watch-Only Wallet Backup</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11395"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Restore Watch-Only Wallet Backup</source>
         <translation>Restore Watch-Only Wallet Backup</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11405"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Import Wallet File</source>
         <translation>Import Wallet File</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11405"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Root Pubkey Text Files (*.rootpubkey)</source>
         <translation>Root Pubkey Text Files (*.rootpubkey)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11488"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Invalid Data</source>
         <translation>Invalid Data</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11458"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
                There is an error in the root ID you entered that could not
                be fixed automatically.  Please double-check that you entered the
@@ -10134,7 +10134,7 @@ Enter: &lt;Number&gt; (kB, MB)</source>
                text exactly as it appears on the wallet-backup page.&lt;br&gt;&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11488"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
                There is an error in the root data you entered that could not be
                fixed automatically.  Please double-check that you entered the
@@ -10147,12 +10147,12 @@ Enter: &lt;Number&gt; (kB, MB)</source>
                The error occured on &lt;font color=&quot;red&quot;&gt;line #%1&lt;/font&gt;.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11521"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Wallet Already Exists</source>
         <translation>Wallet Already Exists</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11521"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>The
                              wallet already exists and will not be
                              replaced.</source>
@@ -10161,12 +10161,12 @@ Enter: &lt;Number&gt; (kB, MB)</source>
                              replaced.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11528"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Verify Wallet ID</source>
         <translation>Verify Wallet ID</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11528"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>The data you entered corresponds to a wallet with a wallet ID: 
 
 <byte value="x9"/>%1
@@ -10179,7 +10179,7 @@ Does this ID match the &quot;Wallet Unique ID&quot; you intend to restore? If no
 Does this ID match the &quot;Wallet Unique ID&quot; you intend to restore? If not, click &quot;No&quot; and enter the key and chain-code data again.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11543"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Computing New Addresses</source>
         <translation>Computing New Addresses</translation>
     </message>
@@ -11099,27 +11099,27 @@ Does this ID match the &quot;Wallet Unique ID&quot; you intend to restore? If no
         <translation>The default fee specified could not be understood.  Please specify in BTC with no more than 8 decimal places.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9001"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&quot;Standard&quot; is for users that only need the core set of features to send and receive bitcoins.  This includes maintaining multiple wallets, wallet encryption, and the ability to make backups of your wallets.</source>
         <translation>&quot;Standard&quot; is for users that only need the core set of features to send and receive bitcoins.  This includes maintaining multiple wallets, wallet encryption, and the ability to make backups of your wallets.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9007"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&quot;Advanced&quot; mode provides extra Armory features such as private key importing &amp; sweeping, message signing, and the offline wallet interface.  But, with advanced features come advanced risks...</source>
         <translation>&quot;Advanced&quot; mode provides extra Armory features such as private key importing &amp; sweeping, message signing, and the offline wallet interface.  But, with advanced features come advanced risks...</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9013"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&quot;Expert&quot; mode is similar to &quot;Advanced&quot; but includes access to lower-level info about transactions, scripts, keys and network protocol.  Most extra functionality is geared towards Bitcoin software developers.</source>
         <translation>&quot;Expert&quot; mode is similar to &quot;Advanced&quot; but includes access to lower-level info about transactions, scripts, keys and network protocol.  Most extra functionality is geared towards Bitcoin software developers.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9024"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Sample: </source>
         <translation>Sample: </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9027"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Sample: [[invalid date format]]</source>
         <translation>Sample: [[invalid date format]]</translation>
     </message>
@@ -11168,6 +11168,21 @@ Does this ID match the &quot;Wallet Unique ID&quot; you intend to restore? If no
       Fetch fee/byte from local Bitcoin node.
       Defaults to manual fee/byte on failure. 
       </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="qtdialogs.py" line="8542"/>
+        <source>Standard</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="qtdialogs.py" line="8543"/>
+        <source>Advanced</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="qtdialogs.py" line="8544"/>
+        <source>Expert</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -11416,7 +11431,7 @@ Does this ID match the &quot;Wallet Unique ID&quot; you intend to restore? If no
 <context>
     <name>DlgShowTestResults</name>
     <message>
-        <location filename="qtdialogs.py" line="12149"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
             The total number of fragment subsets (%1) is too high
             to test and display.  Instead, %2 subsets were tested
@@ -11427,7 +11442,7 @@ Does this ID match the &quot;Wallet Unique ID&quot; you intend to restore? If no
             at random.  The results are below </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12154"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
             For the fragments you entered, there are a total of
             %1 possible subsets that can restore your wallet.
@@ -11438,7 +11453,7 @@ Does this ID match the &quot;Wallet Unique ID&quot; you intend to restore? If no
             The test results for all subsets are shown below</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12161"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          The wallet ID is computed from the first
          address in your wallet based on the root key data (and the
@@ -11451,7 +11466,7 @@ Does this ID match the &quot;Wallet Unique ID&quot; you intend to restore? If no
          the wallet will produce identical addresses.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12174"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
             Fragments &lt;b&gt;%1&lt;/b&gt; and &lt;b&gt;%2&lt;/b&gt; produce a
             wallet with ID &quot;&lt;b&gt;%3&lt;/b&gt;&quot; </source>
@@ -11460,12 +11475,12 @@ Does this ID match the &quot;Wallet Unique ID&quot; you intend to restore? If no
             wallet with ID &quot;&lt;b&gt;%3&lt;/b&gt;&quot; </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12196"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Ok</source>
         <translation>Ok</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12208"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Fragment Test Results</source>
         <translation>Fragment Test Results</translation>
     </message>
@@ -11491,14 +11506,14 @@ Does this ID match the &quot;Wallet Unique ID&quot; you intend to restore? If no
 <context>
     <name>DlgSimpleBackup</name>
     <message>
-        <location filename="qtdialogs.py" line="9988"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          &lt;b&gt;Protect Your Bitcoins -- Make a Wallet Backup!&lt;/b&gt;</source>
         <translation>
          &lt;b&gt;Protect Your Bitcoins -- Make a Wallet Backup!&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9991"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          A failed hard-drive or forgotten passphrase will lead to
          &lt;u&gt;permanent loss of bitcoins&lt;/u&gt;!  Luckily, Armory wallets only
@@ -11513,19 +11528,19 @@ Does this ID match the &quot;Wallet Unique ID&quot; you intend to restore? If no
          a hardware failure, make a backup! </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9999"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          Use a printer or pen-and-paper to write down your wallet &quot;seed.&quot; </source>
         <translation>
          Use a printer or pen-and-paper to write down your wallet &quot;seed.&quot; </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10001"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Make Paper Backup</source>
         <translation>Make Paper Backup</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10004"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          Create an unencrypted copy of your wallet file, including imported
          addresses.</source>
@@ -11534,7 +11549,7 @@ Does this ID match the &quot;Wallet Unique ID&quot; you intend to restore? If no
          addresses.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10007"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Make Digital Backup</source>
         <translation>Make Digital Backup</translation>
     </message>
@@ -11544,17 +11559,17 @@ Does this ID match the &quot;Wallet Unique ID&quot; you intend to restore? If no
         <translation type="obsolete"> </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10010"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>See Other Backup Options</source>
         <translation>See Other Backup Options</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10053"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Done</source>
         <translation>Done</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10063"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Backup Options</source>
         <translation>Backup Options</translation>
     </message>
@@ -11761,14 +11776,14 @@ Does this ID match the &quot;Wallet Unique ID&quot; you intend to restore? If no
 <context>
     <name>DlgUniversalRestoreSelect</name>
     <message>
-        <location filename="qtdialogs.py" line="10855"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          &lt;b&gt;&lt;u&gt;Restore Wallet from Backup&lt;/u&gt;&lt;/b&gt;</source>
         <translation>
          &lt;b&gt;&lt;u&gt;Restore Wallet from Backup&lt;/u&gt;&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10857"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>You can restore any kind of backup ever created by Armory using
          one of the options below.  If you have a list of private keys
          you should open the target wallet and select &quot;Import/Sweep
@@ -11784,37 +11799,37 @@ Does this ID match the &quot;Wallet Unique ID&quot; you intend to restore? If no
         <translation type="obsolete">I am restoring a...</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10862"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Single-Sheet Backup (printed)</source>
         <translation>Single-Sheet Backup (printed)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10863"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Fragmented Backup (incl. mix of paper and files)</source>
         <translation>Fragmented Backup (incl. mix of paper and files)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10864"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Import digital backup or watching-only wallet</source>
         <translation>Import digital backup or watching-only wallet</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10865"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Import watching-only wallet data</source>
         <translation>Import watching-only wallet data</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10866"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>This is a test recovery to make sure my backup works</source>
         <translation>This is a test recovery to make sure my backup works</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10880"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Continue</source>
         <translation>Continue</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10881"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
@@ -11905,17 +11920,17 @@ Does this ID match the &quot;Wallet Unique ID&quot; you intend to restore? If no
 <context>
     <name>DlgUriCopyAndPaste</name>
     <message>
-        <location filename="qtdialogs.py" line="9785"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Copy and paste a raw bitcoin URL string here.  A valid string starts with &quot;bitcoin:&quot; followed by a bitcoin address.&lt;br&gt;&lt;br&gt;You should use this feature if there is a &quot;bitcoin:&quot; link in a webpage or email that does not load Armory when you click on it.  Instead, right-click on the link and select &quot;Copy Link Location&quot; then paste it into the box below. </source>
         <translation>Copy and paste a raw bitcoin URL string here.  A valid string starts with &quot;bitcoin:&quot; followed by a bitcoin address.&lt;br&gt;&lt;br&gt;You should use this feature if there is a &quot;bitcoin:&quot; link in a webpage or email that does not load Armory when you click on it.  Instead, right-click on the link and select &quot;Copy Link Location&quot; then paste it into the box below. </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9801"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Done</source>
         <translation>Done</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9802"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
@@ -11965,7 +11980,7 @@ Does this ID match the &quot;Wallet Unique ID&quot; you intend to restore? If no
 <context>
     <name>DlgWODataPrintBackup</name>
     <message>
-        <location filename="qtdialogs.py" line="10255"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          &lt;b&gt;&lt;u&gt;Print Watch-Only Wallet Root&lt;/u&gt;&lt;/b&gt;&lt;br&gt;&lt;br&gt;
          The lines below are sufficient to calculate public keys
@@ -11999,7 +12014,7 @@ Does this ID match the &quot;Wallet Unique ID&quot; you intend to restore? If no
          funds.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10369"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          The following five lines are sufficient to reproduce all public
          keys matching the private keys produced by the full wallet.</source>
@@ -12008,7 +12023,7 @@ Does this ID match the &quot;Wallet Unique ID&quot; you intend to restore? If no
          keys matching the private keys produced by the full wallet.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10408"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          The following QR code is for convenience only.  It contains the
          exact same data as the five lines above.  If you copy this data
@@ -12019,7 +12034,7 @@ Does this ID match the &quot;Wallet Unique ID&quot; you intend to restore? If no
          by hand, you can safely ignore this QR code. </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10339"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&lt;b&gt;&lt;font size=4&gt;&lt;font color=&quot;#aa0000&quot;&gt;WARNING:&lt;/font&gt;  &lt;u&gt;This is not a wallet backup!&lt;/u&gt;&lt;/font&gt;&lt;/b&gt; &lt;br&gt;&lt;br&gt;Please make a regular digital or paper backup of your wallet to keep it protected!  This data simply lets you monitor the funds in this wallet but gives you no ability to move any funds.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -12744,12 +12759,12 @@ Does this ID match the &quot;Wallet Unique ID&quot; you intend to restore? If no
 <context>
     <name>DlgWltRecoverWallet</name>
     <message>
-        <location filename="qtdialogs.py" line="12640"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Browse File System</source>
         <translation>Browse File System</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12644"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          &lt;b&gt;Wallet Recovery Tool:
          &lt;/b&gt;&lt;br&gt;
@@ -12772,67 +12787,67 @@ Does this ID match the &quot;Wallet Unique ID&quot; you intend to restore? If no
          transition to a new wallet. </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12656"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Wallet Path:</source>
         <translation>Wallet Path:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12661"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Select Wallet...</source>
         <translation>Select Wallet...</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12667"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Select Loaded Wallet</source>
         <translation>Select Loaded Wallet</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12691"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&lt;b&gt;Stripped Recovery&lt;/b&gt;&lt;br&gt;Only attempts to                             recover the wallet&apos;s rootkey and chaincode</source>
         <translation>&lt;b&gt;Stripped Recovery&lt;/b&gt;&lt;br&gt;Only attempts to                             recover the wallet&apos;s rootkey and chaincode</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12698"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&lt;b&gt;Bare Recovery&lt;/b&gt;&lt;br&gt;Attempts to recover all private key related data</source>
         <translation>&lt;b&gt;Bare Recovery&lt;/b&gt;&lt;br&gt;Attempts to recover all private key related data</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12705"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&lt;b&gt;Full Recovery&lt;/b&gt;&lt;br&gt;Attempts to recover as much data as possible</source>
         <translation>&lt;b&gt;Full Recovery&lt;/b&gt;&lt;br&gt;Attempts to recover as much data as possible</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12711"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>&lt;b&gt;Consistency Check&lt;/b&gt;&lt;br&gt;Checks wallet consistency. Works with both full and watch only&lt;br&gt; wallets. Unlocking of encrypted wallets is not mandatory</source>
         <translation>&lt;b&gt;Consistency Check&lt;/b&gt;&lt;br&gt;Checks wallet consistency. Works with both full and watch only&lt;br&gt; wallets. Unlocking of encrypted wallets is not mandatory</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12755"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Recover</source>
         <translation>Recover</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12756"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12767"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>The entered path does not exist</source>
         <translation>The entered path does not exist</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12780"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Wallet Recovery Tool</source>
         <translation>Wallet Recovery Tool</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12824"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Wallet files (*.wallet);; All files (*)</source>
         <translation>Wallet files (*.wallet);; All files (*)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12831"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Recover Wallet</source>
         <translation>Recover Wallet</translation>
     </message>
@@ -15285,12 +15300,12 @@ nter: &lt;Number&gt; (kb, mb)</translation>
 <context>
     <name>context</name>
     <message>
-        <location filename="qtdialogs.py" line="10964"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Invalid Code</source>
         <translation>Invalid Code</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10964"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
             You didn&apos;t enter a full SecurePrint&#xe2;&#x84;&#xa2; code.  This
             code is needed to decrypt your backup file.</source>
@@ -15299,12 +15314,12 @@ nter: &lt;Number&gt; (kb, mb)</translation>
             code is needed to decrypt your backup file.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10975"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Bad SecurePrint&#xe2;&#x84;&#xa2; Code</source>
         <translation>Bad SecurePrintâ¢ Code</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10969"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
             The SecurePrint&#xe2;&#x84;&#xa2; code you entered has an error
             in it.  Note that the code is case-sensitive.  Please verify
@@ -15315,7 +15330,7 @@ nter: &lt;Number&gt; (kb, mb)</translation>
             you entered it correctly and try again.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10975"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          The SecurePrint&#xe2;&#x84;&#xa2; code you entered has unrecognized characters
          in it.  %1 Only the following characters are allowed: %2</source>
@@ -15636,12 +15651,12 @@ nter: &lt;Number&gt; (kb, mb)</translation>
         <translation>Select from Address Book</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12498"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Recovery Test</source>
         <translation>Recovery Test</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12498"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
          From the data you entered, Armory calculated the following
          wallet ID: &lt;font color=&quot;blue&quot;&gt;&lt;b&gt;%1&lt;/b&gt;&lt;/font&gt;
@@ -15656,12 +15671,12 @@ nter: &lt;Number&gt; (kb, mb)</translation>
          testing?</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12526"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Bad Backup!</source>
         <translation>Bad Backup!</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12506"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
             If this is your only backup and you are sure that you entered
             the data correctly, then it is &lt;b&gt;highly recommended you stop using
@@ -15680,12 +15695,12 @@ nter: &lt;Number&gt; (kb, mb)</translation>
             Wallet ID of the data you entered: %1 &lt;br&gt; </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12539"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Backup is Good!</source>
         <translation>Backup is Good!</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12516"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
             &lt;b&gt;Your backup works!&lt;/b&gt;
             &lt;br&gt;&lt;br&gt;
@@ -15704,7 +15719,7 @@ nter: &lt;Number&gt; (kb, mb)</translation>
             the original.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12526"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>
             If you are sure that you entered the backup information
             correctly, then it is &lt;b&gt;highly recommended you stop using
@@ -15817,7 +15832,7 @@ nter: &lt;Number&gt; (kb, mb)</translation>
       lockbox manager in order to use it.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12539"/>
+        <location filename="qtdialogs.py" line="8950"/>
         <source>Your backup works! &lt;br&gt;&lt;br&gt; The wallet ID computed from the data you entered matches the expected ID.  This confirms that the backup produces the same sequence of private keys as the original wallet! &lt;br&gt;&lt;br&gt; Computed wallet ID: %1 &lt;br&gt; Expected wallet ID: %2 &lt;br&gt; &lt;br&gt;</source>
         <translation type="unfinished"></translation>
     </message>
