@@ -44,7 +44,7 @@ class LockboxSelectFrame(ArmoryFrame):
       layoutDetails = QGridLayout()
       for i,lbl in enumerate(lbls):
          lbl.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-         lbl.setText('<b>' + str(lbls[i].text()) + '</b>')
+         lbl.setText('<b>' + unicode(lbls[i].text()) + '</b>')
          layoutDetails.addWidget(lbl, i+1, 0)
          
       # LockboxID
@@ -163,7 +163,7 @@ class SelectWalletFrame(ArmoryFrame):
 
       for i in range(len(lbls)):
          lbls[i].setAlignment(Qt.AlignLeft | Qt.AlignTop)
-         lbls[i].setText('<b>' + str(lbls[i].text()) + '</b>')
+         lbls[i].setText('<b>' + unicode(lbls[i].text()) + '</b>')
          
       self.dispID = QRichLabel('')
       self.dispName = QRichLabel('')

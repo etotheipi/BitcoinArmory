@@ -509,11 +509,11 @@ class ArmoryMainWindow(QMainWindow):
             DlgExportTxHistory(self,self).exec_()
 
 
-      actExportTx    = self.createAction('&Export Transactions...', exportTx)
-      actSettings    = self.createAction('&Settings...', self.openSettings)
-      actMinimApp    = self.createAction('&Minimize Armory', self.minimizeArmory)
-      actExportLog   = self.createAction('Export &Log File...', self.exportLogFile)
-      actCloseApp    = self.createAction('&Quit Armory', self.closeForReal)
+      actExportTx    = self.createAction(self.tr('&Export Transactions...'), exportTx)
+      actSettings    = self.createAction(self.tr('&Settings...'), self.openSettings)
+      actMinimApp    = self.createAction(self.tr('&Minimize Armory'), self.minimizeArmory)
+      actExportLog   = self.createAction(self.tr('Export &Log File...'), self.exportLogFile)
+      actCloseApp    = self.createAction(self.tr('&Quit Armory'), self.closeForReal)
       self.menusList[MENUS.File].addAction(actExportTx)
       self.menusList[MENUS.File].addAction(actSettings)
       self.menusList[MENUS.File].addAction(actMinimApp)
@@ -529,9 +529,9 @@ class ArmoryMainWindow(QMainWindow):
          if b: self.setUserMode(USERMODE.Expert)
 
       modeActGrp = QActionGroup(self)
-      actSetModeStd = self.createAction('&Standard',  chngStd, True)
-      actSetModeAdv = self.createAction('&Advanced',  chngAdv, True)
-      actSetModeDev = self.createAction('&Expert',    chngDev, True)
+      actSetModeStd = self.createAction(self.tr('&Standard'),  chngStd, True)
+      actSetModeAdv = self.createAction(self.tr('&Advanced'),  chngAdv, True)
+      actSetModeDev = self.createAction(self.tr('&Expert'),    chngDev, True)
 
       modeActGrp.addAction(actSetModeStd)
       modeActGrp.addAction(actSetModeAdv)
@@ -752,7 +752,7 @@ class ArmoryMainWindow(QMainWindow):
          return
 
       currIdx  = max(self.comboWltSelect.currentIndex(), 0)
-      currText = str(self.comboWltSelect.currentText()).lower()
+      currText = unicode(self.comboWltSelect.currentText()).lower()
 
       if currText.lower().startswith('custom filter'):
          self.walletsView.showColumn(0)
