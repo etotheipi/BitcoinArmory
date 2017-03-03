@@ -3136,9 +3136,7 @@ class DlgAddressInfo(ArmoryDialog):
 
 
       dlgLayout = QGridLayout()
-      addrStr = self.addr.getAddrStr()
-
-      lblDescr = QLabel(self.tr('Information for address:  %1').arg(addrStr))
+      addrStr = self.cppAddr.getScrAddr()
 
       frmInfo = QFrame()
       frmInfo.setFrameStyle(STYLE_RAISED)
@@ -3227,11 +3225,6 @@ class DlgAddressInfo(ArmoryDialog):
          lbls[-1].append(QLabel(str(wlt.commentsMap[addr160]) if addr160 in wlt.commentsMap else ''))
       else:
          lbls[-1].append(QLabel(''))
-
-      # Number of transactions
-      #txHashes = set()
-      #for le in self.addrLedger:
-       #  txHashes.add(le.getTxHash())
 
       lbls.append([])
       lbls[-1].append(self.main.createToolTipWidget(
@@ -3369,7 +3362,7 @@ class DlgAddressInfo(ArmoryDialog):
    def copyAddr(self):
       clipb = QApplication.clipboard()
       clipb.clear()
-      clipb.setText(self.addr.getAddrStr())
+      clipb.setText(self.cppAddr.getScrAddr())
       self.lblCopied.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       self.lblCopied.setText(self.tr('<i>Copied!</i>'))
 

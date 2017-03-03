@@ -2408,15 +2408,6 @@ class PyBtcWallet(object):
       if onlySyncBackup:
          return 0
 
-
-
-
-
-
-   #############################################################################
-   #def getAddrByIndex(self, i):
-      #return self.addrMap.values()[i]
-
    #############################################################################
    def deleteImportedAddress(self, addr160):
       """
