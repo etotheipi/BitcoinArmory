@@ -962,8 +962,9 @@ class WalletAddrDispModel(QAbstractTableModel):
       if row>=len(self.addr160List):
          return QVariant('')
       addr = self.wlt.addrMap[self.addr160List[row]]
-      addr160 = addr.getAddr160()
-      addrB58 = addr.getAddrStr()
+      cppaddr = self.wlt.cppWallet.getAddrObjByIndex(addr.chainIndex)
+      addr160 = cppaddr.getAddrHash()
+      addrB58 = cppaddr.getScrAddr()
       chainIdx = addr.chainIndex+1  # user must get 1-indexed
       if role==Qt.DisplayRole:
          if col==COL.Address: 
@@ -976,18 +977,16 @@ class WalletAddrDispModel(QAbstractTableModel):
          if col==COL.NumTx: 
             if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
                return QVariant('n/a')
-            cppAddr = self.wlt.getScrAddrObj(Hash160ToScrAddr(addr160))
-            return QVariant( cppAddr.getTxioCount())
+            return QVariant( cppaddr.getTxioCount())
          if col==COL.ChainIdx:
-            if self.wlt.addrMap[addr160].chainIndex==-2:
+            if self.wlt.addrMap[addr.getAddr160()].chainIndex==-2:
                return QVariant('Imported')
             else:
                return QVariant(chainIdx)
          if col==COL.Balance: 
             if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
                return QVariant('(...)')
-            cppAddr = self.wlt.getScrAddrObj(Hash160ToScrAddr(addr160))
-            return QVariant( coin2str(cppAddr.getFullBalance(), maxZeros=2) )
+            return QVariant( coin2str(cppaddr.getFullBalance(), maxZeros=2) )
       elif role==Qt.TextAlignmentRole:
          if col in (COL.Address, COL.Comment, COL.ChainIdx):
             return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
@@ -1002,13 +1001,12 @@ class WalletAddrDispModel(QAbstractTableModel):
          if col==COL.Balance:
             if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
                return QVariant(Colors.Foreground)
-            cppAddr = self.wlt.getScrAddrObj(Hash160ToScrAddr(addr160))
-            val = cppAddr.getFullBalance()
+            val = cppaddr.getFullBalance()
             if   val>0: return QVariant(Colors.TextGreen)
             else:       return QVariant(Colors.Foreground)
       elif role==Qt.FontRole:
          try:
-            hasTx = self.wlt.getAddrTotalTxnCount(Hash160ToScrAddr(addr160))>0
+            hasTx = cppaddr.getTxioCount()>0
          except:
             hasTx = False
             
@@ -1043,8 +1041,7 @@ class WalletAddrDispModel(QAbstractTableModel):
          if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
             return QVariant( Colors.TblWltOther )
 
-         cppAddr = self.wlt.getScrAddrObj(Hash160ToScrAddr(addr160))
-         val = cppAddr.getFullBalance()
+         val = cppaddr.getFullBalance()
          if val>0:
             return QVariant( Colors.SlightGreen )
          else:

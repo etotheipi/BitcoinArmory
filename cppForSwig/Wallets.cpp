@@ -1752,6 +1752,18 @@ const BinaryData& AssetWallet::getNestedP2PKAddrForIndex(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+const BinaryData& AssetWallet::getP2PKHAddrForIndex(unsigned chainIndex)
+{
+   ReentrantLock lock(this);
+
+   auto assetPtr = getAssetForIndex(chainIndex);
+   auto addrEntry = getAddressEntryForAsset(
+      assetPtr, AddressEntryType_P2PKH);
+
+   return addrEntry->getAddress();
+}
+
+////////////////////////////////////////////////////////////////////////////////
 int AssetWallet::getLastComputedIndex(void) const
 {
    if (getAssetCount() == 0)

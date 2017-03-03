@@ -7898,13 +7898,17 @@ class DlgAddressBook(ArmoryDialog):
    #############################################################################
    def getAddrStr(self, wlt, addrObj):
       addrStr = ""
+      
+      cppwlt = wlt
+      if isinstance(wlt, PyBtcWallet):
+         cppwlt = wlt.cppWallet
          
       if self.addrType == 'P2PKH':
-         addrStr = addrObj.getAddrStr()
+         addrStr = cppwlt.getP2PKHAddrForIndex(addrObj.chainIndex)
       elif self.addrType == 'P2SH-P2PK':
-         addrStr = wlt.getNestedP2PKAddrForIndex(addrObj.chainIndex)
+         addrStr = cppwlt.getNestedP2PKAddrForIndex(addrObj.chainIndex)
       elif self.addrType == 'P2SH-P2WPKH':
-         addrStr = wlt.getNestedSWAddrForIndex(addrObj.chainIndex)
+         addrStr = cppwlt.getNestedSWAddrForIndex(addrObj.chainIndex)
             
       return addrStr      
       

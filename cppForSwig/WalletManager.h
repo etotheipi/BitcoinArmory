@@ -263,6 +263,11 @@ public:
       return wallet_->getNestedP2PKAddrForIndex(chainIndex);
    }
 
+   BinaryData getP2PKHAddrForIndex(unsigned chainIndex)
+   {
+      return wallet_->getP2PKHAddrForIndex(chainIndex);
+   }
+
    void extendAddressChain(unsigned count)
    {
       wallet_->extendChain(count);

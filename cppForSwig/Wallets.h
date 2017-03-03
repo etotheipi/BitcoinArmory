@@ -880,6 +880,7 @@ public:
    shared_ptr<AssetEntry> getAssetForIndex(unsigned) const;
    const BinaryData& getNestedSWAddrForIndex(unsigned chainIndex);
    const BinaryData& getNestedP2PKAddrForIndex(unsigned chainIndex);
+   const BinaryData& getP2PKHAddrForIndex(unsigned chainIndex);
    unsigned getAssetCount(void) const { return assets_.size(); }
    int getLastComputedIndex(void) const;
    void extendChain(unsigned);
