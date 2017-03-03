@@ -408,6 +408,13 @@ void CoinSelectionInstance::addRecipient(
    if (hash.getSize() == 0)
       throw CoinSelectionException("empty script hash");
 
+   recipients_.insert(make_pair(id, createRecipient(hash, value)));
+}
+
+////////////////////////////////////////////////////////////////////////////////
+shared_ptr<ScriptRecipient> CoinSelectionInstance::createRecipient(
+   const BinaryData& hash, uint64_t value)
+{
    shared_ptr<ScriptRecipient> rec;
    auto scrType = *hash.getPtr();
 
@@ -427,7 +434,7 @@ void CoinSelectionInstance::addRecipient(
    else
       throw CoinSelectionException("unexpected recipient script type");
 
-   recipients_.insert(make_pair(id, rec));
+   return rec;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -488,8 +495,33 @@ void CoinSelectionInstance::processCustomUtxoList(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+uint64_t CoinSelectionInstance::getFeeForMaxValUtxoVector(
+   const vector<BinaryData>& serializedUtxos, float fee_byte)
+{
+   auto txoutsize = 0;
+   for (auto& rec : recipients_)
+      txoutsize += rec.second->getSize();
+
+   vector<UTXO> utxoVec;
+   if (serializedUtxos.size() > 0)
+   {
+      for (auto& rawUtxo : serializedUtxos)
+      {
+         UTXO utxo;
+         utxo.unserialize(rawUtxo);
+         utxoVec.push_back(move(utxo));
+      }
+
+      //decorate coin control selection
+      decorateUTXOs(walletContainer_, utxoVec);
+   }
+
+   return cs_.getFeeForMaxVal(txoutsize, fee_byte, utxoVec);
+}
+
+////////////////////////////////////////////////////////////////////////////////
 uint64_t CoinSelectionInstance::getFeeForMaxVal(float fee_byte)
 {
-   PaymentStruct payStruct(recipients_, 0, fee_byte, false);
-   return cs_.getFeeForMaxVal(payStruct, fee_byte);
+   vector<BinaryData> utxos;
+   return getFeeForMaxValUtxoVector(utxos, fee_byte);
 }

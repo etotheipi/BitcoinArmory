@@ -423,13 +423,31 @@ class SendBitcoinsFrame(ArmoryFrame):
          prefix, h160 = addrStr_to_hash160(str(coinSelRow['QLE_ADDR'].text()).strip())
          scrAddr = prefix + h160
          valueStr = str(coinSelRow['QLE_AMT'].text()).strip()
-         value = str2coin(valueStr, negAllowed=False)
+         try:
+            value = str2coin(valueStr, negAllowed=False)
+         except:
+            value = 0
             
          self.coinSelection.updateRecipient(id_, scrAddr, value)
          self.resolveCoinSelection()
       except:
          self.resetCoinSelectionText()
 
+   #############################################################################
+   def serializeUtxoList(self, utxoList):
+      serializedUtxoList = []
+      for utxo in utxoList:
+         bp = BinaryPacker()
+         bp.put(UINT64, utxo.getValue())
+         bp.put(UINT32, utxo.getTxHeight())
+         bp.put(UINT16, utxo.getTxIndex())
+         bp.put(UINT16, utxo.getTxOutIndex())
+         bp.put(BINARY_CHUNK, utxo.getTxHash())
+         bp.put(BINARY_CHUNK, utxo.getScript())
+         serializedUtxoList.append(bp.getBinaryString())
+         
+      return serializedUtxoList
+   
    #############################################################################   
    def resolveCoinSelection(self):  
       try:
@@ -439,16 +457,7 @@ class SendBitcoinsFrame(ArmoryFrame):
             self.coinSelection.selectUTXOs(fee, feePerByte, adjust_fee)
          else:
             
-            serializedUtxoList = []
-            for utxo in self.customUtxoList:
-               bp = BinaryPacker()
-               bp.put(UINT64, utxo.getValue())
-               bp.put(UINT32, utxo.getTxHeight())
-               bp.put(UINT16, utxo.getTxIndex())
-               bp.put(UINT16, utxo.getTxOutIndex())
-               bp.put(BINARY_CHUNK, utxo.getTxHash())
-               bp.put(BINARY_CHUNK, utxo.getScript())
-               serializedUtxoList.append(bp.getBinaryString())
+            serializedUtxoList = self.serializeUtxoList(self.customUtxoList)
                
             self.coinSelection.processCustomUtxoList(\
                serializedUtxoList, fee, feePerByte, self.useCustomListInFull, adjust_fee)   
@@ -528,7 +537,6 @@ class SendBitcoinsFrame(ArmoryFrame):
       totalSend = 0
       for row in range(len(self.widgetTable)):
          try:
-            recipStr = str(self.widgetTable[row]['QLE_ADDR'].text()).strip()
             valueStr = str(self.widgetTable[row]['QLE_AMT'].text()).strip()
             value = str2coin(valueStr, negAllowed=False)
             if value == 0:
@@ -562,8 +570,6 @@ class SendBitcoinsFrame(ArmoryFrame):
          totalSend += value
 
          script = self.widgetTable[row]['FUNC_GETSCRIPT']()['Script']
-         #scraddr = script_to_scrAddr(script)
-
          scriptValPairs.append([script, value])
          self.comments.append((str(self.widgetTable[row]['QLE_COMM'].text()), value))
 
@@ -895,14 +901,18 @@ class SendBitcoinsFrame(ArmoryFrame):
             if targWidget == self.widgetTable[r]['QLE_AMT']:
                r += 1
                continue
-
+         
             amtStr = str(self.widgetTable[r]['QLE_AMT'].text()).strip()
             if len(amtStr) > 0:
                totalOther += str2coin(amtStr)
             r += 1
-            
+                     
          if txFee == 0 and fee_byte != 0:
-            txFee = self.coinSelection.getFeeForMaxVal(fee_byte)
+            if self.customUtxoList != None and len(self.customUtxoList) > 0:
+               serializedUtxoList = self.serializeUtxoList(self.customUtxoList)
+               txFee = self.coinSelection.getFeeForMaxValUtxoVector(serializedUtxoList, fee_byte)
+            else:
+               txFee = self.coinSelection.getFeeForMaxVal(fee_byte)
 
       except:
          QMessageBox.warning(self, self.tr('Invalid Input'), \
@@ -910,6 +920,7 @@ class SendBitcoinsFrame(ArmoryFrame):
                'because there is an error in the amount '
                'for recipient %1.').arg(r + 1,), QMessageBox.Ok)
          return
+
 
 
       maxStr = coin2str((bal - (txFee + totalOther)), maxZeros=0)
@@ -954,9 +965,10 @@ class SendBitcoinsFrame(ArmoryFrame):
       frmRecipLayout = QVBoxLayout()
 
 
-      def revertColorCallback(row):
+      def recipientAddrChanged(row):
          def callbk():
             self.updateAddrColor(row, Colors.Background)
+            self.updateCoinSelectionRecipient(row)
          return callbk
       
       def recipientValueChanged(row):
@@ -979,7 +991,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          self.widgetTable[r]['QLE_ADDR'].setFont(GETFONT('var', 9))
 
          self.connect(self.widgetTable[r]['QLE_ADDR'], SIGNAL('textChanged(QString)'), 
-                                                        revertColorCallback(r))
+                                                        recipientAddrChanged(r))
 
          self.widgetTable[r]['BTN_BOOK'] = addrEntryWidgets['BTN_BOOK']
          self.widgetTable[r]['LBL_DETECT'] = addrEntryWidgets['LBL_DETECT']

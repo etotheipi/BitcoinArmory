@@ -60,6 +60,8 @@ private:
    uint64_t getSpendVal(void) const;
    void checkSpendVal(void) const;
    void addRecipient(unsigned, const BinaryData&, uint64_t);
+
+   static shared_ptr<ScriptRecipient> createRecipient(const BinaryData&, uint64_t);
    
    void selectUTXOs(vector<UTXO>&, uint64_t fee, float fee_byte, 
       bool useExhaustiveList, bool adjustFee);
@@ -82,8 +84,9 @@ public:
 
    void updateState(uint64_t fee, float fee_byte, bool adjustFee);
 
+   uint64_t getFeeForMaxValUtxoVector(const vector<BinaryData>& serializedUtxos, float fee_byte);
    uint64_t getFeeForMaxVal(float fee_byte);
-   
+
    size_t getSizeEstimate(void) const { return selection_.size_; }
    vector<UTXO> getUtxoSelection(void) const { return selection_.utxoVec_; }
    uint64_t getFlatFee(void) const { return selection_.fee_; }

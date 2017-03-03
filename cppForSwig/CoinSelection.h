@@ -122,7 +122,8 @@ public:
    UtxoSelection getUtxoSelectionForRecipients(
       PaymentStruct& payStruct, const vector<UTXO>&, bool useExhaustiveList);
 
-   uint64_t getFeeForMaxVal(PaymentStruct&, float fee_byte);
+   uint64_t getFeeForMaxVal(
+      size_t txOutSize, float fee_byte, const vector<UTXO>&);
 };
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -175,15 +175,24 @@ uint64_t CoinSelection::tallyValue(const vector<UTXO>& utxoVec)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t CoinSelection::getFeeForMaxVal(PaymentStruct& payStruct, float fee_byte)
+uint64_t CoinSelection::getFeeForMaxVal(
+   size_t txOutSize, float fee_byte,
+   const vector<UTXO>& coinControlVec)
 {
-   updateUtxoVector(spendableValue_);
 
    //version, locktime, txin & txout count + outputs size
-   size_t txSize = 10 + payStruct.size_; 
+   size_t txSize = 10 + txOutSize;
    size_t witnessSize = 0;
 
-   for (auto& utxo : utxoVec_)
+   const vector<UTXO>* utxoVecPtr = &coinControlVec;
+
+   if (coinControlVec.size() == 0)
+   {
+      updateUtxoVector(spendableValue_);
+      utxoVecPtr = &utxoVec_;
+   }
+
+   for (auto& utxo : *utxoVecPtr)
    {
       txSize += utxo.getInputRedeemSize();
       if (utxo.isSegWit())
@@ -957,12 +966,19 @@ void UtxoSelection::computeSizeAndFee(
 ////////////////////////////////////////////////////////////////////////////////
 void PaymentStruct::init()
 {
+   if (recipients_.size() == 0)
+      throw CoinSelectionException("empty recipients map");
+
    spendVal_ = 0;
    size_ = 0;
 
    for (auto& recipient : recipients_)
    {
-      spendVal_ += recipient.second->getValue();
+      auto rcVal = recipient.second->getValue();
+      if (rcVal == 0)
+         throw CoinSelectionException("recipient has null value");
+
+      spendVal_ += rcVal;
       size_ += recipient.second->getSize();
    }
 }
