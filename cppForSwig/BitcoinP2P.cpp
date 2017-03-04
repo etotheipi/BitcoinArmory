@@ -332,7 +332,7 @@ shared_ptr<Payload::DeserializedPayloads> Payload::deserialize(
 
       if (bytesConsumed < data.size())
       {
-         LOGINFO << "carrying " << data.size() - bytesConsumed << " bytes of data spill over";
+         //LOGINFO << "carrying " << data.size() - bytesConsumed << " bytes of data spill over";
          result->spillOffset_ = bytesConsumed;
          result->data_ = move(data);
       }
@@ -343,7 +343,7 @@ shared_ptr<Payload::DeserializedPayloads> Payload::deserialize(
    auto patchspill = [&parsepayloads, &bytesConsumed](
                      shared_ptr<DeserializedPayloads> prevpacket, 
                      const vector<uint8_t>& data,
-                     const vector<size_t> offsets) -> unique_ptr<Payload>
+                     const vector<size_t> offsets) -> shared_ptr<DeserializedPayloads>
    {
       if (prevpacket == nullptr)
          return nullptr;
@@ -360,7 +360,7 @@ shared_ptr<Payload::DeserializedPayloads> Payload::deserialize(
          return nullptr;
       }
          
-      LOGINFO << spillSize << " bytes of prespill data found";
+      //LOGINFO << spillSize << " bytes of prespill data found";
 
       prevpacket->data_.insert(prevpacket->data_.end(),
          data.begin(), data.begin() + spillSize);
@@ -371,13 +371,21 @@ shared_ptr<Payload::DeserializedPayloads> Payload::deserialize(
       auto spillResult = parsepayloads(prevpacket->data_, offvec);
       if (spillResult->payloads_.size() == 0)
       {
+         spillResult->iterCount_ = prevpacket->iterCount_;
+         spillResult->data_ = move(prevpacket->data_);
+
          LOGERR << "failed to complete spilled packet";
-         return nullptr;
+         LOGERR << "iter #" << spillResult->iterCount_++;
+      }
+      else
+      {
+         if (spillResult->iterCount_ > 1)
+            LOGINFO << "succesfully completed spill packet after " <<
+               spillResult->iterCount_ << " iterations";
       }
 
-      LOGINFO << "succesfully completed spill packet!";
       bytesConsumed += spillSize;
-      return move(spillResult->payloads_[0]);
+      return spillResult;
    };
 
    auto&& offsetVec = processPacket(data, magic_word);
@@ -386,10 +394,15 @@ shared_ptr<Payload::DeserializedPayloads> Payload::deserialize(
    auto result = parsepayloads(data, offsetVec);
    if (extraPacket != nullptr)
    {
+      if (result->payloads_.size() == 0 && result->spillOffset_ == SIZE_MAX)
+         return extraPacket;
+
       typedef vector<unique_ptr<Payload>>::iterator vecUP;
 
       vector<unique_ptr<Payload>> newvec;
-      newvec.push_back(move(extraPacket));
+      newvec.insert(newvec.end(), 
+         move_iterator<vecUP>(extraPacket->payloads_.begin()),
+         move_iterator<vecUP>(extraPacket->payloads_.end()));
 
       newvec.insert(newvec.end(),
          move_iterator<vecUP>(result->payloads_.begin()),

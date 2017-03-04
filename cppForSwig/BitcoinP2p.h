@@ -157,6 +157,7 @@ public:
       vector<uint8_t> data_;
       vector<unique_ptr<Payload>> payloads_;
       size_t spillOffset_ = SIZE_MAX;
+      int iterCount_ = 0;
    };
 
 public:
