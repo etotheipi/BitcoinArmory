@@ -3143,6 +3143,13 @@ class PyBtcWallet(object):
       scraddrobj = self.cppWallet.getScrAddrObjByKey(scrAddr, \
          fullBalance, spendableBalance, unconfirmedBalance, txioCount)
       return scraddrobj
+  
+   ###############################################################################
+   def getP2PKHAddrForIndex(self, chainIndex):
+      if chainIndex < 0:
+         raise NotImplementedError("need to cover this behavior")
+     
+      return self.cppWallet.getNestedSWAddrForIndex(chainIndex)   
 
    ###############################################################################
    def getNestedSWAddrForIndex(self, chainIndex):

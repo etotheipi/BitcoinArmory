@@ -802,7 +802,7 @@ class SendBitcoinsFrame(ArmoryFrame):
    def getDefaultChangeAddress(self, scriptValPairs, peek):
       def getAddr(addrObj, typeStr):
          if typeStr == 'P2PKH':
-            addrStr = addrObj.getAddrStr()
+            addrStr = self.wlt.getP2PKHAddrForIndex(addrObj.chainIndex)
          elif typeStr == 'P2SH-P2WPKH':
             addrStr = self.wlt.getNestedSWAddrForIndex(addrObj.chainIndex)
          elif typeStr == 'P2SH-P2PK':

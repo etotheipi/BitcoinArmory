@@ -210,6 +210,8 @@ uint64_t CoinSelection::getFeeForMaxVal(
 void CoinSelection::fleshOutSelection(const vector<UTXO>& utxoVec,
    UtxoSelection& utxoSelect, PaymentStruct& payStruct)
 {
+   //TODO: this is specialized for fee_byte, add a flat fee spec as well
+
    auto newOutputCount = payStruct.recipients_.size();
    if (utxoSelect.hasChange_)
       ++newOutputCount;
@@ -874,10 +876,12 @@ void UtxoSelection::computeSizeAndFee(
       txSize += witnessSize_ + utxoVec_.size() + 2;
    }
 
+   bool forcedFee = false;
    uint64_t compiled_fee = payStruct.fee_;
    if (compiled_fee != 0)
    {
       fee_byte_ = float(compiled_fee) / float(txSize - witnessSize_ * 0.75f);
+      forcedFee = true;
    }
    else if (payStruct.fee_byte_ > 0.0f)
    {
@@ -890,10 +894,10 @@ void UtxoSelection::computeSizeAndFee(
    fee_ = compiled_fee;
 
    //figure out change + sanity check
-   uint64_t targetVal = payStruct.spendVal_ + compiled_fee;
+   uint64_t targetVal = payStruct.spendVal_ + fee_;
 
    uint64_t changeVal = value_ - targetVal;
-   if (changeVal < compiled_fee)
+   if (changeVal < fee_ && !forcedFee)
    {
       //figure out the fee cost of spending this tiny changeVal
       auto spendChangeValTxFee = uint64_t(fee_byte_ * 225.0f);
@@ -914,8 +918,11 @@ void UtxoSelection::computeSizeAndFee(
    {
       //size between p2pkh and p2sh doesn't vary enough to matter
       txOutSize += 35;
-      compiled_fee += uint64_t(35 * fee_byte_);
-      fee_ = compiled_fee;
+      if (!forcedFee)
+      {
+         compiled_fee += uint64_t(35 * fee_byte_);
+         fee_ = compiled_fee;
+      }
 
       hasChange_ = true;
    }
@@ -927,10 +934,10 @@ void UtxoSelection::computeSizeAndFee(
    if (sw)
       size_ += 2 + witnessSize_ + utxoVec_.size();
 
-   targetVal = payStruct.spendVal_ + compiled_fee;
+   targetVal = payStruct.spendVal_ + fee_;
    changeVal = value_ - targetVal;
 
-   if (payStruct.adjustFee_ && payStruct.fee_byte_ != 0 && changeVal > 0)
+   if (payStruct.adjustFee_ && !forcedFee && changeVal > 0)
    {
       auto spendVal_ZeroCount = 
          (int)SelectionScoring::getTrailingZeroCount(payStruct.spendVal_);
