@@ -2239,16 +2239,16 @@ class DlgNewAddressDisp(ArmoryDialog):
       self.addr = wlt.getNextUnusedAddress()
       if loading is not None:
          loading.setValue(80)
-      addrStr = self.addr.getAddrStr()
+      cppaddr = self.wlt.cppWallet.getAddrObjByIndex(self.addr.chainIndex)
+      self.addrStr = cppaddr.getScrAddr()
 
       wlttype = determineWalletType(self.wlt, self.main)[0]
       notMyWallet = (wlttype == WLTTYPES.WatchOnly)
-      offlineWallet = (wlttype == WLTTYPES.Offline)
 
       lblDescr = QLabel(self.tr('The following address can be used to receive bitcoins:'))
       self.edtNewAddr = QLineEdit()
       self.edtNewAddr.setReadOnly(True)
-      self.edtNewAddr.setText(addrStr)
+      self.edtNewAddr.setText(self.addrStr)
       self.edtNewAddr.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       btnClipboard = QPushButton(self.tr('Copy to Clipboard'))
       # lbtnClipboard.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
@@ -2350,8 +2350,8 @@ class DlgNewAddressDisp(ArmoryDialog):
       qrdescr = QRichLabel(self.tr('<b>Scan QR code with phone or other barcode reader</b>'
                            '<br><br><font size=2>(Double-click to expand)</font>'))
       qrdescr.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-      self.qrcode = QRCodeWidget(addrStr, parent=self)
-      smLabel = QRichLabel('<font size=2>%s</font>' % addrStr)
+      self.qrcode = QRCodeWidget(self.addrStr, parent=self)
+      smLabel = QRichLabel('<font size=2>%s</font>' % self.addrStr)
       smLabel.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
       frmQRsub2 = makeHorizFrame([STRETCH, self.qrcode, STRETCH ])
       frmQRsub3 = makeHorizFrame([STRETCH, smLabel, STRETCH ])
@@ -2360,14 +2360,14 @@ class DlgNewAddressDisp(ArmoryDialog):
 
       def setAddressType(typeStr):
          if typeStr == 'P2PKH':
-            addrStr = self.addr.getAddrStr()
+            self.addrStr = self.wlt.getP2PKHAddrForIndex(self.addr.chainIndex)
          elif typeStr == 'P2SH-P2WPKH':
-            addrStr = self.wlt.getNestedSWAddrForIndex(self.addr.chainIndex)
+            self.addrStr = self.wlt.getNestedSWAddrForIndex(self.addr.chainIndex)
          elif typeStr == 'P2SH-P2PK':
-            addrStr = self.wlt.getNestedP2PKAddrForIndex(self.addr.chainIndex)
+            self.addrStr = self.wlt.getNestedP2PKAddrForIndex(self.addr.chainIndex)
             
-         self.edtNewAddr.setText(addrStr)     
-         self.qrcode.setAsciiData(addrStr)
+         self.edtNewAddr.setText(self.addrStr)     
+         self.qrcode.setAsciiData(self.addrStr)
          self.qrcode.repaint()       
   
       #addr type selection framce
@@ -2411,7 +2411,7 @@ class DlgNewAddressDisp(ArmoryDialog):
    def setClipboard(self):
       clipb = QApplication.clipboard()
       clipb.clear()
-      clipb.setText(self.addr.getAddrStr())
+      clipb.setText(self.addrStr)
       self.lblIsCopied.setText(self.tr('<i>Copied!</i>'))
 
 
@@ -3378,7 +3378,7 @@ class DlgAddressInfo(ArmoryDialog):
                QMessageBox.Ok)
 
       addr = self.addr.copy()
-      dlg = DlgShowKeys(addr, self, self.main)
+      dlg = DlgShowKeys(addr, self.wlt, self, self.main)
       dlg.exec_()
 
    def deleteAddr(self):
@@ -3387,10 +3387,14 @@ class DlgAddressInfo(ArmoryDialog):
 #############################################################################
 class DlgShowKeys(ArmoryDialog):
 
-   def __init__(self, addr, parent=None, main=None):
+   def __init__(self, addr, wlt, parent=None, main=None):
       super(DlgShowKeys, self).__init__(parent, main)
 
       self.addr = addr
+      self.wlt = wlt
+      
+      self.scrAddr = \
+         self.wlt.cppWallet.getAddrObjByIndex(self.addr.chainIndex).getScrAddr() 
 
 
       lblWarn = QRichLabel('')
@@ -3415,14 +3419,9 @@ class DlgShowKeys(ArmoryDialog):
          return ' '.join(binHexPieces)
 
 
-      lblDescr = QRichLabel(self.tr('Key Data for address: <b>%1</b>').arg(self.addr.getAddrStr()))
+      lblDescr = QRichLabel(self.tr('Key Data for address: <b>%1</b>').arg(self.scrAddr))
 
       lbls = []
-      # lbls.append([])
-      # lbls[-1].append(QLabel(''))
-      # lbls[-1].append(QRichLabel('<b>Address:</b>'))
-      # lbls[-1].append(QLabel(addr.getAddrStr()))
-
 
       lbls.append([])
       binKey = self.addr.binPrivKey32_Plain.toBinStr()
@@ -3464,7 +3463,7 @@ class DlgShowKeys(ArmoryDialog):
       lbls[-1].append(QRichLabel(formatBinData(self.addr.binPublicKey65.toBinStr()[1 + 32:1 + 32 + 32])))
 
 
-      bin25 = base58_to_binary(self.addr.getAddrStr())
+      bin25 = base58_to_binary(self.scrAddr)
       network = binary_to_hex(bin25[:1    ])
       hash160 = binary_to_hex(bin25[ 1:-4 ])
       addrChk = binary_to_hex(bin25[   -4:])
@@ -4177,6 +4176,7 @@ class DlgRemoveAddress(ArmoryDialog):
          raise WalletAddressError('Address does not exist in wallet!')
 
       addrIndex = wlt.cppWallet.getAssetIndexForAddr(addr160)
+      self.cppAddrObj = wlt.cppWallet.getAddrObjByIndex(addrIndex)
       
       if addrIndex >= 0:
          raise WalletAddressError('Cannot delete regular chained addresses! '
@@ -4203,7 +4203,7 @@ class DlgRemoveAddress(ArmoryDialog):
       lbls = []
       lbls.append([])
       lbls[-1].append(QLabel(self.tr('Address:')))
-      lbls[-1].append(QLabel(self.addr.getAddrStr()))
+      lbls[-1].append(QLabel(self.cppAddrObj.getScrAddr()))
       lbls.append([])
       lbls[-1].append(QLabel(self.tr('Comment:')))
       lbls[-1].append(QLabel(self.comm))
@@ -4279,7 +4279,7 @@ class DlgRemoveAddress(ArmoryDialog):
            inaccessible.\n\n
            If you are maintaining an external copy of this address
            please ignore this warning\n\n
-           Are you absolutely sure you want to delete %1 ?''').arg(self.addr.getAddrStr()) , \
+           Are you absolutely sure you want to delete %1 ?''').arg(self.cppAddrObj.getScrAddr()) , \
            QMessageBox.Yes | QMessageBox.Cancel)
 
       if reply == QMessageBox.Yes:
@@ -5004,9 +5004,9 @@ class DlgShowKeyList(ArmoryDialog):
       self.havePriv = False
       topChain = self.wlt.highestUsedChainIndex
       extraLbl = ''
-      # c = ',' if self.chkCSV.isChecked() else ''
-      for addr in self.addrCopies:
 
+      for addr in self.addrCopies:
+         cppAddrObj = self.wlt.cppWallet.getAddrObjByIndex(addr.chainIndex)
          # Address pool
          if self.chkWithAddrPool.isChecked():
             if addr.chainIndex > topChain:
@@ -5024,7 +5024,7 @@ class DlgShowKeyList(ArmoryDialog):
                extraLbl = '   (Imported)'
 
          if self.chkList['AddrStr'   ].isChecked():
-            L.append(addr.getAddrStr() + extraLbl)
+            L.append(cppAddrObj.getScrAddr() + extraLbl)
          if self.chkList['PubKeyHash'].isChecked():
             L.append('   Hash160   : ' + fmtBin(addr.getAddr160()))
          if self.chkList['PrivB58'   ].isChecked():
@@ -7929,8 +7929,6 @@ class DlgAddressBook(ArmoryDialog):
          wlt = self.main.walletMap[self.selectedWltID]
          self.btnSelectWlt.setText(self.tr('%1 Wallet: %2').arg(self.actStr, self.selectedWltID))
          nextAddr = wlt.peekNextUnusedAddr()
-         
-         addrStr = self.getAddrStr(wlt, nextAddr)
 
          # If switched wallet selection, de-select address so it doesn't look
          # like the currently-selected address is for this different wallet

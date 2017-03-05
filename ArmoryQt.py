@@ -2910,7 +2910,7 @@ class ArmoryMainWindow(QMainWindow):
          # Make copies, destroy them in the finally clause
          privKeyMap = {}
          for addrObj in sweepFromAddrObjList:
-            scrAddr = SCRADDR_P2PKH_BYTE + addrObj.getAddr160()
+            scrAddr = ADDRBYTE + addrObj.getAddr160()
             privKeyMap[scrAddr] = addrObj.binPrivKey32_Plain.copy()
 
          pytx = PyCreateAndSignTx(inputSide, outputSide, privKeyMap)
@@ -3025,7 +3025,9 @@ class ArmoryMainWindow(QMainWindow):
       if gt1:
          dispIn  = self.tr('multiple addresses')
       else:
-         dispIn  = self.tr('address <b>%1</b>').arg(sweepList[0].getAddrStr())
+         assetIndex = wlt.cppWallet.getAssetIndexForAddr(sweepList[0].getAddr160())
+         cppAddrObj = wlt.cppWallet.getImportAddrObjByIndex(assetIndex)
+         dispIn  = self.tr('address <b>%1</b>').arg(cppAddrObj.getScrAddr())
 
       dispOut = self.tr('wallet <b>"%1"</b> (%2) ').arg(wlt.labelName, wlt.uniqueIDB58)
       if DlgVerifySweep(dispIn, dispOut, outVal, fee).exec_():

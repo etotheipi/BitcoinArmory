@@ -2912,6 +2912,7 @@ class PyBtcWallet(object):
 
    #############################################################################
    def pprint(self, indent='', allAddrInfo=True):
+      raise NotImplementedError("deprecated")
       print indent + 'PyBtcWallet  :', self.uniqueIDB58
       print indent + '   useEncrypt:', self.useEncryption
       print indent + '   watchOnly :', self.watchingOnly
@@ -3055,8 +3056,9 @@ class PyBtcWallet(object):
          realtime = datetime.fromtimestamp(unixtime).strftime('%Y-%m-%d %H:%M:%S')
          timeAndBlock = ",#%d,%s,%d" % (block, realtime, unixtime)
          
+         cppAddrObj = self.cppWallet.getAddrObjByIndex(addrObj.chainIndex)
          putStr = '%d,%s,%s,%f%s\n' \
-                  % (i, addrObj.getAddrStr(), addrObj.binPublicKey65.toHexStr(), bal, \
+                  % (i, cppAddrObj.getScrAddr(), addrObj.binPublicKey65.toHexStr(), bal, \
                      (timeAndBlock if unixtime != 0 else ""))
                   
          file.write(putStr)

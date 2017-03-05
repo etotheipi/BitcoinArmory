@@ -1222,6 +1222,7 @@ class PyBtcAddress(object):
 
 
    def pprint(self, withPrivKey=True, indent=''):
+      raise NotImplementedError("deprecated")
       def pp(x, nchar=1000):
          if x.getSize()==0:
             return '--'*32
