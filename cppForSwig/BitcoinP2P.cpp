@@ -268,18 +268,23 @@ shared_ptr<Payload::DeserializedPayloads> Payload::deserialize(
       {
          auto offset = offsetVec[y];
          auto length = (uint32_t*)(&data[offset] + PAYLOAD_LENGTH_OFFSET);
+
+	 size_t localBytesConsumed = *length + MESSAGE_HEADER_LEN;
+         if (localBytesConsumed + offset > data.size())
+            break;
+
          auto messagetype = (char*)(&data[offset] + MESSAGE_TYPE_OFFSET);
 
          try
          {
+            uint8_t* payloadptr = nullptr;
+            if (*length > 0)
+               payloadptr = &data[offset] + MESSAGE_HEADER_LEN;
+
             //instantiate relevant Payload child class and return it
             auto payloadIter = BitcoinP2P::strToPayload_.find(messagetype);
             if (payloadIter != BitcoinP2P::strToPayload_.end())
             {
-               uint8_t* payloadptr = nullptr;
-               if (*length > 0)
-                  payloadptr = &data[offset] + MESSAGE_HEADER_LEN;
-
                switch (payloadIter->second)
                {
                case Payload_version:
@@ -321,8 +326,13 @@ shared_ptr<Payload::DeserializedPayloads> Payload::deserialize(
                      payloadptr, *length)));
                }
             }
+            else
+            {
+               payloadVec.push_back(move(make_unique<Payload_Unknown>(
+                  payloadptr, *length)));
+            }
 
-            bytesConsumed = offset + *length + MESSAGE_HEADER_LEN;
+            bytesConsumed = offset + localBytesConsumed;
          }
          catch (PayloadDeserError& excpt)
          {
@@ -332,7 +342,6 @@ shared_ptr<Payload::DeserializedPayloads> Payload::deserialize(
 
       if (bytesConsumed < data.size())
       {
-         //LOGINFO << "carrying " << data.size() - bytesConsumed << " bytes of data spill over";
          result->spillOffset_ = bytesConsumed;
          result->data_ = move(data);
       }
@@ -356,11 +365,17 @@ shared_ptr<Payload::DeserializedPayloads> Payload::deserialize(
 
       if (spillSize == 0)
       {
-         LOGERR << "not enough data in this packet to complete left over";
+         LOGERR << "+++ not enough data in this packet to complete left over";
+         LOGERR << "+++ dumping " << prevpacket->data_.size() << " bytes of data";
+
+         auto length = (uint32_t*)(&prevpacket->data_[prevpacket->spillOffset_] + PAYLOAD_LENGTH_OFFSET);
+         auto messagetype = (char*)(&prevpacket->data_[prevpacket->spillOffset_] + MESSAGE_TYPE_OFFSET);	
+
+         LOGERR << "+++ packet length is: " << *length << " bytes";
+         LOGERR << "+++ packet offset is: " << prevpacket->spillOffset_;
+         LOGERR << "+++ packet message is: " << messagetype;
          return nullptr;
       }
-         
-      //LOGINFO << spillSize << " bytes of prespill data found";
 
       prevpacket->data_.insert(prevpacket->data_.end(),
          data.begin(), data.begin() + spillSize);
@@ -374,13 +389,17 @@ shared_ptr<Payload::DeserializedPayloads> Payload::deserialize(
          spillResult->iterCount_ = prevpacket->iterCount_;
          spillResult->data_ = move(prevpacket->data_);
 
-         LOGERR << "failed to complete spilled packet";
-         LOGERR << "iter #" << spillResult->iterCount_++;
+         LOGERR << "--- failed to complete spilled packet";
+         LOGERR << "--- iter #" << spillResult->iterCount_++;
+         LOGERR << "--- spilled size is: " << spillSize;
+         LOGERR << "--- total data size is: " << spillResult->data_.size();
+         LOGERR << "--- prevpacket data size is: " << prevpacket->data_.size();
+         spillResult->spillOffset_ = prevpacket->spillOffset_;
       }
       else
       {
-         if (spillResult->iterCount_ > 1)
-            LOGINFO << "succesfully completed spill packet after " <<
+         if (prevpacket->iterCount_ > 0)
+            LOGWARN << "[[[ succesfully completed spill packet after " <<
                spillResult->iterCount_ << " iterations";
       }
 
@@ -395,7 +414,10 @@ shared_ptr<Payload::DeserializedPayloads> Payload::deserialize(
    if (extraPacket != nullptr)
    {
       if (result->payloads_.size() == 0 && result->spillOffset_ == SIZE_MAX)
+      {
+	 //LOGWARN << "returning extraPacket with iter: " << extraPacket->iterCount_;
          return extraPacket;
+      }
 
       typedef vector<unique_ptr<Payload>>::iterator vecUP;
 
@@ -409,6 +431,13 @@ shared_ptr<Payload::DeserializedPayloads> Payload::deserialize(
          move_iterator<vecUP>(result->payloads_.end()));
 
       result->payloads_ = move(newvec);
+      result->iterCount_ = extraPacket->iterCount_;
+
+      if (extraPacket->spillOffset_ != SIZE_MAX)
+      {
+         LOGWARN << "*** got valid payloads without completing spill packet";
+         LOGWARN << "*** dumping " << extraPacket->data_.size() << " bytes of spill data";
+      }
    }
 
    return result;
@@ -434,6 +463,26 @@ void BitcoinNetAddr::serialize(uint8_t* ptr) const
    memcpy(ptr, &services_, 8);
    memcpy(ptr + 8, ipV6_, 16);
    put_integer_be(ptr + 24, port_);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void Payload_Unknown::deserialize(uint8_t* data, size_t len)
+{
+   data_.clear();
+   if (len == 0)
+      return;
+
+   data_.resize(len);
+   memcpy(&data_[0], data, len);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+size_t Payload_Unknown::serialize_inner(uint8_t* ptr) const
+{
+   if (ptr != nullptr && data_.size() > 0)
+      memcpy(ptr, &data_[0], data_.size());
+
+   return data_.size();   
 }
 
 ////////////////////////////////////////////////////////////////////////////////

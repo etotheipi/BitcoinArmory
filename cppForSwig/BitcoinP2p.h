@@ -60,7 +60,8 @@ enum PayloadType
    Payload_pong,
    Payload_inv,
    Payload_getdata,
-   Payload_reject
+   Payload_reject,
+   Payload_unknown
 };
 
 enum InvType
@@ -175,6 +176,30 @@ public:
    virtual string typeStr(void) const = 0;
 
    virtual void deserialize(uint8_t* dataptr, size_t len) = 0;
+};
+
+////
+struct Payload_Unknown : public Payload
+{
+private:
+   vector<uint8_t> data_;
+
+private:
+   size_t serialize_inner(uint8_t*) const;
+
+public:
+   Payload_Unknown(void)
+   {}
+
+   Payload_Unknown(uint8_t* dataptr, size_t len)
+   {
+      deserialize(dataptr, len);
+   }
+
+   void deserialize(uint8_t* dataptr, size_t len);
+
+   PayloadType type(void) const { return Payload_unknown; }
+   string typeStr(void) const { return "unknown"; }	
 };
 
 ////
