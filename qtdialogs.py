@@ -2351,10 +2351,10 @@ class DlgNewAddressDisp(ArmoryDialog):
                            '<br><br><font size=2>(Double-click to expand)</font>'))
       qrdescr.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       self.qrcode = QRCodeWidget(self.addrStr, parent=self)
-      smLabel = QRichLabel('<font size=2>%s</font>' % self.addrStr)
-      smLabel.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
+      self.smLabel = QRichLabel('<font size=2>%s</font>' % self.addrStr)
+      self.smLabel.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
       frmQRsub2 = makeHorizFrame([STRETCH, self.qrcode, STRETCH ])
-      frmQRsub3 = makeHorizFrame([STRETCH, smLabel, STRETCH ])
+      frmQRsub3 = makeHorizFrame([STRETCH, self.smLabel, STRETCH ])
       frmQR = makeVertFrame([STRETCH, qrdescr, frmQRsub2, frmQRsub3, STRETCH ], STYLE_SUNKEN)
 
 
@@ -2366,7 +2366,8 @@ class DlgNewAddressDisp(ArmoryDialog):
          elif typeStr == 'P2SH-P2PK':
             self.addrStr = self.wlt.getNestedP2PKAddrForIndex(self.addr.chainIndex)
             
-         self.edtNewAddr.setText(self.addrStr)     
+         self.edtNewAddr.setText(self.addrStr) 
+         self.smLabel.setText('<font size=2>%s</font>' % self.addrStr)  
          self.qrcode.setAsciiData(self.addrStr)
          self.qrcode.repaint()       
   

@@ -3154,7 +3154,7 @@ class PyBtcWallet(object):
       if chainIndex < 0:
          raise NotImplementedError("need to cover this behavior")
      
-      return self.cppWallet.getNestedSWAddrForIndex(chainIndex)   
+      return self.cppWallet.getP2PKHAddrForIndex(chainIndex)   
 
    ###############################################################################
    def getNestedSWAddrForIndex(self, chainIndex):
