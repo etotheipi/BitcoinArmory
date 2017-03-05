@@ -127,7 +127,12 @@ public:
       {
          vector<string> strVec;
          for (auto& wltInfo : wltInfoVec_)
+         {
+            if (wltInfo->ID_.size() == 0)
+               continue;
+
             strVec.push_back(wltInfo->ID_);
+         }
 
          return strVec;
       }
