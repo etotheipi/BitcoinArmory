@@ -266,7 +266,9 @@ shared_ptr<Payload::DeserializedPayloads> Payload::deserialize(
 
       for (unsigned y = 0; y < offsetVec.size(); y++)
       {
-         auto offset = offsetVec[y];
+         auto offset = offsetVec[y];         
+         bytesConsumed = offset;
+
          auto length = (uint32_t*)(&data[offset] + PAYLOAD_LENGTH_OFFSET);
 
 	 size_t localBytesConsumed = *length + MESSAGE_HEADER_LEN;
@@ -332,7 +334,7 @@ shared_ptr<Payload::DeserializedPayloads> Payload::deserialize(
                   payloadptr, *length)));
             }
 
-            bytesConsumed = offset + localBytesConsumed;
+            bytesConsumed += localBytesConsumed;
          }
          catch (PayloadDeserError& excpt)
          {
@@ -384,17 +386,21 @@ shared_ptr<Payload::DeserializedPayloads> Payload::deserialize(
       offvec.push_back(prevpacket->spillOffset_);
 
       auto spillResult = parsepayloads(prevpacket->data_, offvec);
-      if (spillResult->payloads_.size() == 0)
+      if (spillResult->spillOffset_ != SIZE_MAX)
       {
          spillResult->iterCount_ = prevpacket->iterCount_;
-         spillResult->data_ = move(prevpacket->data_);
+         //spillResult->data_ = move(prevpacket->data_);
 
-         LOGERR << "--- failed to complete spilled packet";
-         LOGERR << "--- iter #" << spillResult->iterCount_++;
-         LOGERR << "--- spilled size is: " << spillSize;
-         LOGERR << "--- total data size is: " << spillResult->data_.size();
-         LOGERR << "--- prevpacket data size is: " << prevpacket->data_.size();
-         spillResult->spillOffset_ = prevpacket->spillOffset_;
+         LOGWARN << "--- failed to complete spilled packet";
+         LOGWARN << "--- iter #" << spillResult->iterCount_++;
+         LOGWARN << "--- spilled size is: " << spillSize;
+         LOGWARN << "--- total data size is: " << spillResult->data_.size();
+         LOGWARN << "--- spill offset is: " << spillResult->spillOffset_;
+
+         auto length = (uint32_t*)(&spillResult->data_[spillResult->spillOffset_] + PAYLOAD_LENGTH_OFFSET);
+         auto messagetype = (char*)(&spillResult->data_[spillResult->spillOffset_] + MESSAGE_TYPE_OFFSET);
+         LOGWARN << "--- packet length: " << *length;
+         LOGWARN << "--- msgtype: " << messagetype;
       }
       else
       {
