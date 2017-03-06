@@ -271,7 +271,7 @@ shared_ptr<Payload::DeserializedPayloads> Payload::deserialize(
 
          auto length = (uint32_t*)(&data[offset] + PAYLOAD_LENGTH_OFFSET);
 
-	 size_t localBytesConsumed = *length + MESSAGE_HEADER_LEN;
+         size_t localBytesConsumed = *length + MESSAGE_HEADER_LEN;
          if (localBytesConsumed + offset > data.size())
             break;
 
@@ -391,7 +391,7 @@ shared_ptr<Payload::DeserializedPayloads> Payload::deserialize(
          spillResult->iterCount_ = prevpacket->iterCount_;
          //spillResult->data_ = move(prevpacket->data_);
 
-         LOGWARN << "--- failed to complete spilled packet";
+         /*LOGWARN << "--- failed to complete spilled packet";
          LOGWARN << "--- iter #" << spillResult->iterCount_++;
          LOGWARN << "--- spilled size is: " << spillSize;
          LOGWARN << "--- total data size is: " << spillResult->data_.size();
@@ -400,13 +400,13 @@ shared_ptr<Payload::DeserializedPayloads> Payload::deserialize(
          auto length = (uint32_t*)(&spillResult->data_[spillResult->spillOffset_] + PAYLOAD_LENGTH_OFFSET);
          auto messagetype = (char*)(&spillResult->data_[spillResult->spillOffset_] + MESSAGE_TYPE_OFFSET);
          LOGWARN << "--- packet length: " << *length;
-         LOGWARN << "--- msgtype: " << messagetype;
+         LOGWARN << "--- msgtype: " << messagetype;*/
       }
       else
       {
-         if (prevpacket->iterCount_ > 0)
+         /*if (prevpacket->iterCount_ > 0)
             LOGWARN << "[[[ succesfully completed spill packet after " <<
-               spillResult->iterCount_ << " iterations";
+               spillResult->iterCount_ << " iterations";*/
       }
 
       bytesConsumed += spillSize;
@@ -421,7 +421,7 @@ shared_ptr<Payload::DeserializedPayloads> Payload::deserialize(
    {
       if (result->payloads_.size() == 0 && result->spillOffset_ == SIZE_MAX)
       {
-	 //LOGWARN << "returning extraPacket with iter: " << extraPacket->iterCount_;
+         //LOGWARN << "returning extraPacket with iter: " << extraPacket->iterCount_;
          return extraPacket;
       }
 

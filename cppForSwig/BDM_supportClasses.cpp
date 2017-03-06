@@ -1652,16 +1652,11 @@ void ZeroConfContainer::init(
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void ZeroConfContainer::processInvTxVec(vector<InvEntry> invVec)
+void ZeroConfContainer::processInvTxVec(vector<InvEntry> invVec, bool extend)
 {
-   /***
-   This code will ignore new tx if there are no threads ready in the thread
-   pool to process them. Use a blocking stack instead to guarantee all
-   new tx get processed.
-   ***/
-
-   for (auto& entry : invVec)
+   for (unsigned i = 0; i < invVec.size(); i++)
    {
+      auto& entry = invVec[i];
       try
       {
          auto&& newtxpromise = newInvTxStack_.pop_front();
@@ -1669,7 +1664,21 @@ void ZeroConfContainer::processInvTxVec(vector<InvEntry> invVec)
       }
       catch (IsEmpty&)
       {
-         //nothing to do
+         if (!extend)
+            continue;
+
+         //zc parser thread queue is depleted, let's add a thread and try again
+         auto txthread = [this](void)->void
+         {
+            processInvTxThread();
+         };
+
+         parserThreads_.push_back(thread(txthread));
+         --i;
+
+         auto threadcount = parserThreads_.count() - 1;
+         if (threadcount % 5 == 0)
+            LOGWARN << "running " << threadcount << " zc parser threads";
       }
    }
 }
@@ -1862,13 +1871,14 @@ void ZeroConfContainer::shutdown()
    vector<InvEntry> vecIE;
    terminateEntry.invtype_ = Inv_Terminate;
 
-   for (unsigned i = 0; i < GETZC_THREADCOUNT; i++)
+   for (unsigned i = 0; i < parserThreads_.count(); i++)
       vecIE.push_back(terminateEntry);
 
-   processInvTxVec(vecIE);
+   processInvTxVec(vecIE, false);
 
-   for (auto& thr : parserThreads_)
+   while (parserThreads_.count() > 0)
    {
+      auto&& thr = parserThreads_.pop_front();
       if (thr.joinable())
          thr.join();
    }

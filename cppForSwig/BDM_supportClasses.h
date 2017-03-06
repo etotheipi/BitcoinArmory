@@ -428,7 +428,7 @@ private:
    function<shared_ptr<set<ScrAddrFilter::AddrSyncState>>(void)> getMainAddressSet_;
    mutex parserMutex_;
 
-   vector<thread> parserThreads_;
+   Stack<thread> parserThreads_;
 
 private:
    BulkFilterData ZCisMineBulkFilter(const Tx & tx,
@@ -482,7 +482,7 @@ public:
    void updateZCinDB(
       const vector<BinaryData>& keysToWrite, const vector<BinaryData>& keysToDel);
 
-   void processInvTxVec(vector<InvEntry>);
+   void processInvTxVec(vector<InvEntry>, bool extend = true);
 
    void init(function<shared_ptr<set<ScrAddrFilter::AddrSyncState>>(void)>,
       bool clearMempool);
