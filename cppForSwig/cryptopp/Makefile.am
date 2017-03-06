@@ -13,7 +13,8 @@ if IS_X86
 
 if CRYPTOPP_HAVE_GCC
 if BUILD_DARWIN
-AM_CXXFLAGS += -arch x86_64
+AM_CXXFLAGS += -arch x86_64 -std=c++11 -stdlib=libc++
+AM_LDFLAGS += -lc++
 else
 AM_CXXFLAGS += -march=native
 endif

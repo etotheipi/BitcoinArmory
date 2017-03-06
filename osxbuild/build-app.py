@@ -50,15 +50,20 @@ DLDIR         = path.join(WORKDIR, 'downloads')
 UNPACKDIR     = path.join(WORKDIR, 'unpackandbuild')
 INSTALLDIR    = path.join(WORKDIR, 'install')
 PYPREFIX      = path.join(APPDIR, 'Contents/Frameworks/Python.framework/Versions/%s' % pyMajorVer)
-PYSITEPKGS    = path.join(PYPREFIX, 'lib/python%s/site-packages' % pyMajorVer)
+PYLIBPREFIX   = path.join(PYPREFIX, 'lib')
+PYINCPREFIX   = path.join(PYPREFIX, 'include/python%s' % pyMajorVer)
+PYSITEPKGS    = path.join(PYLIBPREFIX, 'python%s/site-packages' % pyMajorVer)
 MAKEFLAGS     = '-j4'
-CONFIGFLAGS   = ''
+
+# Autotools needs some TLC to make Python happy.
+CONFIGFLAGS   = 'LIBS=\"-L%s\" PYTHON_LDFLAGS=\"-L%s\" PYTHON_CPPFLAGS=\"-I%s\" PYTHON_EXTRA_LIBS=\"-u _PyMac_Error %s/Python\"' % (PYLIBPREFIX, PYLIBPREFIX, PYINCPREFIX, PYPREFIX)
 
 QTBUILTFLAG   = path.join(UNPACKDIR, 'qt/qt_install_success.txt')
 
-pypathData  =   'PYTHON_INCLUDE=%s/include/python%s/' % (PYPREFIX, pyMajorVer)
-pypathData += '\nPYTHON_LIB=%s/lib/python%s/config/libpython%s.a' % (PYPREFIX, pyMajorVer, pyMajorVer)
-pypathData += '\nPYTHON_LIB_DIR=%s/lib/python%s/config/' % (PYPREFIX, pyMajorVer)
+pypathData  =   'PYTHON_INCLUDE=%s' % PYINCPREFIX
+pypathData += '\nPYTHON_LDFLAGS=%s' % PYLIBPREFIX
+pypathData += '\nPYTHON_LIB=%s/python%s/config/libpython%s.a' % (PYLIBPREFIX, pyMajorVer, pyMajorVer)
+pypathData += '\nPYTHON_LIB_DIR=%s/python%s/config/' % (PYLIBPREFIX, pyMajorVer)
 pypathData += '\nPYVER=python%s' % pyMajorVer
 
 # If no arguments specified, then do the minimal amount of work necessary
@@ -418,7 +423,7 @@ def make_empty_app():
 
 ########################################################
 def compile_python():
-   logprint('Installing python.')
+   logprint('Installing python')
    bldPath = unpack(tarfilesToDL['Python'])
 
    # ./configure - Force Python to link against a brew-ed version of OpenSSL
@@ -456,7 +461,7 @@ def compile_python():
 
 ########################################################
 def compile_pip():
-   logprint('Installing pip and setuptools.')
+   logprint('Installing pip and setuptools')
    pipexe = path.join(PYPREFIX, 'bin/pip')
    if path.exists(pipexe):
       logprint('Pip already installed')
@@ -681,7 +686,7 @@ def compile_armory():
    execAndWait('./autogen.sh', cwd='..')
    execAndWait('./configure %s' % CONFIGFLAGS, cwd='..')
    execAndWait('make all %s' % MAKEFLAGS, cwd='..')
-   execAndWait('make DESTDIR="%s" install' % pydir, cwd='..')
+   execAndWait('make DESTDIR="%s" install %s' % (pydir, MAKEFLAGS), cwd='..')
    copyfile('Armory-script.sh', armoryAppScript)
    copyfile('armoryd-script.sh', armorydAppScript)
    execAndWait('chmod +x "%s"' % armoryAppScript)
