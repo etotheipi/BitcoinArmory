@@ -41,8 +41,10 @@ m4_include([m4/ax_python_devel.m4])
 m4_include([m4/ax_python_module.m4])
 m4_include([m4/ax_cxx_compile_stdcxx.m4])
 
+#check for c++11
 AX_CXX_COMPILE_STDCXX([11], [noext], [mandatory], [nodefault])
 
+#check for  swig
 AX_SWIG_PYTHON([no])
 AS_IF([test -z $AX_SWIG_PYTHON_CPPFLAGS], 
 	[AC_MSG_ERROR([failed to procure swig include path, make sure swig is installed])])
@@ -91,6 +93,7 @@ AM_CONDITIONAL([BUILD_DARWIN], [test x$BUILD_OS = xdarwin])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES(Makefile 
 		cppForSwig/Makefile 
-		cppForSwig/lmdb/Makefile)
+		cppForSwig/lmdb/Makefile
+		cppForSwig/gtest/Makefile)
 
 AC_OUTPUT

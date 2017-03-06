@@ -1,4 +1,4 @@
-SUBDIRS = lmdb fcgi cryptopp
+SUBDIRS = lmdb fcgi cryptopp gtest
 
 SWIG_FLAGS = -c++ -python -threads
 

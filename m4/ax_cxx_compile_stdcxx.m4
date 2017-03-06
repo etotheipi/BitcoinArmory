@@ -396,13 +396,13 @@ namespace cxx11
     template <int N0, int... N1toN>
     struct sum<N0, N1toN...>
     {
-      static constexpr auto value = N0 + sum<N1toN...>::value;
+      static const int value = N0 + sum<N1toN...>::value;
     };
 
     template <>
     struct sum<>
     {
-      static constexpr auto value = 0;
+      static const int value = 0;
     };
 
     static_assert(sum<>::value == 0, "");
