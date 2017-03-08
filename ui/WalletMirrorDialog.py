@@ -88,7 +88,7 @@ class WalletComparisonClass(object):
             wltID, wlt.lastComputedChainIndex)
          
       for wltID in importList:
-         reportTextProgress(QObject().tr("Checking imports for wallet %s").arg(wltID))
+         reportTextProgress(QObject().tr("Checking imports for wallet %1").arg(wltID))
          
          wlt = self.main.walletMap[wltID]
          for importId in wlt.importList:
