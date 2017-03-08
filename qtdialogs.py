@@ -8804,17 +8804,17 @@ class DlgSettings(ArmoryDialog):
 
       self.radioAutoChange = QRadioButton(self.tr("Auto change"))
       self.connect(self.radioAutoChange, SIGNAL('clicked()'), changeCallbck('Auto'))
-      toolTipAutoChange = self.main.createToolTipWidget(self.tr("""
-      Change address type will match the address type of recipient
-      addresses. <br>
+      toolTipAutoChange = self.main.createToolTipWidget(self.tr(
+      "Change address type will match the address type of recipient "
+      "addresses. <br>"
       
-      Favors P2SH when recipients are heterogenous. <br>
+      "Favors P2SH when recipients are heterogenous. <br>"
       
-      Will create nested SegWit change if inputs are SegWit and 
-      recipient are P2SH. <br><br>
+      "Will create nested SegWit change if inputs are SegWit and " 
+      "recipient are P2SH. <br><br>"
       
-      <b>Pre 0.96 Armory cannot spend from P2SH address types</b>
-      """))
+      "<b>Pre 0.96 Armory cannot spend from P2SH address types</b>"
+      ))
       
       self.radioForceP2PKH = QRadioButton(self.tr("Force P2PKH"))
       self.connect(self.radioForceP2PKH, SIGNAL('clicked()'), changeCallbck('P2PKH'))
@@ -8824,10 +8824,10 @@ class DlgSettings(ArmoryDialog):
       
       self.radioForceP2SH_P2WPKH = QRadioButton(self.tr("Force P2SH-P2WPKH"))
       self.connect(self.radioForceP2SH_P2WPKH, SIGNAL('clicked()'), changeCallbck('P2SH-P2WPKH'))      
-      toolTipForceP2SH_P2WPKH = self.main.createToolTipWidget(self.tr("""
-      Defaults back to P2SH-P2PK if SegWit is not enabled
-      """))
+      toolTipForceP2SH_P2WPKH = self.main.createToolTipWidget(self.tr(
+         "Defaults back to P2SH-P2PK if SegWit is not enabled"))
       
+      from armoryengine.ArmoryUtils import WITNESS
       if WITNESS == False:
          self.radioForceP2SH_P2WPKH.setEnabled(False)
       

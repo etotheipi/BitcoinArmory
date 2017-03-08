@@ -800,6 +800,9 @@ class SendBitcoinsFrame(ArmoryFrame):
 
    #############################################################################
    def getDefaultChangeAddress(self, scriptValPairs, peek):
+      if len(scriptValPairs) == 0:
+         raise Exception("cannot calculate change without at least one recipient")
+      
       def getAddr(addrObj, typeStr):
          if typeStr == 'P2PKH':
             addrStr = self.wlt.getP2PKHAddrForIndex(addrObj.chainIndex)
@@ -817,16 +820,47 @@ class SendBitcoinsFrame(ArmoryFrame):
          
       changeType = self.main.getSettingOrSetDefault('Default_ChangeType', DEFAULT_CHANGE_TYPE)
       
+      #check if there are any P2SH recipients      
+      haveP2SH = False
+      homogenousOutputs = True
+      for script, val in scriptValPairs:
+         scripttype = Cpp.BtcUtils.getTxOutScriptTypeInt(script)
+         if scripttype == TXOUT_SCRIPT_P2SH:
+            haveP2SH = True
+         elif haveP2SH == True:
+            homogenousOutputs = False
+            
+         
+      def changeTypeMismatch(changetype, rectype):
+         QMessageBox.warning(self, self.tr('Change address type mismatch'), self.tr(
+            "Armory is set to force the change address type to %1.<br>"
+            "All the recipients in this transaction are of the %2 type.<br><br>"
+            
+            "If sent as such, this transaction will damage your privacy. It is recommended "
+            "you let Armory define the change script type automatically. You can do this "
+            "by going to File -> Settings and picking <u>'Auto change'</u> in the "
+            "Fee & Change settings tab.<br><br>"
+            
+            "<b>Note</b>: When paying a P2SH script with the auto change setting on, the " 
+            "change script type will be set to P2SH. Only Armory 0.96 and later can spend "
+            "from these scripts.<br>"
+            
+            "If you use an offline signing setup, make sure your signer is up "
+            "to date.").arg(changetype, rectype), QMessageBox.Ok)
+         
       if changeType != 'Auto':
+         if homogenousOutputs:
+            scripttype = Cpp.BtcUtils.getTxOutScriptTypeInt(scriptValPairs[0][0])
+            if scripttype == TXOUT_SCRIPT_P2SH:
+               scripttype = 'P2SH'
+            else:
+               scripttype = 'P2PKH'
+            
+            if scripttype[0:4] != str(changeType[0:4]):
+               changeTypeMismatch(changeType, scripttype)
+         
          return getAddr(newAddr, changeType)
       
-      #check if there are any P2SH recipients
-      haveP2SH = False
-      for script, val in scriptValPairs:
-         if Cpp.BtcUtils.getTxOutScriptTypeInt(script) == TXOUT_SCRIPT_P2SH:
-            haveP2SH = True
-            break
-         
       if not haveP2SH:
          return getAddr(newAddr, 'P2PKH')
       
