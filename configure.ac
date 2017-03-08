@@ -1,7 +1,7 @@
 AC_PREREQ(2.60)
 AC_INIT([BitcoinArmory], [0.95.99], [moothecowlord@gmail.com])
 
-AM_INIT_AUTOMAKE([1.10 foreign -Wall -Werror])
+AM_INIT_AUTOMAKE([1.10 subdir-objects foreign -Wall -Werror])
 
 AC_CONFIG_SUBDIRS([cppForSwig/fcgi cppForSwig/cryptopp])
 
