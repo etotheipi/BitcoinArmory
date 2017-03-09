@@ -241,7 +241,8 @@ class SelectWalletFrame(ArmoryFrame):
          self.dlgcc = \
             CoinControlDlg(self, self.main, wlt, self.customUtxoList)
 
-      self.dlgcc.exec_()
+      if not self.dlgcc.exec_():
+         return
       
       self.customUtxoList = self.dlgcc.getCustomUtxoList()
       self.altBalance = sum([x.getValue() for x in self.customUtxoList])

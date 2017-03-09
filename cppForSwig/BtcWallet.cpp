@@ -228,7 +228,7 @@ map<BinaryData, tuple<uint64_t, uint64_t, uint64_t>>
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BtcWallet::prepareTxOutHistory(uint64_t val, bool ignoreZC)
+void BtcWallet::prepareTxOutHistory(uint64_t val)
 {
    uint64_t value;
    uint32_t count;
@@ -268,31 +268,6 @@ void BtcWallet::prepareTxOutHistory(uint64_t val, bool ignoreZC)
       else 
          break;
    } 
-
-   if (value * 2 < val || count < MIN_UTXO_PER_TXN)
-   {
-      if (ignoreZC)
-         return;
-
-      auto isZcFromWallet = [this](const BinaryData& zcKey)->bool
-      {
-         const auto& spentSAforZCKey = bdvPtr_->getSpentSAforZCKey(zcKey);
-
-         for (const auto& spentSA : spentSAforZCKey)
-         {
-            if (this->hasScrAddress(spentSA))
-               return true;
-         }
-
-         return false;
-      };
-
-      for (auto& scrAddr : *addrMap)
-      {
-         scrAddr.second->addZcUTXOs(bdvPtr_->getZCutxoForScrAddr(
-            scrAddr.second->getScrAddr()), isZcFromWallet);
-      }
-   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -331,12 +306,11 @@ void BtcWallet::resetCounters()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-vector<UnspentTxOut> BtcWallet::getSpendableTxOutListForValue(uint64_t val,
-   bool ignoreZC)
+vector<UnspentTxOut> BtcWallet::getSpendableTxOutListForValue(uint64_t val)
 {
    /***
    Only works with DB so it naturally ignores ZC 
-   Use getSpendableTxOutListFromZC to spend from ZC
+   Use getSpendableTxOutListZC get unconfirmed outputs
 
    Only the TxIOPairs (DB keys) are saved in RAM. The full TxOuts are pulled only
    on demand since there is a high probability that at least a few of them will 
@@ -349,7 +323,7 @@ vector<UnspentTxOut> BtcWallet::getSpendableTxOutListForValue(uint64_t val,
    grabbing all UTXOs in the wallet
    ***/
 
-   prepareTxOutHistory(val, ignoreZC);
+   prepareTxOutHistory(val);
    LMDBBlockDatabase *db = bdvPtr_->getDB();
 
    //start a RO txn to grab the txouts from DB
@@ -367,7 +341,7 @@ vector<UnspentTxOut> BtcWallet::getSpendableTxOutListForValue(uint64_t val,
 
       for (const auto& txioPair : utxoMap)
       {
-         if (!txioPair.second.isSpendable(db, blk, ignoreZC))
+         if (!txioPair.second.isSpendable(db, blk, true))
             continue;
 
          TxOut txout = txioPair.second.getTxOutCopy(db);
@@ -381,6 +355,42 @@ vector<UnspentTxOut> BtcWallet::getSpendableTxOutListForValue(uint64_t val,
 
    resetTxOutHistory();
    return move(utxoList);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+vector<UnspentTxOut> BtcWallet::getSpendableTxOutListZC()
+{
+   set<BinaryData> txioKeys;
+
+   {
+      auto addrMap = scrAddrMap_.get();
+      for (auto& scrAddr : *addrMap)
+      {
+         auto&& zcTxioMap = bdvPtr_->getUnspentZCForScrAddr(
+            scrAddr.second->getScrAddr());
+
+         for (auto& zcTxio : zcTxioMap)
+            txioKeys.insert(zcTxio.first);
+      }
+   }
+
+   auto&& txoutVec = bdvPtr_->getZcTxOutsForKey(txioKeys);
+
+   //convert TxOut to UnspentTxOut
+   vector<UnspentTxOut> utxoVec;
+   for (auto& txout : txoutVec)
+   {
+      UnspentTxOut utxo;
+      utxo.txHash_ = txout.getParentHash();
+      utxo.txHeight_ = txout.getParentHeight();
+      utxo.value_ = txout.getValue();
+      utxo.script_ = txout.getScript();
+      utxo.txOutIndex_ = txout.getIndex();
+
+      utxoVec.push_back(move(utxo));
+   }
+
+   return utxoVec;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

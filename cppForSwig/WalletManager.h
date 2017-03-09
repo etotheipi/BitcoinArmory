@@ -155,10 +155,16 @@ public:
    }
 
    vector<UTXO> getSpendableTxOutListForValue(
-      uint64_t val = UINT64_MAX, bool ignoreZC = true)
+      uint64_t val = UINT64_MAX)
    {
-      return swigWallet_->getSpendableTxOutListForValue(val, ignoreZC);
+      return swigWallet_->getSpendableTxOutListForValue(val);
    }
+
+   vector<UTXO> getSpendableZCList(void)
+   {
+      return swigWallet_->getSpendableZCList();
+   }
+
    
    const map<BinaryData, uint32_t>& getAddrTxnCountsFromDB(void)
    {

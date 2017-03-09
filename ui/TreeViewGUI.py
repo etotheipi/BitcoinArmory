@@ -334,14 +334,14 @@ class TreeStructure_AddressDisplay():
             return self.wallet.returnFilteredCppAddrList(\
                      filterStr, AddressType_P2PKH)
 
-         nodeUnspent = AddressTreeNode("P2PKH", True, walletFilterP2PKH)
-         nodeMain.appendEntry(nodeUnspent)
+         nodep2pkh = AddressTreeNode("P2PKH", True, walletFilterP2PKH)
+         nodeMain.appendEntry(nodep2pkh)
          
-         nodeRBF = AddressTreeNode("P2SH-P2PK", True, walletFilterP2SH_P2PK)
-         nodeMain.appendEntry(nodeRBF)
+         nodep2shp2pk = AddressTreeNode("P2SH-P2PK", True, walletFilterP2SH_P2PK)
+         nodeMain.appendEntry(nodep2shp2pk)
          
-         nodeCPFP = AddressTreeNode("P2SH-P2WPKH", True, walletFilterP2SH_P2WPKH)
-         nodeMain.appendEntry(nodeCPFP)
+         nodep2shp2wpkh = AddressTreeNode("P2SH-P2WPKH", True, walletFilterP2SH_P2WPKH)
+         nodeMain.appendEntry(nodep2shp2wpkh)
                    
          return nodeMain
       
@@ -388,9 +388,6 @@ class TreeStructure_CoinControl():
                utxo.setChecked(True)
       
    def setup(self):
-      #load utxos
-      utxoList = self.wallet.getFullUTXOList()
-      
       self.treeData = {
          'UTXO':{
             'p2pkh':dict(),
@@ -399,8 +396,11 @@ class TreeStructure_CoinControl():
          'RBF':dict(),
          'CPFP':dict()
          }
-            
-      #filter utxos
+      
+      #populate utxos
+      utxoList = self.wallet.getFullUTXOList()     
+             
+      #arrange by script type
       for utxo in utxoList:
          h160 = utxo.getRecipientHash160()
          binAddr = utxo.getRecipientScrAddr()
@@ -424,16 +424,25 @@ class TreeStructure_CoinControl():
             addrDict[scrAddr] = []
             
          addrDict[scrAddr].append(utxo)
+         
+      #populate cpfp
+      cpfpList = self.wallet.getZCUTXOList()
+      addrDict = self.treeData['CPFP']
+      for cpfp in cpfpList:
+         h160 = cpfp.getRecipientHash160()
+         binAddr = cpfp.getRecipientScrAddr()
+         scrAddr = hash160_to_addrStr(h160, binAddr[0]) 
+         
+         if not scrAddr in addrDict:
+            addrDict[scrAddr] = []
             
+         addrDict[scrAddr].append(cpfp)           
                 
       #create root node
       self.root = CoinControlTreeNode(None, "root", True, None)
       
-      def createChildNode(name, filterStr):
+      def createUtxoNode(name):
          nodeMain = CoinControlTreeNode(None, name, True, None)
-         
-         if name != "Unspent Outputs":
-            return nodeMain
          
          def ccFilterP2PKH():
             return self.treeData['UTXO']['p2pkh']
@@ -456,16 +465,22 @@ class TreeStructure_CoinControl():
          
          return nodeMain
       
+      def createCPFPNode(name):
+         def ccCPFP():
+            return self.treeData['CPFP']
+         
+         nodeMain = CoinControlTreeNode(None, name, True, ccCPFP) 
+         
+         return nodeMain
+      
       #create top 3 nodes
-      nodeUTXO   = createChildNode(self.main.tr("Unspent Outputs"), "Unspent")
-      nodeRBF = createChildNode(self.main.tr("RBF Eligible"), "RBF")
-      nodeCPFP = createChildNode(self.main.tr("CPFP Outputs"), "CPFP")
+      nodeUTXO   = createUtxoNode(self.main.tr("Unspent Outputs"))
+      #nodeRBF = createChildNode(self.main.tr("RBF Eligible"), "RBF")
+      nodeCPFP = createCPFPNode(self.main.tr("CPFP Eligible Outputs"))
       
       self.root.appendEntry(nodeUTXO)
-      self.root.appendEntry(nodeRBF)
+      #self.root.appendEntry(nodeRBF)
       self.root.appendEntry(nodeCPFP)
-      
-            
       self.root.checkStatus = self.root.computeState()
 
 ################################################################################

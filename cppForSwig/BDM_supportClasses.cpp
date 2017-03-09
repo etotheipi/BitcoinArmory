@@ -776,12 +776,14 @@ BinaryData ZeroConfContainer::getNewZCkey()
 ///////////////////////////////////////////////////////////////////////////////
 Tx ZeroConfContainer::getTxByHash(const BinaryData& txHash) const
 {
-   const auto keyIter = txHashToDBKey_.find(txHash);
+   auto txhashmap = txHashToDBKey_.get();
+   const auto keyIter = txhashmap->find(txHash);
 
-   if (keyIter == txHashToDBKey_.end())
+   if (keyIter == txhashmap->end())
       return Tx();
 
-   auto theTx = txMap_.find(keyIter->second)->second;
+   auto txmap = txMap_.get();
+   auto theTx = txmap->find(keyIter->second)->second;
    theTx.setTxRef(TxRef(keyIter->second));
 
    return theTx;
@@ -789,7 +791,8 @@ Tx ZeroConfContainer::getTxByHash(const BinaryData& txHash) const
 ///////////////////////////////////////////////////////////////////////////////
 bool ZeroConfContainer::hasTxByHash(const BinaryData& txHash) const
 {
-   return (txHashToDBKey_.find(txHash) != txHashToDBKey_.end());
+   auto txhashmap = txHashToDBKey_.get();
+   return (txhashmap->find(txHash) != txhashmap->end());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -849,20 +852,24 @@ set<BinaryData> ZeroConfContainer::purge()
    set<BinaryData> keysToDelete;
    vector<BinaryData> ktdVec;
 
-   //compare minedHashes to allZCTxHashes_
-   for (auto& minedHash : minedHashes)
    {
-      auto iter = allZcTxHashes_.find(minedHash);
-      if (iter != allZcTxHashes_.end())
-      {         
-         auto zckeyIter = txHashToDBKey_.find(*iter);
-         if (zckeyIter != txHashToDBKey_.end())
-         {
-            keysToDelete.insert(zckeyIter->second);
-            ktdVec.push_back(zckeyIter->second);
-         }
+      auto txhashmap = txHashToDBKey_.get();
 
-         allZcTxHashes_.erase(iter);
+      //compare minedHashes to allZCTxHashes_
+      for (auto& minedHash : minedHashes)
+      {
+         auto iter = allZcTxHashes_.find(minedHash);
+         if (iter != allZcTxHashes_.end())
+         {
+            auto zckeyIter = txhashmap->find(*iter);
+            if (zckeyIter != txhashmap->end())
+            {
+               keysToDelete.insert(zckeyIter->second);
+               ktdVec.push_back(zckeyIter->second);
+            }
+
+            allZcTxHashes_.erase(iter);
+         }
       }
    }
 
@@ -891,6 +898,7 @@ set<BinaryData> ZeroConfContainer::purge()
 void ZeroConfContainer::dropZC(const set<BinaryData>& txHashes)
 {
    vector<BinaryData> keysToDelete;
+   vector<BinaryData> hashesToDelete;
 
    auto keytospendsaPtr = keyToSpentScrAddr_.get();
    auto txiomapPtr = txioMap_.get();
@@ -898,18 +906,16 @@ void ZeroConfContainer::dropZC(const set<BinaryData>& txHashes)
    map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>> updateMap;
    vector<BinaryData> delKeys;
 
+   auto txhashmap = txHashToDBKey_.get();
    for (auto& hash : txHashes)
    {
       //resolve zcKey
-      auto hashIter = txHashToDBKey_.find(hash);
-      if (hashIter == txHashToDBKey_.end())
+      auto hashIter = txhashmap->find(hash);
+      if (hashIter == txhashmap->end())
          continue;
 
       auto zcKey = hashIter->second;
-      txHashToDBKey_.erase(hashIter);
-
-      //drop from txMap_
-      txMap_.erase(zcKey);
+      hashesToDelete.push_back(hash);
 
       //drop from keyToSpendScrAddr_
       auto&& scrAddrVec = (*keytospendsaPtr)[zcKey];
@@ -970,6 +976,10 @@ void ZeroConfContainer::dropZC(const set<BinaryData>& txHashes)
       keysToDelete.push_back(zcKey);
    }
 
+   //drop from containers
+   txMap_.erase(keysToDelete);
+   txHashToDBKey_.erase(hashesToDelete);
+
    txioMap_.erase(delKeys);
    txioMap_.update(updateMap);
 
@@ -1006,7 +1016,11 @@ void ZeroConfContainer::parseNewZC(void)
       {
       case Zc_Purge:
       {
-         zcAction.zcMap_ = move(txMap_);
+         {
+            auto txmap = txMap_.get();
+            zcAction.zcMap_ = *txmap;
+         }
+
          auto&& keysToDelete = purge();
          auto keyIter = zcAction.zcMap_.begin();
          while (keyIter != zcAction.zcMap_.end())
@@ -1059,12 +1073,16 @@ void ZeroConfContainer::parseNewZC(map<BinaryData, Tx> zcMap,
          keysToWrite.push_back(newZCPair.first);
    }
 
+   map<BinaryData, BinaryData> txhashmap_update;
+   map<BinaryData, Tx> txmap_update;
+
    map<string, set<BinaryData>> flaggedBDVs;
+   auto txhashmap = txHashToDBKey_.get();
 
    for (auto& newZCPair : zcMap)
    {
       const BinaryData&& txHash = newZCPair.second.getThisHash();
-      if (txHashToDBKey_.find(txHash) != txHashToDBKey_.end())
+      if (txhashmap->find(txHash) != txhashmap->end())
          continue; //already have this ZC
 
       //flag RBF on whole tx
@@ -1141,8 +1159,8 @@ void ZeroConfContainer::parseNewZC(map<BinaryData, Tx> zcMap,
             }
 
             //merge new txios
-            txHashToDBKey_[txHash] = newZCPair.first;
-            txMap_[newZCPair.first] = newZCPair.second;
+            txhashmap_update[txHash] = newZCPair.first;
+            txmap_update[newZCPair.first] = newZCPair.second;
 
             map<HashString, shared_ptr<map<BinaryData, TxIOPair>>> newtxiomap;
             auto txiomapPtr = txioMap_.get();
@@ -1171,6 +1189,10 @@ void ZeroConfContainer::parseNewZC(map<BinaryData, Tx> zcMap,
          }
       }
    }
+
+   txHashToDBKey_.update(txhashmap_update);
+   txMap_.update(txmap_update);
+
 
    if (updateDB && keysToWrite.size() > 0)
    {
@@ -1213,8 +1235,10 @@ void ZeroConfContainer::parseNewZC(map<BinaryData, Tx> zcMap,
 bool ZeroConfContainer::getKeyForTxHash(const BinaryData& txHash,
    BinaryData& zcKey) const
 {
-   const auto& hashPair = txHashToDBKey_.find(txHash);
-   if (hashPair != txHashToDBKey_.end())
+   auto txhashmap = txHashToDBKey_.get();
+
+   const auto& hashPair = txhashmap->find(txHash);
+   if (hashPair != txhashmap->end())
    {
       zcKey = hashPair->second;
       return true;
@@ -1438,7 +1462,7 @@ bool ZeroConfContainer::isTxOutSpentByZC(const BinaryData& dbkey)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-map<BinaryData, TxIOPair> ZeroConfContainer::getZCforScrAddr(
+map<BinaryData, TxIOPair> ZeroConfContainer::getUnspentZCforScrAddr(
    BinaryData scrAddr) const
 {
    auto txiomapptr = txioMap_.get();
@@ -1461,6 +1485,32 @@ map<BinaryData, TxIOPair> ZeroConfContainer::getZCforScrAddr(
    }
 
    return emptyTxioMap_;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+vector<TxOut> ZeroConfContainer::getZcTxOutsForKey(
+   const set<BinaryData>& keys) const
+{
+   vector<TxOut> result;
+   auto txmap = txMap_.get();
+
+   for (auto& key : keys)
+   {
+      auto zcKey = key.getSliceRef(0, 6);
+
+      auto txIter = txmap->find(zcKey);
+      if (txIter == txmap->end())
+         continue;
+
+      auto& theTx = txIter->second;
+
+      auto outIdRef = key.getSliceRef(6, 2);
+      auto outId = READ_UINT16_BE(outIdRef);
+
+      result.push_back(move(theTx.getTxOutCopy(outId)));
+   }
+
+   return result;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1491,16 +1541,18 @@ void ZeroConfContainer::updateZCinDB(const vector<BinaryData>& keysToWrite,
    //should run in its own thread to make sure we can get a write tx
    DB_SELECT dbs = ZERO_CONF;
 
+   auto txmap = txMap_.get();
+
    LMDBEnv::Transaction tx;
    db_->beginDBTransaction(&tx, dbs, LMDB::ReadWrite);
 
    for (auto& key : keysToWrite)
    {
-      auto iter = txMap_.find(key);
-      if (iter != txMap_.end())
+      auto iter = txmap->find(key);
+      if (iter != txmap->end())
       {
          StoredTx zcTx;
-         zcTx.createFromTx(txMap_[key], true, true);
+         zcTx.createFromTx((*txmap)[key], true, true);
          db_->putStoredZC(zcTx, key);
       }
       else

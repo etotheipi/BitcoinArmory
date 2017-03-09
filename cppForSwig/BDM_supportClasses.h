@@ -399,8 +399,8 @@ public:
    };
 
 private:
-   map<HashString, HashString>                  txHashToDBKey_; //<txHash, dbKey>
-   map<HashString, Tx>                          txMap_; //<zcKey, zcTx>
+   TransactionalMap<HashString, HashString>     txHashToDBKey_; //<txHash, dbKey>
+   TransactionalMap<HashString, Tx>             txMap_; //<zcKey, zcTx>
    set<HashString>                              txOutsSpentByZC_;     //<txOutDbKeys>
    set<HashString>                              allZcTxHashes_;
    map<BinaryData, map<unsigned, BinaryData>>   outPointsSpentByKey_; //<txHash, map<opId, ZcKeys>>
@@ -475,7 +475,9 @@ public:
 
    void clear(void);
 
-   map<BinaryData, TxIOPair> getZCforScrAddr(BinaryData scrAddr) const;
+   map<BinaryData, TxIOPair> getUnspentZCforScrAddr(BinaryData scrAddr) const;
+   vector<TxOut> getZcTxOutsForKey(const set<BinaryData>&) const;
+
    const set<BinaryData>& getSpentSAforZCKey(const BinaryData& zcKey) const;
    const shared_ptr<map<BinaryData, set<HashString>>> getKeyToSpentScrAddrMap(void) const;
 

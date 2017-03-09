@@ -1955,7 +1955,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          cppWlt = self.serverLBCppWalletMap[spendFromLboxID]
          topBlk = TheBDM.getTopBlockHeight()
          spendBal = cppWlt.getSpendableBalance(topBlk, IGNOREZC)
-         cppUtxoList = cppWlt.getSpendableTxOutListForValue(totalSend, IGNOREZC)
+         cppUtxoList = cppWlt.getSpendableTxOutListForValue(totalSend)
          utxoList = map(lambda tx: PyUnspentTxOut().createFromCppUtxo(tx), cppUtxoList)
 
       if spendBal < totalSend + fee:

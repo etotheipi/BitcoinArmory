@@ -349,9 +349,8 @@ void BDV_Server_Object::buildMethodMap()
          throw runtime_error("unknown wallet or lockbox ID");
 
       auto value = args.get<IntType>().getVal();
-      bool ignorezc = args.get<IntType>().getVal();
 
-      auto&& utxoVec = wltPtr->getSpendableTxOutListForValue(value, ignorezc);
+      auto&& utxoVec = wltPtr->getSpendableTxOutListForValue(value);
 
       Arguments retarg;
       auto count = IntType(utxoVec.size());
@@ -371,6 +370,47 @@ void BDV_Server_Object::buildMethodMap()
    };
 
    methodMap_["getSpendableTxOutListForValue"] = getSpendableTxOutListForValue;
+
+   //getSpendableZCList
+   auto getSpendableZCList = [this]
+      (const vector<string>& ids, Arguments& args)->Arguments
+   {
+      if (ids.size() != 2)
+         throw runtime_error("unexpected id count");
+
+      auto& walletId = ids[1];
+      BinaryData bdId((uint8_t*)walletId.c_str(), walletId.size());
+      shared_ptr<BtcWallet> wltPtr = nullptr;
+      for (int i = 0; i < this->groups_.size(); i++)
+      {
+         auto wltIter = this->groups_[i].wallets_.find(bdId);
+         if (wltIter != this->groups_[i].wallets_.end())
+            wltPtr = wltIter->second;
+      }
+
+      if (wltPtr == nullptr)
+         throw runtime_error("unknown wallet or lockbox ID");
+
+      auto&& utxoVec = wltPtr->getSpendableTxOutListZC();
+
+      Arguments retarg;
+      auto count = IntType(utxoVec.size());
+      retarg.push_back(move(count));
+
+      for (auto& utxo : utxoVec)
+      {
+         UTXO entry(utxo.value_, utxo.txHeight_, utxo.txIndex_, utxo.txOutIndex_,
+            move(utxo.txHash_), move(utxo.script_));
+
+         auto&& bdser = entry.serialize();
+         BinaryDataObject bdo(move(bdser));
+         retarg.push_back(move(bdo));
+      }
+
+      return retarg;
+   };
+
+   methodMap_["getSpendableZCList"] = getSpendableZCList;
 
    //getSpendableTxOutListForAddr
    auto getSpendableTxOutListForAddr = [this]

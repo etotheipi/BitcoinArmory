@@ -93,10 +93,10 @@ public:
 
    uint64_t getWltTotalTxnCount(void) const;
 
-   void prepareTxOutHistory(uint64_t val, bool ignoreZC);
+   void prepareTxOutHistory(uint64_t val);
    void prepareFullTxOutHistory(bool ignoreZC);
-   vector<UnspentTxOut> getSpendableTxOutListForValue(uint64_t val = UINT64_MAX,
-      bool ignoreZC = true);
+   vector<UnspentTxOut> getSpendableTxOutListForValue(uint64_t val = UINT64_MAX);
+   vector<UnspentTxOut> getSpendableTxOutListZC(void);
 
    vector<LedgerEntry>
       getTxLedger(BinaryData const &scrAddr) const;

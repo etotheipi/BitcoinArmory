@@ -477,7 +477,7 @@ vector<UnspentTxOut> BlockDataViewer::getUnspentTxoutsForAddr160List(
 
    for (const auto& scrAddr : scrAddrVec)
    {
-      const auto& zcTxioMap = zeroConfCont_->getZCforScrAddr(scrAddr);
+      const auto& zcTxioMap = zeroConfCont_->getUnspentZCforScrAddr(scrAddr);
 
       StoredScriptHistory ssh;
       db_->getStoredScriptHistory(ssh, scrAddr);

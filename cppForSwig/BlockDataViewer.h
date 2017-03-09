@@ -162,9 +162,14 @@ public:
    bool isTxOutSpentByZC(const BinaryData& dbKey) const
    { return zeroConfCont_->isTxOutSpentByZC(dbKey); }
 
-   const map<BinaryData, TxIOPair> getZCutxoForScrAddr(
+   map<BinaryData, TxIOPair> getUnspentZCForScrAddr(
       const BinaryData& scrAddr) const
-   { return zeroConfCont_->getZCforScrAddr(scrAddr); }
+   { return zeroConfCont_->getUnspentZCforScrAddr(scrAddr); }
+
+   vector<TxOut> getZcTxOutsForKey(const set<BinaryData>& keys) const
+   {
+      return zeroConfCont_->getZcTxOutsForKey(keys);
+   }
 
    const set<BinaryData>& getSpentSAforZCKey(const BinaryData& zcKey) const
    { return zeroConfCont_->getSpentSAforZCKey(zcKey); }

@@ -6067,7 +6067,7 @@ TEST_F(TransactionsTest, Wallet_SpendTest_P2PKH)
       Signer signer2;
 
       //get utxo list for spend value
-      auto&& unspentVec = dbAssetWlt->getSpendableTxOutListForValue(spendVal, false);
+      auto&& unspentVec = dbAssetWlt->getSpendableTxOutListZC();
 
       //create feed from asset wallet
       auto assetFeed = make_shared<ResolvedFeed_AssetWalletSingle>(assetWlt);
@@ -6311,7 +6311,7 @@ TEST_F(TransactionsTest, DISABLED_Wallet_SpendTest_P2WPKH)
       signer2.setFlags(SCRIPT_VERIFY_SEGWIT);
 
       //get utxo list for spend value
-      auto&& unspentVec = dbAssetWlt->getSpendableTxOutListForValue(spendVal, false);
+      auto&& unspentVec = dbAssetWlt->getSpendableTxOutListForValue(spendVal);
 
       //create feed from asset wallet
       auto assetFeed = make_shared<ResolvedFeed_AssetWalletSingle>(assetWlt);
@@ -6555,7 +6555,7 @@ TEST_F(TransactionsTest, Wallet_SpendTest_Nested_Multisig)
 
       //get utxo list for spend value
       auto&& unspentVec = 
-         dbAssetWlt->getSpendableTxOutListForValue(spendVal, false);
+         dbAssetWlt->getSpendableTxOutListZC();
 
       //create feed from asset wallet
       auto assetFeed = make_shared<ResolvedFeed_AssetWalletMS>(assetWlt);
@@ -6799,7 +6799,7 @@ TEST_F(TransactionsTest, Wallet_SpendTest_Nested_P2WSH)
 
       //get utxo list for spend value
       auto&& unspentVec =
-         dbAssetWlt->getSpendableTxOutListForValue(spendVal, false);
+         dbAssetWlt->getSpendableTxOutListZC();
 
       //create feed from asset wallet
       auto assetFeed = make_shared<ResolvedFeed_AssetWalletMS>(assetWlt);
@@ -7043,7 +7043,7 @@ TEST_F(TransactionsTest, DISABLED_Wallet_SpendTest_P2WSH)
 
       //get utxo list for spend value
       auto&& unspentVec =
-         dbAssetWlt->getSpendableTxOutListForValue(spendVal, false);
+         dbAssetWlt->getSpendableTxOutListZC();
 
       //create feed from asset wallet
       auto assetFeed = make_shared<ResolvedFeed_AssetWalletMS>(assetWlt);
@@ -7286,7 +7286,7 @@ TEST_F(TransactionsTest, Wallet_SpendTest_Nested_P2WPKH)
 
       //get utxo list for spend value
       auto&& unspentVec =
-         dbAssetWlt->getSpendableTxOutListForValue(spendVal, false);
+         dbAssetWlt->getSpendableTxOutListZC();
 
       //create feed from asset wallet
       auto assetFeed = make_shared<ResolvedFeed_AssetWalletSingle>(assetWlt);
@@ -7530,7 +7530,7 @@ TEST_F(TransactionsTest, Wallet_SpendTest_Nested_P2PK)
 
       //get utxo list for spend value
       auto&& unspentVec =
-         dbAssetWlt->getSpendableTxOutListForValue(spendVal, false);
+         dbAssetWlt->getSpendableTxOutListZC();
 
       //create feed from asset wallet
       auto assetFeed = make_shared<ResolvedFeed_AssetWalletSingle>(assetWlt);
@@ -10188,7 +10188,7 @@ TEST_F(BlockUtilsBare, Load4Blocks_ZC_GetUtxos)
 
    //get utxos with zc
    spendableBalance = wlt->getSpendableBalance(4);
-   auto&& utxoVec = wlt->getSpendableTxOutListForValue(UINT64_MAX, true);
+   auto&& utxoVec = wlt->getSpendableTxOutListForValue(UINT64_MAX);
 
    uint64_t totalUtxoVal = 0;
    for (auto& utxo : utxoVec)

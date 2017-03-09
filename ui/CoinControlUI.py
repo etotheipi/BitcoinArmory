@@ -88,6 +88,12 @@ class CoinControlDlg(ArmoryDialog):
             for utxo in addrList:
                if utxo.isChecked():
                   utxoList.append(utxo)
+      
+      for addr in treeData['CPFP']:
+         for cpfp in treeData['CPFP'][addr]:
+            if cpfp.isChecked():
+               utxoList.append(cpfp)
+      
                   
       return utxoList
    
@@ -113,7 +119,7 @@ class CoinControlDlg(ArmoryDialog):
    #############################################################################
    def reject(self, *args):
       self.saveGeometrySettings()  
-      self.resetTreeData()  
+      #self.resetTreeData()  
       super(CoinControlDlg, self).reject(*args)
       
    #############################################################################
@@ -123,4 +129,4 @@ class CoinControlDlg(ArmoryDialog):
    
    #############################################################################   
    def exec_(self):
-      super(CoinControlDlg, self).exec_()
+      return super(CoinControlDlg, self).exec_()
