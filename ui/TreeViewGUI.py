@@ -22,7 +22,9 @@ COL_COUNT = 2
 COL_BALANCE = 3
 
 COL_NAME = 0
+COL_TXOUTCOUNT = 1
 COL_VALUE = 2
+COL_DESCR = 3
 
 ################################################################################
 class AddressObjectItem(object):
@@ -235,6 +237,12 @@ class CoinControlAddressItem(TreeNode):
    
    def getComment(self):
       return ""
+   
+   def getCount(self):
+      txout_count = len(self.utxoList)
+      if txout_count == 1:
+         return None
+      return txout_count
          
 ################################################################################
 class AddressTreeNode(TreeNode):
@@ -305,6 +313,13 @@ class CoinControlTreeNode(TreeNode):
          
       return balance
  
+   def getCount(self):
+      if self.populateMethod == None:
+         return None
+      
+      self.populate()
+      return len(self.entries)
+   
 ################################################################################     
 class TreeStructure_AddressDisplay():
    
@@ -481,6 +496,7 @@ class TreeStructure_CoinControl():
       self.root.appendEntry(nodeUTXO)
       #self.root.appendEntry(nodeRBF)
       self.root.appendEntry(nodeCPFP)
+      nodeCPFP.setCheckState(Qt.Unchecked)
       self.root.checkStatus = self.root.computeState()
 
 ################################################################################
@@ -632,7 +648,7 @@ class CoinControlTreeModel(ArmoryTreeModel):
       self.root = NodeItem(0, None, self.treeStruct.root)
       
    def columnCount(self, index=QModelIndex()):
-      return 3   
+      return 4  
       
    def data(self, index, role=Qt.DisplayRole):
       col = index.column()    
@@ -642,7 +658,7 @@ class CoinControlTreeModel(ArmoryTreeModel):
          if col == COL_NAME:
             return QVariant(node.treeNode.getName())
                   
-         if col == COL_COMMENT:
+         if col == COL_DESCR:
             try:
                return QVariant(node.treeNode.getComment())
             except:
@@ -651,6 +667,12 @@ class CoinControlTreeModel(ArmoryTreeModel):
          if col == COL_VALUE:
             try:
                return QVariant(coin2str(node.treeNode.getBalance(), maxZeros=2))
+            except:
+               pass
+            
+         if col == COL_TXOUTCOUNT:
+            try:
+               return QVariant(node.treeNode.getCount())
             except:
                pass
       
@@ -684,8 +706,9 @@ class CoinControlTreeModel(ArmoryTreeModel):
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
             if section==COL_NAME: return QVariant(self.tr('Address/ID'))
-            if section==COL_COMMENT:  return QVariant(self.tr('Comment'))
-            if section==COL_VALUE:  return QVariant(self.tr('Balance'))
+            if section==COL_DESCR:  return QVariant(self.tr('Comment'))
+            if section==COL_VALUE:  return QVariant(self.tr('Selected Balance'))
+            if section==COL_TXOUTCOUNT: return QVariant(self.tr('Count'))
 
       return QVariant() 
    
