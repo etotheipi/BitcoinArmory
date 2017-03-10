@@ -35,9 +35,7 @@ ScrAddrObj::ScrAddrObj(LMDBBlockDatabase *db, Blockchain *bc,
 
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t ScrAddrObj::getSpendableBalance(
-   uint32_t currBlk, bool ignoreAllZC
-) const
+uint64_t ScrAddrObj::getSpendableBalance(uint32_t currBlk) const
 {
    //ignoreing the currBlk for now, until the partial history loading is solid
    uint64_t balance = getFullBalance();
@@ -45,7 +43,7 @@ uint64_t ScrAddrObj::getSpendableBalance(
    for (auto txio : relevantTxIO_)
    {
       if (!txio.second.hasTxIn() &&
-          !txio.second.isSpendable(db_, currBlk, ignoreAllZC))
+          !txio.second.isSpendable(db_, currBlk))
          balance -= txio.second.getValue();
    }
 
@@ -54,14 +52,12 @@ uint64_t ScrAddrObj::getSpendableBalance(
 
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t ScrAddrObj::getUnconfirmedBalance(
-   uint32_t currBlk, bool inclAllZC
-) const
+uint64_t ScrAddrObj::getUnconfirmedBalance(uint32_t currBlk) const
 {
    uint64_t balance = 0;
    for (auto txio : relevantTxIO_)
    {
-      if(txio.second.isMineButUnconfirmed(db_, currBlk, inclAllZC))
+      if(txio.second.isMineButUnconfirmed(db_, currBlk))
          balance += txio.second.getValue();
    }
    return balance;
@@ -571,7 +567,7 @@ vector<UnspentTxOut> ScrAddrObj::getAllUTXOs(
 
    for (const auto& txioPair : utxos.utxoList_)
    {
-      if (!txioPair.second.isSpendable(db_, blk, false))
+      if (!txioPair.second.isSpendable(db_, blk))
          continue;
 
       TxOut txout = txioPair.second.getTxOutCopy(db_);

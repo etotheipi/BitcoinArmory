@@ -399,9 +399,9 @@ public:
    };
 
 private:
-   TransactionalMap<HashString, HashString>     txHashToDBKey_; //<txHash, dbKey>
-   TransactionalMap<HashString, Tx>             txMap_; //<zcKey, zcTx>
-   set<HashString>                              txOutsSpentByZC_;     //<txOutDbKeys>
+   TransactionalMap<HashString, HashString>     txHashToDBKey_;      //<txHash, dbKey>
+   TransactionalMap<HashString, Tx>             txMap_;              //<zcKey, zcTx>
+   TransactionalSet<HashString>                 txOutsSpentByZC_;    //<txOutDbKeys>
    set<HashString>                              allZcTxHashes_;
    map<BinaryData, map<unsigned, BinaryData>>   outPointsSpentByKey_; //<txHash, map<opId, ZcKeys>>
 

@@ -128,27 +128,25 @@ void BtcWallet::clearBlkData(void)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t BtcWallet::getSpendableBalance(\
-                    uint32_t currBlk, bool ignoreAllZC) const
+uint64_t BtcWallet::getSpendableBalance(uint32_t currBlk) const
 {
    auto addrMap = scrAddrMap_.get();
 
    uint64_t balance = 0;
    for(const auto scrAddr : *addrMap)
-      balance += scrAddr.second->getSpendableBalance(currBlk, ignoreAllZC);
+      balance += scrAddr.second->getSpendableBalance(currBlk);
    
    return balance;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t BtcWallet::getUnconfirmedBalance(
-                    uint32_t currBlk, bool inclAllZC) const
+uint64_t BtcWallet::getUnconfirmedBalance(uint32_t currBlk) const
 {
    auto addrMap = scrAddrMap_.get();
 
    uint64_t balance = 0;
    for (const auto scrAddr : *addrMap)
-      balance += scrAddr.second->getUnconfirmedBalance(currBlk, inclAllZC);
+      balance += scrAddr.second->getUnconfirmedBalance(currBlk);
    
    return balance;
 }
@@ -197,10 +195,8 @@ map<BinaryData, uint32_t> BtcWallet::getAddrTxnCounts(int32_t updateID) const
 
 ////////////////////////////////////////////////////////////////////////////////
 map<BinaryData, tuple<uint64_t, uint64_t, uint64_t>> 
-   BtcWallet::getAddrBalances(int32_t updateID) const
+   BtcWallet::getAddrBalances(int32_t updateID, unsigned blockHeight) const
 {
-   //TODO: pass ZC filtering choice from bdmConfig
-
    map<BinaryData, tuple<uint64_t, uint64_t, uint64_t>> balanceMap;
 
    auto addrMap = scrAddrMap_.get();
@@ -210,8 +206,8 @@ map<BinaryData, tuple<uint64_t, uint64_t, uint64_t>>
          continue;
 
       auto full = sa.second->getFullBalance();
-      auto spendable = sa.second->getSpendableBalance();
-      auto unconf = sa.second->getUnconfirmedBalance(true);
+      auto spendable = sa.second->getSpendableBalance(blockHeight);
+      auto unconf = sa.second->getUnconfirmedBalance(blockHeight);
 
       if (lastPulledBalancesID_ <= 0)
       {
@@ -341,7 +337,7 @@ vector<UnspentTxOut> BtcWallet::getSpendableTxOutListForValue(uint64_t val)
 
       for (const auto& txioPair : utxoMap)
       {
-         if (!txioPair.second.isSpendable(db, blk, true))
+         if (!txioPair.second.isSpendable(db, blk))
             continue;
 
          TxOut txout = txioPair.second.getTxOutCopy(db);

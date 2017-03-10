@@ -214,14 +214,9 @@ public:
    // the Utxos in the list.  If you don't care (i.e. you only want to 
    // know what TxOuts are available to spend, you can pass in 0 for currBlk
    uint64_t getFullBalance() const;
-   uint64_t getSpendableBalance(
-      uint32_t currBlk=0, 
-      bool ignoreAllZeroConf=false
-   ) const;
-   uint64_t getUnconfirmedBalance(
-      uint32_t currBlk, 
-      bool includeAllZeroConf=false
-   ) const;
+   uint64_t getSpendableBalance(uint32_t currBlk) const;
+   uint64_t getUnconfirmedBalance(uint32_t currBlk) const;
+
    vector<UnspentTxOut> getFullTxOutList(uint32_t currBlk=UINT32_MAX, bool ignoreZC=true) const;
    vector<UnspentTxOut> getSpendableTxOutList(bool ignoreZC=true) const;
 

@@ -82,14 +82,12 @@ public:
    // know what TxOuts are available to spend, you can pass in 0 for currBlk
    uint64_t getFullBalance(void) const;
    uint64_t getFullBalanceFromDB(void) const;
-   uint64_t getSpendableBalance(uint32_t currBlk = 0,
-                                bool ignoreAllZeroConf=true) const;
-   uint64_t getUnconfirmedBalance(uint32_t currBlk,
-                                  bool includeAllZeroConf=true) const;
+   uint64_t getSpendableBalance(uint32_t currBlk) const;
+   uint64_t getUnconfirmedBalance(uint32_t currBlk) const;
 
    map<BinaryData, uint32_t> getAddrTxnCounts(int32_t updateID) const;
    map<BinaryData, tuple<uint64_t, uint64_t, uint64_t>> 
-      getAddrBalances(int32_t updateID) const;
+      getAddrBalances(int32_t updateID, unsigned blockheight) const;
 
    uint64_t getWltTotalTxnCount(void) const;
 

@@ -289,14 +289,12 @@ void BDV_Server_Object::buildMethodMap()
          throw runtime_error("unknown wallet/lockbox ID");
 
       auto height = args.get<IntType>();
-      bool ignorezc = args.get<IntType>().getVal();
-
       auto balance_full = 
          IntType(wltPtr->getFullBalance());
       auto balance_spen = 
-         IntType(wltPtr->getSpendableBalance(height.getVal(), ignorezc));
+         IntType(wltPtr->getSpendableBalance(height.getVal()));
       auto balance_unco = 
-         IntType(wltPtr->getUnconfirmedBalance(height.getVal(), ignorezc));
+         IntType(wltPtr->getUnconfirmedBalance(height.getVal()));
       auto count = IntType(wltPtr->getWltTotalTxnCount());
 
       Arguments retarg;
@@ -548,7 +546,8 @@ void BDV_Server_Object::buildMethodMap()
       if (wltPtr == nullptr)
          throw runtime_error("unknown wallet or lockbox ID");
 
-      auto&& balanceMap = wltPtr->getAddrBalances(updateID_);
+      auto&& balanceMap = wltPtr->getAddrBalances(
+         updateID_, this->getTopBlockHeight());
 
       Arguments retarg;
       auto&& mapSize = IntType(balanceMap.size());

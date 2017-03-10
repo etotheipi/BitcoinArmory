@@ -224,10 +224,9 @@ bool TxIOPair::isUnspent(LMDBBlockDatabase *db) const
 }
 
 //////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::isSpendable(LMDBBlockDatabase *db, uint32_t currBlk, bool ignoreAllZeroConf) const
+bool TxIOPair::isSpendable(LMDBBlockDatabase *db, uint32_t currBlk) const
 {
-   // Spendable TxOuts are ones with at least 1 confirmation, or zero-conf
-   // TxOuts that were sent-to-self.  Obviously, they should be unspent, too
+   // Spendable TxOuts are ones with at least 1 confirmation
    if (hasTxInZC() || hasTxInInMain(db))
       return false;
 
@@ -241,24 +240,21 @@ bool TxIOPair::isSpendable(LMDBBlockDatabase *db, uint32_t currBlk, bool ignoreA
    }
 
    if (hasTxOutZC()/* && isTxOutFromSelf()*/)
-      return !ignoreAllZeroConf;
+      return false;
 
    return false;
 }
 
 //////////////////////////////////////////////////////////////////////////////
 bool TxIOPair::isMineButUnconfirmed(
-   LMDBBlockDatabase *db,
-   uint32_t currBlk, bool inclAllZC
-   ) const
+   LMDBBlockDatabase *db, uint32_t currBlk) const
 {
-   // All TxOuts that were from our own transactions are always confirmed
-   if (isTxOutFromSelf())
-      return false;
-
    DBTxRef dbTxRef(txRefOfInput_, db);
    if (hasTxInZC() || (hasTxIn() && dbTxRef.isMainBranch()))
       return false;
+
+   if (hasTxOutZC())
+      return true;
 
    if (hasTxOutInMain(db))
    {
@@ -268,9 +264,6 @@ bool TxIOPair::isMineButUnconfirmed(
       else
          return (nConf<MIN_CONFIRMATIONS);
    }
-   else if (hasTxOutZC() && inclAllZC)
-      return true;
-
 
    return false;
 }

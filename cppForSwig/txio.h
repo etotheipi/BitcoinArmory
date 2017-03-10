@@ -101,14 +101,8 @@ public:
 
    bool isSpent(LMDBBlockDatabase *db) const;
    bool isUnspent(LMDBBlockDatabase *db) const;
-   bool isSpendable(
-      LMDBBlockDatabase *db,
-      uint32_t currBlk = 0, bool ignoreAllZeroConf = false
-      ) const;
-   bool isMineButUnconfirmed(
-      LMDBBlockDatabase *db,
-      uint32_t currBlk, bool includeAllZeroConf = false
-      ) const;
+   bool isSpendable(LMDBBlockDatabase *db, uint32_t currBlk) const;
+   bool isMineButUnconfirmed(LMDBBlockDatabase *db, uint32_t currBlk) const;
    void pprintOneLine(LMDBBlockDatabase *db) const;
 
    bool operator<(TxIOPair const & t2)

@@ -963,13 +963,16 @@ void ZeroConfContainer::dropZC(const set<BinaryData>& txHashes)
       }
 
       //drop from txOutsSpentByZC_
-      auto txOutIter = txOutsSpentByZC_.begin();
-      while (txOutIter != txOutsSpentByZC_.end())
       {
-         if ((*txOutIter).startsWith(zcKey))
-            txOutsSpentByZC_.erase(txOutIter++);
-         else
-            ++txOutIter;
+         auto txoutset = txOutsSpentByZC_.get();
+         vector<BinaryData> txoutsToDelete;
+         for (auto txoutkey : *txoutset)
+         {
+            if (txoutkey.startsWith(zcKey))
+               txoutsToDelete.push_back(txoutkey);
+         }
+
+         txOutsSpentByZC_.erase(txoutsToDelete);
       }
 
       //mark for deletion
@@ -1146,9 +1149,7 @@ void ZeroConfContainer::parseNewZC(map<BinaryData, Tx> zcMap,
          if (!bulkData.isEmpty())
          {
             //merge spent outpoints
-            txOutsSpentByZC_.insert(
-               bulkData.txOutsSpentByZC_.begin(),
-               bulkData.txOutsSpentByZC_.end());
+            txOutsSpentByZC_.insert(bulkData.txOutsSpentByZC_);
 
             for (auto& idmap : bulkData.outPointsSpentByKey_)
             {
@@ -1455,7 +1456,8 @@ void ZeroConfContainer::clear()
 bool ZeroConfContainer::isTxOutSpentByZC(const BinaryData& dbkey) 
    const
 {
-   if (txOutsSpentByZC_.find(dbkey) != txOutsSpentByZC_.end())
+   auto txoutset = txOutsSpentByZC_.get();
+   if (txoutset->find(dbkey) != txoutset->end())
       return true;
 
    return false;

@@ -8562,7 +8562,7 @@ TEST_F(BlockUtilsBare, Load4Blocks_ReloadBDM_ZC_Plus2)
    unconfirmedBalance = wlt->getUnconfirmedBalance(4);
    EXPECT_EQ(fullBalance, 165*COIN);
    EXPECT_EQ(spendableBalance, 35*COIN);
-   EXPECT_EQ(unconfirmedBalance, 135*COIN);
+   EXPECT_EQ(unconfirmedBalance, 165*COIN);
 
    scrObj = wltLB1->getScrAddrObjByKey(TestChain::lb1ScrAddr);
    EXPECT_EQ(scrObj->getFullBalance(), 5 * COIN);
@@ -8780,7 +8780,7 @@ TEST_F(BlockUtilsBare, Load3Blocks_ZC_Plus3_TestLedgers)
    unconfirmedBalance = wlt->getUnconfirmedBalance(5);
    EXPECT_EQ(fullBalance, 135 * COIN);
    EXPECT_EQ(spendableBalance, 5 * COIN);
-   EXPECT_EQ(unconfirmedBalance, 105 * COIN);
+   EXPECT_EQ(unconfirmedBalance, 135 * COIN);
 
    le = wlt->getLedgerEntryForTx(ZChash);
    EXPECT_EQ(le.getTxTime(), 1300000000);
@@ -8822,7 +8822,7 @@ TEST_F(BlockUtilsBare, Load3Blocks_ZC_Plus3_TestLedgers)
    unconfirmedBalance = wlt->getUnconfirmedBalance(5);
    EXPECT_EQ(fullBalance, 90 * COIN);
    EXPECT_EQ(spendableBalance, 10 * COIN);
-   EXPECT_EQ(unconfirmedBalance, 60 * COIN);
+   EXPECT_EQ(unconfirmedBalance, 90 * COIN);
 
    dbtx = new LMDBEnv::Transaction(iface_->dbEnv_[ZERO_CONF].get(), LMDB::ReadOnly);
    StoredTx zcStx3;
@@ -8959,7 +8959,7 @@ TEST_F(BlockUtilsBare, Load3Blocks_ZCchain)
    unconfirmedBalance = wlt->getUnconfirmedBalance(3);
    EXPECT_EQ(fullBalance, 80 * COIN);
    EXPECT_EQ(spendableBalance, 0 * COIN);
-   EXPECT_EQ(unconfirmedBalance, 50 * COIN);
+   EXPECT_EQ(unconfirmedBalance, 80 * COIN);
 
    LedgerEntry le = wlt->getLedgerEntryForTx(ZChash1);
    EXPECT_EQ(le.getTxTime(), 1400000000);
@@ -8983,7 +8983,7 @@ TEST_F(BlockUtilsBare, Load3Blocks_ZCchain)
    unconfirmedBalance = wlt->getUnconfirmedBalance(3);
    EXPECT_EQ(fullBalance, 80 * COIN);
    EXPECT_EQ(spendableBalance, 0 * COIN);
-   EXPECT_EQ(unconfirmedBalance, 50 * COIN);
+   EXPECT_EQ(unconfirmedBalance, 80 * COIN);
 
    le = wlt->getLedgerEntryForTx(ZChash1);
    EXPECT_EQ(le.getTxTime(), 1400000000);
@@ -9014,7 +9014,7 @@ TEST_F(BlockUtilsBare, Load3Blocks_ZCchain)
    unconfirmedBalance = wlt->getUnconfirmedBalance(3);
    EXPECT_EQ(fullBalance, 135 * COIN);
    EXPECT_EQ(spendableBalance, 5 * COIN);
-   EXPECT_EQ(unconfirmedBalance, 105 * COIN);
+   EXPECT_EQ(unconfirmedBalance, 135 * COIN);
 
    le = wlt->getLedgerEntryForTx(ZChash1);
    EXPECT_EQ(le.getTxTime(), 1231008309);
@@ -9243,7 +9243,7 @@ TEST_F(BlockUtilsBare, Load3Blocks_RBF)
    unconfirmedBalance = wlt->getUnconfirmedBalance(3);
    EXPECT_EQ(fullBalance, 135 * COIN);
    EXPECT_EQ(spendableBalance, 5 * COIN);
-   EXPECT_EQ(unconfirmedBalance, 105 * COIN);
+   EXPECT_EQ(unconfirmedBalance, 135 * COIN);
 
    //verify replacement in ledgers
    le = wlt->getLedgerEntryForTx(RBFhash);
@@ -10172,7 +10172,7 @@ TEST_F(BlockUtilsBare, Load4Blocks_ZC_GetUtxos)
    unconfirmedBalance = wlt->getUnconfirmedBalance(4);
    EXPECT_EQ(fullBalance, 165 * COIN);
    EXPECT_EQ(spendableBalance, 35 * COIN);
-   EXPECT_EQ(unconfirmedBalance, 135 * COIN);
+   EXPECT_EQ(unconfirmedBalance, 165 * COIN);
 
    scrObj = wltLB1->getScrAddrObjByKey(TestChain::lb1ScrAddr);
    EXPECT_EQ(scrObj->getFullBalance(), 5 * COIN);
@@ -10366,7 +10366,7 @@ TEST_F(BlockUtilsBare, FCGIStack)
    unconfirmedBalance = w1Balances[2];
    EXPECT_EQ(fullBalance, 165 * COIN);
    EXPECT_EQ(spendableBalance, 35 * COIN);
-   EXPECT_EQ(unconfirmedBalance, 135 * COIN);
+   EXPECT_EQ(unconfirmedBalance, 165 * COIN);
 
    lb1AddrBalances = lb1.getAddrBalancesFromDB();
    balanceVec = lb1AddrBalances[TestChain::lb1ScrAddr];
