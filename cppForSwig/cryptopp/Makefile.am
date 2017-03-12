@@ -1,4 +1,4 @@
-lib_LTLIBRARIES = libcryptopp.la
+noinst_LTLIBRARIES = libcryptopp.la
 
 libcryptopp_la_LIBADD =
 AM_LDFLAGS =

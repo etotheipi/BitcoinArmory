@@ -25,8 +25,8 @@ if test "x$want_debug" = "xyes" -a $ac_cv_c_compiler_gnu != no; then
   CXXFLAGS="$CXXFLAGS -O0 -g"
   AC_DEFINE([DEBUG], 1, [Define for debugging])
 else
-  CFLAGS="$CFLAGS -O2 -D_FORTIFY_SOURCE=2"
-  CXXFLAGS="$CXXFLAGS -O2 -D_FORTIFY_SOURCE=2"
+  CFLAGS="$CFLAGS -O2"
+  CXXFLAGS="$CXXFLAGS -O2"
 fi
 
 AC_PROG_CC
@@ -45,9 +45,17 @@ m4_include([m4/ax_cxx_compile_stdcxx.m4])
 AX_CXX_COMPILE_STDCXX([11], [noext], [mandatory], [nodefault])
 
 #check for  swig
-AX_SWIG_PYTHON([no])
-AS_IF([test -z $AX_SWIG_PYTHON_CPPFLAGS], 
-	[AC_MSG_ERROR([failed to procure swig include path, make sure swig is installed])])
+if test "x$cross_compiling" != "xyes"; then
+	AX_SWIG_PYTHON([no])
+	AS_IF([test -z $AX_SWIG_PYTHON_CPPFLAGS], 
+		[AC_MSG_ERROR([failed to procure swig include path, make sure swig is installed])])
+	AX_PYTHON_MODULE([psutil], [fatal])
+	AX_PYTHON_MODULE([twisted], [fatal])
+else
+AC_SUBST([AX_SWIG_PYTHON_CPPFLAGS], [`python-config --includes`])
+fi
+
+AC_MSG_RESULT([AX_SWIG_PYTHON_CPPFLAGS: $AX_SWIG_PYTHON_CPPFLAGS])
 
 #check existence of Qt packages
 if ! pkg-config --exists 'QtCore >= 4.8 QtCore <= 5 QtGui >= 4.8 QtGui <= 5'; then
@@ -57,9 +65,6 @@ fi
 AC_CHECK_PROG([HAVE_PYRCC4], [pyrcc4], [yes], [no])
 AS_IF([test $HAVE_PYRCC4 == yes], [],
 	[AC_MSG_ERROR([missing pyrcc4 in path, make sure pyqt4-dev-tools])]) 
-
-AX_PYTHON_MODULE([psutil], [fatal])
-AX_PYTHON_MODULE([twisted], [fatal])
 
 AC_SUBST([CXX_STANDARD], $CXX_STANDARD)
 

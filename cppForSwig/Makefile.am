@@ -69,10 +69,11 @@ libCppBlockUtils_la_SOURCES = 	$(INCLUDE_FILES) \
 libCppBlockUtils_la_CXXFLAGS = 	-Ilmdb \
 		    		-Icryptopp \
 				$(AX_SWIG_PYTHON_CPPFLAGS) \
+				$(EXTRA_PYTHON_INCLUDES) \
 				-D__STDC_LIMIT_MACROS -fPIC -pipe
 
 libCppBlockUtils_la_LIBADD = 	-Llmdb -llmdb \
-		 	 	-Lcryptopp -lcryptopp \
+		 	 	./cryptopp/libcryptopp.la \
 		 	 	-lpthread
 
 #custom rules

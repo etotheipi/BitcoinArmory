@@ -26,8 +26,8 @@ if test "x$want_debug" = "xyes" -a $ac_cv_c_compiler_gnu != no; then
   CXXFLAGS="$CXXFLAGS -O0 -g"
   AC_DEFINE([DEBUG], 1, [Define for debugging])
 else
-  CFLAGS="$CFLAGS -O2 -D_FORTIFY_SOURCE=2"
-  CXXFLAGS="$CXXFLAGS -O2 -D_FORTIFY_SOURCE=2"
+  CFLAGS="$CFLAGS -O2"
+  CXXFLAGS="$CXXFLAGS -O2"
 fi
 
 # Checks for programs.
@@ -39,7 +39,6 @@ m4_include([m4/ax_check_x86_features.m4])
 m4_include([m4/ax_gcc_x86_cpu_supports.m4])
 
 # Checks for header files.
-AC_FUNC_ALLOCA
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h malloc.h netdb.h netinet/in.h stddef.h stdlib.h string.h sys/ioctl.h sys/socket.h sys/time.h unistd.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
@@ -50,7 +49,6 @@ AC_TYPE_SSIZE_T
 AC_CHECK_TYPES([ptrdiff_t])
 
 # Checks for library functions.
-AC_FUNC_MALLOC
 AC_CHECK_FUNCS([gethostbyname gettimeofday memmove memset pow select setlocale socket])
 
 dnl Determine build OS.
@@ -70,7 +68,7 @@ HOST_MACHINE=
 AS_CASE([$host_cpu],
   [i?86], [HOST_MACHINE=x86],
   [x86_64], [HOST_MACHINE=x86],
-  [AC_MSG_ERROR("No assembler code for CPU $host_cpu")]
+  [AC_MSG_RESULT("No assembler code for CPU $host_cpu")]
 )
 
 dnl Clang detection is complicated since it comes up as GCC too.
@@ -94,19 +92,23 @@ AM_CONDITIONAL([UNAME_LINUX], [test $(uname) == Linux])
 
 AM_CONDITIONAL([BUILD_DARWIN], [test x$BUILD_OS = xdarwin])
 
-AC_DEFUN_ONCE([_AX_GCC_X86_CPU_INIT],
- [AC_LANG_PUSH([C])
-  AC_CACHE_CHECK([for gcc __builtin_cpu_init function],
-    [ax_cv_gcc_check_x86_cpu_init],
-    [AC_RUN_IFELSE(
-      [AC_LANG_PROGRAM([#include <stdlib.h>],
-        [__builtin_cpu_init ();])
-      ],
-      [ax_cv_gcc_check_x86_cpu_init=yes],
-      [ax_cv_gcc_check_x86_cpu_init=no])])])
+AC_MSG_RESULT([cross compiling is set to: $cross_compiling])
 
-AS_IF([test "X$ax_cv_gcc_check_x86_cpu_init" = "Xyes"],
-   [AX_CHECK_X86_FEATURES([HAS_X86=true])])
+if test "x$cross_compiling" != "xyes"; then
+	AC_DEFUN_ONCE([_AX_GCC_X86_CPU_INIT],
+	 [AC_LANG_PUSH([C])
+	  AC_CACHE_CHECK([for gcc __builtin_cpu_init function],
+	    [ax_cv_gcc_check_x86_cpu_init],
+	    [AC_RUN_IFELSE(
+	      [AC_LANG_PROGRAM([#include <stdlib.h>],
+	        [__builtin_cpu_init ();])
+	      ],
+	      [ax_cv_gcc_check_x86_cpu_init=yes],
+	      [ax_cv_gcc_check_x86_cpu_init=no])])])
+
+	AS_IF([test "X$ax_cv_gcc_check_x86_cpu_init" = "Xyes"],
+	   [AX_CHECK_X86_FEATURES([HAS_X86=true])])
+fi	
 
 AM_CONDITIONAL([IS_X86], [test x$HOST_MACHINE = xx86])
 
