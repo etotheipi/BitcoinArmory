@@ -68,10 +68,38 @@ AS_IF([test $HAVE_PYRCC4 == yes], [],
 
 AC_SUBST([CXX_STANDARD], $CXX_STANDARD)
 
-dnl Determine build OS.
+dnl Determine build OS and do other OS-specific things.
 case $host in
   *darwin*)
     BUILD_OS=darwin
+
+    dnl
+    dnl  Handle Mac OS X SDK flags
+    dnl
+    AC_ARG_WITH(macosx-sdk,
+      [AS_HELP_STRING([--with-macosx-sdk=DIR],
+        [compile using the SDK in DIR])])
+    if test "${with_macosx_sdk}" != "" ; then
+        test ! -d "${with_macosx_sdk}" && AC_MSG_ERROR([SDK "${with_macosx_sdk}" not found])
+        CPP="${CPP} -isysroot ${with_macosx_sdk}"
+        CC="${CC} -isysroot ${with_macosx_sdk}"
+        CXX="${CXX} -isysroot ${with_macosx_sdk}"
+        OBJC="${OBJC} -isysroot ${with_macosx_sdk}"
+        LD="${LD} -syslibroot ${with_macosx_sdk}"
+    fi
+    AC_ARG_WITH(macosx-version-min,
+      [AS_HELP_STRING([--with-macosx-version-min=VERSION],
+        [compile for Mac OS X VERSION and above])])
+    if test "${with_macosx_version_min}" != "" ; then
+        CPP="${CPP} -mmacosx-version-min=${with_macosx_version_min}"
+        CC="${CC} -mmacosx-version-min=${with_macosx_version_min}"
+        CXX="${CXX} -mmacosx-version-min=${with_macosx_version_min}"
+        OBJC="${OBJC} -mmacosx-version-min=${with_macosx_version_min}"
+        LD="${LD} -mmacosx_version_min=${with_macosx_version_min}"
+    fi
+    CPP="${CPP} -stdlib=libc++ -std=c++11"
+    CXX="${CXX} -stdlib=libc++ -std=c++11"
+    LD="${LD} -stdlib=libc++ -std=c++11 -lc++ -undefined dynamic_lookup -headerpad_max_install_names"
     ;;
   *linux*)
     BUILD_OS=linux

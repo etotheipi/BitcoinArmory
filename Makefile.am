@@ -43,9 +43,11 @@ install-exec-hook: uninstall-old
 	cp -r armoryengine/* $(DESTDIR)$(PREFIX)/lib/armory/armoryengine
 	sed "s: /usr: $(PREFIX):g" < dpkgfiles/armory > $(DESTDIR)$(PREFIX)/bin/armory 
 	chmod +x $(DESTDIR)$(PREFIX)/bin/armory
+if BUILD_DARWIN
 	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armory.desktop > $(DESTDIR)$(PREFIX)/share/applications/armory.desktop
 	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armoryoffline.desktop > $(DESTDIR)$(PREFIX)/share/applications/armoryoffline.desktop
 	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armorytestnet.desktop > $(DESTDIR)$(PREFIX)/share/applications/armorytestnet.desktop
+endif
 
 uninstall-hook: uninstall-old
 	rm -rf $(DESTDIR)$(PREFIX)/lib/armory

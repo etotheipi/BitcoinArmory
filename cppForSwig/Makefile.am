@@ -76,6 +76,10 @@ libCppBlockUtils_la_LIBADD = 	-Llmdb -llmdb \
 		 	 	./cryptopp/libcryptopp.la \
 		 	 	-lpthread
 
+if BUILD_DARWIN
+libCppBlockUtils_la_LDFLAGS = -Wl,-rpath,@executable_path/ -Wl,-rpath,@loader_path/
+endif
+
 #custom rules
 CppBlockUtils_wrap.cxx: CppBlockUtils.i
 	swig $(SWIG_FLAGS) CppBlockUtils.i 
@@ -86,5 +90,3 @@ clean-local:
 	rm -f CppBlockUtils.py
 	rm -f CppBlockUtils_wrap.cxx
 	rm -f CppBlockUtils_wrap.h
-
-

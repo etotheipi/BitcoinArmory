@@ -49,14 +49,16 @@ APPDIR        = path.join(WORKDIR, 'Armory.app') # actually make it local
 DLDIR         = path.join(WORKDIR, 'downloads')
 UNPACKDIR     = path.join(WORKDIR, 'unpackandbuild')
 INSTALLDIR    = path.join(WORKDIR, 'install')
+PREFIXBASEDIR = path.join(APPDIR, 'Contents/MacOS/py')
 PYPREFIX      = path.join(APPDIR, 'Contents/Frameworks/Python.framework/Versions/%s' % pyMajorVer)
+PREFIXDIR     = path.join(PREFIXBASEDIR, 'usr')
 PYLIBPREFIX   = path.join(PYPREFIX, 'lib')
 PYINCPREFIX   = path.join(PYPREFIX, 'include/python%s' % pyMajorVer)
 PYSITEPKGS    = path.join(PYLIBPREFIX, 'python%s/site-packages' % pyMajorVer)
 MAKEFLAGS     = '-j4'
 
 # Autotools needs some TLC to make Python happy.
-CONFIGFLAGS   = 'LIBS=\"-L%s\" PYTHON_LDFLAGS=\"-L%s\" PYTHON_CPPFLAGS=\"-I%s\" PYTHON_EXTRA_LIBS=\"-u _PyMac_Error %s/Python\"' % (PYLIBPREFIX, PYLIBPREFIX, PYINCPREFIX, PYPREFIX)
+CONFIGFLAGS   = '--with-macosx-version-min=%s LIBS=\"-L%s\" PYTHON_LDFLAGS=\"-L%s\" PYTHON_CPPFLAGS=\"-I%s\" PYTHON_EXTRA_LIBS=\"-u _PyMac_Error %s/Python\"' % (minOSXVer, PYLIBPREFIX, PYLIBPREFIX, PYINCPREFIX, PYPREFIX)
 
 QTBUILTFLAG   = path.join(UNPACKDIR, 'qt/qt_install_success.txt')
 
@@ -678,15 +680,13 @@ def compile_armory():
    armoryAppScript = path.join(APPDIR, 'Contents/MacOS/Armory')
    armorydAppScript = path.join(APPDIR, 'Contents/MacOS/armoryd')
    armoryDB = path.join(APPDIR, 'Contents/MacOS/ArmoryDB')
-   pydir = path.join(APPDIR, 'Contents/MacOS/py')
    currentDir = os.getcwd()
    os.chdir("..")
    execAndWait('python update_version.py')
    os.chdir(currentDir)
    execAndWait('./autogen.sh', cwd='..')
    execAndWait('./configure %s' % CONFIGFLAGS, cwd='..')
-   execAndWait('make all %s' % MAKEFLAGS, cwd='..')
-   execAndWait('make DESTDIR="%s" install %s' % (pydir, MAKEFLAGS), cwd='..')
+   execAndWait('make DESTDIR="%s" install %s' % (PREFIXBASEDIR, MAKEFLAGS), cwd='..')
    copyfile('Armory-script.sh', armoryAppScript)
    copyfile('armoryd-script.sh', armorydAppScript)
    execAndWait('chmod +x "%s"' % armoryAppScript)
@@ -735,7 +735,7 @@ def cleanup_app():
       remove_python_files(PYPREFIX, False)
    else:
       remove_python_files(PYPREFIX)
-   remove_python_files(path.join(APPDIR, 'Contents/MacOS/py'), False)
+   remove_python_files(PREFIXBASEDIR, False)
    show_app_size()
 
 ########################################################
