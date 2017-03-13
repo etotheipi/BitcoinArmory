@@ -12,13 +12,7 @@ endif
 if IS_X86
 
 if CRYPTOPP_HAVE_GCC
-if BUILD_DARWIN
-AM_CXXFLAGS += -arch x86_64 -std=c++11 -stdlib=libc++
-AM_LDFLAGS += -lc++
-else
-AM_CXXFLAGS += -march=native
-endif
-AM_CXXFLAGS += -mtune=generic
+AM_CXXFLAGS += -march=native -mtune=generic
 endif
 
 AM_CXXFLAGS += -mpclmul -maes $(X86_FEATURE_CFLAGS)
@@ -27,6 +21,11 @@ endif	# IS_X86
 if UNAME_LINUX
 AM_CXXFLAGS += -std=c++11
 AM_LDFLAGS += -pthread
+endif
+
+if BUILD_DARWIN
+AM_CXXFLAGS += -arch x86_64
+libcryptopp_la_LDFLAGS = -Wl,-rpath,@executable_path/ -Wl,-rpath,@loader_path/
 endif
 
 INCLUDE_FILES = 3way.h	    crc.h	gcm.h	    modexppc.h	ripemd.h     tea.h \
