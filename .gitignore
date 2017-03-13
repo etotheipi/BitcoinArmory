@@ -33,6 +33,10 @@
 *.libs
 *autom4te.cache
 
+config.h
+stamp-h1
+.dirstamp
+1
 
 ArmoryDB
 /armoryengine/ArmoryBuild.py
@@ -73,6 +77,7 @@ _CppBlockUtils.*
 /cppForSwig/Release/*
 /cppForSwig/swigwin/*
 /cppForSwig/pypaths.txt
+/cppForSwig/output.txt
 
 /pytest/*.bin
 /pytest/mytxfile
