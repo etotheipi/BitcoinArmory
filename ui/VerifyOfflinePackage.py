@@ -7,7 +7,7 @@
 ################################################################################
 from PyQt4.Qt import * #@UnusedWildImport
 from PyQt4.QtGui import * #@UnusedWildImport
-from qtdefines import tr, QRichLabel, ArmoryDialog
+from qtdefines import QRichLabel, ArmoryDialog
 from armoryengine.parseAnnounce import *
 from armorycolors import htmlColor
 

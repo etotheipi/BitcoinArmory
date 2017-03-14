@@ -1,33 +1,31 @@
-/* File BlockUtils.i */
-/*
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//  Copyright (C) 2011-2014, Armory Technologies, Inc.                        //
-//  support@bitcoinarmory.com                                                 //
+//  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
-//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//  See LICENSE-ATI or http://www.gnu.org/licenses/agpl.html                  //
+//                                                                            //
+//                                                                            //
+//  Copyright (C) 2016, goatpig                                               //            
+//  Distributed under the MIT license                                         //
+//  See LICENSE-MIT or https://opensource.org/licenses/MIT                    //                                   
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
-*/
+
 %module(directors="1") CppBlockUtils
-%feature("director") BDM_CallBack;
-%feature("director") BDM_Inject;
+%feature("director") PythonCallback;
+%feature("director") PythonSigner;
 
 %{
 #define SWIG_PYTHON_EXTRA_NATIVE_CONTAINERS
-#include "BlockObj.h"
-#include "BlockUtils.h"
 #include "BtcUtils.h"
 #include "EncryptionUtils.h"
-#include "BtcWallet.h"
-#include "LedgerEntry.h"
-#include "ScrAddrObj.h"
-#include "Blockchain.h"
-#include "BDM_mainthread.h"
+#include "DbHeader.h"
+#include "SwigClient.h"
+#include "bdmenums.h"
+#include "TxClasses.h"
+#include "WalletManager.h"
 #include "BlockDataManagerConfig.h"
-#include "BlockDataViewer.h"
 %}
-
 
 %include "std_string.i"
 %include "std_vector.i"
@@ -40,40 +38,37 @@
 %typedef unsigned char      uint8_t;
 %typedef unsigned short     uint16_t;
 %typedef unsigned int       uint32_t;
+
+#if defined(_WIN32) || defined(__WIN32__) || defined(__CYGWIN__) || defined(__CLANG__)
 %typedef unsigned long long uint64_t;
+#else
+#if defined(__GNUC__) // Linux
+%typedef long unsigned int uint64_t;
+#endif
+#endif
+
 %typedef char               int8_t;
 %typedef short              int16_t;
 %typedef int                int32_t;
 %typedef long long          int64_t;
-%typedef unsigned int       size_t;
 %typedef unsigned int       TXIN_SCRIPT_TYPE;
 %typedef unsigned int       TXOUT_SCRIPT_TYPE;
+%typedef unsigned long long size_t;
 
 %ignore readVarInt(BinaryRefReader & brr);
-%ignore BlockDataViewer::blockchain() const;
-%ignore BlockDataManager_LevelDB::readBlockUpdate(const pair<size_t, uint64_t>& headerOffset);
-%ignore BlockDataManager_LevelDB::loadDiskState(const function<void(unsigned, double,unsigned)> &progress);
-%ignore BlockDataViewer::refreshLock_;
-
 
 %allowexception;
 
 namespace std
 {
    %template(vector_int) std::vector<int>;
+   %template(vector_uint64_t) std::vector<uint64_t>; 
    %template(vector_float) std::vector<float>;
    %template(vector_string) std::vector<string>;
-   //%template(vector_BinaryData) std::vector<BinaryData>;
-   %template(vector_LedgerEntry) std::vector<LedgerEntry>;
-   //%template(vector_LedgerEntryPtr) std::vector<const LedgerEntry*>;
-   %template(vector_TxRefPtr) std::vector<TxRef*>;
-   %template(vector_Tx) std::vector<Tx>;
-   %template(vector_BlockHeaderPtr) std::vector<BlockHeader>;
-   %template(vector_UnspentTxOut) std::vector<UnspentTxOut>;
-   %template(vector_AddressBookEntry) std::vector<AddressBookEntry>;
-   %template(vector_RegisteredTx) std::vector<RegisteredTx>;
-   %template(shared_ptr_BtcWallet) std::shared_ptr<BtcWallet>;
+   %template(vector_LedgerEntryData) std::vector<LedgerEntryData>;
    %template(set_BinaryData) std::set<BinaryData>;
+   %template(vector_UTXO) std::vector<UTXO>;
+   %template(vector_AddressBookEntry) std::vector<AddressBookEntry>;
 }
 
 %exception
@@ -85,6 +80,14 @@ namespace std
 	catch (std::exception& e)
 	{
 		SWIG_exception(SWIG_RuntimeError, e.what());
+	}
+	catch (DbErrorMsg& e)
+	{
+		SWIG_Python_Raise(SWIG_NewPointerObj(
+			(new DbErrorMsg(static_cast<const DbErrorMsg&>(e))),
+			SWIGTYPE_p_DbErrorMsg, SWIG_POINTER_OWN),
+			"DbErrorMsg", SWIGTYPE_p_DbErrorMsg);
+		SWIG_fail;
 	}
 }
 
@@ -201,6 +204,7 @@ namespace std
 	$result = thisList;
 }
 
+/******************************************************************************/
 // Convert Python(dict{str:list[str]}) to C++(map<BinaryData, vector<BinaryData>) 
 %typemap(in) const std::map<BinaryData, std::vector<BinaryData> >& (std::map<BinaryData, std::vector<BinaryData> > map_bd_vec_bd)
 {
@@ -226,42 +230,161 @@ namespace std
 	$1 = &map_bd_vec_bd;
 }
 
-// Ubuntu 12.04 doesn't support C++11 without compiler & linker trickery. One
-// very tricky issue involves librt. clock_* calls, used by Armory, required
-// the rt library before GLIBC 2.17, at which point they were moved to libc.
-// Long story short, Ubuntu 12.04 can't compile C++11 by default (only GCC 4.6
-// is available by default, and a libstdc++ bug means GCC 4.7.3+ must be used),
-// and making a 12.04 build under later versions of Ubuntu (with static linking)
-// creates a hole due to glibc 2.17+ being present post-12.04. SWIG somehow gets
-// tripped up, as seen if linking Armory with the "-Wl,--no-undefined" flag. To
-// fix this, use timer_* calls, which remain in librt, to create a dummy call in
-// the SWIG-generated code that forces an rt link in SWIG. This marks librt as
-// "NEEDED" by the linker.
-//
-// The "-Wl,--no-as-needed" linker flag is a simpler alternative to adding this
-// code. The flag is brute force and causes bloat by adding unneeded libraries
-// if devs aren't careful. Therefore, it's not used.
-//
-// Finally, this code is compiled only for Linux. Targeting specific distros
-// requires too much effort. All Linux compilers will have to deal. :)
-%inline %{
-#if defined(__linux) || defined(__linux__)
-   void force_librt() { timer_create(CLOCK_REALTIME, NULL, NULL); }
-#endif
-%}
+/******************************************************************************/
+// Convert C++(StoredHeader) to a Python dict with the following key:val pairs:
+// {
+// "height":int
+// "blockHash":str
+// "merkle":str
+// "numBytes":int
+// "numTx":int
+// "txHashList":[TxHash, TxHash, TxHash, ...]
+// }
+%typemap(out) StoredHeader
+{
+	PyObject *thisDict = PyDict_New();
 
-/* With our typemaps, we can finally include our other objects */
-%include "BlockObj.h"
-%include "BlockUtils.h"
+	//height
+	PyDict_SetItemString(thisDict, "height", PyInt_FromSize_t($1.blockHeight_));
+
+	//block hash
+	std::string hashStr = $1.thisHash_.toHexStr(true);
+	PyDict_SetItemString(thisDict, "blockHash", 
+		PyString_FromStringAndSize(hashStr.c_str(), hashStr.size()));
+
+	//merkle
+	std::string merkleStr = $1.merkle_.toHexStr(true);
+	PyDict_SetItemString(thisDict, "merkle", 
+		PyString_FromStringAndSize(merkleStr.c_str(), merkleStr.size()));
+
+	//size of block in bytes
+	PyDict_SetItemString(thisDict, "numBytes", PyInt_FromSize_t($1.numBytes_));
+
+	//tx count
+	PyDict_SetItemString(thisDict, "numTx", PyInt_FromSize_t($1.getNumTx()));
+
+	PyObject *thisList = PyList_New($1.getNumTx());
+	
+	//tx hash list
+	for(unsigned i=0; i<$1.getNumTx(); i++)
+	{
+		DBTx& tx = $1.getTxByIndex(i);
+		std::string hashStr = tx.thisHash_.toHexStr(true);
+		PyList_SET_ITEM(thisList, i, 
+			PyString_FromStringAndSize(hashStr.c_str(), hashStr.size()));
+	}
+
+	//add list to dict
+	PyDict_SetItemString(thisDict, "txHashList", thisList);
+
+	$result = thisDict;
+}
+
+/******************************************************************************/
+// Convert C++(map<BinaryData, uint32_t>) to Python(dict{string, int})
+%typemap(out) const map<BinaryData, uint32_t> &
+{
+	PyObject* thisDict = PyDict_New();
+	auto bdIter = $1->begin();
+
+	while(bdIter != $1->end())
+	{
+		auto& bdobj = bdIter->first;
+		PyObject* pyStringObj = 
+		   PyString_FromStringAndSize(bdobj.getCharPtr(), bdobj.getSize());
+		
+		PyObject* pyIntObj =
+		   PyInt_FromLong(bdIter->second);
+
+		PyDict_SetItem(thisDict, pyStringObj, pyIntObj);
+
+		++bdIter;
+	}
+
+	$result = thisDict;
+}
+
+/******************************************************************************/
+// Convert C++(map<BinaryData, vector<uint64_t>>) to Python(dict{string, list[int]})
+%typemap(out) const map<BinaryData, vector<uint64_t> > &
+{
+	PyObject* thisDict = PyDict_New();
+	auto bdIter = $1->begin();
+
+	while(bdIter != $1->end())
+	{
+		auto& bdobj = bdIter->first;
+		PyObject* pyStringObj = 
+		   PyString_FromStringAndSize(bdobj.getCharPtr(), bdobj.getSize());
+		
+		auto& vectorObj = bdIter->second;
+		auto vectorIter = vectorObj.begin();
+
+		PyObject* thisList = PyList_New(vectorObj.size());
+		int i=0;
+		while(vectorIter != vectorObj.end())
+		{
+			PyObject* pyIntObj =
+				PyInt_FromSize_t(*vectorIter);
+
+			PyList_SET_ITEM(thisList, i, pyIntObj);
+
+			++vectorIter;
+			++i;
+		}
+
+		PyDict_SetItem(thisDict, pyStringObj, thisList);
+
+		++bdIter;
+	}
+
+	$result = thisDict;
+}
+
+/******************************************************************************/
+// Convert Python(dict{str:dict{int:str}}) to 
+// C++(map<BinaryData. map<unsigned, BinaryData>>
+%typemap(in) const std::map<BinaryData, std::map<unsigned, BinaryData> > & (std::map<BinaryData, std::map<unsigned, BinaryData> > map_bd_map_uint_bd)
+{
+	PyObject *key, *value;
+	Py_ssize_t pos = 0;
+
+	while(PyDict_Next($input, &pos, &key, &value))
+	{
+		BinaryData key_bd((uint8_t*)PyString_AsString(key), PyString_Size(key));
+		std::map<unsigned, BinaryData> bdObjMap;
+
+		PyObject *inner_key, *inner_value;
+		Py_ssize_t inner_pos = 0;
+
+		while(PyDict_Next(value, &inner_pos, &inner_key, &inner_value))
+		{
+			unsigned inner_key_uint = PyInt_AsLong(inner_key);
+			 
+			BinaryData inner_value_bd(
+				(uint8_t*)PyString_AsString(inner_value), PyString_Size(inner_value));
+
+			bdObjMap.insert(std::move(std::make_pair(
+				inner_key_uint,
+				std::move(inner_value_bd))));
+		}
+
+		map_bd_map_uint_bd.insert(std::move(std::make_pair(
+			key_bd, 
+			std::move(bdObjMap))));
+	}
+	
+	$1 = &map_bd_map_uint_bd;	
+}
+
+
 %include "BtcUtils.h"
 %include "EncryptionUtils.h"
-%include "BtcWallet.h"
-%include "LedgerEntry.h"
-%include "ScrAddrObj.h"
-%include "Blockchain.h"
-%include "BlockDataViewer.h"
-%include "BlockDataManagerConfig.h"
-%include "BDM_mainthread.h"
+%include "DbHeader.h"
+%include "SwigClient.h"
 %include "bdmenums.h"
-
+%include "LedgerEntryData.h"
+%include "TxClasses.h"
+%include "WalletManager.h"
+%include "BlockDataManagerConfig.h"
 

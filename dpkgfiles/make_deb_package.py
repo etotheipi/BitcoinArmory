@@ -78,7 +78,7 @@ execAndWait('rm -f %s*' % pkgdir_)
 shutil.copytree(origDir, pkgdir)
 execAndWait('tar -zcf %s.tar.gz %s' % (pkgdir, pkgdir))
 cd(pkgdir)
-execAndWait('export DEBFULLNAME="Armory Technologies, Inc."; dh_make -s -e support@bitcoinarmory.com -f ../%s.tar.gz' % pkgdir)
+execAndWait('export DEBFULLNAME="goatpig"; dh_make -s -e moothecowlord@gmail.com -f ../%s.tar.gz' % pkgdir)
 for f in dpkgfiles:
    shutil.copy('dpkgfiles/%s' % f, 'debian/%s' % f)
 

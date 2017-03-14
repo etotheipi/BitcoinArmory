@@ -2,7 +2,12 @@
 //                                                                            //
 //  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
-//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//  See LICENSE-ATI or http://www.gnu.org/licenses/agpl.html                  //
+//                                                                            //
+//                                                                            //
+//  Copyright (C) 2016, goatpig                                               //            
+//  Distributed under the MIT license                                         //
+//  See LICENSE-MIT or https://opensource.org/licenses/MIT                    //                                   
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -13,6 +18,8 @@
 #include <fstream>
 #include <vector>
 #include <set>
+#include <future>
+#include <exception>
 
 #include "Blockchain.h"
 #include "BinaryData.h"
@@ -30,6 +37,7 @@
 
 #include <functional>
 #include "BDM_supportClasses.h"
+#include "nodeRPC.h"
 
 #ifndef MAXSIZE_T
    #if defined(_WIN64) || defined(__X86_64__)
@@ -41,7 +49,7 @@
 
 #ifdef _MSC_VER
    #include "mman.h"
-   #include "leveldb_windows_port\win32_posix\win32_posix.h"
+   //#include "leveldb_windows_port\win32_posix\win32_posix.h"
    #else
    #include <fcntl.h>
    #include <sys/mman.h>
@@ -52,20 +60,10 @@
 
 #define NUM_BLKS_IS_DIRTY 2016
 
-
 using namespace std;
 
-class BlockDataManager_LevelDB;
+class BlockDataManager;
 class LSM;
-//class BDM_Inject;
-
-typedef enum
-{
-  TX_DNE,
-  TX_ZEROCONF,
-  TX_IN_BLOCKCHAIN
-} TX_AVAILABILITY;
-
 
 typedef enum
 {
@@ -82,6 +80,13 @@ typedef enum
    BDM_ready
 }BDM_state;
 
+enum ResetDBMode
+{
+   Reset_Rescan,
+   Reset_Rebuild,
+   Reset_SSH
+};
+
 class ProgressReporter;
 
 typedef std::pair<size_t, uint64_t> BlockFilePosition;
@@ -89,13 +94,13 @@ class FoundAllBlocksException {};
 
 class debug_replay_blocks {};
 
+class BlockFiles;
+class DatabaseBuilder;
+class BDV_Server_Object;
 
 ////////////////////////////////////////////////////////////////////////////////
-class BlockDataManager_LevelDB
+class BlockDataManager
 {
-   //void grablock(uint32_t n);
-
-
 private:
    BlockDataManagerConfig config_;
    
@@ -103,7 +108,7 @@ private:
    shared_ptr<BitcoinQtBlockFiles> readBlockHeaders_;
    
    // This is our permanent link to the two databases used
-   LMDBBlockDatabase* iface_;
+   LMDBBlockDatabase* iface_ = nullptr;
    
    BlockFilePosition blkDataPosition_ = {0, 0};
    
@@ -111,177 +116,188 @@ private:
 
    class BDM_ScrAddrFilter;
    shared_ptr<BDM_ScrAddrFilter>    scrAddrData_;
+   bool     zcEnabled_;
 
-  
-   // If the BDM is not in super-node mode, then it will be specifically tracking
-   // a set of addresses & wallets.  We register those addresses and wallets so
-   // that we know what TxOuts to track as we process blockchain data.  And when
-   // it may be necessary to do rescans.
-   //
-   // If instead we ARE in ARMORY_DB_SUPER (not implemented yet, as of this
-   // comment being written), then we don't have anything to track -- the DB
-   // will automatically update for all addresses, period.  And we'd best not 
-   // track those in RAM (maybe on a huge server...?)
-
-   // list of block headers that appear to be missing 
-   // when scanned by buildAndScanDatabases
-   vector<BinaryData>                 missingBlockHeaderHashes_;
-   // list of blocks whose contents are invalid but we have
-   // their headers
-   vector<BinaryData>                 missingBlockHashes_;
-   
-   // TODO: We eventually want to maintain some kind of master TxIO map, instead
-   // of storing them in the individual wallets.  With the new DB, it makes more
-   // sense to do this, and it will become easier to compute total balance when
-   // multiple wallets share the same addresses
-   //map<OutPoint,   TxIOPair>          txioMap_;
-
-   Blockchain blockchain_;
+   shared_ptr<Blockchain> blockchain_ = nullptr;
 
    BDM_state BDMstate_ = BDM_offline;
 
+   shared_ptr<BlockFiles> blockFiles_;
+   shared_ptr<DatabaseBuilder> dbBuilder_;
+
+   exception_ptr exceptPtr_ = nullptr;
+
+   unsigned checkTransactionCount_ = 0;
 
 public:
-   bool                               sideScanFlag_ = false;
-   typedef function<void(BDMPhase, double,unsigned, unsigned)> ProgressCallback;
-   
-   class Notifier
-   {
-   public:
-      virtual ~Notifier() { }
-      virtual void notify()=0;
-   };
-   
-   string criticalError_;
+   typedef function<void(BDMPhase, double,unsigned, unsigned)> ProgressCallback;   
+   shared_ptr<BitcoinP2P> networkNode_;
+   shared_future<bool> isReadyFuture_;
+   mutable shared_ptr<NodeRPC> nodeRPC_;
 
-private:
-   Notifier* notifier_ = nullptr;
+   TimedStack<unique_ptr<BDV_Notification>> notificationStack_;
+   shared_ptr<ZeroConfContainer>   zeroConfCont_;
 
 public:
-   BlockDataManager_LevelDB(const BlockDataManagerConfig &config);
-   ~BlockDataManager_LevelDB();
+   BlockDataManager(const BlockDataManagerConfig &config);
+   ~BlockDataManager();
 
-public:
-
-   Blockchain& blockchain() { return blockchain_; }
-   const Blockchain& blockchain() const { return blockchain_; }
+   shared_ptr<Blockchain> blockchain() { return blockchain_; }
+   shared_ptr<Blockchain> blockchain() const { return blockchain_; }
    
    const BlockDataManagerConfig &config() const { return config_; }
-   void setConfig(const BlockDataManagerConfig &bdmConfig);
    
    LMDBBlockDatabase *getIFace(void) {return iface_;}
-   void setNotifier(Notifier* notifier) { notifier_ = notifier; }
-   void notifyMainThread() const
-   { 
-      if (notifier_)
-         notifier_->notify(); 
-   }
    
-   bool hasNotifier() const { return notifier_ != nullptr; }
-
-   
+   shared_future<bool> registerAddressBatch(
+      const set<BinaryData>& addrSet, bool isNew);
    
    /////////////////////////////////////////////////////////////////////////////
    // Get the parameters of the network as they've been set
-   const BinaryData& getGenesisHash(void) const  { return config_.genesisBlockHash;   }
-   const BinaryData& getGenesisTxHash(void) const { return config_.genesisTxHash; }
-   const BinaryData& getMagicBytes(void) const   { return config_.magicBytes;    }
+   const BinaryData& getGenesisHash(void) const  
+   { return config_.genesisBlockHash_; }
+   const BinaryData& getGenesisTxHash(void) const 
+   { return config_.genesisTxHash_; }
+   const BinaryData& getMagicBytes(void) const   
+   { return config_.magicBytes_; }
 
-public:
    void openDatabase(void);
-   void     destroyAndResetDatabases(void);
    
-   void doRebuildDatabases(const ProgressCallback &progress);
    void doInitialSyncOnLoad(const ProgressCallback &progress);
    void doInitialSyncOnLoad_Rescan(const ProgressCallback &progress);
    void doInitialSyncOnLoad_Rebuild(const ProgressCallback &progress);
-   
+   void doInitialSyncOnLoad_RescanBalance(
+      const ProgressCallback &progress);
+
    // for testing only
    struct BlkFileUpdateCallbacks
    {
       std::function<void()> headersRead, headersUpdated, blockDataLoaded;
    };
    
-   uint32_t readBlkFileUpdate(const BlkFileUpdateCallbacks &callbacks=BlkFileUpdateCallbacks());
-   
+   void registerBDVwithZCcontainer(BDV_Server_Object*);
+   void unregisterBDVwithZCcontainer(const string&);
+
+   bool hasException(void) const { return exceptPtr_ != nullptr; }
+   exception_ptr getException(void) const { return exceptPtr_; }
+
 private:
    void loadDiskState(
       const ProgressCallback &progress,
       bool doRescan=false
    );
-   void loadBlockData(
-      ProgressReporter &prog,
-      const BlockFilePosition &stopAt,
-      bool updateDupID
-   );
-   void loadBlockHeadersFromDB(const ProgressCallback &progress);
-   pair<BlockFilePosition, vector<BlockHeader*> >
-      loadBlockHeadersStartingAt(
-         ProgressReporter &prog,
-         const BlockFilePosition &fileAndOffset
-      );
    
-   void deleteHistories(void);
-   void wipeHistoryAndHintDB(void);
-
-   void addRawBlockToDB(BinaryRefReader & brr, bool updateDupID = true);
-   uint32_t findFirstBlockToScan(void);
-   void findFirstBlockToApply(void);
-
 public:
+   Blockchain::ReorganizationState readBlkFileUpdate(
+      const BlkFileUpdateCallbacks &callbacks=BlkFileUpdateCallbacks());
 
-   BinaryData applyBlockRangeToDB(ProgressReporter &prog, 
+   BinaryData applyBlockRangeToDB(ProgressCallback, 
                             uint32_t blk0, uint32_t blk1,
                             ScrAddrFilter& scrAddrData,
                             bool updateSDBI = true);
 
-   uint32_t getTopBlockHeight() const {return blockchain_.top().getBlockHeight();}
+   uint32_t getTopBlockHeight() const {return blockchain_->top().getBlockHeight();}
       
    uint8_t getValidDupIDForHeight(uint32_t blockHgt) const
    { return iface_->getValidDupIDForHeight(blockHgt); }
 
-   ScrAddrFilter* getScrAddrFilter(void) const;
+   shared_ptr<ScrAddrFilter> getScrAddrFilter(void) const;
 
 
    StoredHeader getMainBlockFromDB(uint32_t hgt) const;
    StoredHeader getBlockFromDB(uint32_t hgt, uint8_t dup) const;
 
-   void repairBlockDataDB(set<BinaryData>& missingBlocksByHash);
+   void enableZeroConf(bool cleanMempool = false);
+   void disableZeroConf(void);
+   bool isZcEnabled() const { return zcEnabled_; }
+   shared_ptr<ZeroConfContainer> zeroConfCont(void) const
+   {
+      return zeroConfCont_;
+   }
+
+   void shutdownNode(void) { networkNode_->shutdown(); }
+   void shutdownNotifications(void) { notificationStack_.terminate(); }
 
 public:
-
-// These things should probably be private, but they also need to be test-able,
-// and googletest apparently cannot access private methods without polluting 
-// this class with gtest code
-//private: 
-
-   //void pprintSSHInfoAboutHash160(BinaryData const & a160);
-
-   // Simple wrapper around the logger so that they are easy to access from SWIG
-
-   /////////////////////////////////////////////////////////////////////////////
-   // We may use this to trigger flushing the queued DB updates
-   //bool estimateDBUpdateSize(
-                        //map<BinaryData, StoredTx> &            stxToModify,
-                        //map<BinaryData, StoredScriptHistory> & sshToModify);
-
-   vector<BinaryData> missingBlockHeaderHashes() const { return missingBlockHeaderHashes_; }
-   
-   vector<BinaryData> missingBlockHashes() const { return missingBlockHashes_; }
 
    bool startSideScan(
       const function<void(const vector<string>&, double prog,unsigned time)> &cb
    );
 
-   void wipeScrAddrsSSH(const vector<BinaryData>& saVec);
-
    bool isRunning(void) const { return BDMstate_ != BDM_offline; }
-   bool isReady(void) const   { return BDMstate_ == BDM_ready; }
+   void blockUntilReady(void) const { isReadyFuture_.wait(); }
+   bool isReady(void) const
+   {
+      return 
+         isReadyFuture_.wait_for(chrono::seconds(0)) == 
+         std::future_status::ready;
+   }
 
    vector<string> getNextWalletIDToScan(void);
+   
+   void resetDatabases(ResetDBMode mode);
+   
+   void terminateAllScans(void) 
+   {
+      ScrAddrFilter::shutdown();
+   }
+
+   unsigned getCheckedTxCount(void) const { return checkTransactionCount_; }
+   NodeStatusStruct getNodeStatus(void) const;
+
+   float getFeeByte(void) const;
 };
 
+///////////////////////////////////////////////////////////////////////////////
+class BlockDataManagerThread
+{
+   struct BlockDataManagerThreadImpl
+   {
+      BlockDataManager *bdm = nullptr;
+      int mode = 0;
+      volatile bool run = false;
+      bool failure = false;
+      thread tID;
 
-// kate: indent-width 3; replace-tabs on;
+      ~BlockDataManagerThreadImpl()
+      {
+         delete bdm;
+      }
+   };
+
+   BlockDataManagerThreadImpl *pimpl = nullptr;
+
+   BlockHeader* topBH_ = nullptr;
+
+public:
+   BlockDataManagerThread(const BlockDataManagerConfig &config);
+   ~BlockDataManagerThread();
+
+   // start the BDM thread
+   void start(BDM_INIT_MODE mode);
+
+   BlockDataManager *bdm();
+
+   // return true if the caller should wait on callback notification
+   void shutdown();
+   void join();
+
+   BlockHeader* topBH(void) const { return topBH_; }
+   void cleanUp(void)
+   {
+      if (pimpl == nullptr)
+         return;
+
+      delete pimpl;
+      pimpl = nullptr;
+   }
+
+private:
+   static void* thrun(void *);
+   void run();
+
+private:
+   BlockDataManagerThread(const BlockDataManagerThread&);
+};
 
 #endif

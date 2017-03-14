@@ -27,7 +27,8 @@ sys.path.append('../cppForSwig')
 
 WLTVIEWCOLS = enum('Visible', 'ID', 'Name', 'Secure', 'Bal')
 LEDGERCOLS  = enum('NumConf', 'UnixTime', 'DateStr', 'TxDir', 'WltName', 'Comment', \
-                   'Amount', 'isOther', 'WltID', 'TxHash', 'isCoinbase', 'toSelf', 'DoubleSpend')
+                   'Amount', 'isOther', 'WltID', 'TxHash', 'isCoinbase', 'toSelf', \
+                   'optInRBF')
 ADDRESSCOLS  = enum('ChainIdx', 'Address', 'Comment', 'NumTx', 'Balance')
 ADDRBOOKCOLS = enum('Address', 'WltID', 'NumSent', 'Comment')
 
@@ -110,7 +111,7 @@ class AllWalletsDispModel(QAbstractTableModel):
 
 
    def headerData(self, section, orientation, role=Qt.DisplayRole):
-      colLabels = ['', tr('ID'), tr('Wallet Name'), tr('Security'), tr('Balance')]
+      colLabels = ['', self.tr('ID'), self.tr('Wallet Name'), self.tr('Security'), self.tr('Balance')]
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
             return QVariant( colLabels[section])
@@ -127,139 +128,6 @@ class AllWalletsDispModel(QAbstractTableModel):
             return Qt.ItemFlags()      
             
          return rowFlag
-
-
-   # This might work for checkbox-in-tableview
-   #QStandardItemModel* tableModel = new QStandardItemModel();
-   #// create text item
-   #tableModel->setItem(0, 0, new QStandardItem("text item"));
-   #// create check box item
-   #QStandardItem* item0 = new QStandardItem(true);
-   #item0->setCheckable(true);
-   #item0->setCheckState(Qt::Checked);
-   #item0->setText("some text");
-   #tableModel->setItem(0, 1, item0);
-   #// set model
-   #ui->tableView->setModel(tableModel);
-
-   # Perhaps delegate for rich text in QTableViews
-   #void SpinBoxDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const
-   #{
-        #QTextDocument document;
-        #QVariant value = index.data(Qt::DisplayRole);
-        #if (value.isValid() && !value.isNull()) {
-             #QString text("<span style='background-color: lightgreen'>This</span> is highlighted.");
-        #text.append(" (");
-        #text.append(value.toString());
-        #text.append(")");
-        #document.setHtml(text);
-        #painter->translate(option.rect.topLeft());
-        #document.drawContents(painter);
-        #painter->translate(-option.rect.topLeft());
-   #}
-
-
-# This was an almost-successful attempt to use a delegate to manage visibility
-# Will kind of hack around it, using a simpler delegate and a QTableView 
-# signal to do the toggling
-'''
-class AllWalletsCheckboxDelegate(QStyledItemDelegate):
-   """
-   Taken from http://stackoverflow.com/a/3366899/1610471
-   """
-   def __init__(self, parent=None):
-      super(AllWalletsCheckboxDelegate, self).__init__(parent)   
-
-
-   def createEditor(self, parent, option, index):
-      """ Without this, an editor is created if the user clicks in this cell."""
-      return None
-
-
-   def paint(self, painter, option, index):
-      if not index.column() == WLTVIEWCOLS.Visible:
-         QStyledItemDelegate.paint(self, painter, option, index)
-      else:
-         # Paint a checkbox without the label.
-         checked = bool(index.model().data(index, Qt.DisplayRole))
-         check_box_style_option = QStyleOptionButton()
-
-         if (index.flags() & Qt.ItemIsEditable) > 0:
-            check_box_style_option.state |= QStyle.State_Enabled
-         else:
-            check_box_style_option.state |= QStyle.State_ReadOnly
-
-         if checked:
-            check_box_style_option.state |= QStyle.State_On
-         else:
-            check_box_style_option.state |= QStyle.State_Off
-
-         check_box_style_option.rect = self.getCheckboxRect(option)
-
-         #if not index.model().hasFlag(index, Qt.ItemIsEditable):
-            #check_box_style_option.state |= QStyle.State_ReadOnly
-
-         QApplication.style().drawControl(QStyle.CE_CheckBox, 
-                                          check_box_style_option, 
-                                          painter)
-
-
-   def editorEvent(self, event, model, option, index):
-      """
-      Change the data in the model and the state of the checkbox
-      if the user presses the left mousebutton or presses
-      Key_Space or Key_Select and this cell is editable. Otherwise do nothing.
-      """
-      if index.column()==WLTVIEWCOLS.Visible:
-         #if not (index.flags() & Qt.ItemIsEditable) > 0:
-            #return False
-
-         # Do not change the checkbox-state
-         if event.type() == QEvent.MouseButtonRelease or \
-            event.type() == QEvent.MouseButtonDblClick:
-            if event.button() != Qt.LeftButton or \
-               not self.getCheckboxRect(option).contains(event.pos()):
-               return False
-            if event.type() == QEvent.MouseButtonDblClick:
-               return True
-            elif event.type() == QEvent.KeyPress:
-               if event.key() != Qt.Key_Space and \
-                  event.key() != Qt.Key_Select:
-                  return False
-            else:
-               return False
-
-         # Change the checkbox-state
-         self.setModelData(None, model, index)
-         return True
-      else:
-         return False
-      
-
-
-   def setModelData(self, editor, model, index):
-      """ The user wanted to change the old state in the opposite """
-      newValue = not bool(index.model().data(index, Qt.DisplayRole))
-      model.setData(index, newValue, Qt.EditRole)
-
-
-   def getCheckboxRect(self, option):
-      check_box_style_option = QStyleOptionButton()
-      check_box_rect = QApplication.style().subElementRect( \
-            QStyle.SE_CheckBoxIndicator, check_box_style_option, None)
-      check_box_point = QPoint( option.rect.x() +
-                                option.rect.width() / 2 -
-                                check_box_rect.width() / 2,
-                                option.rect.y() +
-                                option.rect.height() / 2 -
-                                check_box_rect.height() / 2)
-      return QRect(check_box_point, check_box_rect.size())
-
-   def sizeHint(self, option, index):
-      if index.column()==WLTVIEWCOLS.Visible:
-         return QSize(28,28)
-      return QStyledItemDelegate.sizeHint(self, option, index)
-'''
 
 ################################################################################
 class AllWalletsCheckboxDelegate(QStyledItemDelegate):
@@ -330,16 +198,12 @@ class LedgerDispModelSimple(QAbstractTableModel):
       nConf = rowData[LEDGERCOLS.NumConf]
       wltID = rowData[LEDGERCOLS.WltID]
       wlt = self.main.walletMap.get(wltID)
-      
+      optInRBF = rowData[LEDGERCOLS.optInRBF]
+            
       if wlt:
          wtype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
       else:
          wtype = WLTTYPES.WatchOnly
-
-      #LEDGERCOLS  = enum( 'NumConf', 'UnixTime','DateStr', 'TxDir', 
-                         # 'WltName', 'Comment', 'Amount', 'isOther', 
-                         # 'WltID', 'TxHash', 'isCoinbase', 'toSelf', 
-                         # 'DoubleSpend')
 
       if role==Qt.DisplayRole:
          return QVariant(rowData[col])
@@ -353,7 +217,9 @@ class LedgerDispModelSimple(QAbstractTableModel):
       elif role==Qt.DecorationRole:
          pass
       elif role==Qt.BackgroundColorRole:
-         if wtype==WLTTYPES.WatchOnly:
+         if optInRBF is True:
+            return QVariant( Colors.optInRBF )
+         elif wtype==WLTTYPES.WatchOnly:
             return QVariant( Colors.TblWltOther )
          elif wtype==WLTTYPES.Offline:
             return QVariant( Colors.TblWltOffline )
@@ -385,46 +251,50 @@ class LedgerDispModelSimple(QAbstractTableModel):
             isCB  = rowData[COL.isCoinbase]
             isConfirmed = (nConf>119 if isCB else nConf>5)
             if isConfirmed:
-               return QVariant('Transaction confirmed!\n(%d confirmations)'%nConf)
+               return QVariant(self.tr('Transaction confirmed!\n(%1 confirmations)').arg(nConf))
             else:
                tooltipStr = ''
                if isCB:
-                  tooltipStr = '%d/120 confirmations'%nConf
-                  tooltipStr += ( '\n\nThis is a "generation" transaction from\n'
+                  tooltipStr = self.tr('%1/120 confirmations').arg(nConf)
+                  tooltipStr += ( self.tr('\n\nThis is a "generation" transaction from\n'
                                  'Bitcoin mining.  These transactions take\n'
                                  '120 confirmations (approximately one day)\n'
-                                 'before they are available to be spent.')
+                                 'before they are available to be spent.'))
+               elif optInRBF:
+                  tooltipStr = self.tr('This is a mempool replaceable transaction.'
+                               ' Do not consider you have been sent these coins until'
+                               ' this transaction has at least 1 confirmation.')
                else:
-                  tooltipStr = '%d/6 confirmations'%rowData[COL.NumConf]
-                  tooltipStr += ( '\n\nFor small transactions, 2 or 3\n'
-                                 'confirmations is usually acceptable.\n'
-                                 'For larger transactions, you should\n'
-                                 'wait for 6 confirmations before\n'
+                  tooltipStr = self.tr('%1/6 confirmations').arg(rowData[COL.NumConf])
+                  tooltipStr += self.tr( '\n\nFor small transactions, 2 or 3 '
+                                 'confirmations is usually acceptable. '
+                                 'For larger transactions, you should '
+                                 'wait for 6 confirmations before '
                                  'trusting that the transaction is valid.')
                return QVariant(tooltipStr)
          if col==COL.TxDir:
             #toSelf = self.index(index.row(), COL.toSelf).data().toBool()
             toSelf = rowData[COL.toSelf]
             if toSelf:
-               return QVariant('Bitcoins sent and received by the same wallet')
+               return QVariant(self.tr('Bitcoins sent and received by the same wallet'))
             else:
                #txdir = str(index.model().data(index).toString()).strip()
                txdir = rowData[COL.TxDir]
                if rowData[COL.isCoinbase]:
-                  return QVariant('You mined these Bitcoins!')
+                  return QVariant(self.tr('You mined these Bitcoins!'))
                if float(txdir.strip())<0:
-                  return QVariant('Bitcoins sent')
+                  return QVariant(self.tr('Bitcoins sent'))
                else:
-                  return QVariant('Bitcoins received')
+                  return QVariant(self.tr('Bitcoins received'))
          if col==COL.Amount:
             if self.main.settings.get('DispRmFee'):
-               return QVariant('The net effect on the balance of this wallet '
+               return QVariant(self.tr('The net effect on the balance of this wallet '
                                '<b>not including transaction fees.</b>  '
                                'You can change this behavior in the Armory '
-                               'preferences window.')
+                               'preferences window.'))
             else:
-               return QVariant('The net effect on the balance of this wallet, '
-                               'including transaction fees.')
+               return QVariant(self.tr('The net effect on the balance of this wallet, '
+                               'including transaction fees.'))
 
       return QVariant()
 
@@ -433,14 +303,14 @@ class LedgerDispModelSimple(QAbstractTableModel):
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
             if section==COL.NumConf: return QVariant()
-            if section==COL.DateStr: return QVariant('Date')
-            if section==COL.WltName: return QVariant('Lockbox') if self.isLboxModel else QVariant('Wallet')
-            if section==COL.Comment: return QVariant('Comments')
+            if section==COL.DateStr: return QVariant(self.tr('Date'))
+            if section==COL.WltName: return QVariant(self.tr('Lockbox')) if self.isLboxModel else QVariant(self.tr('Wallet'))
+            if section==COL.Comment: return QVariant(self.tr('Comments'))
             if section==COL.TxDir:   return QVariant()
-            if section==COL.Amount:  return QVariant('Amount')
-            if section==COL.isOther: return QVariant('Other Owner')
-            if section==COL.WltID:   return QVariant('Wallet ID')
-            if section==COL.TxHash:  return QVariant('Tx Hash (LE)')
+            if section==COL.Amount:  return QVariant(self.tr('Amount'))
+            if section==COL.isOther: return QVariant(self.tr('Other Owner'))
+            if section==COL.WltID:   return QVariant(self.tr('Wallet ID'))
+            if section==COL.TxHash:  return QVariant(self.tr('Tx Hash (LE)'))
       elif role==Qt.TextAlignmentRole:
          return QVariant( int(Qt.AlignHCenter | Qt.AlignVCenter) )
 
@@ -575,6 +445,14 @@ class LedgerDispModelSimple(QAbstractTableModel):
             blockReturn = leID
       
       return blockReturn
+   
+   def updateIndexComment(self, index, comment):
+      #this allows the code to update comments without the need 
+      #to reload the entire model
+      
+      row = index.row()
+      rowData = self.ledger[row]
+      rowData[LEDGERCOLS.Comment] = comment
   
 ################################################################################
 class CalendarDialog(ArmoryDialog):   
@@ -614,19 +492,19 @@ class ArmoryBlockAndDateSelector():
       self.frmBlockAndDateLayout = QGridLayout()
       self.frmBlockAndDateLayout.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
       
-      self.lblBlock = QLabel("<a href=edtBlock>Block:</a>")
+      self.lblBlock = QLabel(self.main.tr("<a href=edtBlock>Block:</a>"))
       self.lblBlock.linkActivated.connect(self.linkClicked)
       self.lblBlock.adjustSize()
       self.lblBlockValue = QLabel("")
       self.lblBlockValue.adjustSize()
       
-      self.lblDate = QLabel("<a href=edtDate>Date:</a>")
+      self.lblDate = QLabel(self.main.tr("<a href=edtDate>Date:</a>"))
       self.lblDate.linkActivated.connect(self.linkClicked)     
       self.lblDate.adjustSize()
       self.lblDateValue = QLabel("")
       self.lblDateValue.adjustSize()
       
-      self.lblTop = QLabel("<a href=goToTop>Top</a>")
+      self.lblTop = QLabel(self.main.tr("<a href=goToTop>Top</a>"))
       self.lblTop.linkActivated.connect(self.goToTop)
       self.lblTop.adjustSize()
       
@@ -666,8 +544,7 @@ class ArmoryBlockAndDateSelector():
       self.frmBlockAndDate.enterEvent = self.resetHideBlockAndDate
                                                     
       self.dateBlockSelectButton = QPushButton('Goto')
-      self.dateBlockSelectButton.setStyleSheet(\
-            'QPushButton { font-size : 10px }')
+      self.dateBlockSelectButton.setStyleSheet('QPushButton { font-size : 10px }')
       self.dateBlockSelectButton.setMaximumSize(60, 20)  
       self.main.connect(self.dateBlockSelectButton, \
                         SIGNAL('clicked()'), self.showBlockDateController)
@@ -1085,8 +962,9 @@ class WalletAddrDispModel(QAbstractTableModel):
       if row>=len(self.addr160List):
          return QVariant('')
       addr = self.wlt.addrMap[self.addr160List[row]]
-      addr160 = addr.getAddr160()
-      addrB58 = addr.getAddrStr()
+      cppaddr = self.wlt.cppWallet.getAddrObjByIndex(addr.chainIndex)
+      addr160 = cppaddr.getAddrHash()
+      addrB58 = cppaddr.getScrAddr()
       chainIdx = addr.chainIndex+1  # user must get 1-indexed
       if role==Qt.DisplayRole:
          if col==COL.Address: 
@@ -1099,18 +977,16 @@ class WalletAddrDispModel(QAbstractTableModel):
          if col==COL.NumTx: 
             if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
                return QVariant('n/a')
-            cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
-            return QVariant( cppAddr.getTxioCountFromSSH())
+            return QVariant( cppaddr.getTxioCount())
          if col==COL.ChainIdx:
-            if self.wlt.addrMap[addr160].chainIndex==-2:
+            if self.wlt.addrMap[addr.getAddr160()].chainIndex==-2:
                return QVariant('Imported')
             else:
                return QVariant(chainIdx)
          if col==COL.Balance: 
             if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
                return QVariant('(...)')
-            cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
-            return QVariant( coin2str(cppAddr.getFullBalance(), maxZeros=2) )
+            return QVariant( coin2str(cppaddr.getFullBalance(), maxZeros=2) )
       elif role==Qt.TextAlignmentRole:
          if col in (COL.Address, COL.Comment, COL.ChainIdx):
             return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
@@ -1125,13 +1001,12 @@ class WalletAddrDispModel(QAbstractTableModel):
          if col==COL.Balance:
             if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
                return QVariant(Colors.Foreground)
-            cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
-            val = cppAddr.getFullBalance()
+            val = cppaddr.getFullBalance()
             if   val>0: return QVariant(Colors.TextGreen)
             else:       return QVariant(Colors.Foreground)
       elif role==Qt.FontRole:
          try:
-            hasTx = self.wlt.cppWallet.getAddrTotalTxnCount(Hash160ToScrAddr(addr160))>0
+            hasTx = cppaddr.getTxioCount()>0
          except:
             hasTx = False
             
@@ -1150,24 +1025,23 @@ class WalletAddrDispModel(QAbstractTableModel):
          if col==COL.ChainIdx:
             cmt = str(self.index(index.row(),COL.ChainIdx).data().toString())
             if cmt.strip().lower().startswith('imp'):
-               return QVariant('<u></u>This is an imported address. Imported '
-                               'addresses are not protected by regular paper '
-                               'backups.  You must use the "Backup Individual '
-                               'Keys" option to protect it.')
+               return QVariant(self.tr('''<u></u>This is an imported address. Imported 
+                               addresses are not protected by regular paper 
+                               backups.  You must use the "Backup Individual 
+                               Keys" option to protect it.'''))
             else:
-               return QVariant('<u></u>The order that this address was '
-                               'generated in this wallet')
+               return QVariant(self.tr('''<u></u>The order that this address was 
+                               generated in this wallet'''))
          cmt = str(self.index(index.row(),COL.Comment).data().toString())
          if cmt==CHANGE_ADDR_DESCR_STRING:
-            return QVariant('This address was created by Armory to '
-                            'receive change-back-to-self from an oversized '
-                            'transaction.')
+            return QVariant(self.tr('''This address was created by Armory to 
+                            receive change-back-to-self from an oversized 
+                            transaction.'''))
       elif role==Qt.BackgroundColorRole:
          if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
             return QVariant( Colors.TblWltOther )
 
-         cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
-         val = cppAddr.getFullBalance()
+         val = cppaddr.getFullBalance()
          if val>0:
             return QVariant( Colors.SlightGreen )
          else:
@@ -1180,10 +1054,10 @@ class WalletAddrDispModel(QAbstractTableModel):
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
             if section==COL.ChainIdx: return QVariant( '#'        )
-            if section==COL.Address:  return QVariant( 'Address' )
-            if section==COL.Comment:  return QVariant( 'Comment' )
-            if section==COL.NumTx:    return QVariant( '#Tx'     )
-            if section==COL.Balance:  return QVariant( 'Balance' )
+            if section==COL.Address:  return QVariant( self.tr('Address') )
+            if section==COL.Comment:  return QVariant( self.tr('Comment') )
+            if section==COL.NumTx:    return QVariant( self.tr('#Tx')     )
+            if section==COL.Balance:  return QVariant( self.tr('Balance') )
          elif role==Qt.TextAlignmentRole:
             if section in (COL.Address, COL.Comment):
                return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
@@ -1332,15 +1206,15 @@ class TxInDispModel(QAbstractTableModel):
       COLS = TXINCOLS
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
-            if section==COLS.WltID:    return QVariant('Wallet ID')
-            if section==COLS.Sender:   return QVariant('Sender')
-            if section==COLS.Btc:      return QVariant('Amount')
-            if section==COLS.OutPt:    return QVariant('Prev. Tx Hash')
-            if section==COLS.OutIdx:   return QVariant('Index')
-            if section==COLS.FromBlk:  return QVariant('From Block#')
-            if section==COLS.ScrType:  return QVariant('Script Type')
-            if section==COLS.Sequence: return QVariant('Sequence')
-            if section==COLS.Script:   return QVariant('Script')
+            if section==COLS.WltID:    return QVariant(self.tr('Wallet ID'))
+            if section==COLS.Sender:   return QVariant(self.tr('Sender'))
+            if section==COLS.Btc:      return QVariant(self.tr('Amount'))
+            if section==COLS.OutPt:    return QVariant(self.tr('Prev. Tx Hash'))
+            if section==COLS.OutIdx:   return QVariant(self.tr('Index'))
+            if section==COLS.FromBlk:  return QVariant(self.tr('From Block#'))
+            if section==COLS.ScrType:  return QVariant(self.tr('Script Type'))
+            if section==COLS.Sequence: return QVariant(self.tr('Sequence'))
+            if section==COLS.Script:   return QVariant(self.tr('Script'))
       elif role==Qt.TextAlignmentRole:
          if orientation==Qt.Horizontal:
             if section in (COLS.WltID, COLS.Sender, COLS.OutPt):
@@ -1425,10 +1299,10 @@ class TxOutDispModel(QAbstractTableModel):
       COLS = TXOUTCOLS
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
-            if section==COLS.WltID:   return QVariant('Wallet ID')
-            if section==COLS.Recip:   return QVariant('Recipient')
-            if section==COLS.Btc:     return QVariant('Amount')
-            if section==COLS.ScrType: return QVariant('Script Type')
+            if section==COLS.WltID:   return QVariant(self.tr('Wallet ID'))
+            if section==COLS.Recip:   return QVariant(self.tr('Recipient'))
+            if section==COLS.Btc:     return QVariant(self.tr('Amount'))
+            if section==COLS.ScrType: return QVariant(self.tr('Script Type'))
       elif role==Qt.TextAlignmentRole:
          if orientation==Qt.Horizontal:
             if section==COLS.WltID:   return QVariant(Qt.AlignLeft | Qt.AlignVCenter)
@@ -1457,7 +1331,9 @@ class SentToAddrBookModel(QAbstractTableModel):
       # Must use awkwardness to get around iterating a vector<RegisteredTx> in
       # the python code... :(
       addressBook = self.wlt.cppWallet.createAddressBook();
-      for abe in addressBook:     
+      nabe = addressBook.size()
+      for i in range(nabe):
+         abe = addressBook[i]
 
          scrAddr = abe.getScrAddr()
          try:
@@ -1465,12 +1341,8 @@ class SentToAddrBookModel(QAbstractTableModel):
             
             # Only grab addresses that are not in any of your Armory wallets
             if not self.main.getWalletForAddr160(addr160):
-               abeList = abe.getTxList()
-               ntx = len(abeList)
-               txhashlist = []
-               for i in range(ntx):
-                  txhashlist.append( abeList[i].getTxHash() )
-               self.addrBook.append( [scrAddr, txhashlist] )
+               txHashList = abe.getTxHashList()
+               self.addrBook.append( [scrAddr, txHashList] )
          except Exception as e:
             # This is not necessarily an error. It could be a lock box LOGERROR(str(e))
             pass
@@ -1487,7 +1359,7 @@ class SentToAddrBookModel(QAbstractTableModel):
       COL = ADDRBOOKCOLS
       row,col  = index.row(), index.column()
       scrAddr  = self.addrBook[row][0]
-      if scrAddr[0] in [SCRADDR_P2PKH_BYTE, SCRADDR_P2SH_BYTE]:
+      if scrAddr[0] in [ADDRBYTE, P2SHBYTE]:
          addrB58 = scrAddr_to_addrStr(scrAddr)
          addr160 = scrAddr[1:]
       else:
@@ -1523,10 +1395,10 @@ class SentToAddrBookModel(QAbstractTableModel):
       COL = ADDRBOOKCOLS
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
-            if section==COL.Address:  return QVariant( 'Address'    )
-            if section==COL.WltID:    return QVariant( 'Ownership'  )
-            if section==COL.NumSent:  return QVariant( 'Times Used' )
-            if section==COL.Comment:  return QVariant( 'Comment'    )
+            if section==COL.Address:  return QVariant( self.tr('Address'    ))
+            if section==COL.WltID:    return QVariant( self.tr('Ownership'  ))
+            if section==COL.NumSent:  return QVariant( self.tr('Times Used' ))
+            if section==COL.Comment:  return QVariant( self.tr('Comment'    ))
       elif role==Qt.TextAlignmentRole:
          if section in (COL.Address, COL.Comment, COL.WltID):
             return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
@@ -1608,7 +1480,7 @@ class PromissoryCollectModel(QAbstractTableModel):
 
 
    def headerData(self, section, orientation, role=Qt.DisplayRole):
-      colLabels = ['Note ID', 'Label', 'Funding', 'Fee']
+      colLabels = [self.tr('Note ID'), self.tr('Label'), self.tr('Funding'), self.tr('Fee')]
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
             return QVariant(colLabels[section])

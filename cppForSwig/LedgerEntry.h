@@ -2,7 +2,7 @@
 //                                                                            //
 //  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
-//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//  See LICENSE-ATI or http://www.gnu.org/licenses/agpl.html                  //
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 #ifndef _LEDGER_ENTRY_H
@@ -36,6 +36,8 @@
 //    isChangeBack_ - meaningless:  can't quite figure out how to determine
 //                    this unless I do a prescan to determine if all txOuts
 //                    are ours, or just some of them
+//    isOptInRBF_ - is the sequence number opting into RBF
+//    usesWitness - does the input or output use a witness format
 //
 //  BtcWallet -- Each entry corresponds to ONE WHOLE TRANSACTION
 //
@@ -48,6 +50,8 @@
 //    isCoinbase -  is the input side a coinbase/generation input
 //    isSentToSelf_ - if we supplied inputs and rx ALL outputs
 //    isChangeBack_ - if we supplied inputs and rx ANY outputs
+//    isOptInRBF_ -  is there an input that opts into RBF
+//    usesWitness - are the marker and flag for segwit set
 //
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -65,7 +69,9 @@ public:
       txTime_(0),
       isCoinbase_(false),
       isSentToSelf_(false),
-      isChangeBack_(false) {}
+      isChangeBack_(false),
+      isOptInRBF_(false),
+      usesWitness_(false) {}
 
    LedgerEntry(BinaryData const & ID,
                int64_t val, 
@@ -75,7 +81,9 @@ public:
                uint32_t txtime=0,
                bool isCoinbase=false,
                bool isToSelf=false,
-               bool isChange=false) :
+               bool isChange=false,
+               bool isOptInRBF=false,
+               bool usesWitness=false) :
       ID_(ID),
       value_(val),
       blockNum_(blkNum),
@@ -84,7 +92,9 @@ public:
       txTime_(txtime),
       isCoinbase_(isCoinbase),
       isSentToSelf_(isToSelf),
-      isChangeBack_(isChange) {}
+      isChangeBack_(isChange),
+      isOptInRBF_(isOptInRBF),
+      usesWitness_(usesWitness) {}
 
    BinaryData const &  getScrAddr(void) const;
    string              getWalletID(void) const;
@@ -96,6 +106,8 @@ public:
    bool                isCoinbase(void) const   { return isCoinbase_;    }
    bool                isSentToSelf(void) const { return isSentToSelf_;  }
    bool                isChangeBack(void) const { return isChangeBack_;  }
+   bool                isOptInRBF(void) const   { return isOptInRBF_;    }
+   bool                usesWitness(void) const  { return usesWitness_;   }
 
    SCRIPT_PREFIX getScriptType(void) const {return (SCRIPT_PREFIX)ID_[0];}
 
@@ -146,6 +158,8 @@ private:
    bool             isCoinbase_;
    bool             isSentToSelf_;
    bool             isChangeBack_;
+   bool             isOptInRBF_;
+   bool             usesWitness_;
 
    //for matching scrAddr comments to LedgerEntries on the Python side
    set<BinaryData> scrAddrSet_;
@@ -155,6 +169,42 @@ struct LedgerEntry_DescendingOrder
 {
    bool operator() (const LedgerEntry& a, const LedgerEntry& b)
    { return a > b; }
+};
+
+class LedgerDelegate
+{
+   friend class BlockDataViewer;
+
+public:
+   vector<LedgerEntry> getHistoryPage(uint32_t id)
+   {
+      return getHistoryPage_(id);
+   }
+
+   uint32_t getBlockInVicinity(uint32_t blk)
+   {
+      return getBlockInVicinity_(blk);
+   }
+
+   uint32_t getPageIdForBlockHeight(uint32_t blk)
+   {
+      return getPageIdForBlockHeight_(blk);
+   }
+
+private:
+   LedgerDelegate(
+      function<vector<LedgerEntry>(uint32_t)> getHist,
+      function<uint32_t(uint32_t)> getBlock,
+      function<uint32_t(uint32_t)> getPageId) :
+      getHistoryPage_(getHist),
+      getBlockInVicinity_(getBlock),
+      getPageIdForBlockHeight_(getPageId)
+   {}
+
+private:
+   const function<vector<LedgerEntry>(uint32_t)> getHistoryPage_;
+   const function<uint32_t(uint32_t)>            getBlockInVicinity_;
+   const function<uint32_t(uint32_t)>            getPageIdForBlockHeight_;
 };
 
 #endif

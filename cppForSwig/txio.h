@@ -2,7 +2,12 @@
 //                                                                            //
 //  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
-//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//  See LICENSE-ATI or http://www.gnu.org/licenses/agpl.html                  //
+//                                                                            //
+//                                                                            //
+//  Copyright (C) 2016, goatpig                                               //            
+//  Distributed under the MIT license                                         //
+//  See LICENSE-MIT or https://opensource.org/licenses/MIT                    //                                   
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 #ifndef _TXIO_H_
@@ -58,6 +63,8 @@ public:
    void setFromCoinbase(bool isTrue = true) { isFromCoinbase_ = isTrue; }
    bool  isMultisig(void) const { return isMultisig_; }
    void setMultisig(bool isTrue = true) { isMultisig_ = isTrue; }
+   bool isRBF(void) const { return isRBF_; }
+   void setRBF(bool isTrue) { isRBF_ = isTrue; }
 
    BinaryData getDBKeyOfOutput(void) const
    {
@@ -94,14 +101,8 @@ public:
 
    bool isSpent(LMDBBlockDatabase *db) const;
    bool isUnspent(LMDBBlockDatabase *db) const;
-   bool isSpendable(
-      LMDBBlockDatabase *db,
-      uint32_t currBlk = 0, bool ignoreAllZeroConf = false
-      ) const;
-   bool isMineButUnconfirmed(
-      LMDBBlockDatabase *db,
-      uint32_t currBlk, bool includeAllZeroConf = false
-      ) const;
+   bool isSpendable(LMDBBlockDatabase *db, uint32_t currBlk) const;
+   bool isMineButUnconfirmed(LMDBBlockDatabase *db, uint32_t currBlk) const;
    void pprintOneLine(LMDBBlockDatabase *db) const;
 
    bool operator<(TxIOPair const & t2)
@@ -150,6 +151,7 @@ private:
    bool      isTxOutFromSelf_ = false;
    bool      isFromCoinbase_;
    bool      isMultisig_;
+   bool      isRBF_ = false;
 
    //mainly for ZC ledgers. Could replace the need for a blockchain 
    //object to build scrAddrObj ledgers.
@@ -158,7 +160,7 @@ private:
    /***marks txio as spent for serialize/deserialize operations. It signifies
    whether a subSSH entry with only a TxOut DBkey is spent.
 
-   To allow for partial parsing of SSH history, all txouts need to be visible at
+   To allow for partial parsing of ssh history, all txouts need to be visible at
    the height they appeared, amd spent txouts need to be visible at the
    spending txin's height as well.
 

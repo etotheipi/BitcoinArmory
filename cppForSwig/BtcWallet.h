@@ -2,7 +2,12 @@
 //                                                                            //
 //  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
-//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//  See LICENSE-ATI or http://www.gnu.org/licenses/agpl.html                  //
+//                                                                            //
+//                                                                            //
+//  Copyright (C) 2016, goatpig                                               //            
+//  Distributed under the MIT license                                         //
+//  See LICENSE-MIT or https://opensource.org/licenses/MIT                    //                                   
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 #ifndef _BTCWALLET_H
@@ -12,41 +17,22 @@
 #include "BlockObj.h"
 #include "ScrAddrObj.h"
 #include "StoredBlockObj.h"
+#include "bdmenums.h"
+#include "ThreadSafeClasses.h"
+#include "TxClasses.h"
 
-class BlockDataManager_LevelDB;
+class BlockDataManager;
 class BlockDataViewer;
 
-////////////////////////////////////////////////////////////////////////////////
-class AddressBookEntry
+struct ScanWalletStruct
 {
-public:
+   BDV_Action action_;
+   
+   unsigned startBlock_;
+   unsigned endBlock_ = UINT32_MAX;
+   bool reorg_ = false;
 
-   /////
-   AddressBookEntry(void) : scrAddr_(BtcUtils::EmptyHash()) { txList_.clear(); }
-   explicit AddressBookEntry(BinaryData scraddr) : scrAddr_(scraddr) { txList_.clear(); }
-   void addTx(Tx & tx) { txList_.push_back( RegisteredTx(tx) ); }
-   BinaryData getScrAddr(void) { return scrAddr_; }
-
-   /////
-   vector<RegisteredTx> getTxList(void)
-   { 
-      sort(txList_.begin(), txList_.end()); 
-      return txList_;
-   }
-
-   /////
-   bool operator<(AddressBookEntry const & abe2) const
-   {
-      // If one of the entries has no tx (this shouldn't happen), sort by hash
-      if( txList_.size()==0 || abe2.txList_.size()==0)
-         return scrAddr_ < abe2.scrAddr_;
-
-      return (txList_[0] < abe2.txList_[0]);
-   }
-
-private:
-   BinaryData scrAddr_;
-   vector<RegisteredTx> txList_;
+   ScanAddressStruct saStruct_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -62,70 +48,19 @@ class BtcWallet
 
 public:
 
-   enum MergeWallet
-   {
-      NoMerge,
-      NeedsMerging
-   };
-
-   enum MergeAction
-   {
-      NoRescan,
-      Rescan,
-      DeleteAddresses
-   };
-
    BtcWallet(BlockDataViewer* bdv, BinaryData ID)
       : bdvPtr_(bdv), walletID_(ID)
    {}
 
-   BtcWallet(const BtcWallet& wlt) :
-      bdvPtr_(wlt.bdvPtr_), walletID_(wlt.walletID_)
-   {
-      scrAddrMap_ = wlt.scrAddrMap_;
-      balance_ = wlt.balance_;
-   }
-   
-   ~BtcWallet(void);
+   ~BtcWallet(void)
+   {}
+
+   BtcWallet(const BtcWallet& wlt) = delete;
 
    /////////////////////////////////////////////////////////////////////////////
    // addScrAddr when blockchain rescan req'd, addNewScrAddr for just-created
-   void addNewScrAddress(BinaryData addr);
-   void addScrAddress(ScrAddrObj const & newAddr);
-   void addScrAddress(BinaryData    addr, 
-                   uint32_t      firstTimestamp = 0,
-                   uint32_t      firstBlockNum  = 0,
-                   uint32_t      lastTimestamp  = 0,
-                   uint32_t      lastBlockNum   = 0);
-   void addAddressBulk(vector<BinaryData> const & scrAddrBulk,
-                       bool areNew);
+   void addScrAddress(const BinaryData& addr);
    void removeAddressBulk(vector<BinaryData> const & scrAddrBulk);
-
-
-   // SWIG has some serious problems with typemaps and variable arg lists
-   // Here I just create some extra functions that sidestep all the problems
-   // but it would be nice to figure out "typemap typecheck" in SWIG...
-   void addScrAddress_ScrAddrObj_(ScrAddrObj const & newAddr);
-
-   // Adds a new address that is assumed to be imported, and thus will
-   // require a blockchain scan
-   void addScrAddress_1_(BinaryData addr);
-
-   // Adds a new address that we claim has never been seen until thos moment,
-   // and thus there's no point in doing a blockchain rescan.
-   void addNewScrAddress_1_(BinaryData addr) {addNewScrAddress(addr);}
-
-   // Blockchain rescan will depend on the firstBlockNum input
-   void addScrAddress_3_(BinaryData    addr, 
-                      uint32_t      firstTimestamp,
-                      uint32_t      firstBlockNum);
-
-   // Blockchain rescan will depend on the firstBlockNum input
-   void addScrAddress_5_(BinaryData    addr, 
-                      uint32_t      firstTimestamp,
-                      uint32_t      firstBlockNum,
-                      uint32_t      lastTimestamp,
-                      uint32_t      lastBlockNum);
 
    bool hasScrAddress(BinaryData const & scrAddr) const;
 
@@ -147,18 +82,19 @@ public:
    // know what TxOuts are available to spend, you can pass in 0 for currBlk
    uint64_t getFullBalance(void) const;
    uint64_t getFullBalanceFromDB(void) const;
-   uint64_t getSpendableBalance(uint32_t currBlk = 0,
-                                bool ignoreAllZeroConf=true) const;
-   uint64_t getUnconfirmedBalance(uint32_t currBlk,
-                                  bool includeAllZeroConf=true) const;
+   uint64_t getSpendableBalance(uint32_t currBlk) const;
+   uint64_t getUnconfirmedBalance(uint32_t currBlk) const;
 
-   uint64_t getAddrTotalTxnCount(const BinaryData& addr) const;
+   map<BinaryData, uint32_t> getAddrTxnCounts(int32_t updateID) const;
+   map<BinaryData, tuple<uint64_t, uint64_t, uint64_t>> 
+      getAddrBalances(int32_t updateID, unsigned blockheight) const;
+
    uint64_t getWltTotalTxnCount(void) const;
 
-   void prepareTxOutHistory(uint64_t val, bool ignoreZC);
+   void prepareTxOutHistory(uint64_t val);
    void prepareFullTxOutHistory(bool ignoreZC);
-   vector<UnspentTxOut> getSpendableTxOutListForValue(uint64_t val = UINT64_MAX,
-      bool ignoreZC = true);
+   vector<UnspentTxOut> getSpendableTxOutListForValue(uint64_t val = UINT64_MAX);
+   vector<UnspentTxOut> getSpendableTxOutListZC(void);
 
    vector<LedgerEntry>
       getTxLedger(BinaryData const &scrAddr) const;
@@ -171,68 +107,48 @@ public:
    
    void clearBlkData(void);
    
-   vector<AddressBookEntry> createAddressBook(void) const;
+   vector<AddressBookEntry> createAddressBook(void);
 
    void reset(void);
    
-   const map<BinaryData, ScrAddrObj>& getScrAddrMap(void) const
-   { return scrAddrMap_; }
-
-   map<BinaryData, ScrAddrObj>& getScrAddrMap(void)
-   { return scrAddrMap_; }
-
-   size_t getNumScrAddr(void) const { return scrAddrMap_.size(); }
-
    const ScrAddrObj* getScrAddrObjByKey(const BinaryData& key) const;
    ScrAddrObj& getScrAddrObjRef(const BinaryData& key);
 
    const LedgerEntry& getLedgerEntryForTx(const BinaryData& txHash) const;
-   void prepareScrAddrForMerge(const vector<BinaryData>& scrAddr, 
-                               bool isNew,
-                               BinaryData topScannedBlockHash);
-   void markAddressListForDeletion(const vector<BinaryData>& scrAddrVecToDel);
-
 
    void setWalletID(BinaryData const & wltId) { walletID_ = wltId; }
    const BinaryData& walletID() const { return walletID_; }
-
-   uint8_t getMergeFlag(void) { return mergeFlag_; }
 
    const map<BinaryData, LedgerEntry>& getHistoryPage(uint32_t);
    vector<LedgerEntry> getHistoryPageAsVector(uint32_t);
    size_t getHistoryPageCount(void) const { return histPages_.getPageCount(); }
 
-   void needsRefresh(void);
-   void forceScan(void);
+   void needsRefresh(bool refresh);
    bool hasBdvPtr(void) const { return bdvPtr_ != nullptr; }
+
+   void setRegistrationCallback(function<void(void)> lbd)
+   {
+      doneRegisteringCallback_ = lbd;
+   }
 
 private:   
    
-   //new all purpose wallet scanning call, returns true on bootstrap and new block,
-   //false on ZC
-   bool scanWallet(uint32_t startBlock,
-      uint32_t endBlock,
-      bool reorg,
-      const map<BinaryData, vector<BinaryData> >& invalidatedZCKeys);
+   //returns true on bootstrap and new block, false on ZC
+   bool scanWallet(ScanWalletStruct&, int32_t);
 
    //wallet side reorg processing
    void updateAfterReorg(uint32_t lastValidBlockHeight);
-   void scanWalletZeroConf(bool withReorg = false);
-
-   void fetchDBScrAddrData(uint32_t startBlock, uint32_t endBlock);
+   void scanWalletZeroConf(const ScanWalletStruct&, int32_t);
 
    void setRegistered(bool isTrue = true) { isRegistered_ = isTrue; }
-   void purgeZeroConfTxIO(
-      const map<BinaryData, vector<BinaryData> >& invalidatedTxIO);
 
    void updateWalletLedgersFromTxio(map<BinaryData, LedgerEntry>& le,
       const map<BinaryData, TxIOPair>& txioMap,
       uint32_t startBlock, uint32_t endBlock,
       bool purge = false) const;
 
-   void merge(void);
-
    void mapPages(void);
+   bool isPaged(void) const;
 
    BlockDataViewer* getBdvPtr(void) const
    { return bdvPtr_; }
@@ -243,38 +159,19 @@ private:
 
    void getTxioForRange(uint32_t, uint32_t, 
       map<BinaryData, TxIOPair>&) const;
-
-   void sortLedger();
    void unregister(void) { isRegistered_ = false; }
-
    void resetTxOutHistory(void);
+   void resetCounters(void);
 
 private:
 
-   struct mergeStruct
-   {
-      map<BinaryData, ScrAddrObj> scrAddrMapToMerge_;
-      vector<BinaryData>          scrAddrVecToDelete_;
-      BinaryData                  mergeTopScannedBlkHash_;
-      MergeAction                 mergeAction_;
-
-      shared_ptr<mergeStruct> nextMergeData_;
-   };
-
    BlockDataViewer* const        bdvPtr_;
-   map<BinaryData, ScrAddrObj>   scrAddrMap_;
+   TransactionalMap<BinaryData, shared_ptr<ScrAddrObj>> scrAddrMap_;
    
    bool                          ignoreLastScanned_=true;
    map<BinaryData, LedgerEntry>* ledgerAllAddr_ = &LedgerEntry::EmptyLedgerMap_;
                                  
    bool                          isRegistered_=false;
-
-   //BtcWallet(const BtcWallet&); // no copies
-
-   //for post init importing of new addresses
-   mutex                         mergeLock_;
-   shared_ptr<mergeStruct>       mergeData_;
-   MergeWallet                   mergeFlag_ = MergeWallet::NoMerge;
    
    //manages history pages
    HistoryPager                  histPages_;
@@ -286,6 +183,15 @@ private:
 
    //set to true to add wallet paged history to global ledgers 
    bool                          uiFilter_ = true;
+
+   //call this lambda once a wallet is done registering and scanning 
+   //for the first time
+   function<void(void)> doneRegisteringCallback_ = [](void)->void{};
+
+   set<BinaryData> validZcKeys_;
+
+   mutable int lastPulledCountsID_ = -1;
+   mutable int lastPulledBalancesID_ = -1;
 };
 
 #endif

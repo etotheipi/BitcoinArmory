@@ -24,8 +24,8 @@
 # Does not require armory to be installed or running, this is a standalone
 # application. Requires bitcoind process to be running before starting armoryd.
 # Requires an armory wallet (can be watching only) to be in the same folder as
-# the armoryd script. Works with testnet, use --testnet flag when starting the
-# script.
+# the armoryd script. Works with testnet and regtest, use --testnet and --regtest
+# flags respectively when starting the script.
 #
 # BEWARE:
 # This is relatively untested, please use caution. There should be no chance for
@@ -298,12 +298,24 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       The transaction id of the tx that was broadcast
       """
 
-      # Read in the signed Tx data. HANDLE UNREADABLE FILE!!!
-      with open(txASCIIFile, 'r') as lbTxData:
-         allData = lbTxData.read()
+      return self.jsonrpc_sendasciitransactionraw(self.readFile(txASCIIFile))
+
+
+   #############################################################################
+   @catchErrsForJSON
+   def jsonrpc_sendasciitransactionraw(self, txASCII):
+      """
+      DESCRIPTION:
+      Broadcast to the bitcoin network the signed tx in the txASCII.
+      Unlike `sendasciitransaction`, this takes raw data, not a file path.
+      PARAMETERS:
+      txASCII - A signed transaction in ASCII-armored form.
+      RETURN:
+      The transaction id of the tx that was broadcast
+      """
 
       # Try to decipher the Tx and make sure it's actually signed.
-      txObj = UnsignedTransaction().unserializeAscii(allData)
+      txObj = UnsignedTransaction().unserializeAscii(txASCII)
       if not txObj:
          raise InvalidTransaction, "file does not contain a valid tx"
       if not txObj.verifySigsAllInputs():
@@ -311,15 +323,15 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       pytx = txObj.getSignedPyTx()
       newTxHash = pytx.getHash()
-      
+
       def sendGetDataMsg():
          msg = PyMessage('getdata')
          msg.payload.invList.append( [MSG_INV_TX, newTxHash] )
          self.NetworkingFactory.sendMessage(msg)
-      
+
       self.NetworkingFactory.sendTx(pytx)
       reactor.callLater(3, sendGetDataMsg)
-            
+
       return pytx.getHashHex(BIGENDIAN)
 
 
@@ -1275,12 +1287,12 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                ledgerVector = ledgerWlt.getHistoryPageAsVector(pageId)
                for entry in reversed(ledgerVector):
                   ledgerEntries.append(entry)
-               
+
                sz = len(ledgerEntries)
                pageId = pageId + 1
          except:
             pass
-         
+
          lower = min(sz, from_tx)
          upper = min(sz, from_tx+tx_count)
          txSet = set([])
@@ -1643,6 +1655,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                'difficulty':        TheBDM.getTopBlockDifficulty() \
                                     if isReady else -1,
                'testnet':           USE_TESTNET,
+               'regtest':           USE_REGTEST,
                'keypoolsize':       self.curWlt.addrPoolSize
              }
 
@@ -1942,7 +1955,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          cppWlt = self.serverLBCppWalletMap[spendFromLboxID]
          topBlk = TheBDM.getTopBlockHeight()
          spendBal = cppWlt.getSpendableBalance(topBlk, IGNOREZC)
-         utxoList = cppWlt.getSpendableTxOutListForValue(totalSend, IGNOREZC)
+         cppUtxoList = cppWlt.getSpendableTxOutListForValue(totalSend)
+         utxoList = map(lambda tx: PyUnspentTxOut().createFromCppUtxo(tx), cppUtxoList)
 
       if spendBal < totalSend + fee:
          raise NotEnoughCoinsError, "You have %s satoshis which is not enough to send %s satoshis with a fee of %s." % (spendBal, totalSend, fee)
@@ -2012,11 +2026,66 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
-   # Take the ASCII representation of an unsigned Tx (i.e., the data that is
-   # signed by Armory's offline Tx functionality) and returns an ASCII
-   # representation of the signed Tx, with the current wallet signing the Tx.
-   # See SignBroadcastOfflineTxFrame::signTx() (ui/TxFrames.py) for the GUI's
-   # analog. Note this function can sign multisigs as well as normal inputs.
+   # Take the path to ASCII representation of a Tx and return a JSON object
+   # describing it.
+   @catchErrsForJSON
+   def jsonrpc_decodeasciitransaction(self, txASCIIFile):
+      """
+      DESCRIPTION:
+      Describe an ASCII-armored transaction.
+      PARAMETERS:
+      txASCIIFile - The path to a transaction in ASCII-armored form.
+      RETURN:
+      A JSON Map describing the transaction.
+      """
+
+      return self.jsonrpc_decodeasciitransactionraw(self.readFile(txASCIIFile))
+
+   #############################################################################
+   # Take the ASCII representation of a Tx and return a JSON object describing
+   # it.
+   @catchErrsForJSON
+   def jsonrpc_decodeasciitransactionraw(self, txASCII):
+      """
+      DESCRIPTION:
+      Describe an ASCII-armored transaction.
+      PARAMETERS:
+      txASCII - A transaction in ASCII-armored form.
+      RETURN:
+      A JSON Map describing the transaction.
+      """
+
+      ustxObj = None
+      ustxReadable = False
+      allData = ''
+
+      # Try to decipher the Tx.
+      try:
+         ustxObj = UnsignedTransaction().unserializeAscii(txASCII)
+         ustxReadable = True
+      except BadAddressError:
+         LOGERROR('This transaction contains inconsistent information. This ' \
+                  'is probably not your fault...')
+         ustxObj = None
+         ustxReadable = False
+      except NetworkIDError:
+         LOGERROR('This transaction is actually for a different network! Did' \
+                  'you load the correct transaction?')
+         ustxObj = None
+         ustxReadable = False
+      except (UnserializeError, IndexError, ValueError):
+         LOGERROR('This transaction can\'t be read.')
+         ustxObj = None
+         ustxReadable = False
+
+      if ustxObj:
+         return ustxObj.toJSONMap()
+
+      return
+
+   #############################################################################
+   # Take the path of the ASCII representation of an unsigned Tx and sign it.
+   # See `signasciitransactionraw` for more details.
    @catchErrsForJSON
    def jsonrpc_signasciitransaction(self, txASCIIFile):
       """
@@ -2030,17 +2099,36 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       Armory for offline signing.
       """
 
+      return self.jsonrpc_signasciitransactionraw(self.readFile(txASCIIFile))
+
+
+   #############################################################################
+   # Take the ASCII representation of an unsigned Tx (i.e., the data that is
+   # signed by Armory's offline Tx functionality) and returns an ASCII
+   # representation of the signed Tx, with the current wallet signing the Tx.
+   # See SignBroadcastOfflineTxFrame::signTx() (ui/TxFrames.py) for the GUI's
+   # analog. Note this function can sign multisigs as well as normal inputs.
+   @catchErrsForJSON
+   def jsonrpc_signasciitransactionraw(self, txASCII):
+      """
+      DESCRIPTION:
+      Sign whatever parts of the transaction the currently active wallet and/or
+      lockbox can. Unlike `signasciitransaction`, this takes raw data, not
+      a path.
+      PARAMETERS:
+      txASCII - An unsigned transaction in ASCII-armored form.
+      RETURN:
+      An ASCII-formatted semi-signed transaction, similar to the one output by
+      Armory for offline signing.
+      """
+
       ustxObj = None
       ustxReadable = False
       allData = ''
 
-      # Read in the signed Tx data. HANDLE UNREADABLE FILE!!!
-      with open(txASCIIFile, 'r') as lbTxData:
-         allData = lbTxData.read()
-
       # Try to decipher the Tx and make sure it's actually signed.
       try:
-         ustxObj = UnsignedTransaction().unserializeAscii(allData)
+         ustxObj = UnsignedTransaction().unserializeAscii(txASCII)
          ustxReadable = True
       except BadAddressError:
          LOGERROR('This transaction contains inconsistent information. This ' \
@@ -2060,7 +2148,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       # If we have a signed Tx object, let's make sure it's actually usable.
       if ustxObj:
          if not ustxReadable:
-            if not ustxReadable:
                if len(allData) > 0:
                   LOGERROR('The Tx data was read but was corrupt.')
                else:
@@ -2287,7 +2374,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                lockbox with the provided Base58 ID instead of the currently
                active armoryd lockbox.
       outForm - (Default=JSON) If used, armoryd will return the lockbox in a
-                particular format. Choices are "JSON", "Hex", and "Base64".
+                particular format. Choices are "JSON", "Hex", "ASCII", and "Base64".
       RETURN:
       If the lockbox is found, a dictionary with information on the lockbox will
       be returned.
@@ -2322,6 +2409,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             retDict['Hex'] = binary_to_hex(self.lbToUse.serialize())
          elif self.outForm == 'base64':
             retDict['Base64'] = base64.b64encode(binary_to_hex(self.lbToUse.serialize()))
+         elif self.outForm == 'ascii':
+            retDict['ASCII'] = self.lbToUse.serializeAscii()
          else:
             retDict['Error'] = '%s is an invalid output type.' % self.outForm
 
@@ -2668,7 +2757,24 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       DESCRIPTION:
       Get a signed Tx from a file and get the raw hex data to broadcast.
       PARAMETERS:
-      txASCIIFile - The path to a file with a signed transacion.
+      txASCIIFile - Path to a signed transacion in ASCII-armored form.
+      RETURN:
+      A hex string of the raw transaction data to be transmitted.
+      """
+
+      return jsonrpc_gethextxtobroadcastraw(self.readFile(txASCIIFile))
+
+   #############################################################################
+   # Pull in a signed Tx and get the raw Tx hex data to broadcast. This call
+   # works with a regular signed Tx and a signed lockbox Tx if there are already
+   # enough signatures.
+   @catchErrsForJSON
+   def jsonrpc_gethextxtobroadcastraw(self, txASCII):
+      """
+      DESCRIPTION:
+      Get a signed Tx and get the raw hex data to broadcast.
+      PARAMETERS:
+      txASCII - A signed transacion in ASCII-armored form.
       RETURN:
       A hex string of the raw transaction data to be transmitted.
       """
@@ -2682,13 +2788,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       finalTx = None
       self.retStr = 'The transaction data cannot be broadcast'
 
-      # Read in the signed Tx data. HANDLE UNREADABLE FILE!!!
-      with open(txASCIIFile, 'r') as lbTxData:
-         allData = lbTxData.read()
-
       # Try to decipher the Tx and make sure it's actually signed.
       try:
-         ustxObj = UnsignedTransaction().unserializeAscii(allData)
+         ustxObj = UnsignedTransaction().unserializeAscii(txASCII)
          sigStatus = ustxObj.evaluateSigningStatus()
          enoughSigs = sigStatus.canBroadcast
          sigsValid = ustxObj.verifySigsAllInputs()
@@ -2760,6 +2862,18 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    #   """
    #
    #   rpc_server.newTxFunctions[curWlt].append(scrPath)
+
+   #############################################################################
+   # Helper funct that reads files and handles errors.
+   def readFile(self, filePath):
+
+      # Read in the file's data.
+      try:
+         with open(filePath, 'r') as file:
+            return file.read()
+      except IOError as e:
+         LOGERROR('The file at path %s was empty or could not be read.' % filePath)
+         LOGERROR('The read error: %s %s' % (e.errno, e.strerror))
 
 
    #############################################################################
@@ -3043,7 +3157,7 @@ class Armory_Daemon(object):
             # This is LISTEN call for armory RPC server
             reactor.listenTCP(ARMORY_RPC_PORT, \
                               server.Site(secured_resource), \
-                              interface="127.0.0.1")
+                              interface=CLI_OPTIONS.rpcBindAddr)
 
             # Setup the heartbeat function to run every
             reactor.callLater(3, self.Heartbeat)
@@ -3199,7 +3313,8 @@ class Armory_Daemon(object):
       for wltID, wlt in self.WltMap.iteritems():
          LOGWARN('Registering wallet: %s' % wltID)
          wlt.registerWallet()
-      TheBDM.goOnline()
+      if not CLI_OPTIONS.offline:
+         TheBDM.goOnline()
       reactor.run()
 
    #############################################################################

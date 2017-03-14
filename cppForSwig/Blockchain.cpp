@@ -2,9 +2,15 @@
 //                                                                            //
 //  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
-//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//  See LICENSE-ATI or http://www.gnu.org/licenses/agpl.html                  //
+//                                                                            //
+//                                                                            //
+//  Copyright (C) 2016, goatpig                                               //            
+//  Distributed under the MIT license                                         //
+//  See LICENSE-MIT or https://opensource.org/licenses/MIT                    //                                   
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
+
 #include "Blockchain.h"
 #include "util.h"
 
@@ -30,9 +36,12 @@ void Blockchain::clear()
 {
    newlyParsedBlocks_.clear();
    headersByHeight_.resize(0);
+   headersById_.clear();
    headerMap_.clear();
    topBlockPtr_ = genesisBlockBlockPtr_ =
       &headerMap_[genesisHash_];
+
+   topID_.store(0, memory_order_relaxed);
 }
 
 BlockHeader& Blockchain::addBlock(
@@ -49,6 +58,8 @@ BlockHeader& Blockchain::addBlock(
    }
    
    BlockHeader& bh = headerMap_[blockhash] = block;
+   headersById_[block.getThisID()] = &bh;
+   fileNumToKey_[bh.getBlockFileNum()] = bh.getThisID();
    return bh;
 }
 
@@ -60,6 +71,10 @@ BlockHeader& Blockchain::addBlock(
    BlockHeader& bh = addBlock(blockhash, block, false);
    bh.blockHeight_ = height;
    bh.duplicateID_ = dupId;
+
+   auto&& bhID = bh.getThisID();
+   if (topID_.load(memory_order_relaxed) < bhID)
+      topID_.store(bhID, memory_order_relaxed);
 
    return bh;
 }
@@ -75,28 +90,30 @@ BlockHeader& Blockchain::addNewBlock(
    return bh;
 }
 
-Blockchain::ReorganizationState Blockchain::organize()
+Blockchain::ReorganizationState Blockchain::organize(bool verbose)
 {
    ReorganizationState st;
-   st.prevTopBlock = &top();
-   st.reorgBranchPoint = organizeChain();
-   st.prevTopBlockStillValid = !st.reorgBranchPoint;
-   st.hasNewTop = (st.prevTopBlock != &top());
+   st.prevTop = &top();
+   st.reorgBranchPoint = organizeChain(false, verbose);
+   st.prevTopStillValid = !st.reorgBranchPoint;
+   st.hasNewTop = (st.prevTop != &top());
+   st.newTop = &top();
    return st;
 }
 
 Blockchain::ReorganizationState Blockchain::forceOrganize()
 {
    ReorganizationState st;
-   st.prevTopBlock = &top();
+   st.prevTop = &top();
    st.reorgBranchPoint = organizeChain(true);
-   st.prevTopBlockStillValid = !st.reorgBranchPoint;
-   st.hasNewTop = (st.prevTopBlock != &top());
+   st.prevTopStillValid = !st.reorgBranchPoint;
+   st.hasNewTop = (st.prevTop != &top());
+   st.newTop = &top();
    return st;
 }
 
 void Blockchain::setDuplicateIDinRAM(
-   LMDBBlockDatabase* iface, bool forceUpdateDupID)
+   LMDBBlockDatabase* iface)
 {
    for (const auto& block : headerMap_)
    {
@@ -112,8 +129,8 @@ Blockchain::findReorgPointFromBlock(const BinaryData& blkHash)
    BlockHeader *bh = &getHeaderByHash(blkHash);
    
    ReorganizationState st;
-   st.prevTopBlock = bh;
-   st.prevTopBlockStillValid = true;
+   st.prevTop = bh;
+   st.prevTopStillValid = true;
    st.hasNewTop = false;
    st.reorgBranchPoint = nullptr;
 
@@ -123,12 +140,13 @@ Blockchain::findReorgPointFromBlock(const BinaryData& blkHash)
       bh = &getHeaderByHash(prevHash);
    }
 
-   if (bh != st.prevTopBlock)
+   if (bh != st.prevTop)
    {
       st.reorgBranchPoint = bh;
-      st.prevTopBlockStillValid = false;
+      st.prevTopStillValid = false;
    }
 
+   st.newTop = &top();
    return st;
 }
 
@@ -149,6 +167,16 @@ BlockHeader& Blockchain::getHeaderByHeight(unsigned index) const
 
    return *headersByHeight_[index];
 }
+
+const BlockHeader& Blockchain::getHeaderByHeightConst(unsigned index) const
+{
+   auto headerIter = headersByHeight_.cbegin() + index;
+   if (headerIter == headersByHeight_.cend())
+      throw std::range_error("Cannot get block at height " + to_string(index));
+
+   return *(*headerIter);
+}
+
 
 bool Blockchain::hasHeaderByHeight(unsigned height) const
 {
@@ -174,6 +202,14 @@ BlockHeader& Blockchain::getHeaderByHash(HashString const & blkHash)
    else
       return it->second;
 }
+BlockHeader& Blockchain::getHeaderById(uint32_t id) const
+{
+   auto headerIter = headersById_.find(id);
+   if (headerIter == headersById_.end())
+      throw std::range_error("Cannot find block by id");
+
+   return *headerIter->second;
+}
 
 bool Blockchain::hasHeaderWithHash(BinaryData const & txHash) const
 {
@@ -195,20 +231,15 @@ const BlockHeader& Blockchain::getHeaderPtrForTxRef(const TxRef &txr) const
    return bh;
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////
 // Returns nullptr if the new top block is a direct follower of
 // the previous top. Returns the branch point if we had to reorg
 // TODO:  Figure out if there is an elegant way to deal with a forked 
 //        blockchain containing two equal-length chains
-BlockHeader* Blockchain::organizeChain(bool forceRebuild)
+BlockHeader* Blockchain::organizeChain(bool forceRebuild, bool verbose)
 {
-   SCOPED_TIMER("organizeChain");
-
-   // Why did this line not through an error?  I left here to remind 
-   // myself to go figure it out.
-   //LOGINFO << ("Organizing chain", (forceRebuild ? "w/ rebuild" : ""));
-   LOGDEBUG << "Organizing chain " << (forceRebuild ? "w/ rebuild" : "");
+   if (verbose)
+      LOGDEBUG << "Organizing chain " << (forceRebuild ? "w/ rebuild" : "");
 
    
    // If rebuild, we zero out any original organization data and do a 
@@ -231,7 +262,10 @@ BlockHeader* Blockchain::organizeChain(bool forceRebuild)
          iter->second.isMainBranch_   =  false;
       }
       topBlockPtr_ = NULL;
+      topID_.store(0, memory_order_relaxed);
    }
+
+   unsigned topID = topID_.load(memory_order_relaxed);
 
    // Set genesis block
    BlockHeader & genBlock = getGenesisBlock();
@@ -287,15 +321,8 @@ BlockHeader* Blockchain::organizeChain(bool forceRebuild)
       thisHeaderPtr->isOrphan_       = false;
       headersByHeight_[thisHeaderPtr->getBlockHeight()] = thisHeaderPtr;
 
-      // This loop not necessary anymore with the DB implementation
-      // We need to guarantee that the txs are pointing to the right block
-      // header, because they could've been linked to an invalidated block
-      //for(uint32_t i=0; i<thisHeaderPtr->getTxRefPtrList().size(); i++)
-      //{
-         //TxRef & tx = *(thisHeaderPtr->getTxRefPtrList()[i]);
-         //tx.setHeaderPtr(thisHeaderPtr);
-         //tx.setMainBranch(true);
-      //}
+      if (thisHeaderPtr->uniqueID_ > topID)
+         topID = thisHeaderPtr->uniqueID_;
 
       HashString & childHash    = thisHeaderPtr->thisHash_;
       thisHeaderPtr             = &(headerMap_[thisHeaderPtr->getPrevHash()]);
@@ -309,6 +336,7 @@ BlockHeader* Blockchain::organizeChain(bool forceRebuild)
    thisHeaderPtr->isMainBranch_ = true;
    headersByHeight_[thisHeaderPtr->getBlockHeight()] = thisHeaderPtr;
 
+   topID_.store(topID, memory_order_relaxed);
 
    // Force a full rebuild to make sure everything is marked properly
    // On a full rebuild, prevChainStillValid should ALWAYS be true
@@ -410,15 +438,95 @@ void Blockchain::putBareHeaders(LMDBBlockDatabase *db, bool updateDupID)
 /////////////////////////////////////////////////////////////////////////////
 void Blockchain::putNewBareHeaders(LMDBBlockDatabase *db)
 {
+   unique_lock<mutex> lock(mu_);
+
+   if (newlyParsedBlocks_.size() == 0)
+      return;
+
+   //create transaction here to batch the write
+   LMDBEnv::Transaction tx;
+   db->beginDBTransaction(&tx, HEADERS, LMDB::ReadWrite);
+
+   vector<BlockHeader*> unputHeaders;
    for (auto& block : newlyParsedBlocks_)
    {
-      StoredHeader sbh;
-      sbh.createFromBlockHeader(*block);
-      uint8_t dup = db->putBareHeader(sbh, true);
-      block->setDuplicateID(dup);  // make sure headerMap_ and DB agree
+      if (block->blockHeight_ != UINT32_MAX)
+      {
+         StoredHeader sbh;
+         sbh.createFromBlockHeader(*block);
+         //don't update SDBI, we'll do it here once instead
+         uint8_t dup = db->putBareHeader(sbh, true, false);
+         block->setDuplicateID(dup);  // make sure headerMap_ and DB agree
+      }
+      else
+      {
+         unputHeaders.push_back(block);
+      }
    }
+
+   //update SDBI, keep within the batch transaction
+   auto&& sdbiH = db->getStoredDBInfo(HEADERS, 0);
+
+   if (topBlockPtr_ == nullptr)
+   {
+      LOGINFO << "No known top block, didn't update SDBI";
+      return;
+   }
+
+   if (topBlockPtr_->blockHeight_ >= sdbiH.topBlkHgt_)
+   {
+      sdbiH.topBlkHgt_ = topBlockPtr_->blockHeight_;
+      sdbiH.topScannedBlkHash_ = topBlockPtr_->thisHash_;
+      db->putStoredDBInfo(HEADERS, sdbiH, 0);
+   }
+
 
    //once commited to the DB, they aren't considered new anymore, 
    //so clean up the container
-   newlyParsedBlocks_.clear();
+   newlyParsedBlocks_ = unputHeaders;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+set<uint32_t> Blockchain::addBlocksInBulk(
+   const map<HashString, BlockHeader>& bhMap)
+{
+   set<uint32_t> returnSet;
+   unique_lock<mutex> lock(mu_);
+
+   for (auto& header : bhMap)
+   {
+      auto iter = headerMap_.insert(header);
+      if (!iter.second)
+      {
+         if (iter.first->second.dataCopy_.getSize() == HEADER_SIZE)
+            continue;
+
+         iter.first->second = header.second;
+      }
+
+      auto& newheader = iter.first->second;
+      headersById_[newheader.getThisID()] = &newheader;
+      fileNumToKey_[newheader.getBlockFileNum()] = newheader.getThisID();
+      newlyParsedBlocks_.push_back(&newheader);
+      returnSet.insert(newheader.getThisID());
+   }
+
+   return returnSet;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void Blockchain::forceAddBlocksInBulk(
+   const map<HashString, BlockHeader>& bhMap)
+{
+   unique_lock<mutex> lock(mu_);
+
+   for (auto& headerPair : bhMap)
+   {
+      auto& header = headerMap_[headerPair.first];
+      header = headerPair.second;
+
+      headersById_[header.getThisID()] = &header;
+      fileNumToKey_[header.getBlockFileNum()] = header.getThisID();
+      newlyParsedBlocks_.push_back(&header);
+   }
 }

@@ -2,7 +2,7 @@
 //                                                                            //
 //  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
-//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//  See LICENSE-ATI or http://www.gnu.org/licenses/agpl.html                  //
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -61,7 +61,11 @@
 #include <fstream>
 #include <iostream>
 #include <stdio.h>
+#include <thread>
+#include <mutex>
+#include <memory>
 #include "OS_TranslatePath.h"
+#include "make_unique.h"
 
 #define FILEANDLINE "(" << __FILE__ << ":" << __LINE__ << ") "
 #define LOGERR    (LoggerObj(LogLvlError ).getLogStream() << FILEANDLINE )
@@ -122,8 +126,26 @@ public:
 ////////////////////////////////////////////////////////////////////////////////
 class DualStream : public LogStream
 {
+protected:
+   mutex mu_;
+   unique_ptr<unique_lock<mutex>> thisLock_ = nullptr;
+
 public:
-   DualStream(void) : noStdout_(false) {}
+   DualStream(void) : noStdout_(false) {
+      thisLock_ = make_unique<unique_lock<mutex>>(mu_);
+   }
+
+   ~DualStream(void)
+   {
+      thisLock_.reset();
+      thisLock_ = nullptr;
+   }
+
+   void unlock(void)
+   {
+      thisLock_.reset();
+      thisLock_ = nullptr;
+   }
 
    void enableStdOut(bool newbool) { noStdout_ = !newbool; }
 
@@ -157,7 +179,6 @@ public:
       else
       {
          // Otherwise, seek to <maxSize> before end of log file
-         ifstream is(OS_TranslatePath(logfile.c_str()), ios::in|ios::binary);
          is.seekg(fsize - maxSizeInBytes);
 
          // Allocate buffer to hold the rest of the file (about maxSizeInBytes)
@@ -249,6 +270,7 @@ public:
          if (filename != nullptr)
          {
             theOneLog->ds_.setLogFile(string(filename));
+            theOneLog->ds_.unlock();
             theOneLog->isInitialized_ = true;
          }
       }
@@ -297,8 +319,8 @@ public:
 protected:
     DualStream ds_;
     NullStream ns_;
-    int logLevel_;
-    bool isInitialized_;
+    int logLevel_ = LogLvlInfo;
+    bool isInitialized_ = false;
     bool disableStdout_;
 private:
     Log(const Log&);

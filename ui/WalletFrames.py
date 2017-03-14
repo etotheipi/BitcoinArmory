@@ -6,6 +6,8 @@
 #                                                                              #
 ################################################################################
 
+import math
+
 from PyQt4.Qt import * #@UnusedWildImport
 from PyQt4.QtGui import * #@UnusedWildImport
 
@@ -23,27 +25,26 @@ class LockboxSelectFrame(ArmoryFrame):
       self.cppWlt = self.main.cppLockboxWltMap[spendFromLBID]
 
       if not self.lbox:
-         QMessageBox.warning(self, tr("Invalid Lockbox"), tr(""" There was 
-         an error loading the specified lockbox (%s).""") % spendFromLBID, 
+         QMessageBox.warning(self, self.tr("Invalid Lockbox"), self.tr(""" There was 
+         an error loading the specified lockbox (%1).""").arg(spendFromLBID),
          QMessageBox.Ok)
          self.reject()
          return
 
-      lblSpendFromLB = QRichLabel(tr(""" <font color="%s" size=4><b><u>Lockbox   
-         %s (%d-of-%d)</u></b></font>""") % (htmlColor('TextBlue'), \
-         self.lbox.uniqueIDB58, self.lbox.M, self.lbox.N))
+      lblSpendFromLB = QRichLabel(self.tr(""" <font color="%1" size=4><b><u>Lockbox
+         %2 (%3-of-%4)</u></b></font>""").arg(htmlColor('TextBlue'), self.lbox.uniqueIDB58).arg(self.lbox.M).arg(self.lbox.N))
       lblSpendFromLB.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
       lbls = []
-      lbls.append(QRichLabel("Lockbox ID:", doWrap=False))
-      lbls.append(QRichLabel("Name:", doWrap=False))
-      lbls.append(QRichLabel("Description:", doWrap=False))
-      lbls.append(QRichLabel("Spendable BTC:", doWrap=False))
+      lbls.append(QRichLabel(self.tr("Lockbox ID:"), doWrap=False))
+      lbls.append(QRichLabel(self.tr("Name:"), doWrap=False))
+      lbls.append(QRichLabel(self.tr("Description:"), doWrap=False))
+      lbls.append(QRichLabel(self.tr("Spendable BTC:"), doWrap=False))
 
       layoutDetails = QGridLayout()
       for i,lbl in enumerate(lbls):
          lbl.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-         lbl.setText('<b>' + str(lbls[i].text()) + '</b>')
+         lbl.setText('<b>' + unicode(lbls[i].text()) + '</b>')
          layoutDetails.addWidget(lbl, i+1, 0)
          
       # LockboxID
@@ -61,7 +62,7 @@ class LockboxSelectFrame(ArmoryFrame):
       self.dispDescr = QRichLabel(dispDescr)
       self.dispDescr.setWordWrap(True)
       self.dispDescr.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-      bal = self.cppWlt.getSpendableBalance(TheBDM.getTopBlockHeight(), IGNOREZC)
+      bal = self.cppWlt.getSpendableBalance()
       self.dispBal = QMoneyLabel(bal, wBold=True)
       self.dispBal.setTextFormat(Qt.RichText)
 
@@ -102,6 +103,8 @@ class SelectWalletFrame(ArmoryFrame):
       super(SelectWalletFrame, self).__init__(parent, main)
       self.coinControlCallback = coinControlCallback
 
+      self.dlgcc = None
+      
       self.walletComboBox = QComboBox()
       self.walletListBox  = QListWidget()
       self.balAtLeast = atLeast
@@ -109,9 +112,9 @@ class SelectWalletFrame(ArmoryFrame):
       self.doVerticalLayout = layoutDir==VERTICAL
 
       if self.main and len(self.main.walletMap) == 0:
-         QMessageBox.critical(self, 'No Wallets!', \
-            'There are no wallets to select from.  Please create or import '
-            'a wallet first.', QMessageBox.Ok)
+         QMessageBox.critical(self, self.tr('No Wallets!'), \
+            self.tr('There are no wallets to select from.  Please create or import '
+            'a wallet first.'), QMessageBox.Ok)
          self.accept()
          return
       
@@ -153,14 +156,14 @@ class SelectWalletFrame(ArmoryFrame):
       layout =  QVBoxLayout() 
 
       lbls = []
-      lbls.append(QRichLabel("Wallet ID:", doWrap=False))
-      lbls.append(QRichLabel("Name:", doWrap=False))
-      lbls.append(QRichLabel("Description:", doWrap=False))
-      lbls.append(QRichLabel("Spendable BTC:", doWrap=False))
+      lbls.append(QRichLabel(self.tr("Wallet ID:"), doWrap=False))
+      lbls.append(QRichLabel(self.tr("Name:"), doWrap=False))
+      lbls.append(QRichLabel(self.tr("Description:"), doWrap=False))
+      lbls.append(QRichLabel(self.tr("Spendable BTC:"), doWrap=False))
 
       for i in range(len(lbls)):
          lbls[i].setAlignment(Qt.AlignLeft | Qt.AlignTop)
-         lbls[i].setText('<b>' + str(lbls[i].text()) + '</b>')
+         lbls[i].setText('<b>' + unicode(lbls[i].text()) + '</b>')
          
       self.dispID = QRichLabel('')
       self.dispName = QRichLabel('')
@@ -191,9 +194,9 @@ class SelectWalletFrame(ArmoryFrame):
       frmLayout.addWidget(self.dispDescr,  2, 2, 1, 1)
       frmLayout.addWidget(self.dispBal,    3, 2, 1, 1)
       if coinControlCallback:
-         self.lblCoinCtrl = QRichLabel('Source: All addresses', doWrap=False)
+         self.lblCoinCtrl = QRichLabel(self.tr('Source: All addresses'), doWrap=False)
          frmLayout.addWidget(self.lblCoinCtrl, 4, 2, 1, 1)
-         self.btnCoinCtrl = QPushButton('Coin Control')
+         self.btnCoinCtrl = QPushButton(self.tr('Coin Control'))
          self.connect(self.btnCoinCtrl, SIGNAL(CLICKED), self.doCoinCtrl)
          frmLayout.addWidget(self.btnCoinCtrl, 4, 0, 1, 2)
       frmLayout.setColumnStretch(0, 1)
@@ -234,24 +237,29 @@ class SelectWalletFrame(ArmoryFrame):
 
    def doCoinCtrl(self):
       wlt = self.main.walletMap[self.getSelectedWltID()]
-      dlgcc = DlgCoinControl(self, self.main, wlt, self.sourceAddrList)
-      if dlgcc.exec_():
-         self.sourceAddrList = [x[0] for x in dlgcc.coinControlList]
-         self.altBalance = sum([x[1] for x in dlgcc.coinControlList])
+      if self.dlgcc == None:
+         self.dlgcc = \
+            CoinControlDlg(self, self.main, wlt, self.customUtxoList)
+
+      if not self.dlgcc.exec_():
+         return
       
-         nAddr = len(self.sourceAddrList)
-         if self.altBalance == wlt.getBalance('Spendable'):
-            self.lblCoinCtrl.setText('Source: All addresses')
-            self.sourceAddrList = None
-            self.altBalance = None
-         elif nAddr == 0:
-            self.lblCoinCtrl.setText('Source: None selected')
-         elif nAddr == 1:
-            aStr = hash160_to_addrStr(self.sourceAddrList[0])
-            self.lblCoinCtrl.setText('Source: %s...' % aStr[:12])
-         elif nAddr > 1:
-            self.lblCoinCtrl.setText('Source: %d addresses' % nAddr)
-         self.updateOnCoinControl()
+      self.customUtxoList = self.dlgcc.getCustomUtxoList()
+      self.altBalance = sum([x.getValue() for x in self.customUtxoList])
+      self.useAllCCList = self.dlgcc.isUseAllChecked()
+      
+      nUtxo = len(self.customUtxoList)
+      if self.altBalance == wlt.getBalance('Spendable'):
+         self.lblCoinCtrl.setText(self.tr('Source: All addresses'))
+      elif nUtxo == 0:
+         self.lblCoinCtrl.setText(self.tr('Source: None selected'))
+      elif nUtxo == 1:
+         utxo = self.customUtxoList[0]
+         aStr = hash160_to_addrStr(utxo.getRecipientHash160())
+         self.lblCoinCtrl.setText(self.tr('Source: %1...').arg(aStr[:12]))
+      elif nUtxo > 1:
+         self.lblCoinCtrl.setText(self.tr('Source: %1 Outputs').arg(nUtxo))
+      self.updateOnCoinControl()
          
    def updateOnWalletChange(self, ignoredInt=None):
       """
@@ -287,16 +295,19 @@ class SelectWalletFrame(ArmoryFrame):
          # Reset the coin control variables after a new wallet is selected
          if self.coinControlCallback:
             self.altBalance = None
-            self.sourceAddrList = None
+            self.customUtxoList = None
+            self.useAllCCList = False
             self.btnCoinCtrl.setEnabled(wlt.getBalance('Spendable')>0)
-            self.lblCoinCtrl.setText('Source: All addresses' if wlt.getBalance('Spendable')>0 else\
-                                     'Source: 0 addresses' )
+            self.lblCoinCtrl.setText(self.tr('Source: All addresses') if wlt.getBalance('Spendable')>0 else\
+                                     self.tr('Source: 0 addresses' ))
+            self.dlgcc = None
             self.updateOnCoinControl()
       
    def updateOnCoinControl(self):
-      useAllAddr = (self.altBalance == None)
       wlt = self.main.walletMap[self.getSelectedWltID()]
-      fullBal = wlt.getBalance('Spendable')
+      fullBal = wlt.getBalance('Spendable')      
+      useAllAddr = (self.altBalance == fullBal or self.altBalance == None)
+
       if useAllAddr:
          self.dispID.setText(wlt.uniqueIDB58)
          self.dispName.setText(wlt.labelName)
@@ -308,17 +319,18 @@ class SelectWalletFrame(ArmoryFrame):
       else:
          self.dispID.setText(wlt.uniqueIDB58 + '*')
          self.dispName.setText(wlt.labelName + '*')
-         self.dispDescr.setText('*Coin Control Subset*', color='TextBlue', bold=True)
+         self.dispDescr.setText(self.tr('*Coin Control Subset*'), color='TextBlue', bold=True)
          self.dispBal.setText(coin2str(self.altBalance, maxZeros=0), color='TextBlue')
          rawValTxt = str(self.dispBal.text())
          self.dispBal.setText(rawValTxt + ' <font color="%s">(of %s)</font>' % \
                                     (htmlColor('DisableFG'), coin2str(fullBal, maxZeros=0)))
 
       if not TheBDM.getState() == BDM_BLOCKCHAIN_READY:
-         self.dispBal.setText('(available when online)', color='DisableFG')
+         self.dispBal.setText(self.tr('(available when online)'), color='DisableFG')
       self.repaint()
       if self.coinControlCallback:
-         self.coinControlCallback(self.sourceAddrList, self.altBalance)
+         self.coinControlCallback(\
+            self.customUtxoList, self.altBalance, self.useAllCCList)
 
 
 
@@ -337,16 +349,22 @@ class NewWalletFrame(ArmoryFrame):
       self.editName.setMinimumWidth(tightSizeNChar(self.editName,\
                                  WALLET_DATA_ENTRY_FIELD_WIDTH)[0])
       self.editName.setText(initLabel)
-      lblName = QLabel("Wallet &name:")
+      lblName = QLabel(self.tr("Wallet &name:"))
       lblName.setBuddy(self.editName)
 
       self.editDescription = QTextEdit()
       self.editDescription.setMaximumHeight(75)
       self.editDescription.setMinimumWidth(tightSizeNChar(self.editDescription,\
                                  WALLET_DATA_ENTRY_FIELD_WIDTH)[0])
-      lblDescription = QLabel("Wallet &description:")
+      lblDescription = QLabel(self.tr("Wallet &description:"))
       lblDescription.setAlignment(Qt.AlignVCenter)
       lblDescription.setBuddy(self.editDescription)
+
+      self.useManualEntropy = QCheckBox()
+      lblManualEntropy = QLabel(self.tr("Add Manual &Entropy"))
+      lblManualEntropy.setAlignment(Qt.AlignVCenter)
+      lblManualEntropy.setBuddy(self.useManualEntropy)
+
    
       # breaking this up into tabs
       frameLayout = QVBoxLayout()
@@ -356,12 +374,15 @@ class NewWalletFrame(ArmoryFrame):
       nameFrame = makeHorizFrame([lblName, STRETCH, self.editName])
       descriptionFrame = makeHorizFrame([lblDescription,
                                          STRETCH, self.editDescription])
-      basicQTab = makeVertFrame([nameFrame, descriptionFrame, STRETCH])
-      newWalletTabs.addTab(basicQTab, "Configure")
+      entropyFrame = makeHorizFrame([self.useManualEntropy,
+                                     lblManualEntropy, STRETCH])
+      basicQTab = makeVertFrame([nameFrame, descriptionFrame,
+                                 entropyFrame, STRETCH])
+      newWalletTabs.addTab(basicQTab, self.tr("Configure"))
       
       # Fork watching-only wallet
       self.advancedOptionsTab = AdvancedOptionsFrame(parent, main)
-      newWalletTabs.addTab(self.advancedOptionsTab, "Advanced Options")
+      newWalletTabs.addTab(self.advancedOptionsTab, self.tr("Advanced Options"))
 
       frameLayout.addWidget(newWalletTabs)
       self.setLayout(frameLayout)
@@ -376,6 +397,9 @@ class NewWalletFrame(ArmoryFrame):
 
    def getKdfBytes(self):
       return self.advancedOptionsTab.getKdfBytes()
+
+   def getManualEncryption(self):
+      return self.useManualEntropy.isChecked()
    
    def getName(self):
       return str(self.editName.text())
@@ -387,38 +411,38 @@ class AdvancedOptionsFrame(ArmoryFrame):
    def __init__(self, parent, main, initLabel=''):
       super(AdvancedOptionsFrame, self).__init__(parent, main)
       lblComputeDescription = QRichLabel( \
-                  'Armory will test your system\'s speed to determine the most '
-                  'challenging encryption settings that can be performed '
+                  self.tr('Armory will test your system\'s speed to determine the most '
+                  'challenging encryption settings that can be applied '
                   'in a given amount of time.  High settings make it much harder '
                   'for someone to guess your passphrase.  This is used for all '
-                  'encrypted wallets, but the default parameters can be changed below.\n')
+                  'encrypted wallets, but the default parameters can be changed below.\n'))
       lblComputeDescription.setWordWrap(True)
       timeDescriptionTip = main.createToolTipWidget( \
-                  'This is the amount of time it will take for your computer '
+                  self.tr('This is the amount of time it will take for your computer '
                   'to unlock your wallet after you enter your passphrase. '
                   '(the actual time used will be less than the specified '
-                  'time, but more than one half of it).  ')
+                  'time, but more than one half of it).  '))
       
       # Set maximum compute time
       self.editComputeTime = QLineEdit()
       self.editComputeTime.setText('250 ms')
       self.editComputeTime.setMaxLength(12)
-      lblComputeTime = QLabel('Target compute &time (s, ms):')
+      lblComputeTime = QLabel(self.tr('Target compute &time (s, ms):'))
       memDescriptionTip = main.createToolTipWidget( \
-                  'This is the <b>maximum</b> memory that will be '
+                  self.tr('This is the <b>maximum</b> memory that will be '
                   'used as part of the encryption process.  The actual value used '
                   'may be lower, depending on your system\'s speed.  If a '
                   'low value is chosen, Armory will compensate by chaining '
                   'together more calculations to meet the target time.  High '
                   'memory target will make GPU-acceleration useless for '
-                  'guessing your passphrase.')
+                  'guessing your passphrase.'))
       lblComputeTime.setBuddy(self.editComputeTime)
 
       # Set maximum memory usage
       self.editComputeMem = QLineEdit()
       self.editComputeMem.setText('32.0 MB')
       self.editComputeMem.setMaxLength(12)
-      lblComputeMem  = QLabel('Max &memory usage (kB, MB):')
+      lblComputeMem  = QLabel(self.tr('Max &memory usage (kB, MB):'))
       lblComputeMem.setBuddy(self.editComputeMem)
 
       self.editComputeTime.setMaximumWidth( tightSizeNChar(self, 20)[0] )
@@ -464,23 +488,88 @@ class AdvancedOptionsFrame(ArmoryFrame):
       except:
          pass
       return kdfBytes
+
+
+class CardDeckFrame(ArmoryFrame):
+   def __init__(self, parent, main, initLabel=''):
+      super(CardDeckFrame, self).__init__(parent, main)
+
+      layout = QGridLayout()
+      
+      lblDlgDescr = QLabel(self.tr('Please shuffle a deck of cards and enter the first 40 cards in order below to get at least 192 bits of entropy to properly randomize.\n\n'))
+      lblDlgDescr.setWordWrap(True)
+      layout.addWidget(lblDlgDescr, 0, 0, 1, 13)
+
+      self.cards = []
+
+      for row, suit in enumerate('shdc'):
+         for col, rank in enumerate('A23456789TJQK'):
+            card = QPixmapButton("img/%s%s.png" %(rank,suit))
+            card.nameText = rank + suit
+            self.connect(card, SIGNAL(CLICKED), self.cardClicked)
+
+            layout.addWidget(card,row+1, col, 1, 1)
+            self.cards.append(card)
+
+      self.currentDeck = QLabel("")
+      layout.addWidget(self.currentDeck, 5,0,1,13)
+      self.currentNum = QLabel("")
+      layout.addWidget(self.currentNum, 6,0,1,13)
+
+      self.cardCount = 0
+
+      self.setLayout(layout)
+
+   def cardClicked(self):
+      # we need to know which one was clicked
+      button = self.sender()
+      card = button.nameText
+      self.currentDeck.setText(self.currentDeck.text() + " " + card)
+
+      self.cardCount += 1
+      self.cards.append(card)
+      button.setDisabled(True)
+      bits = int(math.log(
+         math.factorial(52) / math.factorial(52-self.cardCount),2))
+      self.currentNum.setText(self.tr("Entropy: %1 bits") % bits)
+
+   def getEntropy(self):
+      cards = filter(lambda x: x != '', str(self.currentDeck.text()).split(' '))
+      
+      orderedCards = []
+      for suit in 'shdc':
+         for rank in 'A23456789TJQK':
+            orderedCards.append(rank+suit)
+
+      num = 0
+      for card in cards:
+         num *= len(orderedCards)
+         curIndex = orderedCards.index(card)
+         orderedCards = orderedCards[:curIndex] + orderedCards[curIndex+1:]
+         num += curIndex
+      return num
+
+   def hasGoodEntropy(self):
+      # 52!/13! > 2**192
+      return self.cardCount >= 39
+
       
 class SetPassphraseFrame(ArmoryFrame):
    def __init__(self, parent, main, initLabel='', passphraseCallback=None):
       super(SetPassphraseFrame, self).__init__(parent, main)
       self.passphraseCallback = passphraseCallback
       layout = QGridLayout()
-      lblDlgDescr = QLabel('Please enter a passphrase for wallet encryption.\n\n'
+      lblDlgDescr = QLabel(self.tr('Please enter a passphrase for wallet encryption.\n\n'
                            'A good passphrase consists of at least 10 or more\n'
-                           'random letters, or 6 or more random words.\n')
+                           'random letters, or 6 or more random words.\n'))
       lblDlgDescr.setWordWrap(True)
       layout.addWidget(lblDlgDescr, 0, 0, 1, 2)
-      lblPwd1 = QLabel("New Passphrase:")
+      lblPwd1 = QLabel(self.tr("New Passphrase:"))
       self.editPasswd1 = QLineEdit()
       self.editPasswd1.setEchoMode(QLineEdit.Password)
       self.editPasswd1.setMinimumWidth(MIN_PASSWD_WIDTH(self))
 
-      lblPwd2 = QLabel("Again:")
+      lblPwd2 = QLabel(self.tr("Again:"))
       self.editPasswd2 = QLineEdit()
       self.editPasswd2.setEchoMode(QLineEdit.Password)
       self.editPasswd2.setMinimumWidth(MIN_PASSWD_WIDTH(self))
@@ -515,19 +604,19 @@ class SetPassphraseFrame(ArmoryFrame):
       if not isASCII(unicode(p1)) or \
          not isASCII(unicode(p2)):
          if sideEffects:
-            self.lblMatches.setText('<font color=%s><b>Passphrase is non-ASCII!</b></font>' % badColor)
+            self.lblMatches.setText(self.tr('<font color=%1><b>Passphrase is non-ASCII!</b></font>').arg(badColor))
          result = False
       elif not p1 == p2:
          if sideEffects:
-            self.lblMatches.setText('<font color=%s><b>Passphrases do not match!</b></font>' % badColor)
+            self.lblMatches.setText(self.tr('<font color=%1><b>Passphrases do not match!</b></font>').arg(badColor))
          result = False
       elif len(p1) < 5:
          if sideEffects:
-            self.lblMatches.setText('<font color=%s><b>Passphrase is too short!</b></font>' % badColor)
+            self.lblMatches.setText(self.tr('<font color=%1><b>Passphrase is too short!</b></font>').arg(badColor))
          result = False
       if sideEffects:
          if result:
-            self.lblMatches.setText('<font color=%s><b>Passphrases match!</b></font>' % goodColor)
+            self.lblMatches.setText(self.tr('<font color=%1><b>Passphrases match!</b></font>').arg(goodColor))
          if self.passphraseCallback:
             self.passphraseCallback()
       return result
@@ -543,10 +632,10 @@ class VerifyPassphraseFrame(ArmoryFrame):
       lblWarnImgL.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
       lblWarnTxt1 = QRichLabel(\
-         '<font color="red"><b>!!! DO NOT FORGET YOUR PASSPHRASE !!!</b></font>', size=4)
+         self.tr('<font color="red"><b>!!! DO NOT FORGET YOUR PASSPHRASE !!!</b></font>'), size=4)
       lblWarnTxt1.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       lblWarnTxt2 = QRichLabel(\
-         '<b>No one can help you recover you bitcoins if you forget the '
+         self.tr('<b>No one can help you recover you bitcoins if you forget the '
          'passphrase and don\'t have a paper backup!</b> Your wallet and '
          'any <u>digital</u> backups are useless if you forget it.  '
          '<br><br>'
@@ -557,7 +646,7 @@ class VerifyPassphraseFrame(ArmoryFrame):
          'a safe place.'
          '<br><br>'
          'Please enter your passphrase a third time to indicate that you '
-         'are aware of the risks of losing your passphrase!</b>', doWrap=True)
+         'are aware of the risks of losing your passphrase!</b>'), doWrap=True)
 
 
       self.edtPasswd3 = QLineEdit()
@@ -587,29 +676,29 @@ class WalletBackupFrame(ArmoryFrame):
       self.hasImportedAddr = False
       self.isBackupCreated = False
       self.passphrase = None
-      self.lblTitle = QRichLabel(tr("<b>Backup Options</b>"))
-      lblTitleDescr = QRichLabel(tr("""
+      self.lblTitle = QRichLabel(self.tr("<b>Backup Options</b>"))
+      lblTitleDescr = QRichLabel(self.tr("""
          Armory wallets only need to be backed up <u>one time, ever.</u>
          The backup is good no matter how many addresses you use. """))
       lblTitleDescr.setOpenExternalLinks(True)
 
 
       self.optPaperBackupTop = QRadioButtonBackupCtr(self, \
-                                    tr('Printable Paper Backup'), self.OPTIONS.Paper1)
+                                    self.tr('Printable Paper Backup'), self.OPTIONS.Paper1)
       self.optPaperBackupOne = QRadioButtonBackupCtr(self, \
-                                    tr('Single-Sheet (Recommended)'), self.OPTIONS.Paper1)
+                                    self.tr('Single-Sheet (Recommended)'), self.OPTIONS.Paper1)
       self.optPaperBackupFrag = QRadioButtonBackupCtr(self, \
-                                    tr('Fragmented Backup (M-of-N)'), self.OPTIONS.PaperN)
+                                    self.tr('Fragmented Backup (M-of-N)'), self.OPTIONS.PaperN)
 
       self.optDigitalBackupTop = QRadioButtonBackupCtr(self, \
-                                    tr('Digital Backup'), self.OPTIONS.DigPlain)
+                                    self.tr('Digital Backup'), self.OPTIONS.DigPlain)
       self.optDigitalBackupPlain = QRadioButtonBackupCtr(self, \
-                                    tr('Unencrypted'), self.OPTIONS.DigPlain)
+                                    self.tr('Unencrypted'), self.OPTIONS.DigPlain)
       self.optDigitalBackupCrypt = QRadioButtonBackupCtr(self, \
-                                    tr('Encrypted'), self.OPTIONS.DigCrypt)
+                                    self.tr('Encrypted'), self.OPTIONS.DigCrypt)
 
       self.optIndivKeyListTop = QRadioButtonBackupCtr(self, \
-                                    tr('Export Key Lists'), self.OPTIONS.Export)
+                                    self.tr('Export Key Lists'), self.OPTIONS.Export)
 
 
       self.optPaperBackupTop.setFont(GETFONT('Var', bold=True))
@@ -675,53 +764,53 @@ class WalletBackupFrame(ArmoryFrame):
 
 
       F = self.FEATURES
-      self.featuresTips[F.ProtGen] = self.main.createToolTipWidget(tr("""
+      self.featuresTips[F.ProtGen] = self.main.createToolTipWidget(self.tr("""
          Every time you click "Receive Bitcoins," a new address is generated.
          All of these addresses are generated from a single seed value, which
          is included in all backups.   Therefore, all addresses that you have
          generated so far <b>and</b> will ever be generated with this wallet, 
          are protected by this backup! """))
 
-      self.featuresTips[F.ProtImport] = self.main.createToolTipWidget(tr("""
+      self.featuresTips[F.ProtImport] = self.main.createToolTipWidget(self.tr("""
          <i>This wallet <u>does not</u> currently have any imported
          addresses, so you can safely ignore this feature!</i>
          When imported addresses are present, backups only protects those
          imported before the backup was made.  You must replace that
          backup if you import more addresses! """))
 
-      self.featuresTips[F.LostPass] = self.main.createToolTipWidget(tr("""
+      self.featuresTips[F.LostPass] = self.main.createToolTipWidget(self.tr("""
          Lost/forgotten passphrases are, <b>by far</b>, the most common
          reason for users losing bitcoins.  It is critical you have
          at least one backup that works if you forget your wallet
          passphrase. """))
 
-      self.featuresTips[F.Durable] = self.main.createToolTipWidget(tr("""
+      self.featuresTips[F.Durable] = self.main.createToolTipWidget(self.tr("""
          USB drives and CD/DVD disks are not intended for long-term storage.
          They will <i>probably</i> last many years, but not guaranteed
          even for 3-5 years.   On the other hand, printed text on paper will
          last many decades, and useful even when thoroughly faded. """))
 
-      self.featuresTips[F.Visual] = self.main.createToolTipWidget(tr("""
+      self.featuresTips[F.Visual] = self.main.createToolTipWidget(self.tr("""
          The ability to look at a backup and determine if
          it is still usable.   If a digital backup is stored in a safe
          deposit box, you have no way to verify its integrity unless
          you take a secure computer/device with you.  A simple glance at
          a paper backup is enough to verify that it is still intact. """))
 
-      self.featuresTips[F.Physical] = self.main.createToolTipWidget(tr("""
+      self.featuresTips[F.Physical] = self.main.createToolTipWidget(self.tr("""
          If multiple pieces/fragments are required to restore this wallet.
          For instance, encrypted backups require the backup
          <b>and</b> the passphrase.  This feature is only needed for those
          concerned about physical security, not just online security."""))
 
 
-      MkFeatLabel = lambda x: QRichLabel(tr(x), doWrap=False)
-      self.featuresLbls[F.ProtGen] = MkFeatLabel('Protects All Future Addresses')
-      self.featuresLbls[F.ProtImport] = MkFeatLabel('Protects Imported Addresses')
-      self.featuresLbls[F.LostPass] = MkFeatLabel('Forgotten Passphrase')
-      self.featuresLbls[F.Durable] = MkFeatLabel('Long-term Durability')
-      self.featuresLbls[F.Visual] = MkFeatLabel('Visual Integrity')
-      self.featuresLbls[F.Physical] = MkFeatLabel('Multi-Point Protection')
+      MkFeatLabel = lambda x: QRichLabel(x, doWrap=False)
+      self.featuresLbls[F.ProtGen] = MkFeatLabel(self.tr('Protects All Future Addresses'))
+      self.featuresLbls[F.ProtImport] = MkFeatLabel(self.tr('Protects Imported Addresses'))
+      self.featuresLbls[F.LostPass] = MkFeatLabel(self.tr('Forgotten Passphrase'))
+      self.featuresLbls[F.Durable] = MkFeatLabel(self.tr('Long-term Durability'))
+      self.featuresLbls[F.Visual] = MkFeatLabel(self.tr('Visual Integrity'))
+      self.featuresLbls[F.Physical] = MkFeatLabel(self.tr('Multi-Point Protection'))
 
       if not self.hasImportedAddr:
          self.featuresLbls[F.ProtImport].setEnabled(False)
@@ -749,7 +838,7 @@ class WalletBackupFrame(ArmoryFrame):
       frmFeatDescr = makeVertFrame([self.lblDescrSelected])
       self.lblDescrSelected.setMinimumHeight(tightSizeNChar(self, 10)[1] * 8)
 
-      self.btnDoIt = QPushButton('Create Backup')
+      self.btnDoIt = QPushButton(self.tr('Create Backup'))
       self.connect(self.btnDoIt, SIGNAL(CLICKED), self.clickedDoIt)
 
       layout = QGridLayout()
@@ -780,20 +869,20 @@ class WalletBackupFrame(ArmoryFrame):
       self.hasImportedAddr = self.wlt.hasAnyImported()
       # Highlight imported-addr feature if their wallet contains them
       pcolor = 'TextWarn' if self.hasImportedAddr else 'DisableFG'
-      self.featuresLbls[self.FEATURES.ProtImport].setText(tr(\
+      self.featuresLbls[self.FEATURES.ProtImport].setText(self.tr(\
          'Protects Imported Addresses'), color=pcolor)
 
       if self.hasImportedAddr:
-         self.featuresTips[self.FEATURES.ProtImport].setText(tr("""
+         self.featuresTips[self.FEATURES.ProtImport].setText(self.tr("""
             When imported addresses are present, backups only protects those
             imported before the backup was made!  You must replace that
             backup if you import more addresses!
-            <i>Your wallet <u>does</u> contain imported addresses<i>."""))
+            <i>Your wallet <u>does</u> contain imported addresses</i>."""))
 
 
          
-      self.lblTitle.setText(tr("""
-         <b>Backup Options for Wallet "%s" (%s)</b>""" % (wltName, wltID)))
+      self.lblTitle.setText(self.tr("""
+         <b>Backup Options for Wallet "%1" (%2)</b>""").arg(wltName, wltID))
 
    #############################################################################
    def setDispFrame(self, index):
@@ -802,10 +891,10 @@ class WalletBackupFrame(ArmoryFrame):
       else:
          # Highlight imported-addr feature if their wallet contains them
          pcolor = 'TextWarn' if self.hasImportedAddr else 'DisableFG'
-         self.featuresLbls[self.FEATURES.ProtImport].setText(tr(\
+         self.featuresLbls[self.FEATURES.ProtImport].setText(self.tr(\
             'Protects Imported Addresses'), color=pcolor)
 
-         txtPaper = tr("""
+         txtPaper = self.tr("""
                Paper backups protect every address ever generated by your
                wallet. It is unencrypted, which means it needs to be stored
                in a secure place, but it will help you recover your wallet
@@ -816,23 +905,23 @@ class WalletBackupFrame(ArmoryFrame):
                Paper backups are preferred to digital backups, because you
                know the paper backup will work no matter how many years (or
                decades) it sits in storage.  """)
-         txtDigital = tr("""
+         txtDigital = self.tr("""
                Digital backups can be saved to an external hard-drive or
                USB removable media.  It is recommended you make a few
                copies to protect against "bit rot" (degradation). <br><br>""")
-         txtDigPlain = tr("""
+         txtDigPlain = self.tr("""
                <b><u>IMPORTANT:</u> Do not save an unencrypted digital
                backup to your primary hard drive!</b>
                Please save it <i>directly</i> to the backup device.
                Deleting the file does not guarantee the data is actually
                gone!  """)
-         txtDigCrypt = tr("""
+         txtDigCrypt = self.tr("""
                <b><u>IMPORTANT:</u> It is critical that you have at least
                one unencrypted backup!</b>  Without it, your bitcoins will
                be lost forever if you forget your passphrase!  This is <b>
                by far</b> the most common reason users lose coins!  Having
                at least one paper backup is recommended.""")
-         txtIndivKeys = tr("""
+         txtIndivKeys = self.tr("""
                View and export invidivual addresses strings,
                public keys and/or private keys contained in your wallet.
                This is useful for exporting your private keys to be imported into
@@ -846,7 +935,7 @@ class WalletBackupFrame(ArmoryFrame):
          chk = lambda: QPixmap(':/checkmark32.png').scaled(20, 20)
          _X_ = lambda: QPixmap(':/red_X.png').scaled(16, 16)
          if index == self.OPTIONS.Paper1:
-            self.lblSelFeat.setText(tr('Single-Sheet Paper Backup'), bold=True)
+            self.lblSelFeat.setText(self.tr('Single-Sheet Paper Backup'), bold=True)
             self.featuresImgs[self.FEATURES.ProtGen   ].setPixmap(chk())
             self.featuresImgs[self.FEATURES.ProtImport].setPixmap(chk())
             self.featuresImgs[self.FEATURES.LostPass  ].setPixmap(chk())
@@ -855,7 +944,7 @@ class WalletBackupFrame(ArmoryFrame):
             self.featuresImgs[self.FEATURES.Physical  ].setPixmap(_X_())
             self.lblDescrSelected.setText(txtPaper)
          elif index == self.OPTIONS.PaperN:
-            self.lblSelFeat.setText(tr('Fragmented Paper Backup'), bold=True)
+            self.lblSelFeat.setText(self.tr('Fragmented Paper Backup'), bold=True)
             self.featuresImgs[self.FEATURES.ProtGen   ].setPixmap(chk())
             self.featuresImgs[self.FEATURES.ProtImport].setPixmap(_X_())
             self.featuresImgs[self.FEATURES.LostPass  ].setPixmap(chk())
@@ -864,7 +953,7 @@ class WalletBackupFrame(ArmoryFrame):
             self.featuresImgs[self.FEATURES.Physical  ].setPixmap(chk())
             self.lblDescrSelected.setText(txtPaper)
          elif index == self.OPTIONS.DigPlain:
-            self.lblSelFeat.setText(tr('Unencrypted Digital Backup'), bold=True)
+            self.lblSelFeat.setText(self.tr('Unencrypted Digital Backup'), bold=True)
             self.featuresImgs[self.FEATURES.ProtGen   ].setPixmap(chk())
             self.featuresImgs[self.FEATURES.ProtImport].setPixmap(chk())
             self.featuresImgs[self.FEATURES.LostPass  ].setPixmap(chk())
@@ -873,7 +962,7 @@ class WalletBackupFrame(ArmoryFrame):
             self.featuresImgs[self.FEATURES.Physical  ].setPixmap(_X_())
             self.lblDescrSelected.setText(txtDigital + txtDigPlain)
          elif index == self.OPTIONS.DigCrypt:
-            self.lblSelFeat.setText(tr('Encrypted Digital Backup'), bold=True)
+            self.lblSelFeat.setText(self.tr('Encrypted Digital Backup'), bold=True)
             self.featuresImgs[self.FEATURES.ProtGen   ].setPixmap(chk())
             self.featuresImgs[self.FEATURES.ProtImport].setPixmap(chk())
             self.featuresImgs[self.FEATURES.LostPass  ].setPixmap(_X_())
@@ -882,7 +971,7 @@ class WalletBackupFrame(ArmoryFrame):
             self.featuresImgs[self.FEATURES.Physical  ].setPixmap(chk())
             self.lblDescrSelected.setText(txtDigital + txtDigCrypt)
          elif index == self.OPTIONS.Export:
-            self.lblSelFeat.setText(tr('Export Key Lists'), bold=True)
+            self.lblSelFeat.setText(self.tr('Export Key Lists'), bold=True)
             self.featuresImgs[self.FEATURES.ProtGen   ].setPixmap(chk())
             self.featuresImgs[self.FEATURES.ProtImport].setPixmap(chk())
             self.featuresImgs[self.FEATURES.LostPass  ].setPixmap(chk())
@@ -922,7 +1011,7 @@ class WalletBackupFrame(ArmoryFrame):
          self.optDigitalBackupPlain.setChecked(False)
          self.optDigitalBackupCrypt.setChecked(False)
          self.optDigitalBackupNONE.setChecked(True)
-         self.btnDoIt.setText(tr('Create Paper Backup'))
+         self.btnDoIt.setText(self.tr('Create Paper Backup'))
       elif self.optDigitalBackupTop.isChecked():
          self.optDigitalBackupPlain.setEnabled(True)
          self.optDigitalBackupCrypt.setEnabled(True)
@@ -931,7 +1020,7 @@ class WalletBackupFrame(ArmoryFrame):
          self.optPaperBackupOne.setChecked(False)
          self.optPaperBackupFrag.setChecked(False)
          self.optPaperBackupNONE.setChecked(True)
-         self.btnDoIt.setText(tr('Create Digital Backup'))
+         self.btnDoIt.setText(self.tr('Create Digital Backup'))
       elif self.optIndivKeyListTop.isChecked():
          self.optPaperBackupOne.setEnabled(False)
          self.optPaperBackupFrag.setEnabled(False)
@@ -943,7 +1032,7 @@ class WalletBackupFrame(ArmoryFrame):
          self.optDigitalBackupCrypt.setChecked(False)
          self.optDigitalBackupNONE.setChecked(True)
          self.optPaperBackupNONE.setChecked(True)
-         self.btnDoIt.setText(tr('Export Key Lists'))
+         self.btnDoIt.setText(self.tr('Export Key Lists'))
       self.setDispFrame(-1)
 
    def setPassphrase(self, passphrase):
@@ -955,7 +1044,7 @@ class WalletBackupFrame(ArmoryFrame):
       if self.passphrase:
          from qtdialogs import DlgProgress
          unlockProgress = DlgProgress(self, self.main, HBar=1,
-                                      Title="Unlocking Wallet")
+                                      Title=self.tr("Unlocking Wallet"))
          unlockProgress.exec_(self.wlt.unlock, 
                               securePassphrase=SecureBinaryData( \
                               self.passphrase),
@@ -975,13 +1064,13 @@ class WalletBackupFrame(ArmoryFrame):
             dlg = DlgUnlockWallet(self.wlt, self, self.main, 'Unlock Private Keys')
             if not dlg.exec_():
                if self.main.usermode == USERMODE.Expert:
-                  QMessageBox.warning(self, tr('Unlock Failed'), tr("""
+                  QMessageBox.warning(self, self.tr('Unlock Failed'), self.tr("""
                      Wallet was not be unlocked.  The public keys and addresses
                      will still be shown, but private keys will not be available
                      unless you reopen the dialog with the correct passphrase."""), \
                      QMessageBox.Ok)
                else:
-                  QMessageBox.warning(self, tr('Unlock Failed'), tr("""
+                  QMessageBox.warning(self, self.tr('Unlock Failed'), self.tr("""
                      'Wallet could not be unlocked to display individual keys."""), \
                      QMessageBox.Ok)
                   if self.main.usermode == USERMODE.Standard:
@@ -999,7 +1088,7 @@ class WizardCreateWatchingOnlyWalletFrame(ArmoryFrame):
       super(WizardCreateWatchingOnlyWalletFrame, self).__init__(parent, main)
 
 
-      summaryText = QRichLabel(tr("""
+      summaryText = QRichLabel(self.tr("""
                Your wallet has been created and is ready to be used.  It will
                appear in the "<i>Available Wallets</i>" list in the main window.  
                You may click "<i>Finish</i>" if you do not plan to use this 
@@ -1040,7 +1129,12 @@ class WizardCreateWatchingOnlyWalletFrame(ArmoryFrame):
    
    def setWallet(self, wlt):
       self.wlt = wlt
+
+
+
       
 # Need to put circular imports at the end of the script to avoid an import deadlock
-from qtdialogs import CLICKED, DlgCoinControl, STRETCH, MIN_PASSWD_WIDTH, \
+from qtdialogs import CLICKED, STRETCH, MIN_PASSWD_WIDTH, \
    QRadioButtonBackupCtr, OpenPaperBackupWindow, DlgUnlockWallet, DlgShowKeyList
+
+from ui.CoinControlUI import CoinControlDlg

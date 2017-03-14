@@ -106,15 +106,15 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;_CRTDBG_MAP_ALLOC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\leveldb_windows_port\win32_posix;..\cryptopp;C:\Python27_64\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;_CRTDBG_MAP_ALLOC;_WINSOCK_DEPRECATED_NO_WARNINGS;_WINSOCKAPI_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..\leveldb_windows_port\win32_posix;..\cryptopp;..\lmdb;..\fcgi;C:\Python27_64\include;..\fcgi\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <BasicRuntimeChecks>UninitializedLocalUsageCheck</BasicRuntimeChecks>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>cryptopp_d.lib;LMDB_Win_d.lib;python27_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>cryptopp_d.lib;LMDB_Win_d.lib;python27_d.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>C:\Python27_64\libs;$(SolutionDir)libs\$(Platform)\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -153,8 +153,8 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\leveldb_windows_port\win32_posix;..\cryptopp;C:\Python27_64\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;_WINSOCKAPI_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..\leveldb_windows_port\win32_posix;..\cryptopp;..\BlockDataManager\fcgi;C:\Python27_64\include;..\BlockDataManager\fcgi\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
@@ -163,7 +163,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalLibraryDirectories>C:\Python27_64\libs;$(SolutionDir)libs\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>LMDB_Win.lib;cryptopp.lib;Python27.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>LMDB_Win.lib;cryptopp.lib;Python27.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -171,12 +171,14 @@
     <ClInclude Include="..\BDM_supportClasses.h" />
     <ClInclude Include="..\BinaryData.h" />
     <ClInclude Include="..\Blockchain.h" />
+    <ClInclude Include="..\BlockchainScanner.h" />
+    <ClInclude Include="..\BlockDataMap.h" />
     <ClInclude Include="..\BlockDataViewer.h" />
     <ClInclude Include="..\BlockObj.h" />
     <ClInclude Include="..\BlockUtils.h" />
-    <ClInclude Include="..\BlockWriteBatcher.h" />
     <ClInclude Include="..\BtcUtils.h" />
     <ClInclude Include="..\BtcWallet.h" />
+    <ClInclude Include="..\DatabaseBuilder.h" />
     <ClInclude Include="..\EncryptionUtils.h" />
     <ClInclude Include="..\gtest\gtest.h" />
     <ClInclude Include="..\HistoryPager.h" />
@@ -186,28 +188,42 @@
     <ClInclude Include="..\lmdb_wrapper.h" />
     <ClInclude Include="..\log.h" />
     <ClInclude Include="..\Progress.h" />
-    <ClInclude Include="..\ReorgUpdater.h" />
     <ClInclude Include="..\ScrAddrObj.h" />
+    <ClInclude Include="..\SocketObject.h" />
     <ClInclude Include="..\StoredBlockObj.h" />
-    <ClInclude Include="..\ThreadSafeContainer.h" />
+    <ClInclude Include="..\TxClasses.h" />
     <ClInclude Include="..\txio.h" />
     <ClInclude Include="..\UniversalTimer.h" />
+    <ClInclude Include="..\WalletManager.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\BDM_mainthread.cpp" />
+    <ClCompile Include="..\BDM_seder.cpp" />
+    <ClCompile Include="..\BDM_Server.cpp" />
     <ClCompile Include="..\BDM_supportClasses.cpp" />
     <ClCompile Include="..\BinaryData.cpp" />
+    <ClCompile Include="..\BitcoinP2P.cpp" />
     <ClCompile Include="..\Blockchain.cpp" />
+    <ClCompile Include="..\BlockchainScanner.cpp" />
+    <ClCompile Include="..\BlockDataManagerConfig.cpp" />
+    <ClCompile Include="..\BlockDataMap.cpp" />
     <ClCompile Include="..\BlockDataViewer.cpp" />
     <ClCompile Include="..\BlockObj.cpp" />
     <ClCompile Include="..\BlockUtils.cpp" />
-    <ClCompile Include="..\BlockWriteBatcher.cpp" />
     <ClCompile Include="..\BtcUtils.cpp" />
     <ClCompile Include="..\BtcWallet.cpp" />
+    <ClCompile Include="..\CoinSelection.cpp" />
+    <ClCompile Include="..\DatabaseBuilder.cpp" />
+    <ClCompile Include="..\DataObject.cpp" />
+    <ClCompile Include="..\DBUtils.cpp" />
     <ClCompile Include="..\EncryptionUtils.cpp" />
+    <ClCompile Include="..\FcgiMessage.cpp" />
+    <ClCompile Include="..\fcgi\libfcgi\fcgiapp.c" />
+    <ClCompile Include="..\fcgi\libfcgi\os_win32.c" />
     <ClCompile Include="..\gtest\CppBlockUtilsTests.cpp" />
     <ClCompile Include="..\gtest\gtest-all.cc" />
     <ClCompile Include="..\HistoryPager.cpp" />
+    <ClCompile Include="..\JSON_codec.cpp" />
     <ClCompile Include="..\LedgerEntry.cpp" />
     <ClCompile Include="..\leveldb_windows_port\win32_posix\dirent_win32.cpp" />
     <ClCompile Include="..\leveldb_windows_port\win32_posix\mman.cpp" />
@@ -215,11 +231,22 @@
     <ClCompile Include="..\leveldb_windows_port\win32_posix\win32_posix.cc" />
     <ClCompile Include="..\leveldb_windows_port\win32_posix\Win_TranslatePath.cpp" />
     <ClCompile Include="..\lmdb_wrapper.cpp" />
+    <ClCompile Include="..\nodeRPC.cpp" />
     <ClCompile Include="..\Progress.cpp" />
+    <ClCompile Include="..\ReentrantLock.cpp" />
     <ClCompile Include="..\ScrAddrObj.cpp" />
+    <ClCompile Include="..\Script.cpp" />
+    <ClCompile Include="..\Signer.cpp" />
+    <ClCompile Include="..\SocketObject.cpp" />
     <ClCompile Include="..\StoredBlockObj.cpp" />
+    <ClCompile Include="..\StringSockets.cpp" />
+    <ClCompile Include="..\SwigClient.cpp" />
+    <ClCompile Include="..\Transactions.cpp" />
+    <ClCompile Include="..\TxClasses.cpp" />
     <ClCompile Include="..\txio.cpp" />
     <ClCompile Include="..\UniversalTimer.cpp" />
+    <ClCompile Include="..\WalletManager.cpp" />
+    <ClCompile Include="..\Wallets.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -83,7 +83,7 @@ def getScriptForUserString(userStr, wltMap, lboxList):
             scrAddr = script_to_scrAddr(outScript)
             wltID = getWltIDForScrAddr(scrAddr, wltMap)
       else:
-         scrAddr = addrStr_to_scrAddr(userStr)
+         scrAddr = addrStr_to_scrAddr(userStr, ADDRBYTE, P2SHBYTE)
          a160 = scrAddr_to_hash160(scrAddr)[1]
          outScript = scrAddr_to_script(scrAddr)
          hasAddrInIt = True

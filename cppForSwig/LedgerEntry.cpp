@@ -2,7 +2,7 @@
 //                                                                            //
 //  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
-//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//  See LICENSE-ATI or http://www.gnu.org/licenses/agpl.html                  //
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 #include "LedgerEntry.h"
@@ -94,6 +94,7 @@ void LedgerEntry::pprint(void)
    cout << "   Coinbase: " << (isCoinbase() ? 1 : 0) << endl;
    cout << "   sentSelf: " << (isSentToSelf() ? 1 : 0) << endl;
    cout << "   isChange: " << (isChangeBack() ? 1 : 0) << endl;
+   cout << "   isOptInRBF: " << (isOptInRBF() ? 1 : 0) << endl;
    cout << endl;
 }
 
@@ -180,7 +181,7 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
 
    for (const auto& txio : txioMap)
    {
-      auto txOutDBKey = txio.second.getDBKeyOfOutput().getSliceCopy(0, 6);
+      auto&& txOutDBKey = txio.second.getDBKeyOfOutput().getSliceCopy(0, 6);
 
       auto& txioVec = TxnTxIOMap[txOutDBKey];
       txioVec.push_back(&txio.second);
@@ -189,8 +190,8 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
       {
          auto txInDBKey = txio.second.getDBKeyOfInput().getSliceCopy(0, 6);
 
-         auto& txioVec = TxnTxIOMap[txInDBKey];
-         txioVec.push_back(&txio.second);
+         auto& _txioVec = TxnTxIOMap[txInDBKey];
+         _txioVec.push_back(&txio.second);
       }
    }
 
@@ -205,6 +206,9 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
       uint16_t txIndex;
 
       set<BinaryData> scrAddrSet;
+
+      bool isRBF = false;
+      bool usesWitness = false;
       
       //grab iterator
       auto txioIter = txioVec.second.cbegin();
@@ -240,6 +244,9 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
      
       while (txioIter != txioVec.second.cend())
       {
+         if (blockNum == UINT32_MAX && (*txioIter)->isRBF())
+            isRBF = true;
+
          if ((*txioIter)->getDBKeyOfOutput().startsWith(txioVec.first))
          {
             isCoinbase |= (*txioIter)->isFromCoinbase();
@@ -287,7 +294,8 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
          txTime,
          isCoinbase,
          isSentToSelf,
-         isChangeBack);
+         isChangeBack,
+         isRBF);
 
       le.scrAddrSet_ = move(scrAddrSet);
       leMap[txioVec.first] = le;

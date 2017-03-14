@@ -2,7 +2,7 @@
 //                                                                            //
 //  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
-//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//  See LICENSE-ATI or http://www.gnu.org/licenses/agpl.html                  //
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 #ifndef _BINARYDATA_H_
@@ -46,7 +46,6 @@
 #include <vector>
 #include <string>
 #include <stdexcept>
-#include <assert.h>
 
 // We can remove these includes (Crypto++ ) if we remove the GenerateRandom()
 #include "log.h"
@@ -89,12 +88,12 @@
 
 enum ENDIAN 
 { 
-   LITTLEENDIAN, 
-   BIGENDIAN 
+   ENDIAN_LITTLE, 
+   ENDIAN_BIG 
 };
 
-#define LE LITTLEENDIAN
-#define BE BIGENDIAN
+#define LE ENDIAN_LITTLE
+#define BE ENDIAN_BIG
 
 using namespace std;
 
@@ -124,6 +123,11 @@ public:
 
    BinaryData(BinaryDataRef const & bdRef);
    size_t getSize(void) const               { return data_.size(); }
+
+   ~BinaryData(void)
+   {
+      data_.clear();
+   }
 
    bool isNull(void) { return (data_.size()==0);}
    
@@ -484,11 +488,13 @@ public:
          return (INTTYPE)0;
       }
       
-      INTTYPE out = 0;
+      /*INTTYPE out = 0;
       for(uint8_t i=0; i<SZ; i++)
-         out |= ((INTTYPE)binstr[i]) << (8*i);
+         out |= ((INTTYPE)binstr[i]) << (8*i);*/
 
-      return out;
+      auto intPtr = (INTTYPE*)binstr.getPtr();
+
+      return *intPtr;
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -513,11 +519,13 @@ public:
    template<typename INTTYPE>
    static INTTYPE StrToIntLE(uint8_t const * ptr)
    {
-      INTTYPE out = 0;
+      /*INTTYPE out = 0;
       for(uint8_t i=0; i<sizeof(INTTYPE); i++)
-         out |= ((INTTYPE)ptr[i]) << (8*i);
+         out |= ((INTTYPE)ptr[i]) << (8*i);*/
 
-      return out;
+      auto intPtr = (INTTYPE*)ptr;
+
+      return *intPtr;
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -537,20 +545,25 @@ public:
    void createFromHex(string const & str)
    {
       static const uint8_t binLookupTable[256] = { 
-         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-         0, 0, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0, 
-         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x0a, 0x0b, 0x0c, 0x0d, 
-         0x0e, 0x0f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0             };
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0, 0, 0, 0, 0, 0, 
+         0, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+         0, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-      assert(str.size()%2 == 0);
+      if (str.size() % 2 != 0)
+         throw runtime_error("odd hexit count");
       size_t newLen = str.size() / 2;
       alloc(newLen);
 
@@ -844,13 +857,14 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    bool operator<(BinaryDataRef const & bd2) const
    {
-      size_t minLen = min(nBytes_, bd2.nBytes_);
-      for(size_t i=0; i<minLen; i++)
+      auto minsize = min(nBytes_, bd2.nBytes_);
+      for (size_t i = 0; i < minsize; i++)
       {
-         if( ptr_[i] == bd2.ptr_[i] )
+         if (ptr_[i] == bd2.ptr_[i])
             continue;
          return ptr_[i] < bd2.ptr_[i];
       }
+      
       return (nBytes_ < bd2.nBytes_);
    }
 
@@ -1081,6 +1095,16 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
+   uint32_t get_int32_t(ENDIAN e = LE)
+   {
+      uint32_t outVal = (e == LE ? 
+         BinaryData::StrToIntLE<int32_t>(bdStr_.getPtr() + pos_) :
+         BinaryData::StrToIntBE<int32_t>(bdStr_.getPtr() + pos_));
+      pos_ += 4;
+      return outVal;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
    uint64_t get_uint64_t(ENDIAN e=LE)
    {
       uint64_t outVal = (e==LE ? READ_UINT64_LE(bdStr_.getPtr() + pos_) :
@@ -1214,6 +1238,9 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    uint8_t get_uint8_t(ENDIAN e=LE)
    {
+      if(getSizeRemaining() < 1)
+         throw runtime_error("buffer overflow");
+
       uint8_t outVal = bdRef_[pos_];
       pos_ += 1;
       return outVal;
@@ -1222,6 +1249,9 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    uint16_t get_uint16_t(ENDIAN e=LE)
    {
+      if(getSizeRemaining() < 2)
+         throw runtime_error("buffer overflow");
+
       uint16_t  outVal = (e==LE ? READ_UINT16_LE(bdRef_.getPtr() + pos_) :
                                   READ_UINT16_BE(bdRef_.getPtr() + pos_) );
       pos_ += 2;
@@ -1231,6 +1261,9 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    uint32_t get_uint32_t(ENDIAN e=LE)
    {
+      if(getSizeRemaining() < 4)
+         throw runtime_error("buffer overflow");
+
       uint32_t  outVal = (e==LE ? READ_UINT32_LE(bdRef_.getPtr() + pos_) :
                                   READ_UINT32_BE(bdRef_.getPtr() + pos_) );
       pos_ += 4;
@@ -1238,8 +1271,24 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
+   int32_t get_int32_t(ENDIAN e = LE)
+   {
+      if(getSizeRemaining() < 4)
+         throw runtime_error("buffer overflow");
+
+      int32_t outVal = (e == LE ?
+         BinaryData::StrToIntLE<int32_t>(bdRef_.getPtr() + pos_) :
+         BinaryData::StrToIntBE<int32_t>(bdRef_.getPtr() + pos_));
+      pos_ += 4;
+      return outVal;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
    uint64_t get_uint64_t(ENDIAN e=LE)
    {
+      if(getSizeRemaining() < 8)
+         throw runtime_error("buffer overflow");
+
       uint64_t  outVal = (e==LE ? READ_UINT64_LE(bdRef_.getPtr() + pos_) :
                                   READ_UINT64_BE(bdRef_.getPtr() + pos_) );
       pos_ += 8;
@@ -1247,16 +1296,40 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
+   double get_double()
+   {
+      if(getSizeRemaining() < 8)
+         throw runtime_error("buffer overflow");
+
+      auto doublePtr = (double*)(bdRef_.getPtr() + pos_);
+
+      pos_ += 8;
+      return *doublePtr;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
    BinaryDataRef get_BinaryDataRef(uint32_t nBytes)
    {
+      if(getSizeRemaining() < nBytes)
+         throw runtime_error("buffer overflow");
+
       BinaryDataRef bdrefout(bdRef_.getPtr() + pos_, nBytes);
       pos_ += nBytes;
       return bdrefout;
    }
 
    /////////////////////////////////////////////////////////////////////////////
+   BinaryRefReader fork(void) const
+   {
+      return BinaryRefReader(bdRef_.getPtr() + pos_, getSizeRemaining());
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
    void get_BinaryData(BinaryData & bdTarget, uint32_t nBytes)
    {
+      if(getSizeRemaining() < nBytes)
+         throw runtime_error("buffer overflow");
+
       bdTarget.copyFrom( bdRef_.getPtr() + pos_, nBytes);
       pos_ += nBytes;
    }
@@ -1264,6 +1337,9 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    BinaryData get_BinaryData(uint32_t nBytes)
    {
+      if(getSizeRemaining() < nBytes)
+         throw runtime_error("buffer overflow");
+
       BinaryData out;
       get_BinaryData(out, nBytes);
       return out;
@@ -1272,6 +1348,9 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    void get_BinaryData(uint8_t* targPtr, uint32_t nBytes)
    {
+      if(getSizeRemaining() < nBytes)
+         throw runtime_error("buffer overflow");
+
       bdRef_.copyTo(targPtr, pos_, nBytes);
       pos_ += nBytes;
    }
@@ -1423,31 +1502,77 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // These write data properly regardless of the architecture
-   void put_uint8_t (uint8_t  val, ENDIAN e=LE) { theString_.append( val ); }
+   void put_uint8_t (const uint8_t&  val, ENDIAN e=LE) { theString_.append( val ); }
 
    /////
-   void put_uint16_t(uint16_t val, ENDIAN e=LE) 
+   void put_uint16_t(const uint16_t& val, ENDIAN e=LE) 
    { 
-      BinaryData out = (e==LE ? WRITE_UINT16_LE(val) : WRITE_UINT16_BE(val));
-      theString_.append( out.getPtr(), 2); 
+      if (e == LE)
+      {
+         auto valPtr = (uint8_t*)&val;
+         theString_.append(valPtr, 2);
+      }
+      else
+      {
+         auto&& out = WRITE_UINT16_BE(val);
+         theString_.append(out.getPtr(), 2);
+      }
    }
 
    /////
-   void put_uint32_t(uint32_t val, ENDIAN e=LE) 
+   void put_uint32_t(const uint32_t& val, ENDIAN e=LE) 
    { 
-      BinaryData out = (e==LE ? WRITE_UINT32_LE(val) : WRITE_UINT32_BE(val));
-      theString_.append( out.getPtr(), 4); 
+      if (e == LE)
+      {
+         auto valPtr = (uint8_t*)&val;
+         theString_.append(valPtr, 4);
+      }
+      else
+      {
+         auto&& out = WRITE_UINT32_BE(val);
+         theString_.append(out.getPtr(), 4);
+      }
    }
 
    /////
-   void put_uint64_t(uint64_t val, ENDIAN e=LE) 
+   void put_int32_t(const int32_t& val, ENDIAN e = LE)
+   {
+      if (e == LE)
+      {
+         auto valPtr = (uint8_t*)&val;
+         theString_.append(valPtr, 4);
+      }
+      else
+      {
+         auto&& out = BinaryData::IntToStrBE<int32_t>(val);
+         theString_.append(out.getPtr(), 4);
+      }
+   }
+
+   /////
+   void put_uint64_t(const uint64_t& val, ENDIAN e=LE) 
    { 
-      BinaryData out = (e==LE ? WRITE_UINT64_LE(val) : WRITE_UINT64_BE(val));
-      theString_.append( out.getPtr(), 8); 
+      if (e == LE)
+      {
+         auto valPtr = (uint8_t*)&val;
+         theString_.append(valPtr, 8);
+      }
+      else
+      {
+         auto&& out = WRITE_UINT64_BE(val);
+         theString_.append(out.getPtr(), 8);
+      }
+   }
+
+   ////
+   void put_double(const double& val)
+   {
+      auto valPtr = (uint8_t*)&val;
+      theString_.append(valPtr, 8);
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   uint8_t put_var_int(uint64_t val)
+   uint8_t put_var_int(const uint64_t& val)
    {
 
       if(val < 0xfd)
@@ -1495,6 +1620,13 @@ public:
             theString_.append(str.getPtr() + offset, sz);
       }
    }
+
+   /////////////////////////////////////////////////////////////////////////////
+   void put_BinaryDataRef(BinaryDataRef const & str)
+   {
+      theString_.append(str);
+   }
+
 
    /////////////////////////////////////////////////////////////////////////////
    void put_BinaryData(uint8_t const * targPtr, uint32_t nBytes)
@@ -1576,7 +1708,7 @@ public:
          {
             cerr << "Could not open file for reading!  File: " << filename.c_str() << endl;
             cerr << "Aborting!" << endl;
-            assert(false);
+            throw runtime_error("failed to open file");
          }
 
          ifstreamPtr->seekg(0, ios::end);

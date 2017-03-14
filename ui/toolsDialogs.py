@@ -15,14 +15,13 @@ from qtdefines import *
 from qtdialogs import MIN_PASSWD_WIDTH, DlgPasswd3, createAddrBookButton,\
    DlgUnlockWallet
 from armoryengine.ArmoryUtils import isASCII
-from announcefetch import ANNOUNCE_SIGN_PUBKEY
 
 class MessageSigningVerificationDialog(ArmoryDialog):
 
    def __init__(self, parent=None, main=None):
       super(MessageSigningVerificationDialog, self).__init__(parent, main)
       layout = QVBoxLayout()
-      self.setWindowTitle("Message Signing/Verification")
+      self.setWindowTitle(self.tr("Message Signing/Verification"))
       self.setWindowIcon(QIcon( self.main.iconfile))
       self.setMinimumWidth(600)
       
@@ -30,12 +29,12 @@ class MessageSigningVerificationDialog(ArmoryDialog):
       messageSigningTab = MessageSigningWidget(parent, main)
       bareSignatureVerificationTab = BareSignatureVerificationWidget(parent, main)
       signedMsgBlockVerificationTab = SignedMessageBlockVerificationWidget(parent, main)
-      tabbedPanel.addTab(messageSigningTab, "Sign Message")
-      tabbedPanel.addTab(bareSignatureVerificationTab, "Verify Bare Signature")
-      tabbedPanel.addTab(signedMsgBlockVerificationTab, "Verify Signed Message Block")
+      tabbedPanel.addTab(messageSigningTab, self.tr("Sign Message"))
+      tabbedPanel.addTab(bareSignatureVerificationTab, self.tr("Verify Bare Signature"))
+      tabbedPanel.addTab(signedMsgBlockVerificationTab, self.tr("Verify Signed Message Block"))
       layout.addWidget(tabbedPanel)
       
-      self.goBackButton = QPushButton("Done")
+      self.goBackButton = QPushButton(self.tr("Done"))
       actionButtonBox = QDialogButtonBox()
       actionButtonBox.addButton(self.goBackButton, QDialogButtonBox.RejectRole)
       layout.addWidget(actionButtonBox)
@@ -61,7 +60,7 @@ class MessageSigningWidget(QWidget):
       self.setMinimumWidth(800)
       
       # Pick an Address in Row 0 of the grid layout
-      addressLabel = QLabel('Sign with Address:')
+      addressLabel = QLabel(self.tr('Sign with Address:'))
       self.addressLineEdit = QLineEdit()
       self.addressBookButton = createAddrBookButton(self, self.addressLineEdit, None,
                                                     selectMineOnly=True, showLockboxes=False)
@@ -70,7 +69,7 @@ class MessageSigningWidget(QWidget):
       signMessageLayout.addWidget(self.addressBookButton,  0, 2)
 
       # Create a message in Row 1
-      messageLabel = QLabel("Message to sign:")
+      messageLabel = QLabel(self.tr("Message to sign:"))
       self.messageTextEdit = QTextEdit()
       self.messageTextEdit.setAcceptRichText(False)
       self.messageTextEdit.setStyleSheet("font: 9pt \"Courier\";")
@@ -80,9 +79,9 @@ class MessageSigningWidget(QWidget):
       
       # Create a row with just a sign message button
       
-      self.bareSigButton = QPushButton('Bare Signature (Bitcoin-Qt Compatible)')
-      self.base64SigButton = QPushButton('Base64 Signature')
-      self.clearSigButton = QPushButton('Clearsign Signature')
+      self.bareSigButton = QPushButton(self.tr('Bare Signature (Bitcoin Core Compatible)'))
+      self.base64SigButton = QPushButton(self.tr('Base64 Signature'))
+      self.clearSigButton = QPushButton(self.tr('Clearsign Signature'))
       sigButtonFrame = makeHorizFrame([self.bareSigButton,\
                                         self.base64SigButton,\
                                         self.clearSigButton,\
@@ -90,15 +89,15 @@ class MessageSigningWidget(QWidget):
       signMessageLayout.addWidget(sigButtonFrame,  2, 1, 1, 3)
       
       # Create a Signature display
-      signatureLabel = QLabel('Message Signature:')
+      signatureLabel = QLabel(self.tr('Message Signature:'))
       self.signatureDisplay = QTextEdit()
       self.signatureDisplay.setReadOnly(True)
       self.signatureDisplay.setStyleSheet("font: 9pt \"Courier\"; background-color: #bbbbbb;")
       signMessageLayout.addWidget(signatureLabel,         3, 0)
       signMessageLayout.addWidget(self.signatureDisplay,  3, 1, 1, 2)
 
-      self.copySignatureButton = QPushButton("Copy Signature")
-      self.clearFieldsButton = QPushButton("Clear All")
+      self.copySignatureButton = QPushButton(self.tr("Copy Signature"))
+      self.clearFieldsButton = QPushButton(self.tr("Clear All"))
       
       buttonFrame = makeHorizFrame([self.copySignatureButton, self.clearFieldsButton,'Stretch'])
       signMessageLayout.addWidget(buttonFrame, 4, 1, 1, 3)
@@ -123,10 +122,10 @@ class MessageSigningWidget(QWidget):
       wallet = self.main.walletMap[walletId]
       if wallet.useEncryption and wallet.isLocked:
          # Target wallet is encrypted...
-         unlockdlg = DlgUnlockWallet(wallet, self, self.main, 'Unlock Wallet to Import')
+         unlockdlg = DlgUnlockWallet(wallet, self, self.main, self.tr('Unlock Wallet to Import'))
          if not unlockdlg.exec_():
-            QMessageBox.critical(self, 'Wallet is Locked', \
-               'Cannot import private keys without unlocking wallet!', \
+            QMessageBox.critical(self, self.tr('Wallet is Locked'), \
+               self.tr('Cannot import private keys without unlocking wallet!'), \
                QMessageBox.Ok)
             return
       return wallet.addrMap[addr160].binPrivKey32_Plain.toBinStr()
@@ -134,7 +133,7 @@ class MessageSigningWidget(QWidget):
    def bareSignMessage(self):
       messageText = str(self.messageTextEdit.toPlainText())
       if not isASCII(messageText):
-         QMessageBox.warning(self, 'Non ASCII Text', 'Message to sign must be ASCII', QMessageBox.Ok)
+         QMessageBox.warning(self, self.tr('Non ASCII Text'), self.tr('Message to sign must be ASCII'), QMessageBox.Ok)
       else:
          try:
             privateKey = self.getPrivateKeyFromAddrInput()
@@ -142,15 +141,15 @@ class MessageSigningWidget(QWidget):
                signature = ASv0(privateKey, messageText)
                self.signatureDisplay.setPlainText(signature['b64-signature'])
             else:
-               QMessageBox.warning(self, 'Private Key Not Known', 'The private key is not known for this address.', QMessageBox.Ok)         
+               QMessageBox.warning(self, self.tr('Private Key Not Known'), self.tr('The private key is not known for this address.'), QMessageBox.Ok)
          except:
-            QMessageBox.warning(self, 'Invalid Address', 'The signing address is invalid.', QMessageBox.Ok)
+            QMessageBox.warning(self, self.tr('Invalid Address'), self.tr('The signing address is invalid.'), QMessageBox.Ok)
             raise
    
    def base64SignMessage(self):
       messageText = str(self.messageTextEdit.toPlainText())
       if not isASCII(messageText):
-         QMessageBox.warning(self, 'Non ASCII Text', 'Message to sign must be ASCII', QMessageBox.Ok)
+         QMessageBox.warning(self, self.tr('Non ASCII Text'), self.tr('Message to sign must be ASCII'), QMessageBox.Ok)
       else:
          try:
             privateKey = self.getPrivateKeyFromAddrInput()
@@ -158,26 +157,26 @@ class MessageSigningWidget(QWidget):
                signature = ASv1B64(self.getPrivateKeyFromAddrInput(), messageText)
                self.signatureDisplay.setPlainText(signature)    
             else:
-               QMessageBox.warning(self, 'Private Key Not Known', 'The private key is not known for this address.', QMessageBox.Ok)
+               QMessageBox.warning(self, self.tr('Private Key Not Known'), self.tr('The private key is not known for this address.'), QMessageBox.Ok)
          except:
-            QMessageBox.warning(self, 'Invalid Address', 'The signing address is invalid.', QMessageBox.Ok)
+            QMessageBox.warning(self, self.tr('Invalid Address'), self.tr('The signing address is invalid.'), QMessageBox.Ok)
             raise
    
    def clearSignMessage(self):
       messageText = str(self.messageTextEdit.toPlainText())
       if not isASCII(messageText):
-         QMessageBox.warning(self, 'Non ASCII Text', 'Message to sign must be ASCII', QMessageBox.Ok)
+         QMessageBox.warning(self, self.tr('Non ASCII Text'), self.tr('Message to sign must be ASCII'), QMessageBox.Ok)
       else:
          try:
             privateKey = self.getPrivateKeyFromAddrInput()
          except:
-            QMessageBox.warning(self, 'Invalid Address', 'The signing address is invalid.', QMessageBox.Ok)
+            QMessageBox.warning(self, self.tr('Invalid Address'), self.tr('The signing address is invalid.'), QMessageBox.Ok)
             raise
          if privateKey:
             signature = ASv1CS(privateKey, messageText)
             self.signatureDisplay.setPlainText(signature)
          else:
-            QMessageBox.warning(self, 'Private Key Not Known', 'The private key is not known for this address.', QMessageBox.Ok)
+            QMessageBox.warning(self, self.tr('Private Key Not Known'), self.tr('The private key is not known for this address.'), QMessageBox.Ok)
 
    def copySignature(self):
       clipb = QApplication.clipboard()
@@ -198,8 +197,8 @@ class SignatureVerificationWidget(QWidget):
       self.signMessageLayout = QGridLayout()
       self.setMinimumWidth(800)
 
-      self.verifySignatureButton = QPushButton("Verify Signature")
-      self.clearFieldsButton = QPushButton("Clear All")
+      self.verifySignatureButton = QPushButton(self.tr("Verify Signature"))
+      self.clearFieldsButton = QPushButton(self.tr("Clear All"))
       
       self.lblSigResult = QRichLabel('', doWrap=False)
       buttonFrame = makeHorizFrame([self.verifySignatureButton, self.clearFieldsButton,\
@@ -220,31 +219,16 @@ class SignatureVerificationWidget(QWidget):
       self.lblSigResult.setText('')
       
    def displayVerifiedBox(self, addrB58, messageString):
-      atihash160 = hash160(hex_to_binary(ANNOUNCE_SIGN_PUBKEY))
-      addrDisp = addrB58
-      if addrB58==hash160_to_addrStr(atihash160):
-         addrDisp = '<b>Armory Technologies, Inc.</b>'
-         if CLI_OPTIONS.testAnnounceCode:
-            ownerStr = tr("""
-               <font color="%s"><b>Armory Technologies, Inc.
-               (testing key)</b></font> has signed the following
-               block of text:<br>""") % htmlColor('TextGreen')
-         else:
-            ownerStr = tr("""
-               <font color="%s"><b>Armory Technologies, Inc.</b></font> 
-               has signed the following block of text:<br>""") % \
-               htmlColor('TextGreen')
-      else:
-         ownerStr = tr("""
-         The owner of the following Bitcoin address...
-         <br>
-         <blockquote>
-         <font face="Courier" size=4 color="#000060"><b>%s</b></font>
-         </blockquote>
-         <br>
-         ... has produced a <b><u>valid</u></b> signature for 
-         the following message:<br>
-         """) % addrB58
+      ownerStr = str(self.tr("""
+      The owner of the following Bitcoin address...
+      <br>
+      <blockquote>
+      <font face="Courier" size=4 color="#000060"><b>%1</b></font>
+      </blockquote>
+      <br>
+      ... has produced a <b><u>valid</u></b> signature for
+      the following message:<br>
+      """).arg(addrB58))
          
       if addrB58:
          msg = messageString.replace('\r\n','\n')
@@ -252,33 +236,33 @@ class SignatureVerificationWidget(QWidget):
          # The user will be able to see the entire message 
          # in the Message Signing/Verification dialog
          msg =  '<br>'.join([line[:60]+ '...'*(len(line)>60) for line in msg.split('<br>')][:12])
-         MsgBoxCustom(MSGBOX.Good, tr('Verified!'), tr(""" 
-            %s
+         MsgBoxCustom(MSGBOX.Good, self.tr('Verified!'), str(self.tr("""
+            %`
             <hr>
             <blockquote>
-            <font face="Courier" color="#000060"><b>%s</b></font>
+            <font face="Courier" color="#000060"><b>%1</b></font>
             </blockquote>
             <hr><br>
-            <b>Please</b> make sure that the address above (%s...) matches the 
+            <b>Please</b> make sure that the address above (%2...) matches the
             exact address you were expecting.  A valid signature is meaningless 
             unless it is made
-            from a recognized address!""") % (ownerStr, msg, addrB58[:10]))
+            from a recognized address!""").arg(ownerStr, msg, addrB58[:10])))
          self.lblSigResult.setText(\
-            '<font color="green">Valid Signature by %s</font>' % addrDisp)
+            '<font color="green">Valid Signature by %s</font>' % addrB58)
       else:
          self.displayInvalidSignatureMessage()
 
    def displayInvalidSignatureMessage(self):
-      MsgBoxCustom(MSGBOX.Error, 'Invalid Signature!', \
-                                 'The supplied signature <b>is not valid</b>!')
-      self.lblSigResult.setText('<font color="red">Invalid Signature!</font>')
+      MsgBoxCustom(MSGBOX.Error, self.tr('Invalid Signature!'), \
+                                 self.tr('The supplied signature <b>is not valid</b>!'))
+      self.lblSigResult.setText(self.tr('<font color="red">Invalid Signature!</font>'))
       
 class BareSignatureVerificationWidget(SignatureVerificationWidget):
 
    def __init__(self, parent=None, main=None):
       super(BareSignatureVerificationWidget, self).__init__(parent, main)
       # Pick an Address in Row 0 of the grid layout
-      addressLabel = QLabel('Signing Address:')
+      addressLabel = QLabel(self.tr('Signing Address:'))
       self.addressLineEdit = QLineEdit()
       self.addressBookButton = createAddrBookButton(self, self.addressLineEdit, None,
                                                     selectMineOnly=True, showLockboxes=False)
@@ -287,14 +271,14 @@ class BareSignatureVerificationWidget(SignatureVerificationWidget):
       self.signMessageLayout.addWidget(self.addressBookButton,  0, 2)
       
       # Create a message text box
-      messageLabel = QLabel("Signed Message:")
+      messageLabel = QLabel(self.tr("Signed Message:"))
       self.messageTextEdit = QTextEdit()
       self.messageTextEdit.setAcceptRichText(False)
       self.messageTextEdit.setStyleSheet("font: 9pt \"Courier\";")
       self.signMessageLayout.addWidget(messageLabel,          1, 0)
       self.signMessageLayout.addWidget(self.messageTextEdit,  1, 1)
       # Create a Signature display
-      signatureLabel = QLabel('Signature:')
+      signatureLabel = QLabel(self.tr('Signature:'))
       self.signatureTextEdit = QTextEdit()
       self.signatureTextEdit.setStyleSheet("font: 9pt \"Courier\";")
       self.signMessageLayout.addWidget(signatureLabel,         2, 0)
@@ -325,7 +309,7 @@ class SignedMessageBlockVerificationWidget(SignatureVerificationWidget):
    def __init__(self, parent=None, main=None):
       super(SignedMessageBlockVerificationWidget, self).__init__(parent, main)
       # Create a Signature display
-      signatureLabel = QLabel('Signed Message Block:')
+      signatureLabel = QLabel(self.tr('Signed Message Block:'))
       self.signedMessageBlockTextEdit = QTextEdit()
       self.signedMessageBlockTextEdit.setStyleSheet("font: 9pt \"Courier\";")
       self.signedMessageBlockTextEdit.setAcceptRichText(False)
@@ -333,7 +317,7 @@ class SignedMessageBlockVerificationWidget(SignatureVerificationWidget):
       self.signMessageLayout.addWidget(self.signedMessageBlockTextEdit,  0, 1)
 
       # Create a message in Row 1
-      messageLabel = QLabel("Message:")
+      messageLabel = QLabel(self.tr("Message:"))
       self.messageTextEdit = QTextEdit()
       self.messageTextEdit.setAcceptRichText(False)
       self.messageTextEdit.setReadOnly(True)

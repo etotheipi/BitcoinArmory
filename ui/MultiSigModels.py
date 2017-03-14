@@ -87,7 +87,7 @@ class LockboxDisplayModel(QAbstractTableModel):
             if lbox.isEnabled == True:
                return QVariant(coin2str(bal, maxZeros=2))
             
-            scanStr = 'Scanning: %d%%' % (self.main.walletSideScanProgress[lbID])
+            scanStr = self.tr('Scanning: %1%%').arg(self.main.walletSideScanProgress[lbID])
             return QVariant(scanStr)
             
          elif col==LOCKBOXCOLS.UnixTime: 
