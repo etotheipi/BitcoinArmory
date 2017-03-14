@@ -2,12 +2,12 @@
 These notes describe what had to be done on fresh installs of OS X 10.7 - 10.12 in order to compile Armory.
 
 ## Requirements / Caveats
-At the present time, **Armory cannot be compiled using XCode 8 or later versions**. This is due to issues with C++11 support under OS X 10.7, which Armory still supports (although this will change eventually). If compiling Armory, it is highly recommended that the user runs the latest versions of XCode 7 (7.3.1 as of Oct. 2016). Armory may be compiled under OS X 10.12.
+At the present time, **Armory cannot be compiled using XCode 8 or later versions without various changes to build conditions**. This is due to issues with C++11 support under OS X 10.7, which Armory still supports (although this will change eventually). If compiling Armory, it is highly recommended that the user runs the latest versions of XCode 7 (7.3.1 as of Mar. 2017). Armory may be compiled under OS X 10.12.
 
 Because C++11 support is shaky on OS X 10.7, *Armory developers may not fix bugs found under 10.7*. If a bug is found, please consult the [Bitcoin Forum](https://bitcointalk.org/index.php?board=97.0) or *bitcoin-armory* IRC channel on Freenode for further instructions.
 
 ## Instructions
- 1. Install the latest version of [Xcode](https://itunes.apple.com/us/app/xcode/id497799835).
+ 1. Install the latest version of [Xcode](https://itunes.apple.com/us/app/xcode/id497799835). Due to the XCode 8 issue, you may need to get an [Apple developer account](https://developer.apple.com/) and download the latest XCode 7 version via developer-specific downloads.
 
  2. Open a terminal and install the Xcode commandline tools. Follow any prompts that appear.
 
@@ -25,12 +25,16 @@ Because C++11 support is shaky on OS X 10.7, *Armory developers may not fix bugs
 
  4. Install and link dependencies required by the Armory build process but not by included Armory binaries. Note that the `zlib` and `openssl` dependencies are required only for OS X 10.12 and beyond.
 
-        brew install python xz swig gettext openssl automake homebrew/dupes/zlib
+        brew install python xz swig gettext openssl automake libtool homebrew/dupes/zlib
         brew link gettext --force
 
  5. Restart your Mac. (This is necessary due to issues related to the Python install.)
 
- 6. Compile Armory.
+ 6. Create a symbolic link for glibtoolize. (This requires sudo access and is probably not strictly necessary. It make Autotools much happier, though, and should be harmless.)
+
+        sudo ln -s /usr/local/bin/glibtoolize /usr/local/bin/libtoolize
+
+ 7. Compile Armory.
 
         cd osxbuild
         python build-app.py > /dev/null
