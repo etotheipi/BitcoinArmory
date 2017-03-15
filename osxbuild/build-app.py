@@ -33,6 +33,8 @@ pyasn1Ver     = '0.2.2'
 pyasn1Subdir  = '57/f7/c18a86169bb9995a69195177b23e736776b347fd92592da0c3cac9f1a724'
 siVer         = '16.0.0'
 siSubdir      = 'f3/2a/7c04e7ab74f9f2be026745a9ffa81fd9d56139fa6f5f4b4c8a8c07b2bfba'
+incVer        = '16.10.1'
+incSubdir     = 'da/b0/32233c9e84b0d44b39015fba8fec03e88053723c1b455925081dc6ccd9e7'
 twistedVer    = '16.6.0'
 libpngVer     = '1.6.28'
 qtVer         = '4.8.7'  # NB: ArmoryMac.pro must also be kept up to date!!!
@@ -54,11 +56,12 @@ PYPREFIX      = path.join(APPDIR, 'Contents/Frameworks/Python.framework/Versions
 PREFIXDIR     = path.join(PREFIXBASEDIR, 'usr')
 PYLIBPREFIX   = path.join(PYPREFIX, 'lib')
 PYINCPREFIX   = path.join(PYPREFIX, 'include/python%s' % pyMajorVer)
+PYBINARY      = path.join(PYPREFIX, 'Resources/Python.app/Contents/MacOS/Python')
 PYSITEPKGS    = path.join(PYLIBPREFIX, 'python%s/site-packages' % pyMajorVer)
 MAKEFLAGS     = '-j4'
 
 # Autotools needs some TLC to make Python happy.
-CONFIGFLAGS   = '--with-macosx-version-min=%s LIBS=\"-L%s\" PYTHON_LDFLAGS=\"-L%s\" PYTHON_CPPFLAGS=\"-I%s\" PYTHON_EXTRA_LIBS=\"-u _PyMac_Error %s/Python\"' % (minOSXVer, PYLIBPREFIX, PYLIBPREFIX, PYINCPREFIX, PYPREFIX)
+CONFIGFLAGS   = '--with-macosx-version-min=%s LIBS=\"-L%s\" PYTHON=\"%s\" PYTHON_LDFLAGS=\"-L%s\" PYTHON_CPPFLAGS=\"-I%s\" PYTHON_EXTRA_LIBS=\"-u _PyMac_Error %s/Python\"' % (minOSXVer, PYLIBPREFIX, PYBINARY, PYLIBPREFIX, PYINCPREFIX, PYPREFIX)
 
 QTBUILTFLAG   = path.join(UNPACKDIR, 'qt/qt_install_success.txt')
 
@@ -143,6 +146,7 @@ def main():
       compile_sip()
       compile_pyqt()
       compile_zope()
+      compile_incremental()
       compile_twisted()
       compile_psutil()
       compile_pyasn1()
@@ -374,6 +378,11 @@ distfiles.append( [ 'pyasn1', \
                     "pyasn1-%s.tar.gz" % pyasn1Ver, \
                     "https://pypi.python.org/packages/%s/pyasn1-%s.tar.gz" % (pyasn1Subdir, pyasn1Ver), \
                     "ada7ee490ffcc06c6247b28c2b4d12411ebdfdfd" ] )
+
+distfiles.append( [ 'incremental', \
+                    "incremental-%s.tar.gz" % incVer, \
+                    "https://pypi.python.org/packages/%s/incremental-%s.tar.gz" % (incSubdir, incVer), \
+                    "7ec58968fd367d20856488a8991f3a586c7a8695" ] )
 
 # When we upgrade to Qt5....
 #distfiles.append( [ "Qt", \
@@ -667,6 +676,17 @@ def compile_pyasn1():
       command = 'python -s setup.py --no-user-cfg install --force --verbose'
       pyasn1Path = unpack(tarfilesToDL['pyasn1'])
       execAndWait(command, cwd=pyasn1Path)
+
+########################################################
+def compile_incremental():
+   logprint('Installing incremental')
+
+   if glob.glob(PYSITEPKGS + '/incremental*'):
+      logprint('incremental already installed')
+   else:
+      command = 'python -s setup.py --no-user-cfg install --force --verbose'
+      incrementalPath = unpack(tarfilesToDL['incremental'])
+      execAndWait(command, cwd=incrementalPath)
 
 ########################################################
 def compile_armory():

@@ -1,6 +1,6 @@
 # Makefile for BitcoinArmory bitcoin wallet
 SUBDIRS = cppForSwig
-PREFIX = /usr
+PREFIX = /usr/local
 
 EXTRA_DIST = *.py *.md LICENSE LICENSE-ATI LICENSE-MIT \
 	nginx_example.conf imgList.xml autogen.sh \
@@ -18,6 +18,8 @@ qrc_img_resources.py: imgList.xml
 
 copy-script:
 	cp cppForSwig/ArmoryDB ./ArmoryDB
+
+# SWIG code and requirements.
 	cp cppForSwig/CppBlockUtils.py ./CppBlockUtils.py
 if BUILD_DARWIN
 	cp cppForSwig/.libs/libCppBlockUtils.dylib ./_CppBlockUtils.so
@@ -41,9 +43,19 @@ install-exec-hook: uninstall-old
 	cp *.py *.so README.md $(DESTDIR)$(PREFIX)/lib/armory
 	cp -r ui/* $(DESTDIR)$(PREFIX)/lib/armory/ui
 	cp -r armoryengine/* $(DESTDIR)$(PREFIX)/lib/armory/armoryengine
+
+# Sometimes, uninstall-old deletes a valid ArmoryDB. Copy again to be safe.
+	cp ArmoryDB $(DESTDIR)$(PREFIX)/bin
+
+# No need to install test binaries.
+	rm -f $(DESTDIR)$(PREFIX)/bin/ContainerTests
+	rm -f $(DESTDIR)$(PREFIX)/bin/CppBlockUtilsTests
+	rm -f $(DESTDIR)$(PREFIX)/bin/DB1kIterTest
+
+# Skip Linux-specific steps on OSX.
+if ! BUILD_DARWIN
 	sed "s: /usr: $(PREFIX):g" < dpkgfiles/armory > $(DESTDIR)$(PREFIX)/bin/armory 
 	chmod +x $(DESTDIR)$(PREFIX)/bin/armory
-if ! BUILD_DARWIN
 	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armory.desktop > $(DESTDIR)$(PREFIX)/share/applications/armory.desktop
 	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armoryoffline.desktop > $(DESTDIR)$(PREFIX)/share/applications/armoryoffline.desktop
 	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armorytestnet.desktop > $(DESTDIR)$(PREFIX)/share/applications/armorytestnet.desktop
