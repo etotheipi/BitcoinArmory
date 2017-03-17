@@ -27,14 +27,33 @@
 #include "SocketIncludes.h"
 
 using namespace std;
+   
+typedef function<bool(vector<uint8_t>, exception_ptr)>  ReadCallback;
+
+///////////////////////////////////////////////////////////////////////////////
+struct AcceptStruct
+{
+   SOCKET sockfd_;
+   sockaddr saddr_;
+   socklen_t addrlen_;
+   ReadCallback readCallback_;
+
+   AcceptStruct(void) :
+      addrlen_(sizeof(saddr_))
+   {}
+};
 
 ///////////////////////////////////////////////////////////////////////////////
 class BinarySocket
 {
    friend class FCGI_Server;
+   friend class ListenServer;
+
+protected:
+
 public:
-   typedef function<bool(vector<uint8_t>, exception_ptr)>  ReadCallback;
    typedef function<bool(const vector<uint8_t>&)>  SequentialReadCallback;
+   typedef function<void(AcceptStruct)> AcceptCallback;
 
 protected:
    const size_t maxread_ = 4*1024*1024;
@@ -53,13 +72,20 @@ protected:
 
    void writeAndRead(SOCKET, uint8_t*, size_t, 
       SequentialReadCallback);
+
+   void listen(AcceptCallback);
+
+   BinarySocket(void) :
+      addr_(""), port_("")
+   {}
    
 public:
-   static void closeSocket(SOCKET&);
-   SOCKET openSocket(bool blocking);
-
    BinarySocket(const string& addr, const string& port);
+
    bool testConnection(void);
+   SOCKET openSocket(bool blocking);
+   
+   static void closeSocket(SOCKET&);
 
    virtual string writeAndRead(const string&, SOCKET sock = SOCK_MAX)
    {
@@ -72,6 +98,8 @@ public:
 ///////////////////////////////////////////////////////////////////////////////
 class DedicatedBinarySocket : public BinarySocket
 {
+   friend class ListenServer;
+
 private:
    SOCKET sockfd_ = SOCK_MAX;
 
@@ -80,7 +108,12 @@ public:
       BinarySocket(addr, port)
    {}
 
-   ~DedicatedBinarySocket(void) { BinarySocket::closeSocket(sockfd_); }
+   DedicatedBinarySocket(SOCKET sockfd) :
+      BinarySocket(), sockfd_(sockfd)
+   {}
+
+   ~DedicatedBinarySocket(void) 
+   { BinarySocket::closeSocket(sockfd_); }
 
    void closeSocket()
    {
@@ -92,14 +125,15 @@ public:
       BinarySocket::writeToSocket(sockfd_, data, len);
    }
 
-   void readFromSocket(BinarySocket::ReadCallback callback)
+   void readFromSocket(ReadCallback callback)
    {
       BinarySocket::readFromSocket(sockfd_, callback);
    }
 
    bool openSocket(bool blocking)
    {
-      sockfd_ = BinarySocket::openSocket(blocking);
+      if (addr_.size() != 0 && port_.size() != 0)
+         sockfd_ = BinarySocket::openSocket(blocking);
       
       return isValid();
    }
@@ -127,6 +161,47 @@ public:
    }
 
    bool isValid(void) const { return sockfd_ != SOCK_MAX; }
+};
+
+///////////////////////////////////////////////////////////////////////////////
+class ListenServer
+{
+private:
+   struct SocketStruct
+   {
+   private:
+      SocketStruct(const SocketStruct&) = delete;
+
+   public:
+      SocketStruct(void)
+      {}
+
+      shared_ptr<DedicatedBinarySocket> sock_;
+      thread thr_;
+   };
+
+private:
+   unique_ptr<DedicatedBinarySocket> listenSocket_;
+   map<SOCKET, unique_ptr<SocketStruct>> acceptMap_;
+   Stack<SOCKET> cleanUpStack_;
+
+   thread listenThread_;
+   mutex mu_;
+
+private:
+   void listenThread(ReadCallback);
+   void acceptProcess(AcceptStruct);
+
+public:
+   ListenServer(const string& addr, const string& port);
+   ~ListenServer(void)
+   {
+      stop();
+   }
+
+   void start(ReadCallback);
+   void stop(void);
+   void join(void);
 };
 
 #endif

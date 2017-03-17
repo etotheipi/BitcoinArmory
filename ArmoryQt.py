@@ -237,9 +237,9 @@ class ArmoryMainWindow(QMainWindow):
 
 
       if not self.abortLoad:
-         self.setupNetworking()
+         self.acquireProcessMutex()
 
-      # setupNetworking may have set this flag if something went wrong
+      # acquireProcessMutex may have set this flag if something went wrong
       if self.abortLoad:
          LOGWARN('Armory startup was aborted.  Closing.')
          os._exit(0)
@@ -1726,24 +1726,30 @@ class ArmoryMainWindow(QMainWindow):
       self.writeSetting('DateFormat', binary_to_hex(fmtStr))
       return True
 
+   #############################################################################
+   def triggerProcessMutexNotification(self, uriLink):
+      self.bringArmoryToFront()
+      uriDict = parseBitcoinURI(uriLink)
+      if len(uriDict) > 0:
+         self.uriLinkClicked(uriLink)
 
    #############################################################################
 
-   def setupNetworking(self):
-      LOGINFO('Setting up networking...')
+   def acquireProcessMutex(self):
+      LOGINFO('acquiring process mutex...')
+      
+      self.connect(self, SIGNAL("processMutexNotification"), \
+                   self.triggerProcessMutexNotification)
 
       # Prevent Armory from being opened twice
-      from twisted.internet import reactor
-      import twisted
       def uriClick_partial(a):
-         self.uriLinkClicked(a)
+         self.emit(SIGNAL("processMutexNotification"), a)
 
       if CLI_OPTIONS.interport > 1:
-         try:
-            self.InstanceListener = ArmoryListenerFactory(self.bringArmoryToFront, \
-                                                          uriClick_partial )
-            reactor.listenTCP(CLI_OPTIONS.interport, self.InstanceListener)
-         except twisted.internet.error.CannotListenError:
+         from armoryengine.ProcessMutex import PySide_ProcessMutex
+         self.prc_mutex = PySide_ProcessMutex(CLI_OPTIONS.interport, uriClick_partial) 
+         
+         if self.prc_mutex.acquire() == False:
             LOGWARN('Socket already occupied!  This must be a duplicate Armory')
             QMessageBox.warning(self, self.tr('Already Open'), self.tr("""
                Armory is already running!  You can only have one Armory open
@@ -5818,66 +5824,19 @@ class ArmoryMainWindow(QMainWindow):
 
 ############################################
 def checkForAlreadyOpen():
-   import socket
+   from armoryengine.ProcessMutex import PySide_ProcessMutex
    LOGDEBUG('Checking for already open socket...')
-   try:
-      sock = socket.create_connection(('127.0.0.1',CLI_OPTIONS.interport), 0.1);
-      # If we got here (no error), there's already another Armory open
 
-      if OS_WINDOWS:
-         # Windows can be tricky, sometimes holds sockets even after closing
-         checkForAlreadyOpenError()
+   prc_mutex = PySide_ProcessMutex(CLI_OPTIONS.interport, None)   
 
-      LOGERROR('Socket already in use.  Sending CLI args to existing proc.')
-      if CLI_ARGS:
-         sock.send(CLI_ARGS[0])
-      sock.close()
-      LOGERROR('Exiting...')
+   urilink = ""
+   if CLI_ARGS:
+      urilink = CLI_ARGS[0]
+   
+   if prc_mutex.test(urilink) == True:
+      LOGERROR('Socket already in use.  Sent CLI args to existing proc.')      
+      LOGERROR('Exiting...')      
       os._exit(0)
-   except:
-      # This is actually the normal condition:  we expect this to be the
-      # first/only instance of Armory and opening the socket will err out
-      pass
-
-
-
-############################################
-def checkForAlreadyOpenError():
-   LOGINFO('Already open error checking')
-   # Sometimes in Windows, Armory actually isn't open, because it holds
-   # onto the socket even after it's closed.
-   armoryExists = []
-   bitcoindExists = []
-   aexe = os.path.basename(sys.argv[0])
-   bexe = 'bitcoind.exe' if OS_WINDOWS else 'bitcoind'
-   for proc in psutil.process_iter():
-      if hasattr(proc, '_name'):
-         pname = str(proc._name)
-      elif hasattr(proc, 'name'):
-         pname = str(proc.name)
-      else:
-         raise 'psutil.process has no known name field!'
-
-      if aexe in pname:
-         LOGINFO('Found armory PID: %d', proc.pid)
-         armoryExists.append(proc.pid)
-      if bexe in pname:
-         LOGINFO('Found bitcoind PID: %d', proc.pid)
-         if ('testnet' in proc.name) == USE_TESTNET or ('regtest' in proc.name) == USE_REGTEST:
-            bitcoindExists.append(proc.pid)
-
-   if len(armoryExists)>0:
-      LOGINFO('Not an error!  Armory really is open')
-      return
-   elif len(bitcoindExists)>0:
-      # Strange condition where bitcoind doesn't get killed by Armory/guardian
-      # (I've only seen this happen on windows, though)
-      LOGERROR('Found zombie bitcoind process...killing it')
-      for pid in bitcoindExists:
-         killProcess(pid)
-      time.sleep(0.5)
-      raise
-
 
 ############################################
 

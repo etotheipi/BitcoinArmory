@@ -14,6 +14,7 @@
 %module(directors="1") CppBlockUtils
 %feature("director") PythonCallback;
 %feature("director") PythonSigner;
+%feature("director") ProcessMutex;
 
 %{
 #define SWIG_PYTHON_EXTRA_NATIVE_CONTAINERS

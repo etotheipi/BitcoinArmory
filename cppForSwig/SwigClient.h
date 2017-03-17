@@ -378,6 +378,31 @@ namespace SwigClient
 
       uint64_t getValueForTxOut(const BinaryData& txHash, unsigned inputId);
    };
+
+   ///////////////////////////////////////////////////////////////////////////////
+   class ProcessMutex
+   {
+   private:
+      string addr_;
+      string port_;
+      thread holdThr_;
+
+   private:
+
+      void hold();
+
+   public:
+      ProcessMutex(const string& addr, const string& port) :
+         addr_(addr), port_(port)
+      {}
+
+      bool test(const string& uriStr);      
+      bool acquire();
+      
+      virtual ~ProcessMutex(void) = 0;
+      virtual void mutexCallback(const string&) = 0;
+   };
 };
+
 
 #endif

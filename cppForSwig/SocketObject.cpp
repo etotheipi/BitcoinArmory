@@ -60,7 +60,8 @@ SOCKET BinarySocket::openSocket(bool blocking)
       if (sockfd < 0)
          throw SocketError("failed to create socket");
 
-      if (connect(sockfd, &serv_addr_, sizeof(serv_addr_)) < 0)
+      auto result = connect(sockfd, &serv_addr_, sizeof(serv_addr_));
+      if (result < 0)
       {
          closeSocket(sockfd);
          throw SocketError("failed to connect to server");
@@ -534,4 +535,205 @@ void BinarySocket::writeAndRead(
 
    //cleanup
    closeSocket(sockfd);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void BinarySocket::listen(AcceptCallback callback)
+{
+   SOCKET sockfd = SOCK_MAX;
+   try
+   {
+      sockfd = socket(serv_addr_.sa_family, SOCK_STREAM, 0);
+      if (sockfd < 0)
+         throw SocketError("failed to create socket");
+
+      if (::bind(sockfd, &serv_addr_, sizeof(serv_addr_)) < 0)
+      {
+         closeSocket(sockfd);
+         throw SocketError("failed to bind socket");
+      }
+
+      if (::listen(sockfd, 10) < 0)
+      {
+         closeSocket(sockfd);
+         throw SocketError("failed to listen to socket");
+      }
+   }
+   catch (SocketError &)
+   {
+      closeSocket(sockfd);
+      return;
+   }
+
+   stringstream errorss;
+   exception_ptr exceptptr = nullptr;
+
+   struct pollfd pfd;
+   pfd.fd = sockfd;
+   pfd.events = POLLIN;
+
+   try
+   {
+      while (1)
+      {
+#ifdef _WIN32
+         auto status = WSAPoll(&pfd, 1, 60000);
+#else
+         auto status = poll(&pfd, 1, 60000);
+#endif
+
+         if (status == 0)
+            continue;
+
+         if (status == -1)
+         {
+            //select error, process and exit loop
+#ifdef _WIN32
+            auto errornum = WSAGetLastError();
+#else
+            auto errornum = errno;
+#endif
+            errorss << "poll() error in readFromSocketThread: " << errornum;
+            LOGERR << errorss.str();
+            throw SocketError(errorss.str());
+         }
+
+         if (pfd.revents & POLLNVAL)
+         {
+#ifndef _WIN32
+            /*int error = 0;
+            socklen_t errlen = sizeof(error);
+            getsockopt(sockfd, SOL_SOCKET, SO_ERROR, (void *)&error, &errlen);
+            LOGERR << "readFromSocketThread poll returned POLLNVAL, errnum: " <<
+            error << ", errmsg: " << strerror(error);*/
+#endif
+            throw SocketError("POLLNVAL in readFromSocketThread");
+         }
+
+         //exceptions
+         if (pfd.revents & POLLERR)
+         {
+            //TODO: grab socket error code, pass error to callback
+
+            //break out of poll loop
+            errorss << "POLLERR error in readFromSocketThread";
+            LOGERR << errorss.str();
+            throw SocketError(errorss.str());
+         }
+
+         if (pfd.revents & POLLIN)
+         {
+            //accept socket and trigger callback
+            AcceptStruct astruct;
+            astruct.sockfd_ = accept(sockfd, &astruct.saddr_, &astruct.addrlen_);
+            callback(move(astruct));
+         }
+      }
+   }
+   catch (...)
+   {
+      exceptptr = current_exception();
+   }
+
+   //cleanup
+   closeSocket(sockfd);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+ListenServer::ListenServer(const string& addr, const string& port)
+{
+   listenSocket_ = make_unique<DedicatedBinarySocket>(addr, port);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void ListenServer::start(ReadCallback callback)
+{
+   auto listenlbd = [this](ReadCallback clbk)->void
+   {
+      this->listenThread(clbk);
+   };
+
+   listenThread_ = thread(listenlbd, callback);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void ListenServer::join()
+{
+   if (listenThread_.joinable())
+      listenThread_.join();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void ListenServer::listenThread(ReadCallback callback)
+{
+   auto acceptldb = [callback, this](AcceptStruct astruct)->void
+   {
+      astruct.readCallback_ = callback;
+      this->acceptProcess(move(astruct));
+   };
+
+   listenSocket_->listen(acceptldb);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void ListenServer::acceptProcess(AcceptStruct aStruct)
+{
+   unique_lock<mutex> lock(mu_);
+
+   auto readldb = [this](
+      shared_ptr<DedicatedBinarySocket> sock, ReadCallback callback)->void
+   {
+      sock->readFromSocket(callback);
+      auto sockfd = sock->sockfd_;
+      this->cleanUpStack_.push_back(move(sockfd));
+   };
+
+   auto ss = make_unique<SocketStruct>();
+
+   //create BinarySocket object from sockfd
+   ss->sock_ = make_shared<DedicatedBinarySocket>(aStruct.sockfd_);
+
+   //start read lambda thread
+   ss->thr_ = thread(readldb, ss->sock_, aStruct.readCallback_);
+
+   //record thread id and socket ptr in socketStruct, add to acceptMap_
+   acceptMap_.insert(make_pair(aStruct.sockfd_, move(ss)));
+
+   //run through clean up stack, removing flagged entries from acceptMap_
+   try
+   {
+      while (1)
+      {
+         auto&& sock = cleanUpStack_.pop_front();
+         auto iter = acceptMap_.find(sock);
+         if (iter != acceptMap_.end())
+         {
+            auto ssptr = move(iter->second);
+            acceptMap_.erase(iter);
+
+            if (ssptr->thr_.joinable())
+               ssptr->thr_.join();
+         }
+      }
+   }
+   catch (IsEmpty&)
+   { 
+   }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void ListenServer::stop()
+{
+   listenSocket_->closeSocket();
+   if (listenThread_.joinable())
+      listenThread_.join();
+
+   for (auto& sockPair : acceptMap_)
+   {
+      auto& sockstruct = sockPair.second;
+      
+      sockstruct->sock_->closeSocket();
+      if (sockstruct->thr_.joinable())
+         sockstruct->thr_.join();
+   }
 }

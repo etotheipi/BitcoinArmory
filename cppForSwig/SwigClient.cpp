@@ -996,3 +996,97 @@ void PythonCallback::remoteLoop(void)
       }
    }
 }
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// ProcessMutex
+//
+///////////////////////////////////////////////////////////////////////////////
+ProcessMutex::~ProcessMutex()
+{}
+
+///////////////////////////////////////////////////////////////////////////////
+bool ProcessMutex::acquire()
+{
+   {
+      string str;
+      if (test(str))
+         return false;
+   }
+
+   auto holdldb = [this]()
+   {
+      this->hold();
+   };
+
+   holdThr_ = thread(holdldb);
+   return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+bool ProcessMutex::test(const string& uriLink)
+{
+   auto sock = DedicatedBinarySocket(addr_, port_);
+
+   if (!sock.openSocket(false))
+      return false;
+
+   try
+   {
+      BinaryWriter bw;
+      BinaryDataRef bdr;
+      bdr.setRef(uriLink);
+
+      bw.put_var_int(uriLink.size());
+      bw.put_BinaryDataRef(bdr);
+      auto bwRef = bw.getDataRef();
+
+      //serialize argv
+      sock.writeToSocket((void*)bwRef.getPtr(), bwRef.getSize());
+   }
+   catch (...)
+   {
+      return false;
+   }
+   
+   return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void ProcessMutex::hold()
+{
+   auto server = ListenServer(addr_, port_);
+   
+   auto readLdb = [this](vector<uint8_t> data, exception_ptr eptr)->bool
+   {
+      if (data.size() == 0 || eptr != nullptr)
+         return false;
+
+      //unserialize urilink
+      string urilink;
+
+      try
+      {
+         BinaryDataRef bdr(&data[0], data.size());
+         BinaryRefReader brr(bdr);
+
+         auto len = brr.get_var_int();
+         auto uriRef = brr.get_BinaryDataRef(len);
+
+         urilink = move(string((char*)uriRef.getPtr(), len));
+      }
+      catch (...)
+      {
+         return false;
+      }
+
+      //callback
+      mutexCallback(urilink);
+
+      //return false to close the socket
+      return false;
+   };
+
+   server.start(readLdb);
+   server.join();
+}
