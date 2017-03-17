@@ -119,9 +119,6 @@ void StackInterpreter::processOpCode(const OpCode& oc)
 {
    ++opcount_;
 
-   if (oc.opcode_ == OP_RESERVED)
-      int abc = 0;
-
    //handle push data by itself, doesn't play well with switch
    if (oc.opcode_ == 0)
    {

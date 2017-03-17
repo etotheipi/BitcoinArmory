@@ -345,7 +345,6 @@ string FcgiSocket::writeAndRead(const string& msg, SOCKET sockfd)
       catch (future_error& e)
       {
          cout << e.what();
-         int abc = 0;
       }
 
       closeSocket(sockfd);
