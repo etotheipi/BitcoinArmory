@@ -72,7 +72,7 @@ LIBS += -framework Foundation
 # Source: src/gui/Makefile.release for Qt
 # Source: QtCore/QtCore.pro for PyQt
 ARMORYNAME = ArmoryMac
-DESTDIR = ../workspace/Armory.app/Contents/MacOS/py/usr/lib/armory
+DESTDIR = ../workspace/Armory.app/Contents/MacOS/py/usr/local/lib/armory
 SOURCES = ./sip$${ARMORYNAME}DockIconClickEventHandler.cpp ./sip$${ARMORYNAME}MacDockIconHandler.cpp ./sip$${ARMORYNAME}MacNotificationHandler.cpp ./sip$${ARMORYNAME}MacUtils.cpp ./sip$${ARMORYNAME}cmodule.cpp
 LIBS += -L$$QT_UNPACK_BASE/lib -framework QtCore -framework QtGui -L$$QT_UNPACK_BASE/lib -framework Carbon -lz -framework AppKit -framework Python
 QMAKE_CXXFLAGS += $$QMAKE_OBJECTIVE_CFLAGS

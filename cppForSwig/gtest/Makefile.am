@@ -55,5 +55,7 @@ DB1kIterTest_LDADD = -L../lmdb -llmdb \
 	-L../fcgi/libfcgi/ -lfcgi \
 	-lpthread
 
-
-
+# "#include <tr1/tuple>" causes a build error on OSX without this flag.
+if BUILD_DARWIN
+AM_CXXFLAGS += -DGTEST_USE_OWN_TR1_TUPLE=1
+endif

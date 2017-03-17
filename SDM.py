@@ -134,7 +134,7 @@ class SatoshiDaemonManager(object):
       path = os.path.dirname(os.path.abspath(__file__))
       if OS_MACOSX:
          # OSX separates binaries/start scripts from the Python code. Back up!
-         path = os.path.join(path, '../../local/bin/')
+         path = os.path.join(path, '../../bin/')
       self.dbExecutable = os.path.join(path, 'ArmoryDB')  
          
       if OS_WINDOWS:

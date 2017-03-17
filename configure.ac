@@ -57,14 +57,9 @@ fi
 
 AC_MSG_RESULT([AX_SWIG_PYTHON_CPPFLAGS: $AX_SWIG_PYTHON_CPPFLAGS])
 
-#check existence of Qt packages
-if ! pkg-config --exists 'QtCore >= 4.8 QtCore <= 5 QtGui >= 4.8 QtGui <= 5'; then
-	AC_MSG_ERROR([missing QtCore library, make sure libqtcore4 and libqt4-dev are installed])
-fi
-
 AC_CHECK_PROG([HAVE_PYRCC4], [pyrcc4], [yes], [no])
 AS_IF([test $HAVE_PYRCC4 == yes], [],
-	[AC_MSG_ERROR([missing pyrcc4 in path, make sure pyqt4-dev-tools])]) 
+	[AC_MSG_ERROR([missing pyrcc4 in path, make sure pyqt4-dev-tools are installed])]) 
 
 AC_SUBST([CXX_STANDARD], $CXX_STANDARD)
 
@@ -73,9 +68,7 @@ case $host in
   *darwin*)
     BUILD_OS=darwin
 
-    dnl
-    dnl  Handle Mac OS X SDK flags
-    dnl
+    # Handle Mac OS X SDK flags.
     AC_ARG_WITH(macosx-sdk,
       [AS_HELP_STRING([--with-macosx-sdk=DIR],
         [compile using the SDK in DIR])])
@@ -100,9 +93,17 @@ case $host in
     CPP="${CPP} -stdlib=libc++ -std=c++11"
     CXX="${CXX} -stdlib=libc++ -std=c++11"
     LD="${LD} -stdlib=libc++ -std=c++11 -lc++ -undefined dynamic_lookup -headerpad_max_install_names"
+
+    # There really ought to be some sort of Qt check here. M4 files don't work
+    # well with Armory. Revisit this later. Not required, just nice to have.
     ;;
   *linux*)
     BUILD_OS=linux
+
+    # Check existence of Qt packages.
+    if ! pkg-config --exists 'QtCore >= 4.8 QtCore <= 5 QtGui >= 4.8 QtGui <= 5'; then
+    	AC_MSG_ERROR([missing QtCore library, make sure libqtcore4 and libqt4-dev are installed])
+    fi
     ;;
 esac
 
