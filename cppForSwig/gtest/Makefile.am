@@ -33,7 +33,7 @@ SOURCE_FILES = ../UniversalTimer.cpp ../BinaryData.cpp ../lmdb_wrapper.cpp \
 AM_CXXFLAGS = -I../lmdb \
 	-I../cryptopp \
 	-I../fcgi -I../fcgi/include \
-	-D__STDC_LIMIT_MACROS
+	-D__STDC_LIMIT_MACROS -fPIC
 
 AM_LDFLAGS = -static
 
