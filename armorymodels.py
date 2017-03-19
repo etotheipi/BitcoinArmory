@@ -1037,18 +1037,18 @@ class WalletAddrDispModel(QAbstractTableModel):
          if col==COL.ChainIdx:
             cmt = str(self.index(index.row(),COL.ChainIdx).data().toString())
             if cmt.strip().lower().startswith('imp'):
-               return QVariant(self.tr('''<u></u>This is an imported address. Imported 
-                               addresses are not protected by regular paper 
-                               backups.  You must use the "Backup Individual 
-                               Keys" option to protect it.'''))
+               return QVariant(self.tr('<u></u>This is an imported address. Imported '
+                               'addresses are not protected by regular paper '
+                               'backups.  You must use the "Backup Individual '
+                               'Keys" option to protect it.'))
             else:
-               return QVariant(self.tr('''<u></u>The order that this address was 
-                               generated in this wallet'''))
+               return QVariant(self.tr('<u></u>The order that this address was '
+                               'generated in this wallet'))
          cmt = str(self.index(index.row(),COL.Comment).data().toString())
          if cmt==CHANGE_ADDR_DESCR_STRING:
-            return QVariant(self.tr('''This address was created by Armory to 
-                            receive change-back-to-self from an oversized 
-                            transaction.'''))
+            return QVariant(self.tr('This address was created by Armory to '
+                            'receive change-back-to-self from an oversized '
+                            'transaction.'))
       elif role==Qt.BackgroundColorRole:
          if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
             return QVariant( Colors.TblWltOther )

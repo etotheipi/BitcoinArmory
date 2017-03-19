@@ -145,18 +145,18 @@ class WalletWizard(ArmoryWizard):
                                 QWizard.FinishButton])
    def done(self, event):
       if self.newWallet and not self.walletBackupPage.pageFrame.isBackupCreated:
-         reply = QMessageBox.question(self, self.tr('Wallet Backup Warning'), self.tr("""<qt>
-               You have not made a backup for your new wallet.  You only have 
-               to make a backup of your wallet <u>one time</u> to protect 
-               all the funds held by this wallet <i>any time in the future</i>
-               (it is a backup of the signing keys, not the coins themselves).
-               <br><br>
-               If you do not make a backup, you will <u>permanently</u> lose
-               the money in this wallet if you ever forget your password, or 
-               suffer from hardware failure.
-               <br><br>
-               Are you sure that you want to leave this wizard without backing 
-               up your wallet?</qt>"""), \
+         reply = QMessageBox.question(self, self.tr('Wallet Backup Warning'), self.tr('<qt>'
+               'You have not made a backup for your new wallet.  You only have '
+               'to make a backup of your wallet <u>one time</u> to protect '
+               'all the funds held by this wallet <i>any time in the future</i> '
+               '(it is a backup of the signing keys, not the coins themselves).'
+               '<br><br>'
+               'If you do not make a backup, you will <u>permanently</u> lose '
+               'the money in this wallet if you ever forget your password, or '
+               'suffer from hardware failure.'
+               '<br><br>'
+               'Are you sure that you want to leave this wizard without backing '
+               'up your wallet?</qt>'), \
                QMessageBox.Yes | QMessageBox.No)
          if reply == QMessageBox.No:
             # Stay in the wizard
@@ -219,9 +219,7 @@ class ManualEntropyPage(ArmoryWizardPage):
             CardDeckFrame(wizard, wizard.main, wizard.tr("Shuffle a deck of cards")))
       self.wizard = wizard
       self.setTitle(wizard.tr("Step 1: Add Manual Entropy"))
-      self.setSubTitle(wizard.tr("""
-            Use a deck of cards to get a new random number for your wallet.
-            """))
+      self.setSubTitle(wizard.tr('Use a deck of cards to get a new random number for your wallet.'))
 
    def validatePage(self):
       return self.pageFrame.hasGoodEntropy()
@@ -236,9 +234,9 @@ class WalletCreationPage(ArmoryWizardPage):
             NewWalletFrame(wizard, wizard.main, "Primary Wallet"))
       self.wizard = wizard
       self.setTitle(wizard.tr("Step 1: Create Wallet"))
-      self.setSubTitle(wizard.tr("""
-            Create a new wallet for managing your funds.
-            The name and description can be changed at any time."""))
+      self.setSubTitle(wizard.tr(
+            'Create a new wallet for managing your funds. '
+            'The name and description can be changed at any time.'))
       
    # override this method to implement validators
    def validatePage(self):

@@ -30,16 +30,14 @@ class CoinControlDlg(ArmoryDialog):
          'all other addresses.'))
       
       self.useAllCheckBox = QCheckBox(self.tr("Use all selected UTXOs"))
-      useAllToolTip = self.main.createToolTipWidget(self.tr('''
-      By default, Armory will pick a subset of the UTXOs you chose 
-      explicitly through the coin control feature to best suit the
-      total spend value of the transaction you are constructing.
-      
-      <br><br>
-      Checking 'Use all selected UTXOs' forces the construction of a
-      transaction that will redeem the exact list of UTXOs you picked 
-      instead 
-      '''))
+      useAllToolTip = self.main.createToolTipWidget(self.tr(
+      'By default, Armory will pick a subset of the UTXOs you chose '
+      'explicitly through the coin control feature to best suit the '
+      'total spend value of the transaction you are constructing. '
+      '<br><br>'
+      'Checking \'Use all selected UTXOs\' forces the construction of a '
+      'transaction that will redeem the exact list of UTXOs you picked '
+      'instead.'))
       
       frmCheckAll = makeHorizFrame([self.useAllCheckBox, useAllToolTip, 'Stretch'])
             

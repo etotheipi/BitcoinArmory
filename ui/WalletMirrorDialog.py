@@ -115,24 +115,19 @@ class MirrorWalletsDialog(ArmoryDialog):
       
       self.setWindowFlags(Qt.Dialog)
       
-      infoLabel = QRichLabel(self.tr('''
-      Starting v0.96, Armory needs to mirror Python
-      wallets into C++ wallets in order to operate. Mirrored C++ wallets
-      are watching only (they do not hold any private keys).<br><br>
-            
-      Mirrored wallets are used to interface with the database and perform
-      operations that aren't available to the legacy Python wallets, such
-      support for compressed public keys and Segregated Witness transactions.
-      <br><br>
-      
-      Mirroring only needs to happen once per wallet. Synchronization
-      will happen every time the Python wallet address chain is ahead of the 
-      mirrored Cpp wallet address chain (this typically rarely happens).
-      <br><br>
-      
-      This process can take up to a few minutes per wallet.<br><br>
-      '''
-       ))
+      infoLabel = QRichLabel(self.tr(
+      'Starting v0.96, Armory needs to mirror Python '
+      'wallets into C++ wallets in order to operate. Mirrored C++ wallets '
+      'are watching only (they do not hold any private keys).<br><br> '
+      'Mirrored wallets are used to interface with the database and perform '
+      'operations that aren\'t available to the legacy Python wallets, such '
+      'support for compressed public keys and Segregated Witness transactions. '
+      '<br><br>'      
+      'Mirroring only needs to happen once per wallet. Synchronization '
+      'will happen every time the Python wallet address chain is ahead of the '
+      'mirrored Cpp wallet address chain (this typically rarely happens).'
+      '<br><br>'      
+      'This process can take up to a few minutes per wallet.<br><br>'))
       
       self.statusLabel = QLabel('...')     
       self.statusLabel.setAlignment(Qt.AlignCenter | Qt.AlignVCenter) 

@@ -25,14 +25,14 @@ class LockboxSelectFrame(ArmoryFrame):
       self.cppWlt = self.main.cppLockboxWltMap[spendFromLBID]
 
       if not self.lbox:
-         QMessageBox.warning(self, self.tr("Invalid Lockbox"), self.tr(""" There was 
-         an error loading the specified lockbox (%1).""").arg(spendFromLBID),
+         QMessageBox.warning(self, self.tr("Invalid Lockbox"), self.tr(
+            'There was an error loading the specified lockbox (%1).').arg(spendFromLBID),
          QMessageBox.Ok)
          self.reject()
          return
 
-      lblSpendFromLB = QRichLabel(self.tr(""" <font color="%1" size=4><b><u>Lockbox
-         %2 (%3-of-%4)</u></b></font>""").arg(htmlColor('TextBlue'), self.lbox.uniqueIDB58).arg(self.lbox.M).arg(self.lbox.N))
+      lblSpendFromLB = QRichLabel(self.tr('<font color="%1" size=4><b><u>Lockbox '
+         '%2 (%3-of-%4)</u></b></font>').arg(htmlColor('TextBlue'), self.lbox.uniqueIDB58).arg(self.lbox.M).arg(self.lbox.N))
       lblSpendFromLB.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
       lbls = []
@@ -736,9 +736,9 @@ class WalletBackupFrame(ArmoryFrame):
       self.isBackupCreated = False
       self.passphrase = None
       self.lblTitle = QRichLabel(self.tr("<b>Backup Options</b>"))
-      lblTitleDescr = QRichLabel(self.tr("""
-         Armory wallets only need to be backed up <u>one time, ever.</u>
-         The backup is good no matter how many addresses you use. """))
+      lblTitleDescr = QRichLabel(self.tr(
+         'Armory wallets only need to be backed up <u>one time, ever.</u> '
+         'The backup is good no matter how many addresses you use. '))
       lblTitleDescr.setOpenExternalLinks(True)
 
 
@@ -823,44 +823,44 @@ class WalletBackupFrame(ArmoryFrame):
 
 
       F = self.FEATURES
-      self.featuresTips[F.ProtGen] = self.main.createToolTipWidget(self.tr("""
-         Every time you click "Receive Bitcoins," a new address is generated.
-         All of these addresses are generated from a single seed value, which
-         is included in all backups.   Therefore, all addresses that you have
-         generated so far <b>and</b> will ever be generated with this wallet, 
-         are protected by this backup! """))
+      self.featuresTips[F.ProtGen] = self.main.createToolTipWidget(self.tr(
+         'Every time you click "Receive Bitcoins," a new address is generated. '
+         'All of these addresses are generated from a single seed value, which '
+         'is included in all backups.   Therefore, all addresses that you have '
+         'generated so far <b>and</b> will ever be generated with this wallet, '
+         'are protected by this backup! '))
 
-      self.featuresTips[F.ProtImport] = self.main.createToolTipWidget(self.tr("""
-         <i>This wallet <u>does not</u> currently have any imported
-         addresses, so you can safely ignore this feature!</i>
-         When imported addresses are present, backups only protects those
-         imported before the backup was made.  You must replace that
-         backup if you import more addresses! """))
+      self.featuresTips[F.ProtImport] = self.main.createToolTipWidget(self.tr(
+         '<i>This wallet <u>does not</u> currently have any imported '
+         'addresses, so you can safely ignore this feature!</i> '
+         'When imported addresses are present, backups only protects those '
+         'imported before the backup was made.  You must replace that '
+         'backup if you import more addresses! '))
 
-      self.featuresTips[F.LostPass] = self.main.createToolTipWidget(self.tr("""
-         Lost/forgotten passphrases are, <b>by far</b>, the most common
-         reason for users losing bitcoins.  It is critical you have
-         at least one backup that works if you forget your wallet
-         passphrase. """))
+      self.featuresTips[F.LostPass] = self.main.createToolTipWidget(self.tr(
+         'Lost/forgotten passphrases are, <b>by far</b>, the most common '
+         'reason for users losing bitcoins.  It is critical you have '
+         'at least one backup that works if you forget your wallet '
+         'passphrase. '))
 
-      self.featuresTips[F.Durable] = self.main.createToolTipWidget(self.tr("""
-         USB drives and CD/DVD disks are not intended for long-term storage.
-         They will <i>probably</i> last many years, but not guaranteed
-         even for 3-5 years.   On the other hand, printed text on paper will
-         last many decades, and useful even when thoroughly faded. """))
+      self.featuresTips[F.Durable] = self.main.createToolTipWidget(self.tr(
+         'USB drives and CD/DVD disks are not intended for long-term storage. '
+         'They will <i>probably</i> last many years, but not guaranteed '
+         'even for 3-5 years.   On the other hand, printed text on paper will '
+         'last many decades, and useful even when thoroughly faded. '))
 
-      self.featuresTips[F.Visual] = self.main.createToolTipWidget(self.tr("""
-         The ability to look at a backup and determine if
-         it is still usable.   If a digital backup is stored in a safe
-         deposit box, you have no way to verify its integrity unless
-         you take a secure computer/device with you.  A simple glance at
-         a paper backup is enough to verify that it is still intact. """))
+      self.featuresTips[F.Visual] = self.main.createToolTipWidget(self.tr(
+         'The ability to look at a backup and determine if '
+         'it is still usable.   If a digital backup is stored in a safe '
+         'deposit box, you have no way to verify its integrity unless '
+         'you take a secure computer/device with you.  A simple glance at '
+         'a paper backup is enough to verify that it is still intact. '))
 
-      self.featuresTips[F.Physical] = self.main.createToolTipWidget(self.tr("""
-         If multiple pieces/fragments are required to restore this wallet.
-         For instance, encrypted backups require the backup
-         <b>and</b> the passphrase.  This feature is only needed for those
-         concerned about physical security, not just online security."""))
+      self.featuresTips[F.Physical] = self.main.createToolTipWidget(self.tr(
+         'If multiple pieces/fragments are required to restore this wallet. '
+         'For instance, encrypted backups require the backup '
+         '<b>and</b> the passphrase.  This feature is only needed for those '
+         'concerned about physical security, not just online security.'))
 
 
       MkFeatLabel = lambda x: QRichLabel(x, doWrap=False)
@@ -932,16 +932,15 @@ class WalletBackupFrame(ArmoryFrame):
          'Protects Imported Addresses'), color=pcolor)
 
       if self.hasImportedAddr:
-         self.featuresTips[self.FEATURES.ProtImport].setText(self.tr("""
-            When imported addresses are present, backups only protects those
-            imported before the backup was made!  You must replace that
-            backup if you import more addresses!
-            <i>Your wallet <u>does</u> contain imported addresses</i>."""))
+         self.featuresTips[self.FEATURES.ProtImport].setText(self.tr(
+            'When imported addresses are present, backups only protects those '
+            'imported before the backup was made!  You must replace that '
+            'backup if you import more addresses! '
+            '<i>Your wallet <u>does</u> contain imported addresses</i>.'))
 
 
          
-      self.lblTitle.setText(self.tr("""
-         <b>Backup Options for Wallet "%1" (%2)</b>""").arg(wltName, wltID))
+      self.lblTitle.setText(self.tr('<b>Backup Options for Wallet "%1" (%2)</b>').arg(wltName, wltID))
 
    #############################################################################
    def setDispFrame(self, index):
@@ -953,42 +952,42 @@ class WalletBackupFrame(ArmoryFrame):
          self.featuresLbls[self.FEATURES.ProtImport].setText(self.tr(\
             'Protects Imported Addresses'), color=pcolor)
 
-         txtPaper = self.tr("""
-               Paper backups protect every address ever generated by your
-               wallet. It is unencrypted, which means it needs to be stored
-               in a secure place, but it will help you recover your wallet
-               if you forget your encryption passphrase!
-               <br><br>
-               <b>You don't need a printer to make a paper backup!
-               The data can be copied by hand with pen and paper.</b>
-               Paper backups are preferred to digital backups, because you
-               know the paper backup will work no matter how many years (or
-               decades) it sits in storage.  """)
-         txtDigital = self.tr("""
-               Digital backups can be saved to an external hard-drive or
-               USB removable media.  It is recommended you make a few
-               copies to protect against "bit rot" (degradation). <br><br>""")
-         txtDigPlain = self.tr("""
-               <b><u>IMPORTANT:</u> Do not save an unencrypted digital
-               backup to your primary hard drive!</b>
-               Please save it <i>directly</i> to the backup device.
-               Deleting the file does not guarantee the data is actually
-               gone!  """)
-         txtDigCrypt = self.tr("""
-               <b><u>IMPORTANT:</u> It is critical that you have at least
-               one unencrypted backup!</b>  Without it, your bitcoins will
-               be lost forever if you forget your passphrase!  This is <b>
-               by far</b> the most common reason users lose coins!  Having
-               at least one paper backup is recommended.""")
-         txtIndivKeys = self.tr("""
-               View and export invidivual addresses strings,
-               public keys and/or private keys contained in your wallet.
-               This is useful for exporting your private keys to be imported into
-               another wallet app or service.
-               <br><br>
-               You can view/backup imported keys, as well as unused keys in your
-               keypool (pregenerated addresses protected by your backup that
-               have not yet been used). """)
+         txtPaper = self.tr(
+               'Paper backups protect every address ever generated by your '
+               'wallet. It is unencrypted, which means it needs to be stored '
+               'in a secure place, but it will help you recover your wallet '
+               'if you forget your encryption passphrase! '
+               '<br><br>'
+               '<b>You don\'t need a printer to make a paper backup! '
+               'The data can be copied by hand with pen and paper.</b> '
+               'Paper backups are preferred to digital backups, because you '
+               'know the paper backup will work no matter how many years (or '
+               'decades) it sits in storage.')
+         txtDigital = self.tr(
+               'Digital backups can be saved to an external hard-drive or '
+               'USB removable media.  It is recommended you make a few '
+               'copies to protect against "bit rot" (degradation). <br><br>')
+         txtDigPlain = self.tr(
+               '<b><u>IMPORTANT:</u> Do not save an unencrypted digital '
+               'backup to your primary hard drive!</b> '
+               'Please save it <i>directly</i> to the backup device. '
+               'Deleting the file does not guarantee the data is actually '
+               'gone!')
+         txtDigCrypt = self.tr(
+               '<b><u>IMPORTANT:</u> It is critical that you have at least '
+               'one unencrypted backup!</b>  Without it, your bitcoins will '
+               'be lost forever if you forget your passphrase!  This is <b> '
+               'by far</b> the most common reason users lose coins!  Having '
+               'at least one paper backup is recommended.')
+         txtIndivKeys = self.tr(
+               'View and export invidivual addresses strings, '
+               'public keys and/or private keys contained in your wallet. '
+               'This is useful for exporting your private keys to be imported into '
+               'another wallet app or service. '
+               '<br><br>'
+               'You can view/backup imported keys, as well as unused keys in your '
+               'keypool (pregenerated addresses protected by your backup that '
+               'have not yet been used).')
 
 
          chk = lambda: QPixmap(':/checkmark32.png').scaled(20, 20)
@@ -1123,14 +1122,14 @@ class WalletBackupFrame(ArmoryFrame):
             dlg = DlgUnlockWallet(self.wlt, self, self.main, 'Unlock Private Keys')
             if not dlg.exec_():
                if self.main.usermode == USERMODE.Expert:
-                  QMessageBox.warning(self, self.tr('Unlock Failed'), self.tr("""
-                     Wallet was not be unlocked.  The public keys and addresses
-                     will still be shown, but private keys will not be available
-                     unless you reopen the dialog with the correct passphrase."""), \
+                  QMessageBox.warning(self, self.tr('Unlock Failed'), self.tr(
+                     'Wallet was not unlocked.  The public keys and addresses '
+                     'will still be shown, but private keys will not be available '
+                     'unless you reopen the dialog with the correct passphrase.'), \
                      QMessageBox.Ok)
                else:
-                  QMessageBox.warning(self, self.tr('Unlock Failed'), self.tr("""
-                     'Wallet could not be unlocked to display individual keys."""), \
+                  QMessageBox.warning(self, self.tr('Unlock Failed'), self.tr(
+                     'Wallet could not be unlocked to display individual keys.'), \
                      QMessageBox.Ok)
                   if self.main.usermode == USERMODE.Standard:
                      return
@@ -1147,25 +1146,25 @@ class WizardCreateWatchingOnlyWalletFrame(ArmoryFrame):
       super(WizardCreateWatchingOnlyWalletFrame, self).__init__(parent, main)
 
 
-      summaryText = QRichLabel(self.tr("""
-               Your wallet has been created and is ready to be used.  It will
-               appear in the "<i>Available Wallets</i>" list in the main window.  
-               You may click "<i>Finish</i>" if you do not plan to use this 
-               wallet on any other computer.
-               <br><br>
-               A <b>watching-only wallet</b> behaves exactly like a a regular 
-               wallet, but does not contain any signing keys.  You can generate 
-               addresses and confirm receipt of payments, but not spend or move 
-               the funds in the wallet.  To move the funds, 
-               use the "<i>Offline Transactions</i>" button on the main 
-               window for directions (which involves bringing the transaction 
-               to this computer for a signature).  Or you can give the
-               watching-only wallet to someone who needs to monitor the wallet
-               but should not be able to move the money.
-               <br><br>
-               Click the button to save a watching-only copy of this wallet.
-               Use the "<i>Import or Restore Wallet</i>" button in the
-               upper-right corner"""))
+      summaryText = QRichLabel(self.tr(
+               'Your wallet has been created and is ready to be used.  It will '
+               'appear in the "<i>Available Wallets</i>" list in the main window. ' 
+               'You may click "<i>Finish</i>" if you do not plan to use this '
+               'wallet on any other computer.'
+               '<br><br>'
+               'A <b>watching-only wallet</b> behaves exactly like a a regular '
+               'wallet, but does not contain any signing keys.  You can generate '
+               'addresses and confirm receipt of payments, but not spend or move '
+               'the funds in the wallet.  To move the funds, '
+               'use the "<i>Offline Transactions</i>" button on the main '
+               'window for directions (which involves bringing the transaction '
+               'to this computer for a signature).  Or you can give the '
+               'watching-only wallet to someone who needs to monitor the wallet '
+               'but should not be able to move the money. '
+               '<br><br>'
+               'Click the button to save a watching-only copy of this wallet. '
+               'Use the "<i>Import or Restore Wallet</i>" button in the '
+               'upper-right corner'))
       lbtnForkWlt = QPushButton('Create Watching-Only Copy')
       self.connect(lbtnForkWlt, SIGNAL(CLICKED), self.forkOnlineWallet)
       layout = QVBoxLayout()

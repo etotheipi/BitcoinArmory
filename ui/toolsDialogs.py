@@ -219,16 +219,15 @@ class SignatureVerificationWidget(QWidget):
       self.lblSigResult.setText('')
       
    def displayVerifiedBox(self, addrB58, messageString):
-      ownerStr = str(self.tr("""
-      The owner of the following Bitcoin address...
-      <br>
-      <blockquote>
-      <font face="Courier" size=4 color="#000060"><b>%1</b></font>
-      </blockquote>
-      <br>
-      ... has produced a <b><u>valid</u></b> signature for
-      the following message:<br>
-      """).arg(addrB58))
+      ownerStr = str(self.tr(
+      'The owner of the following Bitcoin address...'
+      '<br>'
+      '<blockquote>'
+      '<font face="Courier" size=4 color="#000060"><b>%1</b></font>'
+      '</blockquote>'
+      '<br>'
+      '... has produced a <b><u>valid</u></b> signature for '
+      'the following message:<br>').arg(addrB58))
          
       if addrB58:
          msg = messageString.replace('\r\n','\n')
@@ -236,17 +235,17 @@ class SignatureVerificationWidget(QWidget):
          # The user will be able to see the entire message 
          # in the Message Signing/Verification dialog
          msg =  '<br>'.join([line[:60]+ '...'*(len(line)>60) for line in msg.split('<br>')][:12])
-         MsgBoxCustom(MSGBOX.Good, self.tr('Verified!'), str(self.tr("""
-            %`
-            <hr>
-            <blockquote>
-            <font face="Courier" color="#000060"><b>%1</b></font>
-            </blockquote>
-            <hr><br>
-            <b>Please</b> make sure that the address above (%2...) matches the
-            exact address you were expecting.  A valid signature is meaningless 
-            unless it is made
-            from a recognized address!""").arg(ownerStr, msg, addrB58[:10])))
+         MsgBoxCustom(MSGBOX.Good, self.tr('Verified!'), str(self.tr(
+            '%`'
+            '<hr>'
+            '<blockquote>'
+            '<font face="Courier" color="#000060"><b>%1</b></font>'
+            '</blockquote>'
+            '<hr><br>'
+            '<b>Please</b> make sure that the address above (%2...) matches the '
+            'exact address you were expecting.  A valid signature is meaningless '
+            'unless it is made '
+            'from a recognized address!').arg(ownerStr, msg, addrB58[:10])))
          self.lblSigResult.setText(\
             '<font color="green">Valid Signature by %s</font>' % addrB58)
       else:

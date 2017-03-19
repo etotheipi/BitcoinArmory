@@ -381,13 +381,13 @@ class ArmoryMainWindow(QMainWindow):
       self.lblBTC1 = QRichLabel('<b>BTC</b>', doWrap=False)
       self.lblBTC2 = QRichLabel('<b>BTC</b>', doWrap=False)
       self.lblBTC3 = QRichLabel('<b>BTC</b>', doWrap=False)
-      self.ttipTot = self.createToolTipWidget( self.tr('''
-            Funds if all current transactions are confirmed.  
-            Value appears gray when it is the same as your spendable funds. '''))
+      self.ttipTot = self.createToolTipWidget( self.tr(
+            'Funds if all current transactions are confirmed. '
+            'Value appears gray when it is the same as your spendable funds.'))
       self.ttipSpd = self.createToolTipWidget( self.tr('Funds that can be spent <i>right now</i>'))
-      self.ttipUcn = self.createToolTipWidget( self.tr('''
-            Funds that have less than 6 confirmations, and thus should not 
-            be considered <i>yours</i>, yet.'''))
+      self.ttipUcn = self.createToolTipWidget( self.tr(
+            'Funds that have less than 6 confirmations, and thus should not '
+            'be considered <i>yours</i>, yet.'))
 
       self.frmTotals = QFrame()
       self.frmTotals.setFrameStyle(STYLE_NONE)
@@ -501,8 +501,8 @@ class ArmoryMainWindow(QMainWindow):
       def exportTx():
          if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
             QMessageBox.warning(self, self.tr('Transactions Unavailable'),
-               self.tr('''Transaction history cannot be collected until Armory is
-               in online mode.  Please try again when Armory is online. '''),
+               self.tr('Transaction history cannot be collected until Armory is '
+               'in online mode.  Please try again when Armory is online. '),
                QMessageBox.Ok)
             return
          else:
@@ -560,9 +560,9 @@ class ArmoryMainWindow(QMainWindow):
 
       def openBlindBroad():
          if not TheSDM.satoshiIsAvailable():
-            QMessageBox.warning(self, tr("Not Online"), self.tr("""
-               Bitcoin Core is not available, so Armory will not be able
-               to broadcast any transactions for you."""), QMessageBox.Ok)
+            QMessageBox.warning(self, tr("Not Online"), self.tr(
+               'Bitcoin Core is not available, so Armory will not be able '
+               'to broadcast any transactions for you.'), QMessageBox.Ok)
             return
          DlgBroadcastBlindTx(self,self).exec_()
 
@@ -580,20 +580,20 @@ class ArmoryMainWindow(QMainWindow):
 
       def mkprom():
          if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
-            QMessageBox.warning(self, self.tr('Offline'), self.tr("""
-               Armory is currently offline, and cannot determine what funds are
-               available for Simulfunding.  Please try again when Armory is in
-               online mode."""), QMessageBox.Ok)
+            QMessageBox.warning(self, self.tr('Offline'), self.tr(
+               'Armory is currently offline, and cannot determine what funds are '
+               'available for Simulfunding.  Please try again when Armory is in '
+               'online mode.'), QMessageBox.Ok)
          else:
             DlgCreatePromNote(self, self).exec_()
 
 
       def msrevsign():
          title = self.tr('Import Multi-Spend Transaction')
-         descr = self.tr("""
-            Import a signature-collector text block for review and signing.
-            It is usually a block of text with "TXSIGCOLLECT" in the first line,
-            or a <i>*.sigcollect.tx</i> file.""")
+         descr = self.tr(
+            'Import a signature-collector text block for review and signing. '
+            'It is usually a block of text with "TXSIGCOLLECT" in the first line, '
+            'or a <i>*.sigcollect.tx</i> file.')
          ftypes = ['Signature Collectors (*.sigcollect.tx)']
          dlgImport = DlgImportAsciiBlock(self, self, title, descr, ftypes,
                                                          UnsignedTransaction)
@@ -633,10 +633,7 @@ class ArmoryMainWindow(QMainWindow):
 
       execAbout   = lambda: DlgHelpAbout(self).exec_()
 
-
-      execVerifySigned = lambda: VerifyOfflinePackageDialog(self, self).exec_()
       actAboutWindow  = self.createAction(self.tr('&About Armory...'), execAbout)
-      actVerifySigned = self.createAction(self.tr('Verify Signed Package...'), execVerifySigned)
       actClearMemPool = self.createAction(self.tr('Clear All Unconfirmed'), self.clearMemoryPool)
       actRescanDB     = self.createAction(self.tr('Rescan Databases'), self.rescanNextLoad)
       actRebuildDB    = self.createAction(self.tr('Rebuild and Rescan Databases'), self.rebuildNextLoad)
@@ -644,7 +641,6 @@ class ArmoryMainWindow(QMainWindow):
       actFactoryReset = self.createAction(self.tr('Factory Reset'), self.factoryReset)
 
       self.menusList[MENUS.Help].addAction(actAboutWindow)
-      self.menusList[MENUS.Help].addAction(actVerifySigned)
       self.menusList[MENUS.Help].addSeparator()
       self.menusList[MENUS.Help].addSeparator()
       self.menusList[MENUS.Help].addAction(actClearMemPool)
@@ -706,31 +702,31 @@ class ArmoryMainWindow(QMainWindow):
      # This is true if and only if the command line has a data dir that doesn't exist
       # and can't be created.
       if not CLI_OPTIONS.datadir in [ARMORY_HOME_DIR, DEFAULT]:
-         QMessageBox.warning(self, self.tr('Default Data Directory'), self.tr("""
-            Armory is using the default data directory because
-            the data directory specified in the command line could
-            not be found nor created."""), QMessageBox.Ok)
+         QMessageBox.warning(self, self.tr('Default Data Directory'), self.tr(
+            'Armory is using the default data directory because '
+            'the data directory specified in the command line could '
+            'not be found nor created.'), QMessageBox.Ok)
       # This is true if and only if the command line has a database dir that doesn't exist
       # and can't be created.
       elif not CLI_OPTIONS.armoryDBDir in [ARMORY_DB_DIR, DEFAULT]:
-         QMessageBox.warning(self, self.tr('Default Database Directory'), self.tr("""
-            Armory is using the default database directory because
-            the database directory specified in the command line could
-            not be found nor created."""), QMessageBox.Ok)
+         QMessageBox.warning(self, self.tr('Default Database Directory'), self.tr(
+            'Armory is using the default database directory because '
+            'the database directory specified in the command line could '
+            'not be found nor created.'), QMessageBox.Ok)
 
       # This is true if and only if the command line has a bitcoin dir that doesn't exist
       if not CLI_OPTIONS.satoshiHome in [BTC_HOME_DIR, DEFAULT]:
-         QMessageBox.warning(self, self.tr('Bitcoin Directory'), self.tr("""
-            Armory is using the default Bitcoin directory because
-            the Bitcoin directory specified in the command line could
-            not be found."""), QMessageBox.Ok)
+         QMessageBox.warning(self, self.tr('Bitcoin Directory'), self.tr(
+            'Armory is using the default Bitcoin directory because '
+            'the Bitcoin directory specified in the command line could '
+            'not be found.'), QMessageBox.Ok)
 
       if not self.getSettingOrSetDefault('DNAA_DeleteLevelDB', False) and \
             os.path.exists(os.path.join(ARMORY_DB_DIR, LEVELDB_BLKDATA)):
                reply = MsgBoxWithDNAA(self, self, MSGBOX.Question, self.tr('Delete Old DB Directory'),
-                  self.tr('''Armory detected an older version Database.
-                  Do you want to delete the old database? Choose yes if 
-                  do not think that you will revert to an older version of Armory.'''), self.tr('Do not ask this question again'))
+                  self.tr('Armory detected an older version Database. '
+                  'Do you want to delete the old database? Choose yes if  '
+                  'do not think that you will revert to an older version of Armory.'), self.tr('Do not ask this question again'))
                if reply[0]==True:
                   shutil.rmtree(os.path.join(ARMORY_DB_DIR, LEVELDB_BLKDATA))
                   shutil.rmtree(os.path.join(ARMORY_DB_DIR, LEVELDB_HEADERS))
@@ -830,22 +826,22 @@ class ArmoryMainWindow(QMainWindow):
          if not hasattr(plugObj,'getTabToDisplay') or \
             not hasattr(plugObj,'tabName'):
             LOGERROR('Module is malformed!  No tabToDisplay or tabName attrs')
-            QMessageBox.critmoduleName(self, self.tr("Bad Module"), self.tr("""
-               The module you attempted to load (%1) is malformed.  It is
-               missing attributes that are needed for Armory to load it.
-               It will be skipped.""").arg(moduleName), QMessageBox.Ok)
+            QMessageBox.critmoduleName(self, self.tr("Bad Module"), self.tr(
+               'The module you attempted to load (%1) is malformed.  It is '
+               'missing attributes that are needed for Armory to load it. '
+               'It will be skipped.').arg(moduleName), QMessageBox.Ok)
             continue
 
          verPluginInt = getVersionInt(readVersionString(plugObj.maxVersion))
          verArmoryInt = getVersionInt(BTCARMORY_VERSION)
          if verArmoryInt >verPluginInt:
-            reply = QMessageBox.warning(self, self.tr("Outdated Module"), self.tr("""
-               Module "%1" is only specified to work up to Armory version %2.
-               You are using Armory version %3.  Please remove the module if
-               you experience any problems with it, or contact the maintainer
-               for a new version.
-               <br><br>
-               Do you want to continue loading the module?""").arg(moduleName),
+            reply = QMessageBox.warning(self, self.tr("Outdated Module"), self.tr(
+               'Module "%1" is only specified to work up to Armory version %2. '
+               'You are using Armory version %3.  Please remove the module if '
+               'you experience any problems with it, or contact the maintainer '
+               'for a new version. '
+               '<br><br> '
+               'Do you want to continue loading the module?').arg(moduleName),
                QMessageBox.Yes | QMessageBox.No)
 
             if not reply==QMessageBox.Yes:
@@ -896,24 +892,24 @@ class ArmoryMainWindow(QMainWindow):
          for moduleName,infoMap in modMap.iteritems():
             moduleZipPath = os.path.join(modulesZipDirPath, infoMap[MODULE_PATH_KEY])
             if  infoMap[MODULE_ZIP_STATUS_KEY] == MODULE_ZIP_STATUS.Invalid:
-               reply = QMessageBox.warning(self, self.tr("Invalid Module"), self.tr("""
-                  Armory detected the following module which is
-                  <font color=%1><b>invalid</b></font>:
-                  <br><br>
-                     <b>Module Name:</b> %2<br>
-                     <b>Module Path:</b> %3<br>
-                  <br><br>
-                  Armory will only run a module from a zip file that
-                  has the required stucture.""").arg(htmlColor('TextRed'), moduleName, moduleZipPath), QMessageBox.Ok)
+               reply = QMessageBox.warning(self, self.tr("Invalid Module"), self.tr(
+                  'Armory detected the following module which is '
+                  '<font color=%1><b>invalid</b></font>:'
+                  '<br><br>'
+                  '   <b>Module Name:</b> %2<br>'
+                  '   <b>Module Path:</b> %3<br>'
+                  '<br><br>'
+                  'Armory will only run a module from a zip file that '
+                  'has the required stucture.').arg(htmlColor('TextRed'), moduleName, moduleZipPath), QMessageBox.Ok)
             elif not USE_TESTNET and not USE_REGTEST and infoMap[MODULE_ZIP_STATUS_KEY] == MODULE_ZIP_STATUS.Unsigned:
-               reply = QMessageBox.warning(self, self.tr("UNSIGNED Module"), self.tr("""
-                  Armory detected the following module which
-                  <font color="%1"><b>has not been signed by Armory</b></font> and may be dangerous:
-                  <br><br>
-                     <b>Module Name:</b> %2<br>
-                     <b>Module Path:</b> %3<br>
-                  <br><br>
-                  Armory will not allow you to run this module.""").arg(htmlColor('TextRed'), moduleName, moduleZipPath), QMessageBox.Ok)
+               reply = QMessageBox.warning(self, self.tr("UNSIGNED Module"), self.tr(
+                  'Armory detected the following module which '
+                  '<font color="%1"><b>has not been signed by Armory</b></font> and may be dangerous: '
+                  '<br><br>'
+                  '   <b>Module Name:</b> %2<br>'
+                  '   <b>Module Path:</b> %3<br>'
+                  '<br><br>'
+                  'Armory will not allow you to run this module.').arg(htmlColor('TextRed'), moduleName, moduleZipPath), QMessageBox.Ok)
             else:
 
                ZipFile(moduleZipPath).extract(INNER_ZIP_FILENAME, self.tempModulesDirName)
@@ -925,22 +921,22 @@ class ArmoryMainWindow(QMainWindow):
                if not hasattr(plugObj,'getTabToDisplay') or \
                   not hasattr(plugObj,'tabName'):
                   LOGERROR('Module is malformed!  No tabToDisplay or tabName attrs')
-                  QMessageBox.critmoduleName(self, self.tr("Bad Module"), self.tr("""
-                     The module you attempted to load (%1) is malformed.  It is
-                     missing attributes that are needed for Armory to load it.
-                     It will be skipped.""").arg(moduleName), QMessageBox.Ok)
+                  QMessageBox.critmoduleName(self, self.tr("Bad Module"), self.tr(
+                     'The module you attempted to load (%1) is malformed.  It is '
+                     'missing attributes that are needed for Armory to load it. '
+                     'It will be skipped.').arg(moduleName), QMessageBox.Ok)
                   continue
 
                verPluginInt = getVersionInt(readVersionString(plugObj.maxVersion))
                verArmoryInt = getVersionInt(BTCARMORY_VERSION)
                if verArmoryInt >verPluginInt:
-                  reply = QMessageBox.warning(self, self.tr("Outdated Module"), self.tr("""
-                     Module %1 is only specified to work up to Armory version %2.
-                     You are using Armory version %3.  Please remove the module if
-                     you experience any problems with it, or contact the maintainer
-                     for a new version.
-                     <br><br>
-                     Do you want to continue loading the module?""").arg(moduleName,  plugObj.maxVersion, getVersionString(BTCARMORY_VERSION)),
+                  reply = QMessageBox.warning(self, self.tr("Outdated Module"), self.tr(
+                     'Module %1 is only specified to work up to Armory version %2. '
+                     'You are using Armory version %3.  Please remove the module if '
+                     'you experience any problems with it, or contact the maintainer '
+                     'for a new version.'
+                     '<br><br>'
+                     'Do you want to continue loading the module?').arg(moduleName,  plugObj.maxVersion, getVersionString(BTCARMORY_VERSION)),
                            QMessageBox.Yes | QMessageBox.No)
 
                   if not reply==QMessageBox.Yes:
@@ -999,14 +995,14 @@ class ArmoryMainWindow(QMainWindow):
    ####################################################
    def clearMemoryPool(self):
       touchFile( os.path.join(ARMORY_HOME_DIR, 'clearmempool.flag') )
-      msg = self.tr("""
-         The next time you restart Armory, all unconfirmed transactions will
-         be cleared allowing you to retry any stuck transactions.""")
+      msg = self.tr(
+         'The next time you restart Armory, all unconfirmed transactions will '
+         'be cleared allowing you to retry any stuck transactions.')
       if not self.doAutoBitcoind:
-         msg += self.tr("""
-         <br><br>Make sure you also restart Bitcoin Core
-         (or bitcoind) and let it synchronize again before you restart
-         Armory.  Doing so will clear its memory pool, as well""")
+         msg += self.tr(
+         '<br><br>Make sure you also restart Bitcoin Core '
+         '(or bitcoind) and let it synchronize again before you restart '
+         'Armory.  Doing so will clear its memory pool as well.')
       QMessageBox.information(self, self.tr('Memory Pool'), msg, QMessageBox.Ok)
 
 
@@ -1136,35 +1132,35 @@ class ArmoryMainWindow(QMainWindow):
 
    ####################################################
    def rescanNextLoad(self):
-      reply = QMessageBox.warning(self, self.tr('Queue Rescan?'), self.tr("""
-         The next time you restart Armory, it will rescan the blockchain
-         database, and reconstruct your wallet histories from scratch.
-         The rescan will take 10-60 minutes depending on your system.
-         <br><br>
-         Do you wish to force a rescan on the next Armory restart?"""), \
+      reply = QMessageBox.warning(self, self.tr('Queue Rescan?'), self.tr(
+         'The next time you restart Armory, it will rescan the blockchain '
+         'database, and reconstruct your wallet histories from scratch. '
+         'The rescan will take 10-60 minutes depending on your system. '
+         '<br><br> '
+         'Do you wish to force a rescan on the next Armory restart?'), \
          QMessageBox.Yes | QMessageBox.No)
       if reply==QMessageBox.Yes:
          touchFile( os.path.join(ARMORY_HOME_DIR, 'rescan.flag') )
 
    ####################################################
    def rebuildNextLoad(self):
-      reply = QMessageBox.warning(self, self.tr('Queue Rebuild?'), self.tr("""
-         The next time you restart Armory, it will rebuild and rescan
-         the entire blockchain database.  This operation can take between
-         30 minutes and 4 hours depending on your system speed.
-         <br><br>
-         Do you wish to force a rebuild on the next Armory restart?"""), \
+      reply = QMessageBox.warning(self, self.tr('Queue Rebuild?'), self.tr(
+         'The next time you restart Armory, it will rebuild and rescan '
+         'the entire blockchain database.  This operation can take between '
+         '30 minutes and 4 hours depending on your system speed. '
+         '<br><br>'
+         'Do you wish to force a rebuild on the next Armory restart?'), \
          QMessageBox.Yes | QMessageBox.No)
       if reply==QMessageBox.Yes:
          touchFile( os.path.join(ARMORY_HOME_DIR, 'rebuild.flag') )
 
    ####################################################
    def rescanBalanceNextLoad(self):
-      reply = QMessageBox.warning(self, self.tr('Queue Balance Rescan?'), self.tr("""
-         The next time you restart Armory, it will rescan the balance of
-         your wallets. This operation typically takes less than a minute.
-         <br><br>
-         Do you wish to force a balance rescan on the next Armory restart?"""), \
+      reply = QMessageBox.warning(self, self.tr('Queue Balance Rescan?'), self.tr(
+         'The next time you restart Armory, it will rescan the balance of '
+         'your wallets. This operation typically takes less than a minute. '
+         '<br><br>'
+         'Do you wish to force a balance rescan on the next Armory restart?'), \
          QMessageBox.Yes | QMessageBox.No)
       if reply==QMessageBox.Yes:
          touchFile( os.path.join(ARMORY_HOME_DIR, 'rescanbalance.flag') )
@@ -1405,9 +1401,9 @@ class ArmoryMainWindow(QMainWindow):
             # needed.  They have enough to worry about with this weird new program...
             if not self.getSettingOrSetDefault('DNAA_DefaultApp', False):
                reply = MsgBoxWithDNAA(self, self, MSGBOX.Question, self.tr('Default URL Handler'),
-                  self.tr('''Armory is not set as your default application for handling
-                  "bitcoin:" links.  Would you like to use Armory as the 
-                  default?'''), self.tr('Do not ask this question again'))
+                  self.tr('Armory is not set as your default application for handling '
+                  '"bitcoin:" links.  Would you like to use Armory as the '
+                  'default?'), self.tr('Do not ask this question again'))
                if reply[0]==True:
                   setAsDefault()
                if reply[1]==True:
@@ -1476,9 +1472,9 @@ class ArmoryMainWindow(QMainWindow):
             # Don't bother the user on the first load with it if verification is
             # needed.  They have enough to worry about with this weird new program...
             reply = MsgBoxWithDNAA(self, self, MSGBOX.Question, self.tr('Default URL Handler'),
-               self.tr('''Armory is not set as your default application for handling
-               "bitcoin:" links.  Would you like to use Armory as the 
-               default?'''), self.tr('Do not ask this question again'))
+               self.tr('Armory is not set as your default application for handling '
+               '"bitcoin:" links.  Would you like to use Armory as the '
+               'default?'), self.tr('Do not ask this question again'))
 
             if reply[1]==True:
                LOGINFO('URL-register:  do not ask again:  always %s', str(reply[0]))
@@ -1528,16 +1524,16 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def warnNewUSTXFormat(self):
       if not self.getSettingOrSetDefault('DNAA_Version092Warn', False):
-         reply = MsgBoxWithDNAA(self, self, MSGBOX.Warning, self.tr("Version Warning"), self.tr("""
-            Since Armory version 0.92 the formats for offline transaction
-            operations has changed to accommodate multi-signature
-            transactions.  This format is <u>not</u> compatible with
-            versions of Armory before 0.92.
-            <br><br>
-            To continue, the other system will need to be upgraded to
-            to version 0.92 or later.  If you cannot upgrade the other
-            system, you will need to reinstall an older version of Armory
-            on this system."""), dnaaMsg=self.tr('Do not show this warning again'))
+         reply = MsgBoxWithDNAA(self, self, MSGBOX.Warning, self.tr("Version Warning"), self.tr(
+            'Since Armory version 0.92 the formats for offline transaction '
+            'operations has changed to accommodate multi-signature '
+            'transactions.  This format is <u>not</u> compatible with '
+            'versions of Armory before 0.92. '
+            '<br><br>'
+            'To continue, the other system will need to be upgraded to '
+            'to version 0.92 or later.  If you cannot upgrade the other '
+            'system, you will need to reinstall an older version of Armory '
+            'on this system.'), dnaaMsg=self.tr('Do not show this warning again'))
          self.writeSetting('DNAA_Version092Warn', reply[1])
 
 
@@ -1563,10 +1559,10 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def openToolsDlg(self):
       QMessageBox.information(self, self.tr('No Tools Yet!'),
-         self.tr('''The developer tools are not available yet, but will be added
-         soon.  Regardless, developer-mode still offers lots of 
-         extra information and functionality that is not available in 
-         Standard or Advanced mode.'''), QMessageBox.Ok)
+         self.tr('The developer tools are not available yet, but will be added '
+         'soon.  Regardless, developer-mode still offers lots of '
+         'extra information and functionality that is not available in '
+         'Standard or Advanced mode.'), QMessageBox.Ok)
 
 
 
@@ -1622,9 +1618,9 @@ class ArmoryMainWindow(QMainWindow):
          if not wlt.useEncryption:
             dlgCrypt = DlgChangePassphrase(parent, self, not wlt.useEncryption)
             if not dlgCrypt.exec_():
-               QMessageBox.information(parent, self.tr('Aborted'), self.tr("""
-                  No passphrase was selected for the encrypted backup.
-                  No backup was created."""), QMessageBox.Ok)
+               QMessageBox.information(parent, self.tr('Aborted'), self.tr(
+                  'No passphrase was selected for the encrypted backup. '
+                  'No backup was created.'), QMessageBox.Ok)
             newPassphrase = SecureBinaryData(str(dlgCrypt.edtPasswd1.text()))
 
          wlt.makeEncryptedWalletCopy(savePath, newPassphrase)
@@ -1634,9 +1630,9 @@ class ArmoryMainWindow(QMainWindow):
          LOGERROR('Invalid "copyType" supplied to makeWalletCopy: %s', copyType)
          return False
 
-      QMessageBox.information(parent, self.tr('Backup Complete'), self.tr("""
-         Your wallet was successfully backed up to the following
-         location:<br><br>%1""").arg(savePath), QMessageBox.Ok)
+      QMessageBox.information(parent, self.tr('Backup Complete'), self.tr(
+         'Your wallet was successfully backed up to the following '
+         'location:<br><br>%1').arg(savePath), QMessageBox.Ok)
       return True
 
 
@@ -1683,8 +1679,8 @@ class ArmoryMainWindow(QMainWindow):
 
       if not self.firstModeSwitch:
          QMessageBox.information(self,self.tr('Restart Armory'),
-         self.tr('''You may have to restart Armory for all aspects of
-         the new usermode to go into effect.'''), QMessageBox.Ok)
+         self.tr('You may have to restart Armory for all aspects of '
+         'the new usermode to go into effect.'), QMessageBox.Ok)
 
       self.firstModeSwitch = False
 
@@ -1698,7 +1694,7 @@ class ArmoryMainWindow(QMainWindow):
 
       if not self.firstModeSwitch:
          QMessageBox.information(self, self.tr('Restart Armory'),
-            self.tr('''You will have to restart Armory for the new language to go into effect'''), QMessageBox.Ok)
+            self.tr('You will have to restart Armory for the new language to go into effect'), QMessageBox.Ok)
 
       self.firstModeSwitch = False
 
@@ -1719,8 +1715,8 @@ class ArmoryMainWindow(QMainWindow):
          unixTimeToFormatStr(1000000000, fmtStr)
       except:
          QMessageBox.warning(self, self.tr('Invalid Date Format'),
-            self.tr('''The date format you specified was not valid.  Please re-enter
-            it using only the strftime symbols shown in the help text.'''), QMessageBox.Ok)
+            self.tr('The date format you specified was not valid.  Please re-enter '
+            'it using only the strftime symbols shown in the help text.'), QMessageBox.Ok)
          return False
 
       self.writeSetting('DateFormat', binary_to_hex(fmtStr))
@@ -1751,9 +1747,9 @@ class ArmoryMainWindow(QMainWindow):
          
          if self.prc_mutex.acquire() == False:
             LOGWARN('Socket already occupied!  This must be a duplicate Armory')
-            QMessageBox.warning(self, self.tr('Already Open'), self.tr("""
-               Armory is already running!  You can only have one Armory open
-               at a time.  Exiting..."""), QMessageBox.Ok)
+            QMessageBox.warning(self, self.tr('Already Open'), self.tr(
+               'Armory is already running!  You can only have one Armory open '
+               'at a time.  Exiting...'), QMessageBox.Ok)
             os._exit(0)
       else:
          LOGWARN('*** Listening port is disabled.  URI-handling will not work')
@@ -1902,8 +1898,8 @@ class ArmoryMainWindow(QMainWindow):
    def parseUriLink(self, uriStr, click=True):
       if len(uriStr) < 1:
          QMessageBox.critical(self, self.tr('No URL String'),
-               self.tr('''You have not entered a URL String yet.
-               Please go back and enter a URL String.'''), QMessageBox.Ok)
+               self.tr('You have not entered a URL String yet. '
+               'Please go back and enter a URL String.'), QMessageBox.Ok)
          return {}
       LOGINFO('URI link clicked!')
       LOGINFO('The following URI string was parsed:')
@@ -1920,25 +1916,25 @@ class ArmoryMainWindow(QMainWindow):
          self.bringArmoryToFront()
          if click:
             QMessageBox.warning(self, self.tr('Offline Mode'),
-               self.tr('''You clicked on a "bitcoin:" link, but Armory is in
-               offline mode, and is not capable of creating transactions. 
-               Using links will only work if Armory is connected 
-               to the Bitcoin network!'''), QMessageBox.Ok)
+               self.tr('You clicked on a "bitcoin:" link, but Armory is in '
+               'offline mode, and is not capable of creating transactions. '
+               'Using links will only work if Armory is connected '
+               'to the Bitcoin network!'), QMessageBox.Ok)
          else:
             QMessageBox.warning(self, self.tr('Offline Mode'),
-               self.tr('''You entered a "bitcoin:" link, but Armory is in
-               offline mode, and is not capable of creating transactions. 
-               Using links will only work if Armory is connected 
-               to the Bitcoin network!'''), QMessageBox.Ok)
+               self.tr('You entered a "bitcoin:" link, but Armory is in '
+               'offline mode, and is not capable of creating transactions. '
+               'Using links will only work if Armory is connected '
+               'to the Bitcoin network!'), QMessageBox.Ok)
          return {}
 
       if len(uriDict)==0:
          if click:
-            warnMsg = (self.tr('''It looks like you just clicked a "bitcoin:" link, but that link is malformed.'''))
+            warnMsg = (self.tr('It looks like you just clicked a "bitcoin:" link, but that link is malformed.'))
          else:
-            warnMsg = (self.tr('''It looks like you just entered a "bitcoin:" link, but that link is malformed.'''))
+            warnMsg = (self.tr('It looks like you just entered a "bitcoin:" link, but that link is malformed.'))
          if self.usermode == USERMODE.Standard:
-            warnMsg += (self.tr('''Please check the source of the link and enter the transaction manually.'''))
+            warnMsg += (self.tr('Please check the source of the link and enter the transaction manually.'))
          else:
             warnMsg += self.tr('The raw URI string is:\n\n') + uriStr
          QMessageBox.warning(self, self.tr('Invalid URI'), warnMsg, QMessageBox.Ok)
@@ -1947,13 +1943,13 @@ class ArmoryMainWindow(QMainWindow):
 
       if not uriDict.has_key('address'):
          if click:
-            QMessageBox.warning(self, self.tr('''The "bitcoin:" link you just clicked
-               does not even contain an address!  There is nothing that 
-               Armory can do with this link!'''), QMessageBox.Ok)
+            QMessageBox.warning(self, self.tr('The "bitcoin:" link you just clicked '
+               'does not even contain an address!  There is nothing that '
+               'Armory can do with this link!'), QMessageBox.Ok)
          else:
-            QMessageBox.warning(self, self.tr('''The "bitcoin:" link you just entered
-               does not even contain an address!  There is nothing that 
-               Armory can do with this link!'''), QMessageBox.Ok)
+            QMessageBox.warning(self, self.tr('The "bitcoin:" link you just entered '
+               'does not even contain an address!  There is nothing that '
+               'Armory can do with this link!'), QMessageBox.Ok)
          LOGERROR('No address in "bitcoin:" link!  Nothing to do!')
          return {}
 
@@ -1965,16 +1961,16 @@ class ArmoryMainWindow(QMainWindow):
             net = NETWORKS[theAddrByte]
          if click:
             QMessageBox.warning(self, self.tr('Wrong Network!'),
-               self.tr('''The address for the "bitcoin:" link you just clicked is
-               for the wrong network!  You are on the <b>%2</b>
-               and the address you supplied is for the 
-               <b>%3</b>!''').arg(NETWORKS[ADDRBYTE], net), QMessageBox.Ok)
+               self.tr('The address for the "bitcoin:" link you just clicked is '
+               'for the wrong network!  You are on the <b>%2</b> '
+               'and the address you supplied is for the '
+               '<b>%3</b>!').arg(NETWORKS[ADDRBYTE], net), QMessageBox.Ok)
          else:
             QMessageBox.warning(self, self.tr('Wrong Network!'),
-               self.tr('''The address for the "bitcoin:" link you just entered is
-               for the wrong network!  You are on the <b>%2</b>
-               and the address you supplied is for the 
-               <b>%3</b>!''').arg(NETWORKS[ADDRBYTE], net), QMessageBox.Ok)
+               self.tr('The address for the "bitcoin:" link you just entered is '
+               'for the wrong network!  You are on the <b>%2</b> '
+               'and the address you supplied is for the '
+               '<b>%3</b>!').arg(NETWORKS[ADDRBYTE], net), QMessageBox.Ok)
          LOGERROR('URI link is for the wrong network!')
          return {}
 
@@ -1983,17 +1979,17 @@ class ArmoryMainWindow(QMainWindow):
       for key,value in uriDict.iteritems():
          if key.startswith('req-') and not key[4:] in recognized:
             if click:
-               QMessageBox.warning(self, self.tr('Unsupported URI'), self.tr('''The "bitcoin:" link
-                  you just clicked contains fields that are required but not
-                  recognized by Armory.  This may be an older version of Armory,
-                  or the link you clicked on uses an exotic, unsupported format.
-                  <br><br>The action cannot be completed.'''), QMessageBox.Ok)
+               QMessageBox.warning(self, self.tr('Unsupported URI'), self.tr('The "bitcoin:" link '
+                  'you just clicked contains fields that are required but not '
+                  'recognized by Armory.  This may be an older version of Armory, '
+                  'or the link you clicked on uses an exotic, unsupported format. '
+                  '<br><br>The action cannot be completed.'''), QMessageBox.Ok)
             else:
-               QMessageBox.warning(self, self.tr('Unsupported URI'), self.tr('''The "bitcoin:" link
-                  you just entered contains fields that are required but not
-                  recognized by Armory.  This may be an older version of Armory,
-                  or the link you entered on uses an exotic, unsupported format.
-                  <br><br>The action cannot be completed.'''), QMessageBox.Ok)
+               QMessageBox.warning(self, self.tr('Unsupported URI'), self.tr('The "bitcoin:" link '
+                  'you just entered contains fields that are required but not '
+                  'recognized by Armory.  This may be an older version of Armory, '
+                  'or the link you entered on uses an exotic, unsupported format. '
+                  '<br><br>The action cannot be completed.'), QMessageBox.Ok)
             LOGERROR('URI link contains unrecognized req- fields.')
             return {}
 
@@ -2006,9 +2002,9 @@ class ArmoryMainWindow(QMainWindow):
       LOGINFO('uriLinkClicked')
       if TheBDM.getState()==BDM_OFFLINE:
          QMessageBox.warning(self, self.tr('Offline'),
-            self.tr('''You just clicked on a "bitcoin:" link, but Armory is offline
-            and cannot send transactions.  Please click the link 
-            again when Armory is online.'''), \
+            self.tr('You just clicked on a "bitcoin:" link, but Armory is offline '
+            'and cannot send transactions.  Please click the link '
+            'again when Armory is online.'), \
             QMessageBox.Ok)
          return
       elif not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
@@ -2468,10 +2464,10 @@ class ArmoryMainWindow(QMainWindow):
 
       if self.getSettingOrSetDefault('NotifyBlkFinish',True):
          reply,remember = MsgBoxWithDNAA(self, self, MSGBOX.Info, 
-            self.tr('Blockchain Loaded!'), self.tr('''Blockchain loading is complete.
-            Your balances and transaction history are now available 
-            under the "Transactions" tab.  You can also send and 
-            receive bitcoins.'''), dnaaMsg=self.tr('Do not show me this notification again '), yesStr='OK')
+            self.tr('Blockchain Loaded!'), self.tr('Blockchain loading is complete. '
+            'Your balances and transaction history are now available '
+            'under the "Transactions" tab.  You can also send and '
+            'receive bitcoins.'), dnaaMsg=self.tr('Do not show me this notification again '), yesStr='OK')
 
          if remember==True:
             self.writeSetting('NotifyBlkFinish',False)
@@ -2707,8 +2703,8 @@ class ArmoryMainWindow(QMainWindow):
    def execDlgWalletDetails(self, index=None):
       if len(self.walletMap)==0:
          reply = QMessageBox.information(self, self.tr('No Wallets!'),
-            self.tr('''You currently do not have any wallets.  Would you like to
-            create one, now?'''), QMessageBox.Yes | QMessageBox.No)
+            self.tr('You currently do not have any wallets.  Would you like to '
+            'create one, now?'), QMessageBox.Yes | QMessageBox.No)
          if reply==QMessageBox.Yes:
             self.startWalletWizard()
          return
@@ -2937,13 +2933,13 @@ class ArmoryMainWindow(QMainWindow):
 
       if len(self.sweepAfterScanList) > 0:
          QMessageBox.critical(self, self.tr('Already Sweeping'),
-            self.tr('''You are already in the process of scanning the blockchain for
-            the purposes of sweeping other addresses.  You cannot initiate 
-            sweeping new addresses until the current operation completes. 
-            <br><br>
-            In the future, you may select "Multiple Keys" when entering 
-            addresses to sweep.  There is no limit on the number that can be 
-            specified, but they must all be entered at once.'''), QMessageBox.Ok)
+            self.tr('You are already in the process of scanning the blockchain for '
+            'the purposes of sweeping other addresses.  You cannot initiate '
+            'sweeping new addresses until the current operation completes. '
+            '<br><br>'
+            'In the future, you may select "Multiple Keys" when entering '
+            'addresses to sweep.  There is no limit on the number that can be '
+            'specified, but they must all be entered at once.'), QMessageBox.Ok)
          # Destroy the private key data
          for addr in pybtcaddrList:
             addr.binPrivKey32_Plain.destroy()
@@ -2959,25 +2955,25 @@ class ArmoryMainWindow(QMainWindow):
          nkey = len(self.sweepAfterScanList)
          strPlur = self.tr('addresses') if nkey>1 else self.tr('address')
          QMessageBox.info(self, self.tr('Armory is Offline'), \
-            self.tr('''You have chosen to sweep %1 %2, but Armory is currently
-            in offline mode.  The sweep will be performed the next time you 
-            go into online mode.  You can initiate online mode (if available) 
-            from the dashboard in the main window.''').arg(nkey).arg(strPlur), QMessageBox.Ok)
+            self.tr('You have chosen to sweep %n key(s), but Armory is currently '
+            'in offline mode.  The sweep will be performed the next time you '
+            'go into online mode.  You can initiate online mode (if available) '
+            'from the dashboard in the main window.', "", nkey), QMessageBox.Ok)
          confirmed=True
 
       else:
          msgConfirm = ( \
-            self.tr('''Armory must scan the global transaction history in order to
-            find any bitcoins associated with the %1 you supplied.
-            Armory will go into offline mode temporarily while the scan 
-            is performed, and you will not have access to balances or be 
-            able to create transactions.  The scan may take several minutes.
-            <br><br>''').arg('keys' if gt1 else 'key'))
+            self.tr('Armory must scan the global transaction history in order to '
+            'find any bitcoins associated with the keys you supplied. '
+            'Armory will go into offline mode temporarily while the scan '
+            'is performed, and you will not have access to balances or be '
+            'able to create transactions.  The scan may take several minutes.'
+            '<br><br>', "", len(self.sweepAfterScanList)))
 
          if TheBDM.getState()==BDM_SCANNING:
             msgConfirm += ( \
-               self.tr('''There is currently another scan operation being performed.
-               Would you like to start the sweep operation after it completes? '''))
+               self.tr('There is currently another scan operation being performed. '
+               'Would you like to start the sweep operation after it completes? '))
          elif TheBDM.getState()==BDM_BLOCKCHAIN_READY:
             msgConfirm += ( \
                self.tr('<b>Would you like to start the scan operation right now?</b>'))
@@ -3012,20 +3008,20 @@ class ArmoryMainWindow(QMainWindow):
       if finishedTx==None:
          if (outVal,fee)==(0,0):
             QMessageBox.critical(self, self.tr('Nothing to do'), \
-               self.tr('''The private key(s) you have provided does not appear to contain
-               any funds.  There is nothing to sweep.''', "", len(sweepList)), \
+               self.tr('The private key(s) you have provided does not appear to contain '
+               'any funds.  There is nothing to sweep.', "", len(sweepList)), \
                QMessageBox.Ok)
             return
          else:
             pladdr = (self.tr('addresses') if gt1 else self.tr('address'))
             QMessageBox.critical(self, self.tr('Cannot sweep'),\
-               self.tr('''You cannot sweep the funds from the address(es) you specified, because
-               the transaction fee would be equal to or greater than the amount 
-               swept.
-               <br><br>
-               <b>Balance of address(es):</b> %1<br>
-               <b>Fee to sweep address(es):</b> %2
-               <br><br>The sweep operation has been canceled.''', "", len(sweepList)).arg(coin2str(outVal+fee,maxZeros=0), coin2str(fee,maxZeros=0)), \
+               self.tr('You cannot sweep the funds from the address(es) you specified because '
+               'the transaction fee would be greater than or equal to the amount '
+               'swept. '
+               '<br><br> '
+               '<b>Balance of address(es):</b> %1<br> '
+               '<b>Fee to sweep address(es):</b> %2 '
+               '<br><br>The sweep operation has been canceled.', "", len(sweepList)).arg(coin2str(outVal+fee,maxZeros=0), coin2str(fee,maxZeros=0)), \
                QMessageBox.Ok)
             LOGERROR('Sweep amount (%s) is less than fee needed for sweeping (%s)', \
                      coin2str(outVal+fee, maxZeros=0), coin2str(fee, maxZeros=0))
@@ -3082,10 +3078,9 @@ class ArmoryMainWindow(QMainWindow):
             LOGINFO('Sending Tx, %s', binary_to_hex(newTxHash))
             broadcastStatus = TheBDM.bdv().broadcastZC(pytx.serialize())
          except:
-            QMessageBox.warning(self, self.tr('Broadcast failed'), self.tr("""
-                  The broadcast process failed unexpectedly. Report this error to
-                  the development team if this issue occurs repeatedly
-                  """, QMessageBox.Ok))
+            QMessageBox.warning(self, self.tr('Broadcast failed'), self.tr(
+                  'The broadcast process failed unexpectedly. Report this error to '
+                  'the development team if this issue occurs repeatedly', QMessageBox.Ok))
             return
             
          if broadcastStatus.success_ == True:   
@@ -3105,30 +3100,28 @@ class ArmoryMainWindow(QMainWindow):
             blkexplURL_short = BLOCKEXPLORE_URL_TX % searchstr[:20]
 
             QMessageBox.warning(self, self.tr('Transaction Not Accepted'), self.tr(
-                  "The transaction that you just executed failed with " 
-                  "the following error message: <br><br> "
-                  "<b>%1</b> "
-                  "<br><br> "
-                  "On time out errors, the transaction may have actually succeed "
-                  "and this message is displayed prematurely.  To confirm whether the "
-                  "the transaction actually succeeded, you can try this direct link "
-                  "to %2: "
-                  "<br><br> "
-                  "<a href=\"%3\">%4...</a> "
-                  "<br><br> "
-                  "If you do not see the "
-                  "transaction on that webpage within one minute, it failed and you "
-                  "should attempt to re-send it. "
-                  "If it <i>does</i> show up, then you do not need to do anything "
-                  "else -- it will show up in Armory as soon as it receives one "
-                  "confirmation. "
-                  "<br><br>If the transaction did fail, it is likely because the fee "
-                  "is too low. Try again with a higher fee. "
-
-                  "If the problem persists, go to \"<i>File</i>\" -> "
-                  "\"<i>Export Log File</i>\" and then attach it to a support "
-                  "ticket at "
-                  "<a href=\"%5\">%5</a>").arg(broadcastStatus.msg_, BLOCKEXPLORE_NAME, blkexplURL, \
+                  'The transaction that you just executed failed with '
+                  'the following error message: <br><br> '
+                  '<b>%1</b>'
+                  '<br><br>'
+                  '<br><br>On time out errors, the transaction may have actually succeeded '
+                  'and this message is displayed prematurely.  To confirm whether the '
+                  'the transaction actually succeeded, you can try this direct link '
+                  'to %2: '
+                  '<br><br>'
+                  '<a href="%3">%4...</a>'
+                  '<br><br>'
+                  'If you do not see the '
+                  'transaction on that webpage within one minute, it failed and you '
+                  'should attempt to re-send it. '
+                  'If it <i>does</i> show up, then you do not need to do anything '
+                  'else -- it will show up in Armory as soon as it receives one '
+                  'confirmation. '
+                  '<br><br>If the transaction did fail, it is likely because the fee '
+                  'is too low. Try again with a higher fee. '
+                  'If the problem persists, go to "<i>File</i>" -> '
+                  '"<i>Export Log File</i>" and then attach it to a support '
+                  'ticket at <a href="%5">%5</a>').arg(broadcastStatus.msg_, BLOCKEXPLORE_NAME, blkexplURL, \
                      blkexplURL_short, supportURL), QMessageBox.Ok)
 
 
@@ -3155,10 +3148,10 @@ class ArmoryMainWindow(QMainWindow):
       if sdm in ['BitcoindInitializing', \
                  'BitcoindSynchronizing'] or \
          bdm in [BDM_SCANNING]:
-         QMessageBox.warning(self, self.tr('Scanning'), self.tr("""
-            Armory is currently in the middle of scanning the blockchain for
-            your existing wallets.  New wallets cannot be imported until this
-            operation is finished."""), QMessageBox.Ok)
+         QMessageBox.warning(self, self.tr('Scanning'), self.tr(
+            'Armory is currently in the middle of scanning the blockchain for '
+            'your existing wallets.  New wallets cannot be imported until this '
+            'operation is finished.'), QMessageBox.Ok)
          return
 
       DlgUniversalRestoreSelect(self, self).exec_()
@@ -3175,10 +3168,10 @@ class ArmoryMainWindow(QMainWindow):
       wlt = None
 
       if self.walletMap.has_key(wltID):
-         QMessageBox.warning(self, self.tr('Duplicate Wallet!'), self.tr('''
-            You selected a wallet that has the same ID as one already 
-            in your wallet (%1)!  If you would like to import it anyway,
-            please delete the duplicate wallet in Armory, first.''').arg(wltID), \
+         QMessageBox.warning(self, self.tr('Duplicate Wallet!'), self.tr(
+            'You selected a wallet that has the same ID as one already '
+            'in your wallet (%1)!  If you would like to import it anyway, '
+            'please delete the duplicate wallet in Armory, first.').arg(wltID), \
             QMessageBox.Ok)
          return
 
@@ -3194,31 +3187,31 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def digitalBackupWarning(self):
-      reply = QMessageBox.warning(self, self.tr('Be Careful!'), self.tr("""
-        <font color="red"><b>WARNING:</b></font> You are about to make an
-        <u>unencrypted</u> backup of your wallet.  It is highly recommended
-        that you do <u>not</u> ever save unencrypted wallets to your regular
-        hard drive.  This feature is intended for saving to a USB key or
-        other removable media."""), QMessageBox.Ok | QMessageBox.Cancel)
+      reply = QMessageBox.warning(self, self.tr('Be Careful!'), self.tr(
+        '<font color="red"><b>WARNING:</b></font> You are about to make an '
+        '<u>unencrypted</u> backup of your wallet.  It is highly recommended '
+        'that you do <u>not</u> ever save unencrypted wallets to your regular '
+        'hard drive.  This feature is intended for saving to a USB key or '
+        'other removable media.'), QMessageBox.Ok | QMessageBox.Cancel)
       return (reply==QMessageBox.Ok)
 
 
    #############################################################################
    def execAddressBook(self):
       if TheBDM.getState()==BDM_SCANNING:
-         QMessageBox.warning(self, self.tr('Blockchain Not Ready'), self.tr('''
-            The address book is created from transaction data available in 
-            the blockchain, which has not finished loading.  The address 
-            book will become available when Armory is online.'''), QMessageBox.Ok)
+         QMessageBox.warning(self, self.tr('Blockchain Not Ready'), self.tr(
+            'The address book is created from transaction data available in '
+            'the blockchain, which has not finished loading.  The address '
+            'book will become available when Armory is online.'), QMessageBox.Ok)
       elif TheBDM.getState() in (BDM_UNINITIALIZED,BDM_OFFLINE):
-         QMessageBox.warning(self, self.tr('Blockchain Not Ready'), self.tr('''
-            The address book is created from transaction data available in 
-            the blockchain, but Armory is currently offline.  The address 
-            book will become available when Armory is online.'''), QMessageBox.Ok)
+         QMessageBox.warning(self, self.tr('Blockchain Not Ready'), self.tr(
+            'The address book is created from transaction data available in '
+            'the blockchain, but Armory is currently offline.  The address '
+            'book will become available when Armory is online.'), QMessageBox.Ok)
       else:
          if len(self.walletMap)==0:
-            QMessageBox.warning(self, self.tr('No wallets!'), self.tr('''You have no wallets so
-               there is no address book to display.'''), QMessageBox.Ok)
+            QMessageBox.warning(self, self.tr('No wallets!'), self.tr('You have no wallets so '
+               'there is no address book to display.'), QMessageBox.Ok)
             return
          DlgAddressBook(self, self, None, None, None).exec_()
 
@@ -3269,9 +3262,9 @@ class ArmoryMainWindow(QMainWindow):
          pytx.setRBF(cppTx.isRBF())
 
       if pytx==None:
-         QMessageBox.critical(self, self.tr('Invalid Tx'), self.tr('''
-         The transaction you requested be displayed does not exist in 
-         Armory\'s database.  This is unusual...'''), QMessageBox.Ok)
+         QMessageBox.critical(self, self.tr('Invalid Tx'), self.tr(
+         'The transaction you requested be displayed does not exist in '
+         'Armory\'s database.  This is unusual...'), QMessageBox.Ok)
          return
 
       DlgDispTxInfo( pytx, self.walletMap[wltID], self, self, txtime=txtime).exec_()
@@ -3303,11 +3296,11 @@ class ArmoryMainWindow(QMainWindow):
             webbrowser.open(BLOCKEXPLORE_URL_TX % txHash)
          except:
             LOGEXCEPT('Failed to open webbrowser')
-            QMessageBox.critical(self, self.tr('Could not open browser'), self.tr('''
-               Armory encountered an error opening your web browser.  To view 
-               this transaction on blockchain.info, please copy and paste 
-               the following URL into your browser: 
-               <br><br>%1''').arg(BLOCKEXPLORE_URL_TX % txHash), QMessageBox.Ok)
+            QMessageBox.critical(self, self.tr('Could not open browser'), self.tr(
+               'Armory encountered an error opening your web browser.  To view '
+               'this transaction on blockchain.info, please copy and paste '
+               'the following URL into your browser: '
+               '<br><br>%1').arg(BLOCKEXPLORE_URL_TX % txHash), QMessageBox.Ok)
       elif action==actCopyTxID:
          clipb = QApplication.clipboard()
          clipb.clear()
@@ -3332,28 +3325,28 @@ class ArmoryMainWindow(QMainWindow):
 
    def clickSendBitcoins(self):
       if TheBDM.getState() in (BDM_OFFLINE, BDM_UNINITIALIZED):
-         QMessageBox.warning(self, self.tr('Offline Mode'), self.tr('''
-           Armory is currently running in offline mode, and has no 
-           ability to determine balances or create transactions. 
-           <br><br>
-           In order to send coins from this wallet you must use a 
-           full copy of this wallet from an online computer, 
-           or initiate an "offline transaction" using a watching-only 
-           wallet on an online computer.'''), QMessageBox.Ok)
+         QMessageBox.warning(self, self.tr('Offline Mode'), self.tr(
+           'Armory is currently running in offline mode, and has no '
+           'ability to determine balances or create transactions. '
+           '<br><br>'
+           'In order to send coins from this wallet you must use a '
+           'full copy of this wallet from an online computer, '
+           'or initiate an "offline transaction" using a watching-only '
+           'wallet on an online computer.'), QMessageBox.Ok)
          return
       elif TheBDM.getState()==BDM_SCANNING:
-         QMessageBox.warning(self, self.tr('Armory Not Ready'), self.tr('''
-           Armory is currently scanning the blockchain to collect 
-           the information needed to create transactions.  This typically 
-           takes between one and five minutes.  Please wait until your 
-           balance appears on the main window, then try again.'''), \
+         QMessageBox.warning(self, self.tr('Armory Not Ready'), self.tr(
+           'Armory is currently scanning the blockchain to collect '
+           'the information needed to create transactions.  This typically '
+           'takes between one and five minutes.  Please wait until your '
+           'balance appears on the main window, then try again.'), \
             QMessageBox.Ok)
          return
 
       if len(self.walletMap)==0:
-         reply = QMessageBox.information(self, self.tr('No Wallets!'), self.tr('''
-            You cannot send any bitcoins until you create a wallet and 
-            receive some coins.  Would you like to create a wallet?'''), \
+         reply = QMessageBox.information(self, self.tr('No Wallets!'), self.tr(
+            'You cannot send any bitcoins until you create a wallet and '
+            'receive some coins.  Would you like to create a wallet?'), \
             QMessageBox.Yes | QMessageBox.No)
          if reply==QMessageBox.Yes:
             self.startWalletWizard()
@@ -3379,8 +3372,8 @@ class ArmoryMainWindow(QMainWindow):
       elif haveLbl and not haveMsg:
          newMsg = uriDict['label']
 
-      descrStr = self.tr('''You just clicked on a "bitcoin:" link requesting bitcoins
-                to be sent to the following address:<br> ''')
+      descrStr = self.tr('You just clicked on a "bitcoin:" link requesting bitcoins '
+                'to be sent to the following address:<br> ')
 
       descrStr += self.tr('<br>--<b>Address</b>:\t%1 ').arg(uriDict['address'])
 
@@ -3406,19 +3399,19 @@ class ArmoryMainWindow(QMainWindow):
       uriDict['message'] = newMsg
 
       if not uri_has('amount'):
-         descrStr += (self.tr('''<br><br>There is no amount specified in the link, so
-            you can decide the amount after selecting a wallet to use 
-            for this transaction. '''))
+         descrStr += (self.tr('<br><br>There is no amount specified in the link, so '
+            'you can decide the amount after selecting a wallet to use '
+            'for this transaction. '))
       else:
-         descrStr += self.tr('''<br><br><b>The specified amount <u>can</u> be changed</b> on the
-            next screen before hitting the "Send" button. ''')
+         descrStr += self.tr('<br><br><b>The specified amount <u>can</u> be changed</b> on the '
+            'next screen before hitting the "Send" button. ')
 
 
       if len(self.walletMap)==0:
-         reply = QMessageBox.information(self, self.tr('No Wallets!'), self.tr('''
-            You just clicked on a "bitcoin:" link to send money, but you 
-            currently have no wallets!  Would you like to create a wallet 
-            now?'''), QMessageBox.Yes | QMessageBox.No)
+         reply = QMessageBox.information(self, self.tr('No Wallets!'), self.tr(
+            'You just clicked on a "bitcoin:" link to send money, but you '
+            'currently have no wallets!  Would you like to create a wallet '
+            'now?'), QMessageBox.Yes | QMessageBox.No)
          if reply==QMessageBox.Yes:
             self.startWalletWizard()
          return False
@@ -3434,10 +3427,10 @@ class ArmoryMainWindow(QMainWindow):
       wltID = None
       selectionMade = True
       if len(self.walletMap)==0:
-         reply = QMessageBox.information(self, self.tr('No Wallets!'), self.tr('''
-            You have not created any wallets which means there is
-            nowhere to store you bitcoins!  Would you like to
-            create a wallet now?'''), \
+         reply = QMessageBox.information(self, self.tr('No Wallets!'), self.tr(
+            'You have not created any wallets which means there is '
+            'nowhere to store you bitcoins!  Would you like to '
+            'create a wallet now?'), \
             QMessageBox.Yes | QMessageBox.No)
          if reply==QMessageBox.Yes:
             self.startWalletWizard()
@@ -3507,60 +3500,55 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def logFileTriplePrivacyWarning(self):
-      return MsgBoxCustom(MSGBOX.Warning, self.tr('Privacy Warning'), self.tr("""
-         <b><u><font size=3>Wallet Analysis Log Files</font></u></b>
-         <br><br>
-         The wallet analysis logs contain no personally-identifiable
-         information, only a record of errors and inconsistencies
-         found in your wallet file.  No private keys or even public
-         keys are included.
-         <br><br>
-
-         <b><u><font size=3>Regular Log Files</font></u></b>
-         <br><br>
-         The regular log files do not contain any <u>security</u>-sensitive
-         information, but some users may consider the information to be
-         <u>privacy</u>-sensitive.  The log files may identify some addresses
-         and transactions that are related to your wallets.  It is always
-         recommended you include your log files with any request to the
-         Armory team, unless you are uncomfortable with the privacy
-         implications.
-         <br><br>
-
-         <b><u><font size=3>Watching-only Wallet</font></u></b>
-         <br><br>
-         A watching-only wallet is a copy of a regular wallet that does not
-         contain any signing keys.  This allows the holder to see the balance
-         and transaction history of the wallet, but not spend any of the funds.
-         <br><br>
-         You may be requested to submit a watching-only copy of your wallet
-         to make sure that there is no
-         risk to the security of your funds.  You should not even consider
-         sending your
-         watching-only wallet unless it was specifically requested by an
-         Armory representative."""), yesStr="&Ok")
+      return MsgBoxCustom(MSGBOX.Warning, self.tr('Privacy Warning'), self.tr(
+         '<b><u><font size=3>Wallet Analysis Log Files</font></u></b> '
+         '<br><br> '
+         'The wallet analysis logs contain no personally-identifiable '
+         'information, only a record of errors and inconsistencies '
+         'found in your wallet file.  No private keys or even public '
+         'keys are included. '
+         '<br><br>'
+         '<b><u><font size=3>Regular Log Files</font></u></b>'
+         '<br><br>'
+         'The regular log files do not contain any <u>security</u>-sensitive '
+         'information, but some users may consider the information to be '
+         '<u>privacy</u>-sensitive.  The log files may identify some addresses '
+         'and transactions that are related to your wallets.  It is always '
+         'recommended you include your log files with any request to the '
+         'Armory team, unless you are uncomfortable with the privacy '
+         'implications. '
+         '<br><br>'
+         '<b><u><font size=3>Watching-only Wallet</font></u></b> '
+         '<br><br>'
+         'A watching-only wallet is a copy of a regular wallet that does not '
+         'contain any signing keys.  This allows the holder to see the balance '
+         'and transaction history of the wallet, but not spend any of the funds. '
+         '<br><br> '
+         'You may be requested to submit a watching-only copy of your wallet '
+         'to make sure that there is no '
+         'risk to the security of your funds.  You should not even consider '
+         'sending your '
+         'watching-only wallet unless it was specifically requested by an '
+         'Armory representative.'), yesStr="&Ok")
 
 
    #############################################################################
    def logFilePrivacyWarning(self, wCancel=False):
-      return MsgBoxCustom(MSGBOX.Warning, self.tr('Privacy Warning'), self.tr("""
-
-         Armory log files do not contain any <u>security</u>-sensitive
-         information, but some users may consider the information to be
-         <u>privacy</u>-sensitive.  The log files may identify some addresses
-         and transactions that are related to your wallets.
-         <br><br>
-
-         <b>No signing-key data is ever written to the log file</b>.
-         Only enough data is there to help the Armory developers
-         track down bugs in the software, but it may still be considered
-         sensitive information to some users.
-         <br><br>
-
-         Please do not send the log file to the Armory developers if you
-         are not comfortable with the privacy implications!  However, if you
-         do not send the log file, it may be very difficult or impossible
-         for us to help you with your problem. """), wCancel=wCancel, yesStr="&Ok")
+      return MsgBoxCustom(MSGBOX.Warning, self.tr('Privacy Warning'), self.tr(
+         'Armory log files do not contain any <u>security</u>-sensitive '
+         'information, but some users may consider the information to be '
+         '<u>privacy</u>-sensitive.  The log files may identify some addresses '
+         'and transactions that are related to your wallets. '
+         '<br><br> '
+         '<b>No signing-key data is ever written to the log file</b>. '
+         'Only enough data is there to help the Armory developers '
+         'track down bugs in the software, but it may still be considered '
+         'sensitive information to some users. '
+         '<br><br>'
+         'Please do not send the log file to the Armory developers if you '
+         'are not comfortable with the privacy implications!  However, if you '
+         'do not send the log file, it may be very difficult or impossible '
+         'for us to help you with your problem.'), wCancel=wCancel, yesStr="&Ok")
 
 
    #############################################################################
@@ -3614,24 +3602,24 @@ class ArmoryMainWindow(QMainWindow):
       if TheSDM.getSDMState() == 'BitcoindExeMissing':
          bitcoindStat = self.lookForBitcoind()
          if bitcoindStat=='Running':
-            result = QMessageBox.warning(self, self.tr('Already running!'), self.tr("""
-               The Bitcoin software appears to be installed now, but it
-               needs to be closed for Armory to work.  Would you like Armory
-               to close it for you?"""), QMessageBox.Yes | QMessageBox.No)
+            result = QMessageBox.warning(self, self.tr('Already running!'), self.tr(
+               'The Bitcoin software appears to be installed now, but it '
+               'needs to be closed for Armory to work.  Would you like Armory '
+               'to close it for you?'), QMessageBox.Yes | QMessageBox.No)
             if result==QMessageBox.Yes:
                self.closeExistingBitcoin()
                self.startBitcoindIfNecessary()
          elif bitcoindStat=='StillMissing':
-            QMessageBox.warning(self, self.tr('Still Missing'), self.tr("""
-               The Bitcoin software still appears to be missing.  If you
-               just installed it, then please adjust your settings to point
-               to the installation directory."""), QMessageBox.Ok)
+            QMessageBox.warning(self, self.tr('Still Missing'), self.tr(
+               'The Bitcoin software still appears to be missing.  If you '
+               'just installed it, then please adjust your settings to point '
+               'to the installation directory.'), QMessageBox.Ok)
          self.startBitcoindIfNecessary()
       elif self.doAutoBitcoind and not TheSDM.isRunningBitcoind():
          if TheSDM.satoshiIsAvailable():
-            result = QMessageBox.warning(self, self.tr('Still Running'), self.tr("""
-               Bitcoin Core is still running.  Armory cannot start until
-               it is closed.  Do you want Armory to close it for you?"""), \
+            result = QMessageBox.warning(self, self.tr('Still Running'), self.tr(
+               'Bitcoin Core is still running.  Armory cannot start until '
+               'it is closed.  Do you want Armory to close it for you?'), \
                QMessageBox.Yes | QMessageBox.No)
             if result==QMessageBox.Yes:
                self.closeExistingBitcoin()
@@ -3785,16 +3773,16 @@ class ArmoryMainWindow(QMainWindow):
            self.tr('Open Armory settings window to change Bitcoin software management'))
 
 
-      self.dashBtns[DASHBTNS.Browse][TTIP] = self.createToolTipWidget( self.tr('''
-           Will open your default browser to https://bitcoin.org where you can 
-           download the latest version of Bitcoin Core, and get other information
-           and links about Bitcoin, in general.'''))
-      self.dashBtns[DASHBTNS.Settings][TTIP] = self.createToolTipWidget( self.tr('''
-           Change Bitcoin Core/bitcoind management settings or point Armory to
-           a non-standard Bitcoin installation'''))
-      self.dashBtns[DASHBTNS.Close][TTIP] = self.createToolTipWidget( self.tr('''
-           Armory has detected a running Bitcoin Core or bitcoind instance and
-           will force it to exit'''))
+      self.dashBtns[DASHBTNS.Browse][TTIP] = self.createToolTipWidget( self.tr(
+           'Will open your default browser to https://bitcoin.org where you can '
+           'download the latest version of Bitcoin Core, and get other information '
+           'and links about Bitcoin, in general.'))
+      self.dashBtns[DASHBTNS.Settings][TTIP] = self.createToolTipWidget( self.tr(
+           'Change Bitcoin Core/bitcoind management settings or point Armory to '
+           'a non-standard Bitcoin installation'))
+      self.dashBtns[DASHBTNS.Close][TTIP] = self.createToolTipWidget( self.tr(
+           'Armory has detected a running Bitcoin Core or bitcoind instance and '
+           'will force it to exit'))
 
       self.frmDashMgmtButtons = QFrame()
       self.frmDashMgmtButtons.setFrameStyle(STYLE_SUNKEN)
@@ -3844,9 +3832,9 @@ class ArmoryMainWindow(QMainWindow):
             pass
 
       # If got here, never found it
-      QMessageBox.warning(self, self.tr('Not Found'), self.tr('''
-         Attempted to kill the running Bitcoin Core/bitcoind instance,
-         but it was not found.  '''), QMessageBox.Ok)
+      QMessageBox.warning(self, self.tr('Not Found'), self.tr(
+         'Attempted to kill the running Bitcoin Core/bitcoind instance, '
+         'but it was not found.'), QMessageBox.Ok)
 
    #############################################################################
    def getPercentageFinished(self, maxblk, lastblk):
@@ -4104,21 +4092,21 @@ class ArmoryMainWindow(QMainWindow):
 
       # A few states don't care which mgmtMode you are in...
       if state == 'NewUserInfo':
-         return self.tr("""
-         For more information about Armory, and even Bitcoin itself, you should
-         visit the <a href="https://bitcointalk.org/index.php?board=97.0">Armory Forum</a>
-	 and <a href="https://bitcoin.org">Bitcoin.org</a>.  If
-         you are experiencing problems using this software, please visit the
-         <a href="https://bitcointalk.org/index.php?board=97.0">Armory Forum</a>. Users
-	 there will help you with any issues that you have.
-         <br><br>
-         <b><u>IMPORTANT:</u></b> Make a backup of your wallet(s)!  Paper
-         backups protect you <i>forever</i> against forgotten passwords,
-         hard-drive failure, and make it easy for your family to recover
-         your funds if something terrible happens to you.  <i>Each wallet
-         only needs to be backed up once, ever!</i>  Without it, you are at
-         risk of losing all of your Bitcoins!
-         <br><br>""")
+         return self.tr(
+         'For more information about Armory, and even Bitcoin itself, you should '
+         'visit the <a href="https://bitcointalk.org/index.php?board=97.0">Armory Forum</a> '
+	     'and <a href="https://bitcoin.org">Bitcoin.org</a>.  If '
+         'you are experiencing problems using this software, please visit the '
+         '<a href="https://bitcointalk.org/index.php?board=97.0">Armory Forum</a>. Users '
+	     'there will help you with any issues that you have. '
+         '<br><br>'
+         '<b><u>IMPORTANT:</u></b> Make a backup of your wallet(s)!  Paper '
+         'backups protect you <i>forever</i> against forgotten passwords, '
+         'hard-drive failure, and make it easy for your family to recover '
+         'your funds if something terrible happens to you.  <i>Each wallet '
+         'only needs to be backed up once, ever!</i>  Without it, you are at '
+         'risk of losing all of your Bitcoins! '
+         '<br><br>')
       elif state == 'OnlineFull1':
          return self.tr( \
          '<p><b>You now have access to all the features Armory has to offer!</b><br>'
@@ -4287,25 +4275,25 @@ class ArmoryMainWindow(QMainWindow):
             'to manage it yourself, please adjust your settings and '
             'restart Armory.')
          if state == 'InitializingLongTime':
-            return self.tr("""
-            <b>To maximize your security, the Bitcoin engine is downloading
-            and verifying the global transaction ledger.  <u>This will take
-            several hours, but only needs to be done once</u>!</b>  It is
-            usually best to leave it running over night for this
-            initialization process.  Subsequent loads will only take a few
-            minutes.
-            <br><br>
-            <b>Please Note:</b> Between Armory and the underlying Bitcoin
-            engine, you need to have 40-50 GB of spare disk space available
-            to hold the global transaction history.
-            <br><br>
-            While you wait, you can manage your wallets.  Make new wallets,
-            make digital or paper backups, create Bitcoin addresses to receive
-            payments,
-            sign messages, and/or import private keys.  You will always
-            receive Bitcoin payments regardless of whether you are online,
-            but you will have to verify that payment through another service
-            until Armory is finished this initialization.""")
+            return self.tr(
+            '<b>To maximize your security, the Bitcoin engine is downloading '
+            'and verifying the global transaction ledger.  <u>This will take '
+            'several hours, but only needs to be done once</u>!</b>  It is '
+            'usually best to leave it running over night for this '
+            'initialization process.  Subsequent loads will only take a few '
+            'minutes. '
+            '<br><br> '
+            '<b>Please Note:</b> Between Armory and the underlying Bitcoin '
+            'engine, you need to have 120-130 GB of spare disk space available '
+            'to hold the global transaction history. '
+            '<br><br> '
+            'While you wait, you can manage your wallets.  Make new wallets, '
+            'make digital or paper backups, create Bitcoin addresses to receive '
+            'payments, '
+            'sign messages, and/or import private keys.  You will always '
+            'receive Bitcoin payments regardless of whether you are online, '
+            'but you will have to verify that payment through another service '
+            'until Armory is finished this initialization.')
          if state == 'InitializingDoneSoon':
             msg = self.tr( \
             'The software is downloading and processing the latest activity '
@@ -4381,25 +4369,25 @@ class ArmoryMainWindow(QMainWindow):
             soutDisp = '<b><font face="courier">StdOut: %s</font></b>' % soutHtml
             serrDisp = '<b><font face="courier">StdErr: %s</font></b>' % serrHtml
             if len(sout)>0 or len(serr)>0:
-               return  (self.tr("""
-               There was an error starting the underlying Bitcoin engine.
-               This should not normally happen.  Usually it occurs when you
-               have been using Bitcoin Core prior to using Armory, especially
-               if you have upgraded or downgraded Bitcoin Core recently.
-               Output from bitcoind:<br>""") + \
+               return  (self.tr(
+               'There was an error starting the underlying Bitcoin engine. '
+               'This should not normally happen.  Usually it occurs when you '
+               'have been using Bitcoin Core prior to using Armory, especially '
+               'if you have upgraded or downgraded Bitcoin Core recently. '
+               'Output from bitcoind:<br>') + \
                (soutDisp if len(sout)>0 else '') + \
                (serrDisp if len(serr)>0 else '') )
             else:
-               return ( self.tr("""
-                  There was an error starting the underlying Bitcoin engine.
-                  This should not normally happen.  Usually it occurs when you
-                  have been using Bitcoin Core prior to using Armory, especially
-                  if you have upgraded or downgraded Bitcoin Core recently.
-                  <br><br>
-                  Unfortunately, this error is so strange, Armory does not
-                  recognize it.  Please go to "Export Log File" from the "File"
-                  menu and submit an issue at https://github.com/goatpig/BitcoinArmory/issues.
-                  We apologize for the inconvenience!"""))
+               return ( self.tr(
+                  'There was an error starting the underlying Bitcoin engine. '
+                  'This should not normally happen.  Usually it occurs when you '
+                  'have been using Bitcoin Core prior to using Armory, especially '
+                  'if you have upgraded or downgraded Bitcoin Core recently. '
+                  '<br><br> '
+                  'Unfortunately, this error is so strange, Armory does not '
+                  'recognize it.  Please go to "Export Log File" from the "File" '
+                  'menu and submit an issue at https://github.com/goatpig/BitcoinArmory/issues. '
+                  'We apologize for the inconvenience!'))
 
    # TODO - move out of polling and call on events
    #############################################################################
@@ -5046,9 +5034,9 @@ class ArmoryMainWindow(QMainWindow):
          return
 
       if TheBDM.exception != "":
-         QMessageBox.warning(self, self.tr('Database Error'), self.tr("""
-                           The DB has returned the following error: <br><br>
-                           <b> %1 </b> <br><br> Armory will now shutdown.""").arg(TheBDM.exception), QMessageBox.Ok)
+         QMessageBox.warning(self, self.tr('Database Error'), self.tr(
+                           'The DB has returned the following error: <br><br> '
+                           '<b> %1 </b> <br><br> Armory will now shutdown.').arg(TheBDM.exception), QMessageBox.Ok)
          self.closeForReal()
 
       # SatoshiDaemonManager
@@ -5496,10 +5484,10 @@ class ArmoryMainWindow(QMainWindow):
       self.dlgCptWlt.emit(SIGNAL('Show'))
       while 1:
          if TheBDM.getState() == BDM_SCANNING:
-            canFix = self.tr("""
-               The wallet analysis tool will become available
-               as soon as Armory is done loading.   You can close this
-               window and it will reappear when ready.""")
+            canFix = self.tr(
+               'The wallet analysis tool will become available '
+               'as soon as Armory is done loading. You can close this '
+               'window and it will reappear when ready.')
             self.dlgCptWlt.UpdateCanFix([canFix])
             time.sleep(1)
          elif TheBDM.getState() == BDM_OFFLINE or \
@@ -5529,9 +5517,9 @@ class ArmoryMainWindow(QMainWindow):
 
          if len(runningList):
             if listchanged:
-               canFix.append(self.tr("""
-                  <b>The following dialogs need closed before you can
-                  run the wallet analysis tool:</b>"""))
+               canFix.append(self.tr(
+                  '<b>The following dialogs need closed before you can '
+                  'run the wallet analysis tool:</b>'))
                canFix.extend([str(myobj.windowTitle()) for myobj in runningList])
                self.dlgCptWlt.UpdateCanFix(canFix)
             time.sleep(0.2)
@@ -5679,10 +5667,10 @@ class ArmoryMainWindow(QMainWindow):
          TheBDM.setState(BDM_OFFLINE)
          self.switchNetworkMode(NETWORKMODE.Offline)
 
-         QMessageBox.warning(self, self.tr('Database Error'), self.tr("""
-                           Armory failed to spawn the DB!<br> 
-                           Continuing operations in offline mode instead. <br>
-                           Refer to the dbLog.txt for more information."""), QMessageBox.Ok)
+         QMessageBox.warning(self, self.tr('Database Error'), self.tr(
+                           'Armory failed to spawn the DB!<br> '
+                           'Continuing operations in offline mode instead. <br> '
+                           'Refer to the dbLog.txt for more information.'), QMessageBox.Ok)
          
          self.setDashboardDetails()
          return

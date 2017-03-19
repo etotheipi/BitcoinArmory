@@ -22,7 +22,7 @@ class AddressTypeSelectDialog(ArmoryDialog):
       
       #p2pkh
       self.radioP2PKH = QRadioButton(self.tr("P2PKH Address"))
-      p2pkhDescr = QLabel(self.tr("""Legacy Armory address type. Backwards compatible."""))
+      p2pkhDescr = QLabel(self.tr('Legacy Armory address type. Backwards compatible.'))
       
       frmP2PKH = QFrame()
       frmP2PKH.setFrameStyle(STYLE_RAISED)

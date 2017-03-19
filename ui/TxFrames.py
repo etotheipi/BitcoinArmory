@@ -161,10 +161,10 @@ class SendBitcoinsFrame(ArmoryFrame):
       metaFrm = makeHorizFrame(metaButtonList, STYLE_RAISED, condenseMargins=True)
       buttonFrame = makeHorizFrame(buttonList, condenseMargins=True)
       btnEnterURI = QPushButton(self.tr('Manually Enter "bitcoin:" Link'))
-      ttipEnterURI = self.main.createToolTipWidget( self.tr("""
-         Armory does not always succeed at registering itself to handle 
-         URL links from webpages and email.  
-         Click this button to copy a "bitcoin:" link directly into Armory."""))
+      ttipEnterURI = self.main.createToolTipWidget( self.tr(
+         'Armory does not always succeed at registering itself to handle '
+         'URL links from webpages and email. '
+         'Click this button to copy a "bitcoin:" link directly into Armory.'))
       self.connect(btnEnterURI, SIGNAL("clicked()"), self.clickEnterURI)
       fromFrameList = [self.frmSelectedWlt]
 
@@ -548,9 +548,9 @@ class SendBitcoinsFrame(ArmoryFrame):
                   net = 'Unknown Network'
                   if NETWORKS.has_key(addrList[row][0]):
                      net = NETWORKS[addrList[row][0]]
-                  QMessageBox.warning(self, self.tr('Wrong Network!'), self.tr("""
-                     Address %1 is for the wrong network!  You are on the <b>%2</b>
-                     and the address you supplied is for the the <b>%3</b>!""").arg(row+1, NETWORKS[ADDRBYTE], net), QMessageBox.Ok)
+                  QMessageBox.warning(self, self.tr('Wrong Network!'), self.tr(
+                     'Address %1 is for the wrong network!  You are on the <b>%2</b> '
+                     'and the address you supplied is for the the <b>%3</b>!').arg(row+1, NETWORKS[ADDRBYTE], net), QMessageBox.Ok)
             except:
                pass
 
@@ -605,26 +605,26 @@ class SendBitcoinsFrame(ArmoryFrame):
       if peek == False:
          feebyteStr = "%.2f" % fee_byte
          if fee_byte > 10 * MIN_FEE_BYTE:
-            reply = QMessageBox.warning(self, self.tr('Excessive Fee'), self.tr("""
-               Your transaction comes with a fee rate of <b>%1 satoshis per byte</b>.
-               </br></br> 
-               This is much higher than the median fee rate of <b>%2 satoshi/Byte</b>.
-               <br><br>
-               Are you <i>absolutely sure</i> that you want to send with this
-               fee? If you do not want to proceed with this fee rate, click "No".""").arg(\
+            reply = QMessageBox.warning(self, self.tr('Excessive Fee'), self.tr(
+               'Your transaction comes with a fee rate of <b>%1 satoshis per byte</b>. '
+               '</br></br> '
+               'This is much higher than the median fee rate of <b>%2 satoshi/Byte</b>. '
+               '<br><br>'
+               'Are you <i>absolutely sure</i> that you want to send with this '
+               'fee? If you do not want to proceed with this fee rate, click "No".').arg(\
                   feebyteStr, unicode(MIN_FEE_BYTE)), QMessageBox.Yes | QMessageBox.No)
    
             if not reply==QMessageBox.Yes:
                return False
             
          elif fee_byte < MIN_FEE_BYTE / 10:
-            reply = QMessageBox.warning(self, self.tr('Insufficient Fee'), self.tr("""
-               Your transaction comes with a fee rate of <b>%1 satoshi/Byte</b>.
-               </br><br> 
-               This is much lower than the median fee rate of <b>%2 satoshi/Byte</b>.
-               <br><br>
-               Are you <i>absolutely sure</i> that you want to send with this
-               fee? If you do not want to proceed with this fee rate, click "No".""").arg(\
+            reply = QMessageBox.warning(self, self.tr('Insufficient Fee'), self.tr(
+               'Your transaction comes with a fee rate of <b>%1 satoshi/Byte</b>. '
+               '</br><br> '
+               'This is much lower than the median fee rate of <b>%2 satoshi/Byte</b>. '
+               '<br><br>'
+               'Are you <i>absolutely sure</i> that you want to send with this '
+               'fee? If you do not want to proceed with this fee rate, click "No".').arg(\
                   feebyteStr, unicode(MIN_FEE_BYTE)), QMessageBox.Yes | QMessageBox.No)
    
             if not reply==QMessageBox.Yes:
@@ -633,10 +633,10 @@ class SendBitcoinsFrame(ArmoryFrame):
 
       if len(utxoSelect) == 0:
          QMessageBox.critical(self, self.tr('Coin Selection Error'), self.tr(
-            "There was an error constructing your transaction, due to a " 
-            "quirk in the way Bitcoin transactions work.  If you see this "
-            "error more than once, try sending your BTC in two or more " 
-            "separate transactions."), QMessageBox.Ok)
+            'There was an error constructing your transaction, due to a '
+            'quirk in the way Bitcoin transactions work.  If you see this '
+            'error more than once, try sending your BTC in two or more '
+            'separate transactions.'), QMessageBox.Ok)
          return False
 
       # ## IF we got here, everything is good to go...
@@ -926,9 +926,8 @@ class SendBitcoinsFrame(ArmoryFrame):
                selectedBehavior = 'Specify'
                changeScript = self.getUserChangeScript()['Script']
                if changeScript is None:
-                  QMessageBox.warning(self, self.tr('Invalid Address'), self.tr("""
-                     You specified an invalid change address for this 
-                     transcation."""), QMessageBox.Ok)
+                  QMessageBox.warning(self, self.tr('Invalid Address'), self.tr(
+                     'You specified an invalid change address for this transcation.'), QMessageBox.Ok)
                   return None
                scrType = getTxOutScriptType(changeScript)
                if scrType in CPP_TXOUT_HAS_ADDRSTR:
@@ -1292,31 +1291,31 @@ class ReviewOfflineTxFrame(ArmoryDialog):
       self.wlt = wlt
       if determineWalletType(wlt, self.main)[0] in \
                                  [ WLTTYPES.Offline, WLTTYPES.WatchOnly ]:
-         self.lblDescr.setText(self.tr("""
-            The block of data shown below is the complete transaction you 
-            just requested, but is invalid because it does not contain any
-            signatures.  You must take this data to the computer with the 
-            full wallet to get it signed, then bring it back here to be
-            broadcast to the Bitcoin network.
-            <br><br>
-            Use "Save as file..." to save an <i>*.unsigned.tx</i> 
-            file to USB drive or other removable media.  
-            On the offline computer, click "Offline Transactions" on the main 
-            window.  Load the transaction, <b>review it</b>, then sign it 
-            (the filename now end with <i>*.signed.tx</i>).  Click "Continue" 
-            below when you have the signed transaction on this computer.  
-            <br><br>
-            <b>NOTE:</b> The USB drive only ever holds public transaction
-            data that will be broadcast to the network.  This data may be 
-            considered privacy-sensitive, but does <u>not</u> compromise
-            the security of your wallet."""))
+         self.lblDescr.setText(self.tr(
+            'The block of data shown below is the complete transaction you '
+            'just requested, but is invalid because it does not contain any '
+            'signatures.  You must take this data to the computer with the '
+            'full wallet to get it signed, then bring it back here to be '
+            'broadcast to the Bitcoin network. '
+            '<br><br>'
+            'Use "Save as file..." to save an <i>*.unsigned.tx</i> '
+            'file to USB drive or other removable media. '
+            'On the offline computer, click "Offline Transactions" on the main '
+            'window.  Load the transaction, <b>review it</b>, then sign it '
+            '(the filename now end with <i>*.signed.tx</i>).  Click "Continue" '
+            'below when you have the signed transaction on this computer. ' 
+            '<br><br>'
+            '<b>NOTE:</b> The USB drive only ever holds public transaction '
+            'data that will be broadcast to the network.  This data may be '
+            'considered privacy-sensitive, but does <u>not</u> compromise '
+            'the security of your wallet.'))
       else:
-         self.lblDescr.setText(self.tr("""
-            You have chosen to create the previous transaction but not sign 
-            it or broadcast it, yet.  You can save the unsigned 
-            transaction to file, or copy&paste from the text box.  
-            You can use the following window (after clicking "Continue") to 
-            sign and broadcast the transaction when you are ready"""))
+         self.lblDescr.setText(self.tr(
+            'You have chosen to create the previous transaction but not sign '
+            'it or broadcast it, yet.  You can save the unsigned '
+            'transaction to file, or copy&paste from the text box. '
+            'You can use the following window (after clicking "Continue") to '
+            'sign and broadcast the transaction when you are ready'))
            
          
    def copyAsciiUSTX(self):
@@ -1722,16 +1721,16 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
                svpairsMine.append([script, value])
 
       if len(svpairsMine) == 0 and len(svpairs) > 1:
-         QMessageBox.warning(self, self.tr('Missing Change'), self.tr("""
-            This transaction has %1 recipients, and none of them
-            are addresses in this wallet (for receiving change).  
-            This can happen if you specified a custom change address 
-            for this transaction, or sometimes happens solely by 
-            chance with a multi-recipient transaction.  It could also 
-            be the result of someone tampering with the transaction. 
-            <br><br>The transaction is valid and ready to be signed.  
-            Please verify the recipient and amounts carefully before 
-            confirming the transaction on the next screen.""").arg(len(svpairs)), QMessageBox.Ok)
+         QMessageBox.warning(self, self.tr('Missing Change'), self.tr(
+            'This transaction has %1 recipients, and none of them '
+            'are addresses in this wallet (for receiving change). '
+            'This can happen if you specified a custom change address '
+            'for this transaction, or sometimes happens solely by '
+            'chance with a multi-recipient transaction.  It could also '
+            'be the result of someone tampering with the transaction. '
+            '<br><br>The transaction is valid and ready to be signed. '
+            'Please verify the recipient and amounts carefully before '
+            'confirming the transaction on the next screen.').arg(len(svpairs)), QMessageBox.Ok)
 
       dlg = DlgConfirmSend(self.wlt, svpairs, theFee, self, self.main, pytxOrUstx=ustx)
       if not dlg.exec_():
@@ -1786,13 +1785,13 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       try:
          finalTx = self.ustxObj.getSignedPyTx()
       except SignatureError:
-         QMessageBox.warning(self, self.tr('Signature Error'), self.tr("""
-            Not all signatures are valid.  This transaction
-            cannot be broadcast."""), QMessageBox.Ok)
+         QMessageBox.warning(self, self.tr('Signature Error'), self.tr(
+            'Not all signatures are valid.  This transaction '
+            'cannot be broadcast.'), QMessageBox.Ok)
       except:
-         QMessageBox.warning(self, self.tr('Error'), self.tr("""
-            There was an error processing this transaction, for reasons 
-            that are probably not your fault..."""), QMessageBox.Ok)
+         QMessageBox.warning(self, self.tr('Error'), self.tr(
+            'There was an error processing this transaction, for reasons '
+            'that are probably not your fault...'), QMessageBox.Ok)
          return
 
       # We should provide the same confirmation dialog here, as we do when
