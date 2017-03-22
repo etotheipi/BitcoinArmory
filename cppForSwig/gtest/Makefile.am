@@ -1,5 +1,12 @@
 SUBDIRS = ../lmdb ../fcgi ../cryptopp
 
+AM_CXXFLAGS =
+
+# "#include <tr1/tuple>" causes a build error on OSX without this flag.
+if BUILD_DARWIN
+AM_CXXFLAGS += -DGTEST_USE_OWN_TR1_TUPLE=1
+endif
+
 INCLUDE_FILES = ../UniversalTimer.h ../BinaryData.h ../lmdb_wrapper.h \
 	../BtcUtils.h ../DBUtils.h ../BlockObj.h ../BlockUtils.h ../EncryptionUtils.h \
 	../BtcWallet.h ../LedgerEntry.h ../ScrAddrObj.h ../Blockchain.h \
@@ -30,12 +37,12 @@ SOURCE_FILES = ../UniversalTimer.cpp ../BinaryData.cpp ../lmdb_wrapper.cpp \
 	../CoinSelection.cpp \
 	gtest-all.cc
 
-AM_CXXFLAGS = -I../lmdb \
+AM_CXXFLAGS += -I../lmdb \
 	-I../cryptopp \
 	-I../fcgi -I../fcgi/include \
-	-D__STDC_LIMIT_MACROS -fPIC
+	-D__STDC_LIMIT_MACROS
 
-AM_LDFLAGS = -static
+AM_LDFLAGS = -static $(LDFLAGS)
 
 bin_PROGRAMS = CppBlockUtilsTests ContainerTests DB1kIterTest
 
@@ -43,19 +50,18 @@ CppBlockUtilsTests_SOURCES = $(INCLUDE_FILES) $(SOURCE_FILES) CppBlockUtilsTests
 DB1kIterTest_SOURCES = $(INCLUDE_FILES) $(SOURCE_FILES) DB1kIterTest.cpp
 ContainerTests_SOURCES = ContainerTests.cpp gtest.h gtest-all.cc
 
+CppBlockUtilsTests_CXXFLAGS = $(AM_CXXFLAGS) $(CXXFLAGS) -std=c++11
+DB1kIterTest_CXXFLAGS = $(AM_CXXFLAGS) $(CXXFLAGS) -std=c++11
+ContainerTests_CXXFLAGS = $(AM_CXXFLAGS) $(CXXFLAGS) -std=c++11
+
 CppBlockUtilsTests_LDADD = -L../lmdb -llmdb \
 	-L../cryptopp -lcryptopp \
 	-L../fcgi/libfcgi/ -lfcgi \
-	-lpthread
+	-lpthread $(LDFLAGS)
 
-ContainerTests_LDADD = -lpthread
+ContainerTests_LDADD = -lpthread $(LDFLAGS)
 
 DB1kIterTest_LDADD = -L../lmdb -llmdb \
 	-L../cryptopp -lcryptopp \
 	-L../fcgi/libfcgi/ -lfcgi \
-	-lpthread
-
-# "#include <tr1/tuple>" causes a build error on OSX without this flag.
-if BUILD_DARWIN
-AM_CXXFLAGS += -DGTEST_USE_OWN_TR1_TUPLE=1
-endif
+	-lpthread $(LDFLAGS)

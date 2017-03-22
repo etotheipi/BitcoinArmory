@@ -74,24 +74,20 @@ case $host in
         [compile using the SDK in DIR])])
     if test "${with_macosx_sdk}" != "" ; then
         test ! -d "${with_macosx_sdk}" && AC_MSG_ERROR([SDK "${with_macosx_sdk}" not found])
-        CPP="${CPP} -isysroot ${with_macosx_sdk}"
-        CC="${CC} -isysroot ${with_macosx_sdk}"
-        CXX="${CXX} -isysroot ${with_macosx_sdk}"
+        CFLAGS="${CFLAGS} -isysroot ${with_macosx_sdk}"
+        CXXFLAGS="${CXXFLAGS} -isysroot ${with_macosx_sdk}"
         OBJC="${OBJC} -isysroot ${with_macosx_sdk}"
-        LD="${LD} -syslibroot ${with_macosx_sdk}"
     fi
     AC_ARG_WITH(macosx-version-min,
       [AS_HELP_STRING([--with-macosx-version-min=VERSION],
         [compile for Mac OS X VERSION and above])])
     if test "${with_macosx_version_min}" != "" ; then
-        CPP="${CPP} -mmacosx-version-min=${with_macosx_version_min}"
-        CC="${CC} -mmacosx-version-min=${with_macosx_version_min}"
-        CXX="${CXX} -mmacosx-version-min=${with_macosx_version_min}"
+        CFLAGS="${CFLAGS} -mmacosx-version-min=${with_macosx_version_min}"
+        CXXFLAGS="${CXXFLAGS} -mmacosx-version-min=${with_macosx_version_min}"
         OBJC="${OBJC} -mmacosx-version-min=${with_macosx_version_min}"
-        LD="${LD} -mmacosx_version_min=${with_macosx_version_min}"
     fi
-    CPP="${CPP} -stdlib=libc++ -std=c++11"
-    CXX="${CXX} -stdlib=libc++ -std=c++11"
+
+    CXXFLAGS="${CXXFLAGS} -stdlib=libc++ -fPIC -pipe"
     LD="${LD} -stdlib=libc++ -std=c++11 -lc++ -undefined dynamic_lookup -headerpad_max_install_names"
 
     # There really ought to be some sort of Qt check here. M4 files don't work
@@ -121,6 +117,18 @@ AC_LANG_POP([C++])
 AC_MSG_RESULT([is compiler clang: $CLANG])
 AC_SUBST([CLANG])
 
+# Declare CFLAGS "unprecious" so that it can be passed directly to subdirs.
+AC_DEFUN([AX_UNPRECIOUS], [
+    m4_define([_AC_PRECIOUS_VARS], m4_bpatsubst(_AC_PRECIOUS_VARS, [$1
+], []))
+])
+AX_UNPRECIOUS([CFLAGS])
+
+export BUILD_OS
+export CFLAGS
+export CXXFLAGS
+export LDFLAGS
+
 AM_CONDITIONAL([HAVE_CLANG], [test x$CLANG = xyes])
 AM_CONDITIONAL([BUILD_DARWIN], [test x$BUILD_OS = xdarwin])
 
@@ -131,3 +139,12 @@ AC_CONFIG_FILES(Makefile
 		cppForSwig/gtest/Makefile)
 
 AC_OUTPUT
+
+echo "  CC            = $CC"
+echo "  CFLAGS        = $CFLAGS"
+echo "  CPP           = $CPP"
+echo "  CPPFLAGS      = $CPPFLAGS"
+echo "  CXX           = $CXX"
+echo "  CXXFLAGS      = $CXXFLAGS"
+echo "  LDFLAGS       = $LDFLAGS"
+echo "  LD            = $LD"

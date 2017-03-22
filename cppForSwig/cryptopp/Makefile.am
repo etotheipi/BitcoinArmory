@@ -1,30 +1,29 @@
 noinst_LTLIBRARIES = libcryptopp.la
 
 libcryptopp_la_LIBADD =
-AM_LDFLAGS =
-AM_CXXFLAGS = -fPIC -pipe
+AM_LDFLAGS = $(LDFLAGS)
+AM_CXXFLAGS = $(CXXFLAGS) -std=c++11
 
 #compilation flags
 if CRYPTOPP_HAVE_CLANG
 AM_CXXFLAGS += -DCRYPTOPP_DISABLE_ASM
 endif
 
+# On OSX, g++ = clang and comes up as both.
 if IS_X86
-
 if CRYPTOPP_HAVE_GCC
-AM_CXXFLAGS += -march=native -mtune=generic
-endif
-
-AM_CXXFLAGS += -mpclmul -maes $(X86_FEATURE_CFLAGS)
+if ! BUILD_DARWIN
+AM_CXXFLAGS += -march=native -mtune=generic -mpclmul -maes $(X86_FEATURE_CFLAGS)
+endif	# ! BUILD_DARWIN
+endif	# CRYPTOPP_HAVE_GCC
 endif	# IS_X86
 
 if UNAME_LINUX
-AM_CXXFLAGS += -std=c++11
 AM_LDFLAGS += -pthread
 endif
 
 if BUILD_DARWIN
-AM_CXXFLAGS += -arch x86_64
+AM_CXXFLAGS += -DNDEBUG -march=native
 libcryptopp_la_LDFLAGS = -Wl,-rpath,@executable_path/ -Wl,-rpath,@loader_path/
 endif
 

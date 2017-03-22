@@ -1,6 +1,7 @@
 SUBDIRS = lmdb fcgi cryptopp gtest
 
 SWIG_FLAGS = -c++ -python -threads
+AM_CXXFLAGS = $(CXXFLAGS) -std=c++11
 
 if HAVE_GCC
 SWIG_FLAGS += -D__GNUC__
@@ -50,34 +51,36 @@ lib_LTLIBRARIES = libCppBlockUtils.la
 ArmoryDB_SOURCES = $(INCLUDE_FILES) \
 		   $(DB_SOURCE_FILES)
 
-ArmoryDB_CXXFLAGS = -Ilmdb \
+ArmoryDB_CXXFLAGS = $(AM_CXXFLAGS) -Ilmdb \
 		    -Icryptopp \
 		    -Ifcgi -Ifcgi/include \
-		    -D__STDC_LIMIT_MACROS -fPIC -pipe
+		    -D__STDC_LIMIT_MACROS
 
 ArmoryDB_LDADD = -Llmdb -llmdb \
 		 -Lcryptopp -lcryptopp \
 		 -Lfcgi/libfcgi/ -lfcgi \
 		 -lpthread
 
-ArmoryDB_LDFLAGS = -static
+ArmoryDB_LDFLAGS = -static $(LDFLAGS)
 
 #libCppBlockUtils
-libCppBlockUtils_la_SOURCES = 	$(INCLUDE_FILES) \
+libCppBlockUtils_la_SOURCES = $(INCLUDE_FILES) \
 				$(CPPBLOCKUTILS_SOURCE_FILES) \
 				CppBlockUtils_wrap.cxx
-libCppBlockUtils_la_CXXFLAGS = 	-Ilmdb \
+libCppBlockUtils_la_CXXFLAGS = $(AM_CXXFLAGS) -Ilmdb \
 		    		-Icryptopp \
 				$(AX_SWIG_PYTHON_CPPFLAGS) \
 				$(EXTRA_PYTHON_INCLUDES) \
-				-D__STDC_LIMIT_MACROS -fPIC -pipe
+				-D__STDC_LIMIT_MACROS
 
 libCppBlockUtils_la_LIBADD = 	-Llmdb -llmdb \
 		 	 	./cryptopp/libcryptopp.la \
 		 	 	-lpthread
 
+libCppBlockUtils_la_LDFLAGS = $(LDFLAGS)
+
 if BUILD_DARWIN
-libCppBlockUtils_la_LDFLAGS = -Wl,-rpath,@executable_path/ -Wl,-rpath,@loader_path/
+libCppBlockUtils_la_LDFLAGS += -Wl,-rpath,@executable_path/ -Wl,-rpath,@loader_path/
 endif
 
 #custom rules
