@@ -488,8 +488,10 @@ vector<UTXO> CoinSorting::sortCoins(
       
       //left rotate * (ruleset - 4)
       auto count = ruleset - 4;
-      auto iter = sufSet.begin();
+      if (count > sufSet.size())
+         count = count % sufSet.size();
 
+      auto iter = sufSet.begin();
       for (unsigned i = 0; i < count; i++)
          iter++;
 
