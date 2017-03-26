@@ -65,10 +65,16 @@ class CoinControlUtxoItem():
    def __init__(self, parent, utxo):
       self.utxo = utxo
       self.parent = parent
-      self.name = QObject().tr("Block: #%1 | Tx: #%2 | TxOut: #%3").arg(\
-         unicode(utxo.getTxHeight()), \
-         unicode(utxo.getTxIndex()), \
-         unicode(utxo.getTxOutIndex()))
+      
+      if utxo.getTxHeight() == 2**32 - 1:
+         self.name = QObject().tr("ZC id: %1 | TxOut: %2").arg(\
+            unicode(utxo.getTxIndex()), \
+            unicode(utxo.getTxOutIndex()))      
+      else:
+         self.name = QObject().tr("Block: #%1 | Tx: #%2 | TxOut: #%3").arg(\
+            unicode(utxo.getTxHeight()), \
+            unicode(utxo.getTxIndex()), \
+            unicode(utxo.getTxOutIndex()))
          
       
       self.state = Qt.Checked
@@ -113,10 +119,15 @@ class RBFutxoItem():
    def __init__(self, parent, utxo):
       self.utxo = utxo
       self.parent = parent
-      self.name = QObject().tr("Block: #%1 | Tx: #%2 | TxOut: #%3").arg(\
-         unicode(utxo.getTxHeight()), \
-         unicode(utxo.getTxIndex()), \
-         unicode(utxo.getTxOutIndex()))
+      if utxo.getTxHeight() == 2**32 - 1:
+         self.name = QObject().tr("ZC id: %1 | TxOut: %2").arg(\
+            unicode(utxo.getTxIndex()), \
+            unicode(utxo.getTxOutIndex()))
+      else:
+         self.name = QObject().tr("Block: #%1 | Tx: #%2 | TxOut: #%3").arg(\
+            unicode(utxo.getTxHeight()), \
+            unicode(utxo.getTxIndex()), \
+            unicode(utxo.getTxOutIndex()))
       
       self.state = Qt.Checked
       if utxo.isChecked() == False:

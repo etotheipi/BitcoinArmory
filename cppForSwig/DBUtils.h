@@ -43,6 +43,9 @@ enum DB_PREFIX
 class DBUtils
 {
 public:
+   static const BinaryData ZeroConfHeader_;
+
+public:
 
    static uint32_t   hgtxToHeight(const BinaryData& hgtx);
    static uint8_t    hgtxToDupID(const BinaryData& hgtx);

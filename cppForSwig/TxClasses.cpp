@@ -325,7 +325,15 @@ uint32_t TxOut::getParentHeight() const
       return parentHeight_;
    else
       return parentTx_.getBlockHeight();
+}
 
+////////////////////////////////////////////////////////////////////////////////
+uint32_t TxOut::getParentIndex() const
+{
+   if (!parentTx_.isInitialized())
+      return UINT32_MAX;
+   else
+      return parentTx_.getBlockTxIndex();
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -644,7 +652,8 @@ void Tx::pprintAlot(ostream & os)
 /////////////////////////////////////////////////////////////////////////////
 uint32_t TxRef::getBlockHeight(void) const
 {
-   if (dbKey6B_.getSize() == 6)
+   if (dbKey6B_.getSize() == 6 && 
+      !dbKey6B_.startsWith(DBUtils::ZeroConfHeader_))
       return DBUtils::hgtxToHeight(dbKey6B_.getSliceCopy(0, 4));
    else
       return UINT32_MAX;
@@ -663,7 +672,12 @@ uint8_t TxRef::getDuplicateID(void) const
 uint16_t TxRef::getBlockTxIndex(void) const
 {
    if (dbKey6B_.getSize() == 6)
-      return READ_UINT16_BE(dbKey6B_.getPtr() + 4);
+   {
+      if (!dbKey6B_.startsWith(DBUtils::ZeroConfHeader_))
+         return READ_UINT16_BE(dbKey6B_.getPtr() + 4);
+      else
+         return READ_UINT32_BE(dbKey6B_.getPtr() + 2);
+   }
    else
       return UINT16_MAX;
 }

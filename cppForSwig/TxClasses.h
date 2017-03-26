@@ -221,6 +221,13 @@ private:
 class TxOut
 {
    friend class BlockDataManager;
+   friend class ZeroConfContainer;
+
+private:
+   void setParentTxRef(const BinaryData& key)
+   {
+      parentTx_.setDBKey(key);
+   }
 
 public:
 
@@ -238,6 +245,7 @@ public:
    bool            isStandard(void) const { return scriptType_ != TXOUT_SCRIPT_NONSTANDARD; }
    bool            isInitialized(void) const { return dataCopy_.getSize() > 0; }
    TxRef           getParentTxRef() const { return parentTx_; }
+   uint32_t        getParentIndex() const;
    uint32_t        getIndex(void) { return index_; }
 
    //void setParentTx(TxRef txref, uint32_t idx=-1) { parentTx_=txref; index_=idx;}

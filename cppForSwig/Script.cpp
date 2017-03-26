@@ -1113,7 +1113,7 @@ void StackResolver::resolveStack()
          auto msObj = dynamic_pointer_cast<StackValue_Multisig>(
             stackItem->resolvedValue_);
 
-         auto sigCount = 0;
+         unsigned sigCount = 0;
          auto pubkeyIter = msObj->pubkeyVec_.rbegin();
          while (pubkeyIter != msObj->pubkeyVec_.rend())
          {

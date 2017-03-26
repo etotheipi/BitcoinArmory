@@ -379,6 +379,10 @@ vector<UnspentTxOut> BtcWallet::getSpendableTxOutListZC()
       UnspentTxOut utxo;
       utxo.txHash_ = txout.getParentHash();
       utxo.txHeight_ = txout.getParentHeight();
+
+      utxo.txIndex_ = txout.getParentIndex();
+      utxo.txOutIndex_ = txout.getIndex();
+
       utxo.value_ = txout.getValue();
       utxo.script_ = txout.getScript();
       utxo.txOutIndex_ = txout.getIndex();
@@ -444,6 +448,10 @@ vector<UnspentTxOut> BtcWallet::getRBFTxOutList()
       UnspentTxOut utxo;
       utxo.txHash_ = txout.getParentHash();
       utxo.txHeight_ = txout.getParentHeight();
+
+      utxo.txIndex_ = txout.getParentIndex();
+      utxo.txOutIndex_ = txout.getIndex();
+
       utxo.value_ = txout.getValue();
       utxo.script_ = txout.getScript();
       utxo.txOutIndex_ = txout.getIndex();

@@ -1659,7 +1659,10 @@ vector<TxOut> ZeroConfContainer::getZcTxOutsForKey(
       auto outIdRef = key.getSliceRef(6, 2);
       auto outId = READ_UINT16_BE(outIdRef);
 
-      result.push_back(move(theTx.getTxOutCopy(outId)));
+      auto&& txout = theTx.getTxOutCopy(outId);
+      txout.setParentTxRef(zcKey);
+
+      result.push_back(move(txout));
    }
 
    return result;
