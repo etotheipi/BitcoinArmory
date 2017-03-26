@@ -370,7 +370,72 @@ vector<UnspentTxOut> BtcWallet::getSpendableTxOutListZC()
       }
    }
 
-   auto&& txoutVec = bdvPtr_->getZcTxOutsForKey(txioKeys);
+   auto&& txoutVec = bdvPtr_->getZcTxOutsForKeys(txioKeys);
+
+   //convert TxOut to UnspentTxOut
+   vector<UnspentTxOut> utxoVec;
+   for (auto& txout : txoutVec)
+   {
+      UnspentTxOut utxo;
+      utxo.txHash_ = txout.getParentHash();
+      utxo.txHeight_ = txout.getParentHeight();
+      utxo.value_ = txout.getValue();
+      utxo.script_ = txout.getScript();
+      utxo.txOutIndex_ = txout.getIndex();
+
+      utxoVec.push_back(move(utxo));
+   }
+
+   return utxoVec;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+vector<UnspentTxOut> BtcWallet::getRBFTxOutList()
+{
+   set<BinaryData> zcKeys;
+   set<BinaryData> txoutKeys;
+
+   {
+      auto addrMap = scrAddrMap_.get();
+      for (auto& scrAddr : *addrMap)
+      {
+         auto&& zcTxioMap = bdvPtr_->getRBFTxIOsforScrAddr(
+            scrAddr.second->getScrAddr());
+
+         for (auto& zcTxio : zcTxioMap)
+         {
+            if (zcTxio.second.hasTxOutZC())
+               zcKeys.insert(zcTxio.second.getDBKeyOfOutput());
+            else
+               txoutKeys.insert(zcTxio.second.getDBKeyOfOutput());
+         }
+      }
+   }
+
+   auto&& txoutVec = bdvPtr_->getZcTxOutsForKeys(zcKeys);
+   BinaryDataRef prevTxKey;
+   BinaryDataRef prevTxHash;
+   for (auto& txoutkey : txoutKeys)
+   {
+      auto&& txout = bdvPtr_->getTxOutCopy(txoutkey);
+      
+      auto txkey = txoutkey.getSliceRef(0, 6);
+      if (txkey == prevTxKey)
+      {
+         txout.setParentHash(prevTxHash);
+      }
+      else
+      {
+         auto&& txhash = bdvPtr_->getTxHashForDbKey(txkey);
+         prevTxKey = txkey;
+         if (txhash.getSize() == 0)
+            throw runtime_error("failed to get hash for dbkey");
+         txout.setParentHash(txhash);
+      }
+
+      txoutVec.push_back(move(txout));
+      prevTxHash.setRef(txoutVec.back().getParentHash());
+   }
 
    //convert TxOut to UnspentTxOut
    vector<UnspentTxOut> utxoVec;

@@ -679,6 +679,21 @@ TxOut BlockDataViewer::getTxOutCopy(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+TxOut BlockDataViewer::getTxOutCopy(const BinaryData& dbKey) const
+{
+   if (dbKey.getSize() != 8)
+      throw runtime_error("invalid txout key length");
+
+   LMDBEnv::Transaction tx;
+   db_->beginDBTransaction(&tx, STXO, LMDB::ReadOnly);
+
+   auto&& bdkey = dbKey.getSliceRef(0, 6);
+   auto index = READ_UINT16_BE(dbKey.getSliceRef(6, 2));
+
+   return db_->getTxOutCopy(bdkey, index);
+}
+
+////////////////////////////////////////////////////////////////////////////////
 Tx BlockDataViewer::getSpenderTxForTxOut(uint32_t height, uint32_t txindex,
    uint16_t txoutid) const
 {

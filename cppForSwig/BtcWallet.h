@@ -95,6 +95,7 @@ public:
    void prepareFullTxOutHistory(bool ignoreZC);
    vector<UnspentTxOut> getSpendableTxOutListForValue(uint64_t val = UINT64_MAX);
    vector<UnspentTxOut> getSpendableTxOutListZC(void);
+   vector<UnspentTxOut> getRBFTxOutList(void);
 
    vector<LedgerEntry>
       getTxLedger(BinaryData const &scrAddr) const;

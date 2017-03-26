@@ -73,7 +73,8 @@ void BDV_Server_Object::buildMethodMap()
             LedgerEntryData led(le.getWalletID(),
                le.getValue(), le.getBlockNum(), le.getTxHash(),
                le.getIndex(), le.getTxTime(), le.isCoinbase(),
-               le.isSentToSelf(), le.isChangeBack(), le.isOptInRBF());
+               le.isSentToSelf(), le.isChangeBack(), 
+               le.isOptInRBF(), le.isChainedZC(), le.usesWitness());
             lev.push_back(move(led));
          }
 
@@ -144,7 +145,8 @@ void BDV_Server_Object::buildMethodMap()
                      LedgerEntryData led(le.getWalletID(),
                      le.getValue(), le.getBlockNum(), le.getTxHash(),
                      le.getIndex(), le.getTxTime(), le.isCoinbase(),
-                     le.isSentToSelf(), le.isChangeBack(), le.isOptInRBF());
+                     le.isSentToSelf(), le.isChangeBack(), 
+                     le.isOptInRBF(), le.isChainedZC(), le.usesWitness());
 
                      LedgerEntryVector lev;
                      lev.push_back(move(led));
@@ -409,6 +411,47 @@ void BDV_Server_Object::buildMethodMap()
    };
 
    methodMap_["getSpendableZCList"] = getSpendableZCList;
+
+   //getRBFTxOutList
+   auto getRBFTxOutList = [this]
+      (const vector<string>& ids, Arguments& args)->Arguments
+   {
+      if (ids.size() != 2)
+         throw runtime_error("unexpected id count");
+
+      auto& walletId = ids[1];
+      BinaryData bdId((uint8_t*)walletId.c_str(), walletId.size());
+      shared_ptr<BtcWallet> wltPtr = nullptr;
+      for (int i = 0; i < this->groups_.size(); i++)
+      {
+         auto wltIter = this->groups_[i].wallets_.find(bdId);
+         if (wltIter != this->groups_[i].wallets_.end())
+            wltPtr = wltIter->second;
+      }
+
+      if (wltPtr == nullptr)
+         throw runtime_error("unknown wallet or lockbox ID");
+
+      auto&& utxoVec = wltPtr->getRBFTxOutList();
+
+      Arguments retarg;
+      auto count = IntType(utxoVec.size());
+      retarg.push_back(move(count));
+
+      for (auto& utxo : utxoVec)
+      {
+         UTXO entry(utxo.value_, utxo.txHeight_, utxo.txIndex_, utxo.txOutIndex_,
+            move(utxo.txHash_), move(utxo.script_));
+
+         auto&& bdser = entry.serialize();
+         BinaryDataObject bdo(move(bdser));
+         retarg.push_back(move(bdo));
+      }
+
+      return retarg;
+   };
+
+   methodMap_["getRBFTxOutList"] = getRBFTxOutList;
 
    //getSpendableTxOutListForAddr
    auto getSpendableTxOutListForAddr = [this]
@@ -745,7 +788,8 @@ void BDV_Server_Object::buildMethodMap()
             LedgerEntryData led(le.getWalletID(),
                le.getValue(), le.getBlockNum(), le.getTxHash(),
                le.getIndex(), le.getTxTime(), le.isCoinbase(),
-               le.isSentToSelf(), le.isChangeBack(), le.isOptInRBF());
+               le.isSentToSelf(), le.isChangeBack(), 
+               le.isOptInRBF(), le.isChainedZC(), le.usesWitness());
             lev.push_back(move(led));
          }
       }
@@ -1500,7 +1544,8 @@ void BDV_Server_Object::maintenanceThread(void)
                LedgerEntryData led(le.getWalletID(),
                   le.getValue(), le.getBlockNum(), move(le.getTxHash()),
                   le.getIndex(), le.getTxTime(), le.isCoinbase(),
-                  le.isSentToSelf(), le.isChangeBack(), le.isOptInRBF());
+                  le.isSentToSelf(), le.isChangeBack(), 
+                  le.isOptInRBF(), le.isChainedZC(), le.usesWitness());
 
                lev.push_back(move(led));
             }

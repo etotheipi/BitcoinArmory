@@ -166,7 +166,13 @@ public:
       const BinaryData& scrAddr) const
    { return zeroConfCont_->getUnspentZCforScrAddr(scrAddr); }
 
-   vector<TxOut> getZcTxOutsForKey(const set<BinaryData>& keys) const
+   map<BinaryData, TxIOPair> getRBFTxIOsforScrAddr(
+      const BinaryData& scrAddr) const
+   {
+      return zeroConfCont_->getRBFTxIOsforScrAddr(scrAddr);
+   }
+
+   vector<TxOut> getZcTxOutsForKeys(const set<BinaryData>& keys) const
    {
       return zeroConfCont_->getZcTxOutsForKey(keys);
    }
@@ -192,6 +198,8 @@ public:
       const BinaryData& wltID, const BinaryData& scrAddr);
 
    TxOut getTxOutCopy(const BinaryData& txHash, uint16_t index) const;
+   TxOut getTxOutCopy(const BinaryData& dbKey) const;
+
    Tx getSpenderTxForTxOut(uint32_t height, uint32_t txindex, uint16_t txoutid) const;
 
    bool isZcEnabled() const { return bdmPtr_->isZcEnabled(); }
