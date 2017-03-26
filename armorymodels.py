@@ -28,7 +28,7 @@ sys.path.append('../cppForSwig')
 WLTVIEWCOLS = enum('Visible', 'ID', 'Name', 'Secure', 'Bal')
 LEDGERCOLS  = enum('NumConf', 'UnixTime', 'DateStr', 'TxDir', 'WltName', 'Comment', \
                    'Amount', 'isOther', 'WltID', 'TxHash', 'isCoinbase', 'toSelf', \
-                   'optInRBF')
+                   'optInRBF', 'isChainedZC')
 ADDRESSCOLS  = enum('ChainIdx', 'Address', 'Comment', 'NumTx', 'Balance')
 ADDRBOOKCOLS = enum('Address', 'WltID', 'NumSent', 'Comment')
 
@@ -199,6 +199,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
       wltID = rowData[LEDGERCOLS.WltID]
       wlt = self.main.walletMap.get(wltID)
       optInRBF = rowData[LEDGERCOLS.optInRBF]
+      isChainedZC = rowData[LEDGERCOLS.isChainedZC]
             
       if wlt:
          wtype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
@@ -219,6 +220,8 @@ class LedgerDispModelSimple(QAbstractTableModel):
       elif role==Qt.BackgroundColorRole:
          if optInRBF is True:
             return QVariant( Colors.optInRBF )
+         elif isChainedZC is True:
+            return QVariant( Colors.chainedZC )
          elif wtype==WLTTYPES.WatchOnly:
             return QVariant( Colors.TblWltOther )
          elif wtype==WLTTYPES.Offline:
@@ -261,9 +264,18 @@ class LedgerDispModelSimple(QAbstractTableModel):
                                  '120 confirmations (approximately one day)\n'
                                  'before they are available to be spent.'))
                elif optInRBF:
-                  tooltipStr = self.tr('This is a mempool replaceable transaction.'
-                               ' Do not consider you have been sent these coins until'
-                               ' this transaction has at least 1 confirmation.')
+                  tooltipStr = self.tr("This transaction has been RBF flagged (Replaceable By Fee)<br><br>"
+                               "It means the network will accept and broadcast a double spend of"
+                               " the underlying outputs as long as the double spend pays a higher fee.<br><br>"
+                               "Do not consider a RBF transaction as a valid payment until it receives"
+                               " at least 1 confirmation.")
+               elif isChainedZC:
+                  tooltipStr = self.tr("This transaction spends ZC (zero confirmation) outputs<br><br>"
+                               "Transactions built on top of yet to confirm transactions are at"
+                               " risk of being invalidated for as long as the parent transaction"
+                               " remains unconfirmed.<br><br>"
+                               "It is recommended to wait for at least 1 confirmation before"
+                               " accepting these as valid payment.")                  
                else:
                   tooltipStr = self.tr('%1/6 confirmations').arg(rowData[COL.NumConf])
                   tooltipStr += self.tr( '\n\nFor small transactions, 2 or 3 '

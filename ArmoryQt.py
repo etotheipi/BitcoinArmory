@@ -2646,8 +2646,11 @@ class ArmoryMainWindow(QMainWindow):
 
          # Comment
          if le.isOptInRBF() == True:
-            dispComment = self.tr("***MEMPOOL REPLACEABLE*** ") + dispComment
+            dispComment = self.tr("*** RBF Flagged *** ") + dispComment
+         elif le.isChainedZC() == True:
+            dispComment = self.tr("*** Chained ZC *** ") + dispComment
          row.append(dispComment)
+         
 
          # Amount
          row.append(coin2str(amt, maxZeros=2))
@@ -2667,8 +2670,9 @@ class ArmoryMainWindow(QMainWindow):
          # Sent-to-self
          row.append( le.isSentToSelf() )
 
-         # Opted into RBF
+         # RBF and zc chain status
          row.append( le.isOptInRBF() )
+         row.append(le.isChainedZC())
 
          # Finally, attach the row to the table
          table2D.append(row)
@@ -3100,33 +3104,31 @@ class ArmoryMainWindow(QMainWindow):
             blkexplURL       = BLOCKEXPLORE_URL_TX % searchstr
             blkexplURL_short = BLOCKEXPLORE_URL_TX % searchstr[:20]
 
-            QMessageBox.warning(self, self.tr('Transaction Not Accepted'), self.tr("""
-                  The transaction that you just executed failed with 
-                  the following error message: <br><br>
-                  <b>%1</b>
-                  <br><br>
-                  
-                  
-                  <br><br>On time out errors, the transaction may have actually succeed
-                  and this message is displayed prematurely.  To confirm whether the
-                  the transaction actually succeeded, you can try this direct link
-                  to %2:
-                  <br><br>
-                  <a href="%3">%4...</a>
-                  <br><br>
-                  If you do not see the
-                  transaction on that webpage within one minute, it failed and you
-                  should attempt to re-send it.
-                  If it <i>does</i> show up, then you do not need to do anything
-                  else -- it will show up in Armory as soon as it receives one
-                  confirmation.
-                  <br><br>If the transaction did fail, it is likely because the fee
-                  is too low. Try again with a higher fee.
+            QMessageBox.warning(self, self.tr('Transaction Not Accepted'), self.tr(
+                  "The transaction that you just executed failed with " 
+                  "the following error message: <br><br> "
+                  "<b>%1</b> "
+                  "<br><br> "
+                  "On time out errors, the transaction may have actually succeed "
+                  "and this message is displayed prematurely.  To confirm whether the "
+                  "the transaction actually succeeded, you can try this direct link "
+                  "to %2: "
+                  "<br><br> "
+                  "<a href=\"%3\">%4...</a> "
+                  "<br><br> "
+                  "If you do not see the "
+                  "transaction on that webpage within one minute, it failed and you "
+                  "should attempt to re-send it. "
+                  "If it <i>does</i> show up, then you do not need to do anything "
+                  "else -- it will show up in Armory as soon as it receives one "
+                  "confirmation. "
+                  "<br><br>If the transaction did fail, it is likely because the fee "
+                  "is too low. Try again with a higher fee. "
 
-                  If the problem persists, go to "<i>File</i>" ->
-                  "<i>Export Log File</i>" and then attach it to a support
-                  ticket at
-                  <a href="%5">%5</a>""").arg(broadcastStatus.msg_, BLOCKEXPLORE_NAME, blkexplURL, \
+                  "If the problem persists, go to \"<i>File</i>\" -> "
+                  "\"<i>Export Log File</i>\" and then attach it to a support "
+                  "ticket at "
+                  "<a href=\"%5\">%5</a>").arg(broadcastStatus.msg_, BLOCKEXPLORE_NAME, blkexplURL, \
                      blkexplURL_short, supportURL), QMessageBox.Ok)
 
 
