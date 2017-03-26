@@ -57,6 +57,8 @@ void LedgerEntryVector::serialize(BinaryWriter& bw) const
       bp.putBit(le.isSentToSelf_);
       bp.putBit(le.isChangeBack_);
       bp.putBit(le.optInRBF_);
+      bp.putBit(le.isChainedZC_);
+      bp.putBit(le.isWitness_);
 
       bw.put_BitPacker(bp);
    }
@@ -100,10 +102,12 @@ LedgerEntryVector LedgerEntryVector::deserialize(BinaryRefReader& brr)
       auto sts = bit.getBit();
       auto change = bit.getBit();
       auto rbf = bit.getBit();
+      auto chained = bit.getBit();
+      auto witness = bit.getBit();
 
       LedgerEntryData led(leid, *value,
          blockNum, txHash, txindex, txTime,
-         coinbase, sts, change, rbf);
+         coinbase, sts, change, rbf, chained, witness);
 
       lev.push_back(move(led));
    }

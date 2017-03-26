@@ -78,12 +78,13 @@ public:
                uint32_t blkNum, 
                BinaryData const & txhash, 
                uint32_t idx,
-               uint32_t txtime=0,
-               bool isCoinbase=false,
-               bool isToSelf=false,
-               bool isChange=false,
-               bool isOptInRBF=false,
-               bool usesWitness=false) :
+               uint32_t txtime,
+               bool isCoinbase,
+               bool isToSelf,
+               bool isChange,
+               bool isOptInRBF,
+               bool usesWitness,
+               bool isChainedZC) :
       ID_(ID),
       value_(val),
       blockNum_(blkNum),
@@ -94,7 +95,8 @@ public:
       isSentToSelf_(isToSelf),
       isChangeBack_(isChange),
       isOptInRBF_(isOptInRBF),
-      usesWitness_(usesWitness) {}
+      usesWitness_(usesWitness),
+      isChainedZC_(isChainedZC) {}
 
    BinaryData const &  getScrAddr(void) const;
    string              getWalletID(void) const;
@@ -108,6 +110,7 @@ public:
    bool                isChangeBack(void) const { return isChangeBack_;  }
    bool                isOptInRBF(void) const   { return isOptInRBF_;    }
    bool                usesWitness(void) const  { return usesWitness_;   }
+   bool                isChainedZC(void) const  { return isChainedZC_;   }
 
    SCRIPT_PREFIX getScriptType(void) const {return (SCRIPT_PREFIX)ID_[0];}
 
@@ -154,12 +157,13 @@ private:
    uint32_t         blockNum_;
    BinaryData       txHash_;
    uint32_t         index_;  // either a tx index, txout index or txin index
-   uint32_t         txTime_;
-   bool             isCoinbase_;
-   bool             isSentToSelf_;
-   bool             isChangeBack_;
-   bool             isOptInRBF_;
-   bool             usesWitness_;
+   uint32_t         txTime_ = 0;
+   bool             isCoinbase_ = false;
+   bool             isSentToSelf_ = false;
+   bool             isChangeBack_ = false;
+   bool             isOptInRBF_ = false;
+   bool             usesWitness_ = false;
+   bool             isChainedZC_ = false;
 
    //for matching scrAddr comments to LedgerEntries on the Python side
    set<BinaryData> scrAddrSet_;

@@ -209,6 +209,7 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
 
       bool isRBF = false;
       bool usesWitness = false;
+      bool isChained = false;
       
       //grab iterator
       auto txioIter = txioVec.second.cbegin();
@@ -244,8 +245,11 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
      
       while (txioIter != txioVec.second.cend())
       {
-         if (blockNum == UINT32_MAX && (*txioIter)->isRBF())
-            isRBF = true;
+         if (blockNum == UINT32_MAX)
+         {
+            if ((*txioIter)->isRBF())
+               isRBF = true;
+         }
 
          if ((*txioIter)->getDBKeyOfOutput().startsWith(txioVec.first))
          {
@@ -262,6 +266,9 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
             value -= (*txioIter)->getValue();
 
             nTxInAreOurs++;
+
+            if ((*txioIter)->isChainedZC())
+               isChained = true;
          }
 
          scrAddrSet.insert((*txioIter)->getScrAddr());
@@ -295,7 +302,9 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
          isCoinbase,
          isSentToSelf,
          isChangeBack,
-         isRBF);
+         isRBF,
+         usesWitness,
+         isChained);
 
       le.scrAddrSet_ = move(scrAddrSet);
       leMap[txioVec.first] = le;

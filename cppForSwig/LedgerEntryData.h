@@ -15,11 +15,13 @@ private:
    uint32_t         blockNum_;
    BinaryData       txHash_;
    uint32_t         index_;  // either a tx index, txout index or txin index
-   uint32_t         txTime_;
-   bool             isCoinbase_;
-   bool             isSentToSelf_;
-   bool             isChangeBack_;
+   uint32_t         txTime_ = 0;
+   bool             isCoinbase_ = false;
+   bool             isSentToSelf_ = false;
+   bool             isChangeBack_ = false;
    bool             optInRBF_ = false;
+   bool             isChainedZC_ = false;
+   bool             isWitness_ = false;
 
    set<BinaryData> scrAddrSet_;
 
@@ -28,10 +30,12 @@ public:
    LedgerEntryData(void) {}
    LedgerEntryData(string ID, int64_t value, uint32_t block,
       const BinaryData& txHash, uint32_t index, uint32_t txtime,
-      bool iscoinbase, bool isSTS, bool ischangeback, bool isRBF) :
+      bool iscoinbase, bool isSTS, bool ischangeback, 
+      bool isRBF, bool isChained, bool isWitness) :
       ID_(ID), value_(value), blockNum_(block), txHash_(txHash),
       index_(index), txTime_(txtime), isCoinbase_(iscoinbase),
-      isSentToSelf_(isSTS), isChangeBack_(ischangeback), optInRBF_(isRBF)
+      isSentToSelf_(isSTS), isChangeBack_(ischangeback), 
+      optInRBF_(isRBF), isChainedZC_(isChained), isWitness_(isWitness)
    {}
 
    string              getID(void) const { return ID_; }
@@ -45,6 +49,7 @@ public:
    bool                isSentToSelf(void) const { return isSentToSelf_; }
    bool                isChangeBack(void) const { return isChangeBack_; }
    bool                isOptInRBF(void) const   { return optInRBF_;  }
+   bool                isChainedZC(void) const   { return isChainedZC_; }
 
    const set<BinaryData>& getScrAddrList(void) const { return scrAddrSet_; }
 };
