@@ -367,7 +367,7 @@ shared_ptr<Payload::DeserializedPayloads> Payload::deserialize(
 
       if (spillSize == 0)
       {
-         LOGERR << "+++ not enough data in this packet to complete left over";
+         /*LOGERR << "+++ not enough data in this packet to complete left over";
          LOGERR << "+++ dumping " << prevpacket->data_.size() << " bytes of data";
 
          auto length = (uint32_t*)(&prevpacket->data_[prevpacket->spillOffset_] + PAYLOAD_LENGTH_OFFSET);
@@ -375,7 +375,7 @@ shared_ptr<Payload::DeserializedPayloads> Payload::deserialize(
 
          LOGERR << "+++ packet length is: " << *length << " bytes";
          LOGERR << "+++ packet offset is: " << prevpacket->spillOffset_;
-         LOGERR << "+++ packet message is: " << messagetype;
+         LOGERR << "+++ packet message is: " << messagetype;*/
          return nullptr;
       }
 
@@ -404,9 +404,9 @@ shared_ptr<Payload::DeserializedPayloads> Payload::deserialize(
       }
       else
       {
-         /*if (prevpacket->iterCount_ > 0)
+         if (prevpacket->iterCount_ > 0)
             LOGWARN << "[[[ succesfully completed spill packet after " <<
-               spillResult->iterCount_ << " iterations";*/
+               spillResult->iterCount_ << " iterations";
       }
 
       bytesConsumed += spillSize;
@@ -783,10 +783,12 @@ size_t Payload_GetData::serialize_inner(uint8_t* dataptr) const
 void Payload_Reject::deserialize(uint8_t* dataptr, size_t len)
 {
    uint64_t typeLen;
-   auto remaining = len;
+
+   //message field size in bytes
    auto varintlen = get_varint(typeLen, dataptr, len);
    auto ptr = dataptr + varintlen;
 
+   //message type
    string msgtype((char*)ptr, typeLen);
    auto typeIter = BitcoinP2P::strToPayload_.find(msgtype);
    if (typeIter == BitcoinP2P::strToPayload_.end())
@@ -795,21 +797,29 @@ void Payload_Reject::deserialize(uint8_t* dataptr, size_t len)
    rejectType_ = typeIter->second;
    ptr += typeLen;
 
+   //reject code as integer
    code_ = (char)*ptr;
    ptr++;
 
+   auto reasonOffset = typeLen + varintlen + 1;
+
+   //reason str size
    uint64_t reasonLen;
    varintlen = get_varint(reasonLen, ptr, len);
    ptr += varintlen;
-   remaining -= (reasonLen + varintlen);
-
+   
+   //reason str
    reasonStr_ = move(string((char*)ptr, reasonLen));
    ptr += reasonLen;
 
-   if (remaining == 32)
-      extra_.resize(32);
+   //extra data, final field. size and processing depends on reject code
+   //just copy the data, handle when processing the payload
+   auto remaining = len - (reasonLen + varintlen + reasonOffset);
+   if (remaining == 0)
+      return;
 
-   memcpy(&extra_[0], ptr, 32);
+   extra_.resize(remaining);
+   memcpy(&extra_[0], ptr, remaining);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1005,7 +1015,9 @@ void BitcoinP2P::processDataStackThread()
          auto&& processedPacket = Payload::deserialize(data, magic_word_, prevPacket);
 
          if (processedPacket->spillOffset_ != SIZE_MAX)
+         {
             packetPtr = processedPacket;
+         }
 
          processPayload(move(processedPacket->payloads_));
       }
