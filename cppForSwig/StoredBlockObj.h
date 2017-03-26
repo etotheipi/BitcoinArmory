@@ -251,6 +251,7 @@ public:
    uint16_t             numTxOut_ = UINT16_MAX;
    uint32_t             numBytes_ = UINT32_MAX;
    uint32_t             fragBytes_ = UINT32_MAX;
+   size_t               txInCutOff_ = SIZE_MAX;
 
    // We don't actually enforce these members.  They're solely for recording
    // the values that were unserialized with everything else, so that we can

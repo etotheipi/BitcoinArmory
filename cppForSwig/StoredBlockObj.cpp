@@ -760,6 +760,12 @@ void DBTx::unserialize(BinaryRefReader & brr, bool fragged)
    uint32_t nbytes = BtcUtils::StoredTxCalcLength(brr.getCurrPtr(),
       brr.getSize(), fragged, &offsetsIn, &offsetsOut, nullptr);
 
+   if (offsetsOut.size() < 1)
+   {
+      LOGERR << "Couldn't deserialize db value";
+      return;
+   }
+
    if(brr.getSizeRemaining() < nbytes)
    {
       LOGERR << "Not enough bytes in BRR to unserialize StoredTx";
@@ -770,8 +776,11 @@ void DBTx::unserialize(BinaryRefReader & brr, bool fragged)
 
    isFragged_ = fragged;
    numTxOut_  = offsetsOut.size()-1;
+   txInCutOff_ = offsetsOut[0];
+
    version_   = READ_UINT32_LE(dataCopy_.getPtr());
    lockTime_  = READ_UINT32_LE(dataCopy_.getPtr() + nbytes - 4);
+  
 
    if(isFragged_)
    {
@@ -910,13 +919,14 @@ BinaryData StoredTx::getSerializedTx(void) const
    else if(!haveAllTxOut())
       return BinaryData(0); 
 
-   BinaryWriter bw;
-   bw.reserve(numBytes_);
-    
+   BinaryWriter bw;    
    if(numBytes_ != UINT32_MAX)
       bw.reserve(numBytes_);
 
-   bw.put_BinaryData(dataCopy_.getPtr(), dataCopy_.getSize()-4);
+   if (txInCutOff_ == SIZE_MAX)
+      return BinaryData(0);
+
+   bw.put_BinaryData(dataCopy_.getPtr(), txInCutOff_);
 
    map<uint16_t, StoredTxOut>::const_iterator iter;
    uint16_t i=0;
@@ -930,7 +940,8 @@ BinaryData StoredTx::getSerializedTx(void) const
       bw.put_BinaryData(iter->second.getSerializedTxOut());
    }
 
-   bw.put_BinaryData(dataCopy_.getPtr()+dataCopy_.getSize()-4, 4);
+   bw.put_BinaryData(dataCopy_.getPtr()+txInCutOff_, 
+      dataCopy_.getSize() - txInCutOff_);
    return bw.getData();
 }
 
@@ -1223,6 +1234,7 @@ StoredTx & StoredTx::createFromTx(Tx & tx, bool doFrag, bool withTxOuts)
 
    uint32_t span = tx.getTxOutOffset(numTxOut_) - tx.getTxOutOffset(0);
    fragBytes_ = numBytes_ - span;
+   txInCutOff_ = tx.getTxOutOffset(0);
 
    if(!doFrag)
       dataCopy_ = tx.serialize(); 
@@ -1235,7 +1247,7 @@ StoredTx & StoredTx::createFromTx(Tx & tx, bool doFrag, bool withTxOuts)
       dataCopy_.resize(tx.getSize() - _span);
       brr.get_BinaryData(dataCopy_.getPtr(), firstOut);
       brr.advance(_span);
-      brr.get_BinaryData(dataCopy_.getPtr()+firstOut, 4);
+      brr.get_BinaryData(dataCopy_.getPtr()+firstOut, brr.getSizeRemaining());
    }
 
    if(withTxOuts)
