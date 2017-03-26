@@ -396,6 +396,12 @@ public:
       isRBF_ = isTrue;
    }
 
+   bool isChained(void) const { return isChainedZc_; }
+   void setChainedZC(bool isTrue)
+   {
+      isChainedZc_ = isTrue;
+   }
+
    /////////////////////////////////////////////////////////////////////////////
    void pprint(ostream & os = cout, int nIndent = 0, bool pBigendian = true);
    void pprintAlot(ostream & os = cout);
@@ -434,6 +440,7 @@ private:
    uint32_t      txTime_;
 
    bool isRBF_ = false;
+   bool isChainedZc_ = false;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

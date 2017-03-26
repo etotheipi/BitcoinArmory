@@ -65,6 +65,8 @@ public:
    void setMultisig(bool isTrue = true) { isMultisig_ = isTrue; }
    bool isRBF(void) const { return isRBF_; }
    void setRBF(bool isTrue) { isRBF_ = isTrue; }
+   void setChained(bool isTrue) { isZCChained_ = isTrue; }
+   bool isChainedZC(void) const { return isZCChained_; }
 
    BinaryData getDBKeyOfOutput(void) const
    {
@@ -152,6 +154,7 @@ private:
    bool      isFromCoinbase_;
    bool      isMultisig_;
    bool      isRBF_ = false;
+   bool      isZCChained_ = false;
 
    //mainly for ZC ledgers. Could replace the need for a blockchain 
    //object to build scrAddrObj ledgers.

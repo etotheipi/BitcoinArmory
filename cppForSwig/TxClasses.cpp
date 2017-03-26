@@ -405,7 +405,11 @@ BinaryData Tx::serializeWithMetaData() const
       return BinaryData();
 
    BinaryWriter bw;
-   bw.put_uint8_t(isRBF_);
+   BitPacker<uint8_t> bitpack;
+   bitpack.putBit(isRBF_);
+   bitpack.putBit(isChainedZc_);
+
+   bw.put_BitPacker(bitpack);
    bw.put_BinaryData(txRefObj_.dbKey6B_);
 
    bw.put_BinaryData(dataCopy_);
@@ -420,18 +424,20 @@ void Tx::unserializeWithMetaData(const BinaryData& rawTx)
    auto size = rawTx.getSize();
    if (size < 7)
       return;
+
+   BinaryRefReader brr(rawTx.getRef());
+   BitUnpacker<uint8_t> bitunpack(brr);
+   isRBF_ = bitunpack.getBit();
+   isChainedZc_ = bitunpack.getBit();
    
-   auto ptr = rawTx.getPtr();
-   txRefObj_.dbKey6B_ = BinaryData(ptr + 1, 6);
+   txRefObj_.dbKey6B_ = brr.get_BinaryData(6);
 
    try
    {
-      unserialize(ptr + 7, size - 7);
+      unserialize(brr);
    }
    catch (...)
    { }
-
-   isRBF_ = (bool)ptr[0];
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -520,6 +526,9 @@ TxIn Tx::getTxInCopy(int i) const
 // information, so it can probably just be computed on the fly
 TxOut Tx::getTxOutCopy(int i) const
 {
+   if (!isInitialized())
+      int abc = 0;
+
    assert(isInitialized());
    
    if (i >= offsetsTxOut_.size() - 1)
@@ -692,13 +701,16 @@ BinaryData UTXO::serialize() const
 {
    BinaryWriter bw;
    //8 + 4 + 2 + 2 + 32 + scriptsize
-   bw.reserve(48 + script_.getSize());
+   bw.reserve(18 + txHash_.getSize() + script_.getSize());
    bw.put_uint64_t(value_);
    bw.put_uint32_t(txHeight_);
    bw.put_uint16_t(txIndex_);
    bw.put_uint16_t(txOutIndex_);
    
+   bw.put_var_int(txHash_.getSize());
    bw.put_BinaryData(txHash_);
+
+   bw.put_var_int(script_.getSize());
    bw.put_BinaryData(script_);
 
    return move(bw.getData());
@@ -707,23 +719,24 @@ BinaryData UTXO::serialize() const
 ////////////////////////////////////////////////////////////////////////////////
 void UTXO::unserialize(const BinaryData& data)
 {
-   if (data.getSize() < 48)
+   if (data.getSize() < 18)
       throw runtime_error("invalid raw utxo size");
    
    BinaryRefReader brr(data.getRef());
 
-
-   auto scriptSize = data.getSize() - 48;
-   if (scriptSize == 0)
-      throw runtime_error("no script data in raw utxo");
 
    value_ = brr.get_uint64_t();
    txHeight_ = brr.get_uint32_t();
    txIndex_ = brr.get_uint16_t();
    txOutIndex_ = brr.get_uint16_t();
 
-   txHash_ = brr.get_BinaryData(32);
-   script_ = brr.get_BinaryData(scriptSize);
+   auto hashSize = brr.get_var_int();
+   txHash_ = move(brr.get_BinaryData(hashSize));
+
+   auto scriptSize = brr.get_var_int();
+   if (scriptSize == 0)
+      throw runtime_error("no script data in raw utxo");
+   script_ = move(brr.get_BinaryData(scriptSize));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
