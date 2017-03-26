@@ -165,6 +165,11 @@ public:
       return swigWallet_->getSpendableZCList();
    }
 
+   vector<UTXO> getRBFTxOutList(void)
+   {
+      return swigWallet_->getRBFTxOutList();
+   }
+
    
    const map<BinaryData, uint32_t>& getAddrTxnCountsFromDB(void)
    {
@@ -427,12 +432,15 @@ public:
    void addSpender(
       uint64_t value, 
       uint32_t height, uint16_t txindex, uint16_t outputIndex, 
-      const BinaryData& txHash, const BinaryData& script)
+      const BinaryData& txHash, const BinaryData& script, unsigned sequence)
    {
       UTXO utxo(value, height, txindex, outputIndex, txHash, script);
 
       //set spenders
-      signer_->addSpender(make_shared<ScriptSpender>(utxo, feedPtr_));
+      auto spenderPtr = make_shared<ScriptSpender>(utxo, feedPtr_);
+      spenderPtr->setSequence(sequence);
+
+      signer_->addSpender(spenderPtr);
    }
 
    void addRecipient(const BinaryData& script, uint64_t value)

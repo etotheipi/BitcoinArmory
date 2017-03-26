@@ -279,23 +279,7 @@ class BlockDataManager(object):
          os.makedirs(armoryDBDir)
 
       self.armoryDBDir = armoryDBDir
-   
-   #############################################################################   
-   @ActLikeASingletonBDM
-   def bdmMode(self):
-      if CLI_OPTIONS.rebuild:
-         mode = 2
-      elif CLI_OPTIONS.rescan:
-         mode = 1
-      elif CLI_OPTIONS.rescanBalance:
-         mode = 3
-      else:
-         mode = 0
          
-      if CLI_OPTIONS.clearMempool:
-         mode += 4
-      return mode
-      
    #############################################################################
    @ActLikeASingletonBDM
    def predictLoadTime(self):

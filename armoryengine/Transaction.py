@@ -1123,11 +1123,6 @@ class UnsignedTxInput(AsciiSerializable):
          
 
       #####
-      if not self.sequence==UINT32_MAX:
-         LOGWARN('WARNING: NON-MAX SEQUENCE NUMBER ON UNSIGNEDTX INPUT!')
-         LOGWARN('Sequence: %d' % self.sequence)
-
-      #####
       # If this is P2SH, let's check things, and then use the sub-script
       nested = False
       baseScript = self.txoScript
@@ -2212,7 +2207,8 @@ class UnsignedTransaction(AsciiSerializable):
          ustxiList.append(UnsignedTxInput(pyPrevTx.serializeWithoutWitness(),
                                           txoIdx, 
                                           p2sh, 
-                                          pubKeyMap))
+                                          pubKeyMap,
+                                          sequence=txin.intSeq))
 
          
 
@@ -2233,7 +2229,8 @@ class UnsignedTransaction(AsciiSerializable):
 
    #############################################################################
    def createFromTxOutSelection(self, utxoSelection, scriptValuePairs,
-                                pubKeyMap=None, txMap=None, p2shMap=None):
+                                pubKeyMap=None, txMap=None, p2shMap=None, 
+                                RBF=False):
       
       totalUtxoSum = sumTxOutList(utxoSelection)
       totalOutputSum = sum([a[1] for a in scriptValuePairs])
@@ -2272,7 +2269,10 @@ class UnsignedTransaction(AsciiSerializable):
          txin = PyTxIn()
          txin.outpoint = PyOutPoint()
          txin.binScript = ''
+         
          txin.intSeq = 2**32-1
+         if RBF:
+            txin.intSeq = txin.intSeq - 2
 
          txhash = utxo.getTxHash()
          txoIdx  = utxo.getTxOutIndex()

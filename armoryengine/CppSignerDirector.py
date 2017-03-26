@@ -6,7 +6,6 @@
 ##                                                                            ##
 ################################################################################
 
-from armoryengine import PyBtcWallet
 import CppBlockUtils as Cpp
 
 class PythonSignerDirector(Cpp.PythonSigner):
@@ -24,9 +23,9 @@ class PythonSignerDirector(Cpp.PythonSigner):
       
       return addrObj.binPrivKey32_Plain
    
-   def addSpender(self, utxo):
+   def addSpender(self, utxo, sequence):
       super(PythonSignerDirector, self).addSpender(\
          utxo.val, \
          0, 0, utxo.txOutIndex, \
-         utxo.txHash, utxo.binScript)
+         utxo.txHash, utxo.binScript, sequence)
       

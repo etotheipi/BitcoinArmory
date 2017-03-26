@@ -499,6 +499,21 @@ class PyBtcWallet(object):
       else:
          LOGERROR('***Blockchain is not available for accessing wallet-tx data')
          return []
+      
+   #############################################################################
+   @CheckWalletRegistration
+   def getRBFTxOutList(self):
+      #return full set of unspent ZC outputs
+      if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
+         from CoinSelection import PyUnspentTxOut
+         utxos = self.cppWallet.getRBFTxOutList()
+         utxoList = []
+         for i in range(len(utxos)):
+            utxoList.append(PyUnspentTxOut().createFromCppUtxo(utxos[i]))
+         return utxoList         
+      else:
+         LOGERROR('***Blockchain is not available for accessing wallet-tx data')
+         return []
 
    #############################################################################
    @CheckWalletRegistration
@@ -2665,7 +2680,7 @@ class PyBtcWallet(object):
          
          #set spenders
          for ustxi in ustx.ustxInputs:
-            cppsigner.addSpender(ustxi.getUnspentTxOut())
+            cppsigner.addSpender(ustxi.getUnspentTxOut(), ustxi.sequence)
             
          #set recipients
          for txout in ustx.decorTxOuts:

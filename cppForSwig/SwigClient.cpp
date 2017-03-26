@@ -536,6 +536,31 @@ vector<UTXO> SwigClient::BtcWallet::getSpendableZCList()
    return utxovec;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+vector<UTXO> SwigClient::BtcWallet::getRBFTxOutList()
+{
+   Command cmd;
+   cmd.method_ = "getRBFTxOutList";
+   cmd.ids_.push_back(bdvID_);
+   cmd.ids_.push_back(walletID_);
+
+   cmd.serialize();
+
+   auto&& retval = sock_->writeAndRead(cmd.command_);
+   Arguments arg(move(retval));
+   auto count = arg.get<IntType>().getVal();
+
+   vector<UTXO> utxovec;
+   for (unsigned i = 0; i < count; i++)
+   {
+      auto&& bdo = arg.get<BinaryDataObject>();
+      UTXO utxo;
+      utxo.unserialize(bdo.get());
+      utxovec.push_back(move(utxo));
+   }
+
+   return utxovec;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 map<BinaryData, uint32_t> SwigClient::BtcWallet::getAddrTxnCountsFromDB()
