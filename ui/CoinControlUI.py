@@ -12,13 +12,13 @@ from PyQt4.QtGui import *
 from qtdefines import ArmoryDialog, QRichLabel, makeHorizFrame, \
    saveTableView, restoreTableView
    
-from ui.TreeViewGUI import CoinControlTreeModel
+from ui.TreeViewGUI import CoinControlTreeModel, RBFTreeModel
 
 ################################################################################   
 class CoinControlDlg(ArmoryDialog):
    
    #############################################################################
-   def __init__(self, parent, main, wlt, currSelect=None):
+   def __init__(self, parent, main, wlt):
       super(CoinControlDlg, self).__init__(parent, main)
 
       self.wlt = wlt
@@ -130,3 +130,65 @@ class CoinControlDlg(ArmoryDialog):
    #############################################################################   
    def exec_(self):
       return super(CoinControlDlg, self).exec_()
+   
+################################################################################   
+class RBFDlg(ArmoryDialog):
+   
+   #############################################################################
+   def __init__(self, parent, main, wlt):
+      super(RBFDlg, self).__init__(parent, main)
+      
+      self.wlt = wlt
+      self.rbfTreeModel = RBFTreeModel(self, wlt)
+      self.rbfView = QTreeView()
+      self.rbfView.setModel(self.rbfTreeModel)
+      
+      self.btnAccept = QPushButton(self.tr("Accept"))
+      self.btnCancel = QPushButton(self.tr("Cancel"))
+      self.connect(self.btnAccept, SIGNAL('clicked()'), self.accept)
+      self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)            
+      buttonBox = QDialogButtonBox()
+      buttonBox.addButton(self.btnAccept, QDialogButtonBox.AcceptRole)
+      buttonBox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
+      
+      hexgeom  = self.main.settings.get('rbfDlgGeometry')
+      tblgeom  = self.main.settings.get('rbfDlgAddrCols')
+
+      if len(hexgeom) > 0:
+         geom = QByteArray.fromHex(hexgeom)
+         self.restoreGeometry(geom)
+      if len(tblgeom) > 0:
+         restoreTableView(self.rbfView, tblgeom)
+                  
+      layout = QGridLayout()
+      layout.addWidget(self.rbfView, 1, 0)
+      layout.addWidget(buttonBox, 4, 0)
+      self.setLayout(layout)
+      
+      self.setWindowTitle(self.tr('RBF (Expert)'))      
+
+   #############################################################################
+   def reject(self, *args):
+      self.saveGeometrySettings()  
+      #self.resetTreeData()  
+      super(RBFDlg, self).reject(*args)
+      
+   #############################################################################
+   def saveGeometrySettings(self):
+      self.main.writeSetting('rbfDlgGeometry', str(self.saveGeometry().toHex()))
+      self.main.writeSetting('rbfDlgAddrCols', saveTableView(self.rbfView))  
+   
+   #############################################################################   
+   def exec_(self):
+      return super(RBFDlg, self).exec_()
+   
+   #############################################################################   
+   def getRBFUtxoList(self):
+      treeData = self.rbfTreeModel.treeStruct.getTreeData()
+      
+      utxoList = []
+      for utxo in treeData:
+         if utxo.isChecked():
+            utxoList.append(utxo)
+                  
+      return utxoList

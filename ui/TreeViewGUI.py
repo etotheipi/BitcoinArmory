@@ -26,6 +26,9 @@ COL_TXOUTCOUNT = 1
 COL_VALUE = 2
 COL_DESCR = 3
 
+COL_OUTPUT = 0
+COL_ADDR = 1
+
 ################################################################################
 class AddressObjectItem(object):
    
@@ -104,7 +107,46 @@ class CoinControlUtxoItem():
       else:
          self.utxo.setChecked(False)
       
+################################################################################
+class RBFutxoItem():
+   
+   def __init__(self, parent, utxo):
+      self.utxo = utxo
+      self.parent = parent
+      self.name = QObject().tr("Block: #%1 | Tx: #%2 | TxOut: #%3").arg(\
+         unicode(utxo.getTxHeight()), \
+         unicode(utxo.getTxIndex()), \
+         unicode(utxo.getTxOutIndex()))
+      
+      self.state = Qt.Checked
+      if utxo.isChecked() == False:
+         self.state = Qt.Unchecked
          
+      h160 = utxo.getRecipientHash160()
+      binAddr = utxo.getRecipientScrAddr()
+      self.scrAddr = hash160_to_addrStr(h160, binAddr[0])         
+            
+   def rowCount(self):
+      return 0
+   
+   def hasEntries(self):
+      return False
+   
+   def getName(self):
+      return self.name
+   
+   def getBalance(self):
+      return self.utxo.getValue()
+   
+   def getAddress(self):
+      return self.scrAddr
+   
+   def checked(self):
+      return self.state
+   
+   def setCheckState(self, val):
+      self.state = val
+
 ################################################################################
 class EmptyNode(object):
    
@@ -244,6 +286,8 @@ class CoinControlAddressItem(TreeNode):
          return None
       return txout_count
          
+
+
 ################################################################################
 class AddressTreeNode(TreeNode):
    
@@ -319,6 +363,40 @@ class CoinControlTreeNode(TreeNode):
       
       self.populate()
       return len(self.entries)
+
+################################################################################     
+class RBFTreeNode(TreeNode):
+   
+   def __init__(self, parent, name, isExpendable=False, populateMethod=None):
+      self.populateMethod = populateMethod
+      super(RBFTreeNode, self).__init__(parent, name, isExpendable)
+      
+   def getName(self):
+      return self.name
+   
+   def populate(self):
+      if self.populated:
+         return
+      
+      if self.populateMethod == None:
+         return
+      
+      rbfList = self.populateMethod()
+      if len(rbfList) > 0:
+         for utxo in rbfList:
+            self.entries.append(RBFutxoItem(self, utxo))
+   
+      else:
+         self.empty = True
+         
+      self.populated = True
+      
+   def getCount(self):
+      if self.populateMethod == None:
+         return None
+      
+      self.populate()
+      return len(self.entries)
    
 ################################################################################     
 class TreeStructure_AddressDisplay():
@@ -378,12 +456,11 @@ class TreeStructure_AddressDisplay():
          self.wallet.getImportCppAddrList)
       
       self.root.appendEntry(nodeImports)
-      
+     
 ################################################################################
 class TreeStructure_CoinControl():
    
-   def __init__(self, main, wallet):
-      self.main = main
+   def __init__(self, wallet):
       self.wallet = wallet
       self.root = None
       
@@ -489,15 +566,35 @@ class TreeStructure_CoinControl():
          return nodeMain
       
       #create top 3 nodes
-      nodeUTXO   = createUtxoNode(self.main.tr("Unspent Outputs"))
+      nodeUTXO   = createUtxoNode(QObject().tr("Unspent Outputs"))
       #nodeRBF = createChildNode(self.main.tr("RBF Eligible"), "RBF")
-      nodeCPFP = createCPFPNode(self.main.tr("CPFP Eligible Outputs"))
+      nodeCPFP = createCPFPNode(QObject().tr("CPFP Eligible Outputs"))
       
       self.root.appendEntry(nodeUTXO)
       #self.root.appendEntry(nodeRBF)
       self.root.appendEntry(nodeCPFP)
       nodeCPFP.setCheckState(Qt.Unchecked)
       self.root.checkStatus = self.root.computeState()
+      
+################################################################################
+class TreeStructure_RBF():
+   
+   def __init__(self, wallet):
+      self.wallet = wallet
+      self.root = None
+      
+      self.setup()
+      
+   def getTreeData(self):
+      return self.rbfList    
+      
+   def setup(self):
+      self.rbfList = self.wallet.getRBFTxOutList()
+      
+      def getRBFList():
+         return self.rbfList
+      
+      self.root = RBFTreeNode(None, "root", True, getRBFList)
 
 ################################################################################
 class NodeItem(object):
@@ -644,7 +741,7 @@ class CoinControlTreeModel(ArmoryTreeModel):
 
       self.wlt = wlt
       
-      self.treeStruct = TreeStructure_CoinControl(main, self.wlt)
+      self.treeStruct = TreeStructure_CoinControl(self.wlt)
       self.root = NodeItem(0, None, self.treeStruct.root)
       
    def columnCount(self, index=QModelIndex()):
@@ -707,7 +804,7 @@ class CoinControlTreeModel(ArmoryTreeModel):
          if orientation==Qt.Horizontal:
             if section==COL_NAME: return QVariant(self.tr('Address/ID'))
             if section==COL_DESCR:  return QVariant(self.tr('Comment'))
-            if section==COL_VALUE:  return QVariant(self.tr('Selected Balance'))
+            if section==COL_VALUE:  return QVariant(self.tr('Selected Balance/Value'))
             if section==COL_TXOUTCOUNT: return QVariant(self.tr('Count'))
 
       return QVariant() 
@@ -729,3 +826,90 @@ class CoinControlTreeModel(ArmoryTreeModel):
          return True
       
       return False
+   
+
+################################################################################ 
+class RBFTreeModel(ArmoryTreeModel):
+   def __init__(self, main, wlt):
+      super(RBFTreeModel, self).__init__(main)
+
+      self.wlt = wlt
+      
+      self.treeStruct = TreeStructure_RBF(self.wlt)
+      self.root = NodeItem(0, None, self.treeStruct.root)
+      
+   def columnCount(self, index=QModelIndex()):
+      return 3
+   
+   def headerData(self, section, orientation, role=Qt.DisplayRole):
+      if role==Qt.DisplayRole:
+         if orientation==Qt.Horizontal:
+            if section==COL_OUTPUT: return QVariant(self.tr('Output ID'))
+            if section==COL_ADDR:  return QVariant(self.tr('Address'))
+            if section==COL_VALUE:  return QVariant(self.tr('Value'))
+
+      return QVariant()  
+   
+   def setData(self, index, value, role):
+      if role == Qt.CheckStateRole:
+         node = self.getNodeItem(index)
+         node.treeNode.setCheckState(value)
+            
+         self.emit(SIGNAL('layoutChanged()'))
+         return True
+      
+      return False
+   
+   def flags(self, index):
+      f = Qt.ItemIsEnabled
+      if index.column() == 0:
+         node = self.getNodeItem(index)
+         if node.treeNode.getName() != 'None':
+            f |= Qt.ItemIsUserCheckable
+      return f
+   
+   def data(self, index, role=Qt.DisplayRole):
+      col = index.column()    
+      node = self.getNodeItem(index)
+        
+      if role==Qt.DisplayRole:            
+         if col == COL_OUTPUT:
+            return QVariant(node.treeNode.getName())
+                  
+         if col == COL_ADDR:
+            try:
+               return QVariant(node.treeNode.getAddress())
+            except:
+               pass
+                  
+         if col == COL_VALUE:
+            try:
+               return QVariant(coin2str(node.treeNode.getBalance(), maxZeros=2))
+            except:
+               pass
+                  
+      elif role==Qt.CheckStateRole:
+         try:
+            if col == COL_OUTPUT:          
+               st = node.treeNode.checked()
+               return st
+            else: 
+               return QVariant()
+         except:
+            pass
+
+      elif role==Qt.BackgroundRole:
+         try:
+            if node.treeNode.checked() != Qt.Unchecked:
+               return QVariant(Colors.SlightBlue)
+         except:
+            pass
+           
+      elif role==Qt.FontRole:
+         try:
+            if node.treeNode.checked() != Qt.Unchecked:
+               return GETFONT('Fixed', bold=True)
+         except:
+            pass
+
+      return QVariant()
