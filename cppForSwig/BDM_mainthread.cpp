@@ -186,7 +186,7 @@ try
    try
    {
       unsigned mode = pimpl->mode & 0x00000003;
-      bool clearZc = pimpl->mode & 0x00000004;
+      bool clearZc = bdm->config().clearMempool_;
 
       if (mode == 0) bdm->doInitialSyncOnLoad(loadProgress);
       else if (mode == 1) bdm->doInitialSyncOnLoad_Rescan(loadProgress);

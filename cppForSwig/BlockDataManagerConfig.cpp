@@ -379,6 +379,10 @@ void BlockDataManagerConfig::processArgs(const map<string, string>& args,
    if (iter != args.end())
       checkChain_ = true;
 
+   iter = args.find("clear_mempool");
+   if (iter != args.end())
+      clearMempool_ = true;
+
    //db type
    iter = args.find("db-type");
    if (iter != args.end())

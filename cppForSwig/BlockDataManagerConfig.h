@@ -68,6 +68,7 @@ struct BlockDataManagerConfig
    bool reportProgress_ = true;
 
    bool checkChain_ = false;
+   bool clearMempool_ = false;
 
    const string cookie_;
    bool useCookie_ = false;

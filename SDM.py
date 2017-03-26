@@ -377,6 +377,9 @@ class SatoshiDaemonManager(object):
          pargs.append('--rescan')
       elif CLI_OPTIONS.rescanBalance:
          pargs.append('--rescanSSH')
+         
+      if CLI_OPTIONS.clearMempool:
+         pargs.append('--clear_mempool')
 
       if ARMORY_RAM_USAGE != -1:
          pargs.append('--ram-usage=' + ARMORY_RAM_USAGE)
