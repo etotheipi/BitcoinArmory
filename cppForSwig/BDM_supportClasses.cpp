@@ -1243,7 +1243,7 @@ void ZeroConfContainer::parseNewZC(map<BinaryData, Tx> zcMap,
                         {
                            //check local container first
                            auto& txToReplace = getzctxforkey(idIter->second);
-                           auto& txhashtoreplace = txToReplace.getThisHash();
+                           auto&& txhashtoreplace = txToReplace.getThisHash();
 
                            auto txhashmapiter = txhashmap_update.find(txhashtoreplace);
                            if (txhashmapiter != txhashmap_update.end())
@@ -1463,7 +1463,7 @@ ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
          try
          {
             auto& chainedZC = getzctxforkey(opZcKey);
-            auto& chainedTxOut = chainedZC.getTxOutCopy(outPointId);
+            auto&& chainedTxOut = chainedZC.getTxOutCopy(outPointId);
 
             value = chainedTxOut.getValue();
             spentSA = chainedTxOut.getScrAddressStr();

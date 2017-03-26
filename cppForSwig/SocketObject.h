@@ -193,6 +193,7 @@ private:
 private:
    void listenThread(ReadCallback);
    void acceptProcess(AcceptStruct);
+   ListenServer(const ListenServer&) = delete;
 
 public:
    ListenServer(const string& addr, const string& port);

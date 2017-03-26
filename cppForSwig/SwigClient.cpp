@@ -1080,7 +1080,7 @@ bool ProcessMutex::test(const string& uriLink)
 ///////////////////////////////////////////////////////////////////////////////
 void ProcessMutex::hold()
 {
-   auto server = ListenServer(addr_, port_);
+   auto server = make_unique<ListenServer>(addr_, port_);
    
    auto readLdb = [this](vector<uint8_t> data, exception_ptr eptr)->bool
    {
@@ -1112,6 +1112,6 @@ void ProcessMutex::hold()
       return false;
    };
 
-   server.start(readLdb);
-   server.join();
+   server->start(readLdb);
+   server->join();
 }
