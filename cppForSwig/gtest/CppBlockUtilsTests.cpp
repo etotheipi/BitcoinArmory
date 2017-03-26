@@ -5751,7 +5751,6 @@ protected:
    BinaryData LB2ID;
 };
 
-
 ////////////////////////////////////////////////////////////////////////////////
 struct TestResolverFeed : public ResolverFeed
 {
@@ -10509,8 +10508,6 @@ TEST_F(BlockUtilsBare, Replace_ZC_Test)
    //
    setBlocks({ "0", "1", "2", "3" }, blk0dat_);
 
-   initBDM();
-
    theBDMt_->start(config.initMode_);
    auto&& bdvID = registerBDV(clients_, magic_);
 
@@ -10530,7 +10527,7 @@ TEST_F(BlockUtilsBare, Replace_ZC_Test)
       AddressEntryType_P2PKH, //legacy P2PKH addresses
       move(wltRoot), //root as a r value
       10); //set lookup computation to 5 entries
-
+      
    //register with db
    vector<BinaryData> addrVec;
 
@@ -10548,7 +10545,6 @@ TEST_F(BlockUtilsBare, Replace_ZC_Test)
    waitOnBDMReady(clients_, bdvID);
    auto wlt = bdvPtr->getWalletOrLockbox(wallet1id);
    auto dbAssetWlt = bdvPtr->getWalletOrLockbox(assetWlt->getID());
-
 
    //check balances
    const ScrAddrObj* scrObj;
