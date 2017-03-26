@@ -98,12 +98,15 @@ class SelectWalletFrame(ArmoryFrame):
                                     atLeast=0, 
                                     selectWltCallback=None, 
                                     coinControlCallback=None,
-                                    onlyOfflineWallets=False):
+                                    onlyOfflineWallets=False,
+                                    RBFcallback=None):
 
       super(SelectWalletFrame, self).__init__(parent, main)
       self.coinControlCallback = coinControlCallback
+      self.RBFcallback = RBFcallback
 
       self.dlgcc = None
+      self.dlgrbf = None
       
       self.walletComboBox = QComboBox()
       self.walletListBox  = QListWidget()
@@ -197,8 +200,11 @@ class SelectWalletFrame(ArmoryFrame):
          self.lblCoinCtrl = QRichLabel(self.tr('Source: All addresses'), doWrap=False)
          frmLayout.addWidget(self.lblCoinCtrl, 4, 2, 1, 1)
          self.btnCoinCtrl = QPushButton(self.tr('Coin Control'))
+         self.btnRBF = QPushButton(self.tr('RBF'))
          self.connect(self.btnCoinCtrl, SIGNAL(CLICKED), self.doCoinCtrl)
+         self.connect(self.btnRBF, SIGNAL(CLICKED), self.doRBF)
          frmLayout.addWidget(self.btnCoinCtrl, 4, 0, 1, 2)
+         frmLayout.addWidget(self.btnRBF, 5, 0, 1, 2)         
       frmLayout.setColumnStretch(0, 1)
       frmLayout.setColumnStretch(1, 1)
       frmLayout.setColumnStretch(2, 1)
@@ -239,7 +245,7 @@ class SelectWalletFrame(ArmoryFrame):
       wlt = self.main.walletMap[self.getSelectedWltID()]
       if self.dlgcc == None:
          self.dlgcc = \
-            CoinControlDlg(self, self.main, wlt, self.customUtxoList)
+            CoinControlDlg(self, self.main, wlt)
 
       if not self.dlgcc.exec_():
          return
@@ -260,6 +266,20 @@ class SelectWalletFrame(ArmoryFrame):
       elif nUtxo > 1:
          self.lblCoinCtrl.setText(self.tr('Source: %1 Outputs').arg(nUtxo))
       self.updateOnCoinControl()
+      
+   def doRBF(self):
+      wlt = self.main.walletMap[self.getSelectedWltID()]
+      if self.dlgrbf == None:
+         self.dlgrbf = \
+            RBFDlg(self, self.main, wlt)     
+           
+      if not self.dlgrbf.exec_():
+         return 
+      
+      self.customUtxoList = self.dlgrbf.getRBFUtxoList()
+      self.altBalance = sum([x.getValue() for x in self.customUtxoList])
+      if self.RBFcallback:
+         self.RBFcallback(self.customUtxoList, self.altBalance)
          
    def updateOnWalletChange(self, ignoredInt=None):
       """
@@ -1137,4 +1157,4 @@ class WizardCreateWatchingOnlyWalletFrame(ArmoryFrame):
 from qtdialogs import CLICKED, STRETCH, MIN_PASSWD_WIDTH, \
    QRadioButtonBackupCtr, OpenPaperBackupWindow, DlgUnlockWallet, DlgShowKeyList
 
-from ui.CoinControlUI import CoinControlDlg
+from ui.CoinControlUI import CoinControlDlg, RBFDlg

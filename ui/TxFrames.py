@@ -104,6 +104,14 @@ class SendBitcoinsFrame(ArmoryFrame):
          self.tr('Check this box to create an unsigned transaction to be signed'
          ' and/or broadcast later.'))
       self.unsignedCheckbox = QCheckBox(self.tr('Create Unsigned'))
+      
+      self.RBFcheckbox = QCheckBox(self.tr('enable RBF'))
+      self.ttipRBF = self.main.createToolTipWidget(\
+         self.tr('RBF flagged inputs allow to respend the underlying outpoint for a '
+                 'higher fee as long as the original spending transaction remains '
+                 'unconfirmed. <br><br>'
+                 'Checking this box will RBF flag all inputs in this transaction'))
+      
       self.btnSend = QPushButton(self.tr('Send!'))
       self.btnCancel = QPushButton(self.tr('Cancel'))
       self.connect(self.btnCancel, SIGNAL(CLICKED), parent.reject)
@@ -115,13 +123,15 @@ class SendBitcoinsFrame(ArmoryFrame):
       # for when the user selects a wallet.
       if self.lbox is None:
          coinControlCallback = self.coinControlUpdate if self.main.usermode == USERMODE.Expert else None
+         RBFcallback = self.RBFupdate if self.main.usermode == USERMODE.Expert else None
          self.frmSelectedWlt = SelectWalletFrame(parent, main, 
                      VERTICAL, 
                      self.wltID, 
                      wltIDList=self.wltIDList, 
                      selectWltCallback=self.setWallet, \
                      coinControlCallback=coinControlCallback, 
-                     onlyOfflineWallets=self.onlyOfflineWallets)
+                     onlyOfflineWallets=self.onlyOfflineWallets,
+                     RBFcallback=RBFcallback)
       else:
          self.frmSelectedWlt = LockboxSelectFrame(parent, main, 
                                     VERTICAL,
@@ -130,19 +140,22 @@ class SendBitcoinsFrame(ArmoryFrame):
 
       # Only the Create  Unsigned Transaction button if there is a callback for it.
       # Otherwise the containing dialog or wizard will provide the offlien tx button
-      metaButtonList = [self.btnPreviewTx, STRETCH]
+      metaButtonList = [self.btnPreviewTx, STRETCH, self.RBFcheckbox, self.ttipRBF]
+      
+      buttonList = []
       if self.createUnsignedTxCallback:
          self.connect(self.unsignedCheckbox, SIGNAL(CLICKED), self.unsignedCheckBoxUpdate)
-         metaButtonList.append(self.unsignedCheckbox)
-         metaButtonList.append(self.ttipUnsigned)
+         buttonList.append(self.unsignedCheckbox)
+         buttonList.append(self.ttipUnsigned)
       
-      buttonList = [STRETCH, self.btnCancel]
+      buttonList.append(STRETCH)
+      buttonList.append(self.btnCancel)
+      
       # Only add the Send Button if there's a callback for it
       # Otherwise the containing dialog or wizard will provide the send button
       if self.sendCallback:
          self.connect(self.btnSend, SIGNAL(CLICKED), self.createTxAndBroadcast)
          buttonList.append(self.btnSend)
-      buttonList.append(STRETCH)
          
       txFrm = makeHorizFrame([self.feeLblButton, feetip], STYLE_RAISED, condenseMargins=True)
       metaFrm = makeHorizFrame(metaButtonList, STYLE_RAISED, condenseMargins=True)
@@ -279,7 +292,10 @@ class SendBitcoinsFrame(ArmoryFrame):
       else:
          self.btnSend.setText(self.tr('Send!'))
          self.btnSend.setToolTip(self.tr('Click to send bitcoins!'))
-      
+
+   #############################################################################
+   def getRBFFlag(self):
+      return self.RBFcheckbox.checkState() == Qt.Checked
 
    #############################################################################
    def addOneRecipient(self, addr160, amt, msg, label=None, plainText=None):
@@ -442,8 +458,8 @@ class SendBitcoinsFrame(ArmoryFrame):
          bp.put(UINT32, utxo.getTxHeight())
          bp.put(UINT16, utxo.getTxIndex())
          bp.put(UINT16, utxo.getTxOutIndex())
-         bp.put(BINARY_CHUNK, utxo.getTxHash())
-         bp.put(BINARY_CHUNK, utxo.getScript())
+         bp.put(VAR_STR, utxo.getTxHash())
+         bp.put(VAR_STR, utxo.getScript())
          serializedUtxoList.append(bp.getBinaryString())
          
       return serializedUtxoList
@@ -478,6 +494,14 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.customUtxoList = customUtxoList
       self.altBalance = altBalance
       self.useCustomListInFull = useAll
+      
+      self.resolveCoinSelection()
+      
+   #############################################################################
+   def RBFupdate(self, rbfList, altBalance):
+      self.customUtxoList = rbfList
+      self.useCustomListInFull = True
+      self.atlBalance = altBalance
       
       self.resolveCoinSelection()
         
@@ -608,11 +632,11 @@ class SendBitcoinsFrame(ArmoryFrame):
 
 
       if len(utxoSelect) == 0:
-         QMessageBox.critical(self, self.tr('Coin Selection Error'), self.tr("""
-            There was an error constructing your transaction, due to a 
-            quirk in the way Bitcoin transactions work.  If you see this
-            error more than once, try sending your BTC in two or more 
-            separate transactions."""), QMessageBox.Ok)
+         QMessageBox.critical(self, self.tr('Coin Selection Error'), self.tr(
+            "There was an error constructing your transaction, due to a " 
+            "quirk in the way Bitcoin transactions work.  If you see this "
+            "error more than once, try sending your BTC in two or more " 
+            "separate transactions."), QMessageBox.Ok)
          return False
 
       # ## IF we got here, everything is good to go...
@@ -696,7 +720,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          
          # Now create the unsigned USTX
          ustx = UnsignedTransaction().createFromTxOutSelection(\
-            utxoSelect, scriptValPairs, pubKeyMap, p2shMap=p2shMap)
+            utxoSelect, scriptValPairs, pubKeyMap, p2shMap=p2shMap, RBF=self.getRBFFlag())
 
       #ustx.pprint()
 
