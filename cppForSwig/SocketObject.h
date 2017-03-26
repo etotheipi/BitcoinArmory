@@ -62,6 +62,8 @@ protected:
    const string addr_;
    const string port_;
 
+   bool verbose_ = true;
+
 private:
    void readFromSocketThread(SOCKET, ReadCallback);
 

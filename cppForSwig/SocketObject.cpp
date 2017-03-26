@@ -412,7 +412,8 @@ void BinarySocket::writeAndRead(
          auto errornum = errno;
 #endif
          errorss << "poll() error in readAndWrite: " << errornum;
-         LOGERR << errorss.str();
+         if (verbose_)
+            LOGERR << errorss.str();
          throw SocketError(errorss.str());
       }
 
@@ -435,7 +436,8 @@ void BinarySocket::writeAndRead(
 
          //break out of poll loop
          errorss << "POLLERR error in readAndWrite";
-         LOGERR << errorss.str();
+         if (verbose_)
+            LOGERR << errorss.str();
          throw SocketError(errorss.str());
       }
 
@@ -514,7 +516,8 @@ void BinarySocket::writeAndRead(
 
          if (readAmt == 0)
          {
-            LOGINFO << "POLLIN recv return 0";
+            if (verbose_)
+               LOGINFO << "POLLIN recv return 0";
             break;
          }
 
@@ -643,6 +646,7 @@ void BinarySocket::listen(AcceptCallback callback)
 ListenServer::ListenServer(const string& addr, const string& port)
 {
    listenSocket_ = make_unique<DedicatedBinarySocket>(addr, port);
+   listenSocket_->verbose_ = false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -692,6 +696,7 @@ void ListenServer::acceptProcess(AcceptStruct aStruct)
 
    //create BinarySocket object from sockfd
    ss->sock_ = make_shared<DedicatedBinarySocket>(aStruct.sockfd_);
+   ss->sock_->verbose_ = false;
 
    //start read lambda thread
    ss->thr_ = thread(readldb, ss->sock_, aStruct.readCallback_);
