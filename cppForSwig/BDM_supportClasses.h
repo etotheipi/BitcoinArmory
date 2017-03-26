@@ -370,6 +370,8 @@ private:
       map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>> scrAddrTxioMap_;
       map<BinaryData, map<unsigned, BinaryData>> outPointsSpentByKey_;
       set<BinaryData> txOutsSpentByZC_;
+      map<BinaryData, set<BinaryData>> keyToSpentScrAddr_;
+      map<BinaryData, set<BinaryData>> keyToFundedScrAddr_;
 
       map<string, set<BinaryData>> flaggedBDVs_;
 
@@ -410,6 +412,7 @@ private:
    
    //<zcKey, vector<ScrAddr>>
    TransactionalMap<HashString, set<HashString>> keyToSpentScrAddr_;
+   map<BinaryData, set<BinaryData>> keyToFundedScrAddr_;
    
    BinaryData lastParsedBlockHash_;
    std::atomic<uint32_t> topId_;
@@ -433,7 +436,9 @@ private:
 private:
    BulkFilterData ZCisMineBulkFilter(const Tx & tx,
       const BinaryData& ZCkey,
-      uint32_t txtime);
+      uint32_t txtime,
+      function<bool(const BinaryData&, BinaryData&)> getzckeyfortxhash,
+      function<const Tx&(const BinaryData&)> getzctxbykey);
 
    void loadZeroConfMempool(bool clearMempool);
    set<BinaryData> purge(void);
@@ -471,11 +476,12 @@ public:
    void parseNewZC(void);
    void parseNewZC(map<BinaryData, Tx> zcMap, bool updateDB, bool notify);
    bool isTxOutSpentByZC(const BinaryData& dbKey) const;
-   bool getKeyForTxHash(const BinaryData& txHash, BinaryData& zcKey) const;
 
    void clear(void);
 
    map<BinaryData, TxIOPair> getUnspentZCforScrAddr(BinaryData scrAddr) const;
+   map<BinaryData, TxIOPair> getRBFTxIOsforScrAddr(BinaryData scrAddr) const;
+
    vector<TxOut> getZcTxOutsForKey(const set<BinaryData>&) const;
 
    const set<BinaryData>& getSpentSAforZCKey(const BinaryData& zcKey) const;
