@@ -197,12 +197,19 @@ class SelectWalletFrame(ArmoryFrame):
       frmLayout.addWidget(self.dispDescr,  2, 2, 1, 1)
       frmLayout.addWidget(self.dispBal,    3, 2, 1, 1)
       if coinControlCallback:
+         
          self.lblCoinCtrl = QRichLabel(self.tr('Source: All addresses'), doWrap=False)
          frmLayout.addWidget(self.lblCoinCtrl, 4, 2, 1, 1)
+         
+         self.lblRBF = QRichLabel(self.tr('Source: N/A'))
+         frmLayout.addWidget(self.lblRBF, 5, 2, 1, 1)
+                  
          self.btnCoinCtrl = QPushButton(self.tr('Coin Control'))
+         self.connect(self.btnCoinCtrl, SIGNAL(CLICKED), self.doCoinCtrl)         
+         
          self.btnRBF = QPushButton(self.tr('RBF'))
-         self.connect(self.btnCoinCtrl, SIGNAL(CLICKED), self.doCoinCtrl)
          self.connect(self.btnRBF, SIGNAL(CLICKED), self.doRBF)
+         
          frmLayout.addWidget(self.btnCoinCtrl, 4, 0, 1, 2)
          frmLayout.addWidget(self.btnRBF, 5, 0, 1, 2)         
       frmLayout.setColumnStretch(0, 1)
@@ -254,6 +261,10 @@ class SelectWalletFrame(ArmoryFrame):
       self.altBalance = sum([x.getValue() for x in self.customUtxoList])
       self.useAllCCList = self.dlgcc.isUseAllChecked()
       
+      #reset RBF label to signify RBF and by coin control are mutually exclusive
+      self.lblRBF.setText(self.tr("Source: N/A"))
+      
+      #update coin control label
       nUtxo = len(self.customUtxoList)
       if self.altBalance == wlt.getBalance('Spendable'):
          self.lblCoinCtrl.setText(self.tr('Source: All addresses'))
@@ -261,10 +272,12 @@ class SelectWalletFrame(ArmoryFrame):
          self.lblCoinCtrl.setText(self.tr('Source: None selected'))
       elif nUtxo == 1:
          utxo = self.customUtxoList[0]
-         aStr = hash160_to_addrStr(utxo.getRecipientHash160())
+         binAddr = utxo.getRecipientScrAddr()
+         aStr = hash160_to_addrStr(utxo.getRecipientHash160(), binAddr[0])
          self.lblCoinCtrl.setText(self.tr('Source: %1...').arg(aStr[:12]))
       elif nUtxo > 1:
          self.lblCoinCtrl.setText(self.tr('Source: %1 Outputs').arg(nUtxo))
+      
       self.updateOnCoinControl()
       
    def doRBF(self):
@@ -278,9 +291,27 @@ class SelectWalletFrame(ArmoryFrame):
       
       self.customUtxoList = self.dlgrbf.getRBFUtxoList()
       self.altBalance = sum([x.getValue() for x in self.customUtxoList])
-      if self.RBFcallback:
-         self.RBFcallback(self.customUtxoList, self.altBalance)
-         
+      
+      nUtxo = len(self.customUtxoList)
+      
+      #no outputs selected is treated as a cancellation
+      if nUtxo == 0:
+         return
+      
+      #reset coin control label to signify RBF and coin control are mutually exclusive
+      self.lblCoinCtrl.setText(self.tr('Source: N/A'))
+      
+      #update RBF label
+      if nUtxo == 1:
+         utxo = self.customUtxoList[0]
+         binAddr = utxo.getRecipientScrAddr()
+         aStr = hash160_to_addrStr(utxo.getRecipientHash160(), binAddr[0])
+         self.lblRBF.setText(self.tr('Source: %1...').arg(aStr[:12]))
+      else:
+         self.lblRBF.setText(self.tr("Source: %1 Outputs").arg(unicode(nUtxo)))    
+      
+      self.updateOnRBF()
+      
    def updateOnWalletChange(self, ignoredInt=None):
       """
       "ignoredInt" is because the signals should call this function with the
@@ -333,7 +364,7 @@ class SelectWalletFrame(ArmoryFrame):
          self.dispName.setText(wlt.labelName)
          self.dispDescr.setText(wlt.labelDescr)
          if fullBal == 0:
-            self.dispBal.setText('0.0', color='TextRed', bold=True)
+            self.dispBal.setText('0.0', color='TextYellow', bold=True)
          else:
             self.dispBal.setValueText(fullBal, wBold=True)
       else:
@@ -347,14 +378,21 @@ class SelectWalletFrame(ArmoryFrame):
 
       if not TheBDM.getState() == BDM_BLOCKCHAIN_READY:
          self.dispBal.setText(self.tr('(available when online)'), color='DisableFG')
-      self.repaint()
+
       if self.coinControlCallback:
          self.coinControlCallback(\
             self.customUtxoList, self.altBalance, self.useAllCCList)
 
+   def updateOnRBF(self):
+      self.dispDescr.setText(self.tr('*RBF subset*'), color='optInRBF', bold=True)
+      self.dispBal.setText(coin2str(self.altBalance, maxZeros=0), color='TextRed')
 
+      if not TheBDM.getState() == BDM_BLOCKCHAIN_READY:
+         self.dispBal.setText(self.tr('(available when online)'), color='DisableFG')
 
-
+      self.repaint()
+      if self.RBFcallback:
+         self.RBFcallback(self.customUtxoList, self.altBalance)
 
 # Container for controls used in configuring a wallet to be added to any
 # dialog or wizard. Currently it is only used the create wallet wizard.

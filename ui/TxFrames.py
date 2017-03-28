@@ -501,7 +501,7 @@ class SendBitcoinsFrame(ArmoryFrame):
    def RBFupdate(self, rbfList, altBalance):
       self.customUtxoList = rbfList
       self.useCustomListInFull = True
-      self.atlBalance = altBalance
+      self.altBalance = altBalance
       
       self.resolveCoinSelection()
         
