@@ -473,7 +473,6 @@ vector<uint64_t> SwigClient::BtcWallet::getBalancesAndCount(
    
    unsigned int ignorezc = IGNOREZC;
    cmd.args_.push_back(move(IntType(blockheight)));
-   cmd.args_.push_back(move(IntType(IGNOREZC)));
 
    cmd.serialize();
 

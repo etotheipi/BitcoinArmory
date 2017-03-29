@@ -129,6 +129,9 @@ void BlockDataViewer::scanWallets(shared_ptr<BDV_Notification> action)
 
    case BDV_Refresh:
    {
+      //feed current valid zc map to scanwallet as well
+      auto&& actionStruct = createZcStruct();
+      zcMap = move(actionStruct->scrAddrZcMap_);
       refresh = true;
       break;
    }
