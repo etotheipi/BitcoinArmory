@@ -5109,7 +5109,7 @@ def extractTxInfo(pytx, rcvTime=None):
       pytx = ustx.pytxObj.copy()
 
    txHash = pytx.getHash()
-   txOutToList, sumTxOut, txinFromList, sumTxIn, txTime, txBlk, txIdx = [None] * 7
+   txSize, txWeight, sumTxIn, txTime, txBlk, txIdx = [None] * 6
 
    txOutToList = pytx.makeRecipientsList()
    sumTxOut = sum([t[1] for t in txOutToList])
@@ -5124,6 +5124,8 @@ def extractTxInfo(pytx, rcvTime=None):
             txTime = unixTimeToFormatStr(headref.getTimestamp())
             txBlk = headref.getBlockHeight()
             txIdx = txcpp.getBlockTxIndex()
+            txSize = txcpp.getSize()
+            txWeight = txcpp.getTxWeight()
          else:
             if rcvTime == None:
                txTime = 'Unknown'
@@ -5204,7 +5206,8 @@ def extractTxInfo(pytx, rcvTime=None):
    else:
       sumTxIn = None
 
-   return [txHash, txOutToList, sumTxOut, txinFromList, sumTxIn, txTime, txBlk, txIdx]
+   return [txHash, txOutToList, sumTxOut, txinFromList, sumTxIn, \
+           txTime, txBlk, txIdx, txSize, txWeight]
 
 ################################################################################
 class DlgDispTxInfo(ArmoryDialog):
@@ -5221,7 +5224,8 @@ class DlgDispTxInfo(ArmoryDialog):
       self.mode = mode
 
 
-      FIELDS = enum('Hash', 'OutList', 'SumOut', 'InList', 'SumIn', 'Time', 'Blk', 'Idx')
+      FIELDS = enum('Hash', 'OutList', 'SumOut', 'InList', 'SumIn', \
+                    'Time', 'Blk', 'Idx', 'TxSize', 'TxWeight')
       self.data = extractTxInfo(pytx, txtime)
 
       # If this is actually a ustx in here...
@@ -5481,6 +5485,15 @@ class DlgDispTxInfo(ArmoryDialog):
             lbls[-1][-1].setText('<font color="green">' + lbls[-1][-1].text() + '</font> ')
 
 
+      if not self.data[FIELDS.TxSize] == None:
+         txsize = unicode(self.data[FIELDS.TxSize])
+         txsize_str = self.tr("%1 Bytes").arg(txsize)
+         lbls.append([])
+         lbls[-1].append(self.main.createToolTipWidget(
+            self.tr('Size of the transaction in bytes')))
+         lbls[-1].append(QLabel(self.tr('Tx Size: ')))
+         lbls[-1].append(QLabel(txsize_str))
+
       if not self.data[FIELDS.SumIn] == None:
          fee = self.data[FIELDS.SumIn] - self.data[FIELDS.SumOut]
          lbls.append([])
@@ -5488,7 +5501,13 @@ class DlgDispTxInfo(ArmoryDialog):
             self.tr('''Transaction fees go to users supplying the Bitcoin network with
             computing power for processing transactions and maintaining security.''')))
          lbls[-1].append(QLabel('Tx Fee Paid:'))
-         lbls[-1].append(QLabel(coin2str(fee, maxZeros=0).strip() + '  BTC'))
+         
+         fee_str = coin2str(fee, maxZeros=0).strip() + '  BTC'
+         if not self.data[FIELDS.TxWeight] == None:
+            fee_byte = float(fee) / float(self.data[FIELDS.TxWeight])
+            fee_str += ' (%d sat/B)' % fee_byte 
+         
+         lbls[-1].append(QLabel(fee_str))
 
 
 
