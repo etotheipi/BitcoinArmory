@@ -752,7 +752,7 @@ public:
    shared_ptr<ScriptRecipient> getRecipient(uint64_t) const;
 
    //size
-   size_t getInputSize(void) const { return 107; }
+   size_t getInputSize(void) const { return 147; }
 };
 
 ////////////////////////////////////////////////////////////////////////////////
