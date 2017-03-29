@@ -253,7 +253,20 @@ BroadcastStatus BlockDataViewer::broadcastZC(const BinaryData& rawTx)
 ///////////////////////////////////////////////////////////////////////////////
 Tx BlockDataViewer::getTxByHash(const BinaryData& txHash)
 {
-   auto iter = txMap_->find(txHash);
+   BinaryDataRef bdRef(txHash);
+   BinaryData hash;
+
+   if (txHash.getSize() != 32)
+   {
+      if (txHash.getSize() == 64)
+      {
+         string hashstr(txHash.toCharPtr(), txHash.getSize());
+         hash = READHEX(hashstr);
+         bdRef.setRef(hash);
+      }
+   }
+
+   auto iter = txMap_->find(bdRef);
    if (iter != txMap_->end())
       return iter->second;
 
@@ -261,7 +274,7 @@ Tx BlockDataViewer::getTxByHash(const BinaryData& txHash)
 
    cmd.method_ = "getTxByHash";
    cmd.ids_.push_back(bdvID_);
-   cmd.args_.push_back(BinaryDataObject(txHash));
+   cmd.args_.push_back(BinaryDataObject(bdRef));
    cmd.serialize();
 
    auto&& result = sock_->writeAndRead(cmd.command_);

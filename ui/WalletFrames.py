@@ -352,6 +352,7 @@ class SelectWalletFrame(ArmoryFrame):
             self.lblCoinCtrl.setText(self.tr('Source: All addresses') if wlt.getBalance('Spendable')>0 else\
                                      self.tr('Source: 0 addresses' ))
             self.dlgcc = None
+            self.dlgrbf = None
             self.updateOnCoinControl()
       
    def updateOnCoinControl(self):

@@ -577,6 +577,22 @@ bool Tx::isRBF() const
 }
 
 /////////////////////////////////////////////////////////////////////////////
+size_t Tx::getTxWeight() const
+{
+   auto size = getSize();
+   
+   if (offsetsWitness_.size() > 1)
+   {
+      auto witnessSize = *offsetsWitness_.rbegin() - *offsetsWitness_.begin();
+      float witnessDiscount = float(witnessSize) * 0.75f;
+
+      size -= size_t(witnessDiscount);
+   }
+
+   return size;
+}
+
+/////////////////////////////////////////////////////////////////////////////
 void Tx::pprint(ostream & os, int nIndent, bool pBigendian)
 {
    string indent = "";

@@ -424,6 +424,9 @@ public:
    void setTxTime(uint32_t txtime) { txTime_ = txtime; }
    uint32_t getTxTime(void) const { return txTime_; }
 
+   //returns tx weight in bytes
+   size_t getTxWeight(void) const;
+
 private:
    // Full copy of the serialized tx
    BinaryData    dataCopy_;

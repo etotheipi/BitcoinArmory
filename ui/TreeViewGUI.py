@@ -12,6 +12,8 @@ from PyQt4.QtGui import *
 from CppBlockUtils import AddressType_P2SH_P2PK, \
    AddressType_P2SH_P2WPKH, AddressType_P2PKH
 from armoryengine.ArmoryUtils import coin2str, hash160_to_addrStr
+from armoryengine.BDM import TheBDM
+from armoryengine.Transaction import PyTx, getFeeForTx
 
 from qtdefines import GETFONT
 from armorycolors import Colors
@@ -135,7 +137,9 @@ class RBFutxoItem():
          
       h160 = utxo.getRecipientHash160()
       binAddr = utxo.getRecipientScrAddr()
-      self.scrAddr = hash160_to_addrStr(h160, binAddr[0])         
+      self.scrAddr = hash160_to_addrStr(h160, binAddr[0])   
+      
+      self.value = coin2str(utxo.getValue(), maxZeros=2)      
             
    def rowCount(self):
       return 0
@@ -146,8 +150,8 @@ class RBFutxoItem():
    def getName(self):
       return self.name
    
-   def getBalance(self):
-      return self.utxo.getValue()
+   def getValue(self):
+      return self.value
    
    def getAddress(self):
       return self.scrAddr
@@ -157,7 +161,10 @@ class RBFutxoItem():
    
    def setCheckState(self, val):
       self.state = val
-
+      
+   def isCheckable(self):
+      return True
+      
 ################################################################################
 class EmptyNode(object):
    
@@ -297,8 +304,7 @@ class CoinControlAddressItem(TreeNode):
          return None
       return txout_count
          
-
-
+         
 ################################################################################
 class AddressTreeNode(TreeNode):
    
@@ -375,6 +381,85 @@ class CoinControlTreeNode(TreeNode):
       self.populate()
       return len(self.entries)
 
+
+################################################################################
+class RBFutxoTreeNode(TreeNode):
+   
+   def __init__(self, parent, utxoList):
+      self.utxoList = utxoList
+      name = QObject().tr("Redeemed Outputs")
+      super(RBFutxoTreeNode, self).__init__(parent, name, True)
+      
+   def populate(self):
+      if self.populated == True:
+         return
+      
+      self.entries = []
+      for utxo in self.utxoList:
+         self.entries.append(RBFutxoItem(self, utxo))
+         
+      self.populated = True
+  
+################################################################################    
+class RBFspendTreeNode(TreeNode):
+
+   def __init__(self, parent, txList):
+      self.txList = txList
+      
+      name = QObject().tr("Spender Tx")
+      super(RBFspendTreeNode, self).__init__(parent, name, True)
+      
+   def populate(self):
+      if self.populated == True:
+         return
+      
+      self.entries = []
+      if len(self.txList):
+         for tx in self.txList:
+            self.entries.append(RBFTxTreeNode(self, tx))
+      else:
+         self.entries.append(EmptyNode())
+         
+      self.populated = True
+
+################################################################################
+class RBFTxTreeNode(TreeNode):
+   
+   def __init__(self, parent, txhash, entryList):
+      self.entryList = entryList
+      name = QObject().tr("Tx: %1").arg(txhash)
+      fee, fee_byte = getFeeForTx(txhash)
+      self.value = QObject().tr("Fee: %1 sat. (%2 sat/B)").arg(\
+                              unicode(fee), unicode(fee_byte))
+      super(RBFTxTreeNode, self).__init__(parent, name, True)
+      
+   def getValue(self):
+      return self.value
+      
+   def rowCount(self):
+      return 2
+      
+   def populate(self):
+      if self.populated == True:
+         return
+      
+      self.entries = []
+      
+      utxoList = []
+      txList = []
+      
+      for entry in self.entryList:
+         if isinstance(entry, list):
+            txList.append(entry)
+         else:
+            utxoList.append(entry)
+      
+      #order by utxos and transactions
+      self.entries.append(RBFutxoTreeNode(self, utxoList))
+      self.entries.append(RBFspendTreeNode(self, txList))
+         
+      self.populated = True
+      
 ################################################################################     
 class RBFTreeNode(TreeNode):
    
@@ -382,9 +467,6 @@ class RBFTreeNode(TreeNode):
       self.populateMethod = populateMethod
       super(RBFTreeNode, self).__init__(parent, name, isExpendable)
       
-   def getName(self):
-      return self.name
-   
    def populate(self):
       if self.populated:
          return
@@ -392,10 +474,11 @@ class RBFTreeNode(TreeNode):
       if self.populateMethod == None:
          return
       
-      rbfList = self.populateMethod()
-      if len(rbfList) > 0:
-         for utxo in rbfList:
-            self.entries.append(RBFutxoItem(self, utxo))
+      rbfDict = self.populateMethod()
+      if len(rbfDict) > 0:
+         for txhash in rbfDict:
+            utxoList = rbfDict[txhash]
+            self.entries.append(RBFTxTreeNode(self, txhash, utxoList))
    
       else:
          self.empty = True
@@ -597,15 +680,45 @@ class TreeStructure_RBF():
       self.setup()
       
    def getTreeData(self):
-      return self.rbfList    
+      return self.rbfDict    
       
    def setup(self):
-      self.rbfList = self.wallet.getRBFTxOutList()
+      rbfList = self.wallet.getRBFTxOutList()
       
-      def getRBFList():
-         return self.rbfList
+      self.rbfDict = {}
       
-      self.root = RBFTreeNode(None, "root", True, getRBFList)
+      #order outputs by parent hash
+      for utxo in rbfList:
+         parentHash = utxo.getTxHashStr()
+         if not parentHash in self.rbfDict:
+            self.rbfDict[parentHash] = []
+         
+         utxoList = self.rbfDict[parentHash]
+         utxoList.append(utxo)
+         
+      for txhash in self.rbfDict:
+         #get outpoints for spender tx
+         entryList = self.rbfDict[txhash]
+         cppTx = TheBDM.bdv().getTxByHash(txhash)
+         
+         if cppTx.isInitialized():
+            pytx = PyTx().unserialize(cppTx.serialize())
+         else:
+            continue
+         
+         for _input in pytx.inputs:
+            spentHash = _input.outpoint.txHash
+            
+            #if this tx redeems an output in our list of RBF tx,
+            #link it to the spendee 
+            if spentHash in self.rbfDict:
+               spendeeList = self.rbfDict[spentHash]
+               spendeeList.append([txhash, entryList])
+               
+      def getRBFDict():
+         return self.rbfDict
+      
+      self.root = RBFTreeNode(None, "root", True, getRBFDict)
 
 ################################################################################
 class NodeItem(object):
@@ -875,10 +988,13 @@ class RBFTreeModel(ArmoryTreeModel):
       f = Qt.ItemIsEnabled
       if index.column() == 0:
          node = self.getNodeItem(index)
-         if node.treeNode.getName() != 'None':
-            f |= Qt.ItemIsUserCheckable
+         try:
+            if node.treeNode.isCheckable():
+               f |= Qt.ItemIsUserCheckable
+         except:
+            pass
       return f
-   
+  
    def data(self, index, role=Qt.DisplayRole):
       col = index.column()    
       node = self.getNodeItem(index)
@@ -895,15 +1011,16 @@ class RBFTreeModel(ArmoryTreeModel):
                   
          if col == COL_VALUE:
             try:
-               return QVariant(coin2str(node.treeNode.getBalance(), maxZeros=2))
+               return QVariant(node.treeNode.getValue())
             except:
                pass
-                  
+                 
       elif role==Qt.CheckStateRole:
          try:
-            if col == COL_OUTPUT:          
-               st = node.treeNode.checked()
-               return st
+            if col == COL_OUTPUT:   
+               if node.treeNode.isCheckable():       
+                  st = node.treeNode.checked()
+                  return st
             else: 
                return QVariant()
          except:

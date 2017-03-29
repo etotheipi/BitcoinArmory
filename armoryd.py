@@ -1335,7 +1335,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             isToSelf = le.isSentToSelf()
             amtCoins = 0.0
             netCoins = le.getValue()
-            feeCoins = getFeeForTx(txHashBin)
+            feeCoins, fee_byte = getFeeForTx(txHashBin)
             scrAddrs = [cppTx.getTxOutCopy(i).getScrAddressStr() for i in \
                        range(cppTx.getNumTxOut())]
 
@@ -1509,7 +1509,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          blockHash  = binary_to_hex(cppHead.getThisHash(), BIGENDIAN)
          blockTime  = le.getTxTime()
          isToSelf   = le.isSentToSelf()
-         feeCoin   = getFeeForTx(txHashBin)
+         feeCoin, fee_byte = getFeeForTx(txHashBin)
          totalBalDiff = le.getValue()
          nconf = (TheBDM.getTopBlockHeight() - \
                   le.getBlockNum()) + 1

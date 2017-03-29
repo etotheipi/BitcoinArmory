@@ -122,6 +122,9 @@ class PyUnspentTxOut(object):
    def getTxHash(self):
       return self.txHash
    
+   def getTxHashStr(self):
+      return self.txHashStr
+   
    def getTxHeight(self):
       return self.txHeight
 

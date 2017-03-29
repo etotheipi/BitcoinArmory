@@ -2909,10 +2909,13 @@ def getFeeForTx(txHash):
                         outpoint.getTxHash(), outpoint.getTxOutIndex())
          for i in range(tx.getNumTxOut()):
             valOut += tx.getTxOutCopy(i).getValue()
-         return valIn - valOut
+         fee = valIn - valOut
+         txWeight = tx.getTxWeight()
+         fee_byte = fee / float(txWeight)
+         return fee, fee_byte
       except:
          LOGERROR('Couldn\'t get tx fee. Ignore this message in Fullnode') 
-         return 0
+         return 0, 0
 
 #############################################################################
 def determineSentToSelfAmt(le, wlt):

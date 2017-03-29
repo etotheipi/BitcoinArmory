@@ -9258,7 +9258,8 @@ class DlgExportTxHistory(ArmoryDialog):
                rawAmt = str2coin(row[COL.Amount])
             else:
                #if SentToSelf, balance and total rolling balance should only take fee in account
-               rawAmt = getFeeForTx(hex_to_binary(row[COL.TxHash])) * -1
+               rawAmt, fee_byte = getFeeForTx(hex_to_binary(row[COL.TxHash]))
+               rawAmt = -1 * rawAmt 
 
             if order == "ascending":
                wltBalances[row[COL.WltID]] += rawAmt
@@ -9287,7 +9288,7 @@ class DlgExportTxHistory(ArmoryDialog):
                vals.append(self.main.allLockboxes[self.main.lockboxIDMap[row[COL.WltID]]].shortName.replace(',', ';'))
 
             wltEffect = row[COL.Amount]
-            txFee = getFeeForTx(hex_to_binary(row[COL.TxHash]))
+            txFee, fee_byte = getFeeForTx(hex_to_binary(row[COL.TxHash]))
             if float(wltEffect) >= 0:
                if row[COL.toSelf] == False:
                   vals.append(wltEffect.strip())

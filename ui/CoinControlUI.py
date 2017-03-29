@@ -187,8 +187,13 @@ class RBFDlg(ArmoryDialog):
       treeData = self.rbfTreeModel.treeStruct.getTreeData()
       
       utxoList = []
-      for utxo in treeData:
-         if utxo.isChecked():
-            utxoList.append(utxo)
+      for txHash in treeData:
+         entryList = treeData[txHash]
+         for entry in entryList:
+            if isinstance(entry, list):
+               continue
+            
+            if entry.isChecked():
+               utxoList.append(entry)
                   
       return utxoList
