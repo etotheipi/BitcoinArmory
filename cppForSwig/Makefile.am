@@ -44,7 +44,7 @@ CPPBLOCKUTILS_SOURCE_FILES = UniversalTimer.cpp BinaryData.cpp \
 	Transactions.cpp \
         CoinSelection.cpp ReentrantLock.cpp JSON_codec.cpp
 
-bin_PROGRAMS = ArmoryDB
+noinst_PROGRAMS = ArmoryDB
 lib_LTLIBRARIES = libCppBlockUtils.la
 
 #ArmoryDB

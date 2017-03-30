@@ -83,4 +83,4 @@ for f in dpkgfiles:
    shutil.copy('dpkgfiles/%s' % f, 'debian/%s' % f)
 
 # Finally, all the magic happens here
-execAndWait('dpkg-buildpackage -rfakeroot')
+execAndWait('dpkg-buildpackage -rfakeroot -uc -us -j8')
