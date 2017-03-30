@@ -207,7 +207,7 @@ class SelectWalletFrame(ArmoryFrame):
          self.btnCoinCtrl = QPushButton(self.tr('Coin Control'))
          self.connect(self.btnCoinCtrl, SIGNAL(CLICKED), self.doCoinCtrl)         
          
-         self.btnRBF = QPushButton(self.tr('RBF'))
+         self.btnRBF = QPushButton(self.tr('RBF Control'))
          self.connect(self.btnRBF, SIGNAL(CLICKED), self.doRBF)
          
          frmLayout.addWidget(self.btnCoinCtrl, 4, 0, 1, 2)

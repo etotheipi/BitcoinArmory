@@ -428,9 +428,9 @@ class RBFTxTreeNode(TreeNode):
    def __init__(self, parent, txhash, entryList):
       self.entryList = entryList
       name = QObject().tr("Tx: %1").arg(txhash)
-      fee, fee_byte = getFeeForTx(txhash)
-      self.value = QObject().tr("Fee: %1 sat. (%2 sat/B)").arg(\
-                              unicode(fee), unicode(fee_byte))
+      #fee, fee_byte = getFeeForTx(txhash)
+      #self.value = QObject().tr("Fee: %1 sat. (%2 sat/B)").arg(\
+      #                        unicode(fee), unicode(fee_byte))
       super(RBFTxTreeNode, self).__init__(parent, name, True)
       
    def getValue(self):
