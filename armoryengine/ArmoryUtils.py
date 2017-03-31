@@ -493,6 +493,9 @@ if not os.path.exists(ARMORY_DB_DIR):
    os.makedirs(ARMORY_DB_DIR)
 
 ##### MAIN NETWORK IS DEFAULT #####
+from CppBlockUtils import BlockDataManagerConfig
+bdmConfig = BlockDataManagerConfig()
+
 if not USE_TESTNET and not USE_REGTEST:
    # TODO:  The testnet genesis tx hash can't be the same...?
    BITCOIN_PORT = 8333
@@ -513,8 +516,6 @@ if not USE_TESTNET and not USE_REGTEST:
    BLOCKEXPLORE_URL_ADDR = 'https://blockchain.info/address/%s'
 else:
    #set static members of BDMconfig for address generation on C++ side
-   from CppBlockUtils import BlockDataManagerConfig
-   bdmConfig = BlockDataManagerConfig()
    bdmConfig.selectNetwork("Test")
    
    BITCOIN_PORT = 18444 if USE_REGTEST else 18333
