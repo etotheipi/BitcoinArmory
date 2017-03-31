@@ -1618,16 +1618,14 @@ class UnsignedTxInput(AsciiSerializable):
       seq        = bu.get(UINT32)
       nEntry     = bu.get(VAR_INT)
 
-      keysiginfo = []
       pubMap, sigList, locList = {},[],[]
       for i in range(nEntry):
          pub = bu.get(VAR_STR)
          sigList.append([i, bu.get(VAR_STR)])
          locList.append([i, bu.get(VAR_STR)])
          
-         if p2shScr == None:
-            scrAddr = SCRADDR_P2PKH_BYTE+hash160(pub)
-
+         if p2shScr == None or len(p2shScr) == 0:
+            scrAddr = ADDRBYTE+hash160(pub)
          else:
             scrAddr = P2SHBYTE+hash160(p2shScr)
          pubMap[scrAddr] = pub
@@ -1635,9 +1633,6 @@ class UnsignedTxInput(AsciiSerializable):
 
       if not outpt[:32] == hash256(suppTx):
          raise UnserializeError('OutPoint hash does not match supporting tx')
-
-      if not seq==UINT32_MAX:
-         LOGWARN('WARNING: NON-MAX SEQUENCE NUMBER ON UNSIGNEDTX INPUT!')
 
       if not magic==MAGIC_BYTES and not skipMagicCheck:
          LOGERROR('WRONG NETWORK!')

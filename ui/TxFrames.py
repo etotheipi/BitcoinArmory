@@ -1719,6 +1719,10 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
             addrStr = script_to_addrStr(script)
             if self.wlt.hasAddr(addrStr_to_hash160(addrStr)[1]):
                svpairsMine.append([script, value])
+         elif scrType == CPP_TXOUT_P2SH:
+            addrStr = script_to_addrStr(script)
+            if self.wlt.hasScrAddr(addrStr_to_hash160(addrStr)[1]):
+               svpairsMine.append([script, value])
 
       if len(svpairsMine) == 0 and len(svpairs) > 1:
          QMessageBox.warning(self, self.tr('Missing Change'), self.tr(
