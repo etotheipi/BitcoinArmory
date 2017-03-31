@@ -45,6 +45,8 @@
 #else
 #if defined(__GNUC__) // Linux
 %typedef long unsigned int uint64_t;
+#else
+%typedef unsigned long long uint64_t;
 #endif
 #endif
 
