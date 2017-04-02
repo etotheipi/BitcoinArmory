@@ -1460,6 +1460,7 @@ ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
          BinaryData spentSA;
          uint64_t value;
          bool zcIsRBF;
+         uint32_t chainedTxTime;
          try
          {
             auto& chainedZC = getzctxforkey(opZcKey);
@@ -1468,6 +1469,7 @@ ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
             value = chainedTxOut.getValue();
             spentSA = chainedTxOut.getScrAddressStr();
             zcIsRBF = chainedZC.isRBF();
+            chainedTxTime = chainedZC.getTxTime();
          }
          catch (runtime_error&)
          {
@@ -1479,7 +1481,7 @@ ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
          txio.setTxHashOfInput(txHash);
 
          txio.setValue(value);
-         txio.setTxTime(txtime);
+         txio.setTxTime(chainedTxTime);
          txio.setRBF(zcIsRBF);
          txio.setChained(true);
 
