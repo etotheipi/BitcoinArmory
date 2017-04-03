@@ -245,13 +245,14 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
      
       while (txioIter != txioVec.second.cend())
       {
-         if ((*txioIter)->getTxTime() > txTime)
-            txTime = (*txioIter)->getTxTime();
 
          if (blockNum == UINT32_MAX)
          {
             if ((*txioIter)->isRBF())
                isRBF = true;
+            
+            if ((*txioIter)->getTxTime() > txTime)
+               txTime = (*txioIter)->getTxTime();
          }
 
          if ((*txioIter)->getDBKeyOfOutput().startsWith(txioVec.first))
