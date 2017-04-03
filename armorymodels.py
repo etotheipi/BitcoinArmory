@@ -200,6 +200,11 @@ class LedgerDispModelSimple(QAbstractTableModel):
       wlt = self.main.walletMap.get(wltID)
       optInRBF = rowData[LEDGERCOLS.optInRBF]
       isChainedZC = rowData[LEDGERCOLS.isChainedZC]
+      amount = float(rowData[LEDGERCOLS.Amount])
+      toSelf = rowData[LEDGERCOLS.toSelf]
+      
+      flagged = (optInRBF) and amount < 0 or toSelf
+      highlighted = optInRBF or isChainedZC
             
       if wlt:
          wtype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
@@ -219,7 +224,10 @@ class LedgerDispModelSimple(QAbstractTableModel):
          pass
       elif role==Qt.BackgroundColorRole:
          if optInRBF is True:
-            return QVariant( Colors.optInRBF )
+            if flagged:
+               return QVariant( Colors.myRBF)
+            else:
+               return QVariant( Colors.optInRBF )
          elif isChainedZC is True:
             return QVariant( Colors.chainedZC )
          elif wtype==WLTTYPES.WatchOnly:
@@ -229,7 +237,9 @@ class LedgerDispModelSimple(QAbstractTableModel):
          else:
             return QVariant( Colors.TblWltMine )
       elif role==Qt.ForegroundRole:
-         if nConf < 2:
+         if highlighted:
+            return QVariant(Colors.HighlightFG)
+         elif nConf < 2:
             return QVariant(Colors.TextNoConfirm)
          elif nConf <= 4:
             return QVariant(Colors.TextSomeConfirm)
@@ -263,6 +273,11 @@ class LedgerDispModelSimple(QAbstractTableModel):
                                  'Bitcoin mining.  These transactions take\n'
                                  '120 confirmations (approximately one day)\n'
                                  'before they are available to be spent.'))
+               elif flagged:
+                  tooltipStr = self.tr("You have create this transaction as RBF (Replaceable By Fee).<br><br>"
+                               "This means you have the opportunity to bump the fee on this transaction"
+                               " if it fails to confirm quickly enough.<br><br>"
+                               "To bump the fee, right click on the ledger entry and pick <u>\"Bump the fee\"</u>")
                elif optInRBF:
                   tooltipStr = self.tr("This transaction has been RBF flagged (Replaceable By Fee)<br><br>"
                                "It means the network will accept and broadcast a double spend of"

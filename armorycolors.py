@@ -127,6 +127,7 @@ Colors.TblWltMine       = tweakColor(Colors.Background, '*', [0.95, 0.95, 1.3 ])
 Colors.TblWltOffline    = tweakColor(Colors.Background, '*', [0.85, 0.85, 1.35])
 
 Colors.optInRBF         = tweakColor(Colors.Background, '*', [1.00, 0.10, 0.10])
+Colors.myRBF            = tweakColor(Colors.Background, '*', [0.15, 0.65, 0.65])
 Colors.chainedZC        = tweakColor(Colors.Background, '*', [1.00, 0.50, 0.10])
 
 if(Colors.isDarkBkgd):

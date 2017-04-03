@@ -2642,7 +2642,10 @@ class ArmoryMainWindow(QMainWindow):
 
          # Comment
          if le.isOptInRBF() == True:
-            dispComment = self.tr("*** RBF Flagged *** ") + dispComment
+            if le.getValue() < 0 or le.isSentToSelf():
+               dispComment = self.tr("*Right click to bump fee* ") + dispComment
+            else:
+               dispComment = self.tr("*** RBF Flagged *** ") + dispComment
          elif le.isChainedZC() == True:
             dispComment = self.tr("*** Chained ZC *** ") + dispComment
          row.append(dispComment)
@@ -3281,7 +3284,14 @@ class ArmoryMainWindow(QMainWindow):
 
       txHash = str(self.ledgerView.model().index(row, LEDGERCOLS.TxHash).data().toString())
       txHash = hex_switchEndian(txHash)
+      
+      amount, flag = self.ledgerView.model().index(row, LEDGERCOLS.Amount).data().toFloat()
+      rbf    = self.ledgerView.model().index(row, LEDGERCOLS.optInRBF).data().toBool()
+      issts  = self.ledgerView.model().index(row, LEDGERCOLS.toSelf).data().toBool()
+      flagged = rbf and (amount < 0 or issts)       
 
+      if flagged:
+         actBump    = menu.addAction(self.tr("Bump Fee"))
       actViewTx     = menu.addAction(self.tr("View Details"))
       actViewBlkChn = menu.addAction(self.tr("View on %1").arg(BLOCKEXPLORE_NAME))
       actComment    = menu.addAction(self.tr("Change Comment"))
@@ -3309,6 +3319,9 @@ class ArmoryMainWindow(QMainWindow):
          self.updateTxCommentFromView(self.ledgerView)
       elif action==actOpenWallet:
          DlgWalletDetails(self.getSelectedWallet(), self.usermode, self, self).exec_()
+      elif flagged and action==actBump:
+         #bump the fee
+         return 
 
    #############################################################################
 
