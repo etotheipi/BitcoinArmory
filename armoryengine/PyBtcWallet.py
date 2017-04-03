@@ -2677,6 +2677,7 @@ class PyBtcWallet(object):
          #create cpp signer
          from armoryengine.CppSignerDirector import PythonSignerDirector
          cppsigner = PythonSignerDirector(self)
+         cppsigner.setLockTime(ustx.lockTime)
          
          #set spenders
          for ustxi in ustx.ustxInputs:

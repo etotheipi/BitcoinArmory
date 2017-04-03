@@ -470,6 +470,11 @@ public:
          throw runtime_error("failed signature");
    }
 
+   void setLockTime(unsigned locktime)
+   {
+      signer_->setLockTime(locktime);
+   }
+
    BinaryData getSignedTx(void)
    {
       BinaryData finalTx(signer_->serialize());

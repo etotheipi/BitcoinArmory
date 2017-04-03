@@ -160,8 +160,10 @@ public:
 
    uint32_t getVersion(void) const { return version_; }
    uint32_t getTxOutCount(void) const { return recipients_.size(); }
-   uint32_t getLockTime(void) const { return lockTime_; }
    shared_ptr<ScriptSpender> getSpender(unsigned) const;
+
+   uint32_t getLockTime(void) const { return lockTime_; }
+   void setLockTime(unsigned locktime) { lockTime_ = locktime; }
 
    //sw methods
    BinaryData serializeAllOutpoints(void) const;

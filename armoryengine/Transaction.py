@@ -2098,6 +2098,7 @@ class UnsignedTransaction(AsciiSerializable):
       self.pytxObj = PyTx()
       self.pytxObj.version  = UNSIGNED_TX_VERSION
       self.pytxObj.lockTime = lockTime
+      self.lockTime = lockTime
       self.pytxObj.inputs   = [None]*nIn
       self.pytxObj.outputs  = [None]*nOut
 
@@ -2225,7 +2226,7 @@ class UnsignedTransaction(AsciiSerializable):
    #############################################################################
    def createFromTxOutSelection(self, utxoSelection, scriptValuePairs,
                                 pubKeyMap=None, txMap=None, p2shMap=None, 
-                                RBF=False):
+                                RBF=False, lockTime=0):
       
       totalUtxoSum = sumTxOutList(utxoSelection)
       totalOutputSum = sum([a[1] for a in scriptValuePairs])
@@ -2234,7 +2235,7 @@ class UnsignedTransaction(AsciiSerializable):
 
       thePyTx = PyTx()
       thePyTx.version = UNSIGNED_TX_VERSION
-      thePyTx.lockTime = 0
+      thePyTx.lockTime = lockTime
       thePyTx.inputs = []
       thePyTx.outputs = []
 

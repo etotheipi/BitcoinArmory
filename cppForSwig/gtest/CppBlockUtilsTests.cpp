@@ -6732,6 +6732,7 @@ TEST_F(TransactionsTest, Wallet_SpendTest_Nested_P2WSH)
 
       auto spendVal = 27 * COIN;
       Signer signer;
+      signer.setLockTime(3);
 
       //instantiate resolver feed overloaded object
       auto feed = make_shared<TestResolverFeed>();
@@ -11151,6 +11152,7 @@ TEST_F(BlockUtilsBare, RegisterAddress_AfterZC)
 
       auto spendVal = 27 * COIN;
       Signer signer;
+      signer.setLockTime(3);
 
       //instantiate resolver feed overloaded object
       auto feed = make_shared<TestResolverFeed>();
