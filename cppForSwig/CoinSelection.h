@@ -85,6 +85,7 @@ struct UtxoSelection
    {}
 
    void computeSizeAndFee(const PaymentStruct&);
+   void shuffle(void);
 };
 
 

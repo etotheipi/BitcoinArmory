@@ -146,7 +146,11 @@ UtxoSelection CoinSelection::getUtxoSelection(
    if (selectPtr == nullptr)
       throw CoinSelectionException("failed to select utxos");
 
+   //consolidate in case our selection hits addresses with several utxos
    fleshOutSelection(utxoVec, *selectPtr, payStruct);
+
+   //one last shuffle for the good measure
+   selectPtr->shuffle();
 
    return *selectPtr;
 }
@@ -966,6 +970,15 @@ void UtxoSelection::computeSizeAndFee(
          return;
       }
    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void UtxoSelection::shuffle()
+{
+   if (utxoVec_.size() < 2)
+      return;
+     
+   random_shuffle(utxoVec_.begin(), utxoVec_.end());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
