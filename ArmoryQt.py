@@ -30,7 +30,6 @@ import sys
 import threading
 import time
 import traceback
-import webbrowser
 import glob
 
 
@@ -69,6 +68,10 @@ from dynamicImport import MODULE_PATH_KEY, ZIP_EXTENSION, getModuleList, importM
    MODULE_ZIP_STATUS_KEY, getModuleListNoZip, dynamicImportNoZip
 import tempfile
 
+# Set URL handler to warn before opening url
+handler = URLHandler()
+QDesktopServices.setUrlHandler("http", handler.handleURL) 
+QDesktopServices.setUrlHandler("https", handler.handleURL) 
 
 # Load our framework with OS X-specific code.
 if OS_MACOSX:
@@ -3293,7 +3296,7 @@ class ArmoryMainWindow(QMainWindow):
          self.showLedgerTx()
       elif action==actViewBlkChn:
          try:
-            webbrowser.open(BLOCKEXPLORE_URL_TX % txHash)
+            DlgBrowserWarn(BLOCKEXPLORE_URL_TX % txHash).exec_()
          except:
             LOGEXCEPT('Failed to open webbrowser')
             QMessageBox.critical(self, self.tr('Could not open browser'), self.tr(
@@ -3754,7 +3757,7 @@ class ArmoryMainWindow(QMainWindow):
 
       #####
       def openBitcoinOrg():
-         webbrowser.open('https://bitcoin.org/en/download')
+         DlgBrowserWarn('https://bitcoin.org/en/download').exec_()
 
 
 

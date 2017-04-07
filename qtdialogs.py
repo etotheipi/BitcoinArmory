@@ -1410,8 +1410,7 @@ class DlgWalletDetails(ArmoryDialog):
       elif action == actionBlkChnInfo:
          blkchnURL = BLOCKEXPLORE_URL_ADDR % addr
          try:
-            import webbrowser
-            webbrowser.open(blkchnURL)
+            DlgBrowserWarn(blkchnURL).exec_()
          except:
             QMessageBox.critical(self, self.tr('Could not open browser'), self.tr(
                'Armory encountered an error opening your web browser.  To view '
@@ -13744,6 +13743,40 @@ class DlgRegAndTest(ArmoryDialog):
       self.main.abortLoad = True
       LOGERROR('User attempted to run regtest and testnet simultaneously')
       super(DlgRegAndTest, self).reject()
+
+#############################################################################
+class URLHandler(QObject):
+   @pyqtSignature("QUrl")
+   def handleURL(self, link):
+      DlgBrowserWarn(link.toString()).exec_()
+
+class DlgBrowserWarn(ArmoryDialog):
+   def __init__(self, link, parent=None, main=None):
+      super(DlgBrowserWarn, self).__init__(parent, main)
+
+      self.link = link
+      self.btnCancel = QPushButton("Cancel")
+      self.connect(self.btnCancel, SIGNAL(CLICKED), self.cancel)
+      self.btnContinue = QPushButton("Continue")
+      self.connect(self.btnContinue, SIGNAL(CLICKED), self.accept)
+      btnBox = makeHorizFrame([STRETCH, self.btnCancel, self.btnContinue])
+
+      lblWarn = QRichLabel(self.tr('Your default browser will now open and go to the following link: %1. Are you sure you want to proceed?').arg(self.link))
+
+      dlgLayout = QVBoxLayout()
+      frmAll = makeVertFrame([lblWarn, btnBox])
+
+      dlgLayout.addWidget(frmAll)
+      self.setLayout(dlgLayout)
+      self.setWindowTitle('Warning: Opening Browser')
+
+   def cancel(self):
+      super(DlgBrowserWarn, self).reject()
+
+   def accept(self):
+     import webbrowser
+     webbrowser.open(self.link)
+     super(DlgBrowserWarn, self).accept() 
 
 # Put circular imports at the end
 from ui.WalletFrames import SelectWalletFrame, WalletBackupFrame,\
