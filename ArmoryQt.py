@@ -52,7 +52,15 @@ qt4reactor.install()
 
 # Setup translations
 translator = QTranslator(QAPP)
-translator.load(GUI_LANGUAGE, os.path.join(os.path.dirname(os.path.realpath(__file__)), "lang/"))
+
+app_dir = "./"
+try:
+   app_dir = os.path.dirname(os.path.realpath(__file__))
+except:
+   if OS_WINDOWS and getattr(sys, 'frozen', False):
+      app_dir = os.path.dirname(sys.executable) 
+      
+translator.load(GUI_LANGUAGE, os.path.join(app_dir, "lang/"))
 QAPP.installTranslator(translator)
 
 from armorymodels import *
