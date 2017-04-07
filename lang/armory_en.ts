@@ -8,7 +8,7 @@
         <translation>Not Online</translation>
     </message>
     <message>
-        <location filename="TreeViewGUI.py" line="65"/>
+        <location filename="TreeViewGUI.py" line="130"/>
         <source>Block: #%1 | Tx: #%2 | TxOut: #%3</source>
         <translation>Block: #%1 | Tx: #%2 | TxOut: #%3</translation>
     </message>
@@ -32,26 +32,56 @@
         <source>Checking imports for wallet %1</source>
         <translation>Checking imports for wallet %1</translation>
     </message>
+    <message>
+        <location filename="TreeViewGUI.py" line="126"/>
+        <source>ZC id: %1 | TxOut: %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="TreeViewGUI.py" line="393"/>
+        <source>Redeemed Outputs</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="TreeViewGUI.py" line="412"/>
+        <source>Spender Tx</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="TreeViewGUI.py" line="433"/>
+        <source>Tx: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="TreeViewGUI.py" line="666"/>
+        <source>Unspent Outputs</source>
+        <translation type="unfinished">Unspent Outputs</translation>
+    </message>
+    <message>
+        <location filename="TreeViewGUI.py" line="668"/>
+        <source>CPFP Eligible Outputs</source>
+        <translation type="unfinished">CPFP Eligible Outputs</translation>
+    </message>
 </context>
 <context>
     <name>AddressTreeModel</name>
     <message>
-        <location filename="TreeViewGUI.py" line="636"/>
+        <location filename="TreeViewGUI.py" line="857"/>
         <source>Address</source>
         <translation>Address</translation>
     </message>
     <message>
-        <location filename="TreeViewGUI.py" line="637"/>
+        <location filename="TreeViewGUI.py" line="858"/>
         <source>Comment</source>
         <translation>Comment</translation>
     </message>
     <message>
-        <location filename="TreeViewGUI.py" line="638"/>
+        <location filename="TreeViewGUI.py" line="859"/>
         <source>Tx Count</source>
         <translation>Tx Count</translation>
     </message>
     <message>
-        <location filename="TreeViewGUI.py" line="639"/>
+        <location filename="TreeViewGUI.py" line="860"/>
         <source>Balance</source>
         <translation>Balance</translation>
     </message>
@@ -107,29 +137,29 @@
 <context>
     <name>AdvancedOptionsFrame</name>
     <message>
-        <location filename="WalletFrames.py" line="413"/>
+        <location filename="WalletFrames.py" line="472"/>
         <source>Armory will test your system&apos;s speed to determine the most challenging encryption settings that can be applied in a given amount of time.  High settings make it much harder for someone to guess your passphrase.  This is used for all encrypted wallets, but the default parameters can be changed below.
 </source>
         <translation>Armory will test your system&apos;s speed to determine the most challenging encryption settings that can be applied in a given amount of time.  High settings make it much harder for someone to guess your passphrase.  This is used for all encrypted wallets, but the default parameters can be changed below.
 </translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="420"/>
+        <location filename="WalletFrames.py" line="479"/>
         <source>This is the amount of time it will take for your computer to unlock your wallet after you enter your passphrase. (the actual time used will be less than the specified time, but more than one half of it).  </source>
         <translation>This is the amount of time it will take for your computer to unlock your wallet after you enter your passphrase. (the actual time used will be less than the specified time, but more than one half of it).  </translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="430"/>
+        <location filename="WalletFrames.py" line="489"/>
         <source>Target compute &amp;time (s, ms):</source>
         <translation>Target compute &amp;time (s, ms):</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="431"/>
+        <location filename="WalletFrames.py" line="490"/>
         <source>This is the &lt;b&gt;maximum&lt;/b&gt; memory that will be used as part of the encryption process.  The actual value used may be lower, depending on your system&apos;s speed.  If a low value is chosen, Armory will compensate by chaining together more calculations to meet the target time.  High memory target will make GPU-acceleration useless for guessing your passphrase.</source>
         <translation>This is the &lt;b&gt;maximum&lt;/b&gt; memory that will be used as part of the encryption process.  The actual value used may be lower, depending on your system&apos;s speed.  If a low value is chosen, Armory will compensate by chaining together more calculations to meet the target time.  High memory target will make GPU-acceleration useless for guessing your passphrase.</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="445"/>
+        <location filename="WalletFrames.py" line="504"/>
         <source>Max &amp;memory usage (kB, MB):</source>
         <translation>Max &amp;memory usage (kB, MB):</translation>
     </message>
@@ -303,7 +333,7 @@
         <translation>&amp;Broadcast Raw Transaction...</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="2001"/>
+        <location filename="ArmoryQt.py" line="2007"/>
         <source>Offline</source>
         <translation>Offline</translation>
     </message>
@@ -543,27 +573,27 @@
         <translation>Invalid Date Format</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="1747"/>
+        <location filename="ArmoryQt.py" line="1753"/>
         <source>Already Open</source>
         <translation>Already Open</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="1897"/>
+        <location filename="ArmoryQt.py" line="1903"/>
         <source>No URL String</source>
         <translation>No URL String</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="2017"/>
+        <location filename="ArmoryQt.py" line="2023"/>
         <source>clicked</source>
         <translation>clicked</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3325"/>
+        <location filename="ArmoryQt.py" line="3335"/>
         <source>Offline Mode</source>
         <translation>Offline Mode</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="1936"/>
+        <location filename="ArmoryQt.py" line="1942"/>
         <source>The raw URI string is:
 
 </source>
@@ -572,727 +602,722 @@
 </translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="1937"/>
+        <location filename="ArmoryQt.py" line="1943"/>
         <source>Invalid URI</source>
         <translation>Invalid URI</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="1966"/>
+        <location filename="ArmoryQt.py" line="1972"/>
         <source>Wrong Network!</source>
         <translation>Wrong Network!</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="1985"/>
+        <location filename="ArmoryQt.py" line="1991"/>
         <source>Unsupported URI</source>
         <translation>Unsupported URI</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="2387"/>
+        <location filename="ArmoryQt.py" line="2393"/>
         <source>Contributor &quot;%1&quot; (%2)</source>
         <translation>Contributor &quot;%1&quot; (%2)</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="2389"/>
+        <location filename="ArmoryQt.py" line="2395"/>
         <source>Contributor %1</source>
         <translation>Contributor %1</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="2392"/>
+        <location filename="ArmoryQt.py" line="2398"/>
         <source>Contributor &quot;%1&quot;</source>
         <translation>Contributor &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="2394"/>
+        <location filename="ArmoryQt.py" line="2400"/>
         <source>Unknown Contributor</source>
         <translation>Unknown Contributor</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="2459"/>
+        <location filename="ArmoryQt.py" line="2465"/>
         <source>Blockchain loaded, wallets sync&apos;d!</source>
         <translation>Blockchain loaded, wallets sync&apos;d!</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="2465"/>
+        <location filename="ArmoryQt.py" line="2471"/>
         <source>Blockchain Loaded!</source>
         <translation>Blockchain Loaded!</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="2465"/>
+        <location filename="ArmoryQt.py" line="2471"/>
         <source>Do not show me this notification again </source>
         <translation>Do not show me this notification again </translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="2551"/>
+        <location filename="ArmoryQt.py" line="2557"/>
         <source>&lt;b&gt;&lt;font color=&quot;%1&quot;&gt;Maximum Funds:&lt;/font&gt;&lt;/b&gt;</source>
         <translation>&lt;b&gt;&lt;font color=&quot;%1&quot;&gt;Maximum Funds:&lt;/font&gt;&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="2644"/>
-        <source>***MEMPOOL REPLACEABLE*** </source>
-        <translation>***MEMPOOL REPLACEABLE*** </translation>
-    </message>
-    <message>
-        <location filename="ArmoryQt.py" line="2685"/>
+        <location filename="ArmoryQt.py" line="2695"/>
         <source>My Wallets</source>
         <translation>My Wallets</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="2686"/>
+        <location filename="ArmoryQt.py" line="2696"/>
         <source>Offline Wallets</source>
         <translation>Offline Wallets</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="2687"/>
+        <location filename="ArmoryQt.py" line="2697"/>
         <source>Other&apos;s wallets</source>
         <translation>Other&apos;s wallets</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="2688"/>
+        <location filename="ArmoryQt.py" line="2698"/>
         <source>All Wallets</source>
         <translation>All Wallets</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="2689"/>
+        <location filename="ArmoryQt.py" line="2699"/>
         <source>Custom Filter</source>
         <translation>Custom Filter</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3428"/>
+        <location filename="ArmoryQt.py" line="3438"/>
         <source>No Wallets!</source>
         <translation>No Wallets!</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="2713"/>
+        <location filename="ArmoryQt.py" line="2723"/>
         <source>Select a Wallet</source>
         <translation>Select a Wallet</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="2713"/>
+        <location filename="ArmoryQt.py" line="2723"/>
         <source>Please select a wallet on the right, to see its properties.</source>
         <translation>Please select a wallet on the right, to see its properties.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="2931"/>
+        <location filename="ArmoryQt.py" line="2941"/>
         <source>Already Sweeping</source>
         <translation>Already Sweeping</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3012"/>
+        <location filename="ArmoryQt.py" line="3022"/>
         <source>addresses</source>
         <translation>addresses</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3012"/>
+        <location filename="ArmoryQt.py" line="3022"/>
         <source>address</source>
         <translation>address</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="2953"/>
+        <location filename="ArmoryQt.py" line="2963"/>
         <source>Armory is Offline</source>
         <translation>Armory is Offline</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="2974"/>
+        <location filename="ArmoryQt.py" line="2984"/>
         <source>&lt;b&gt;Would you like to start the scan operation right now?&lt;/b&gt;</source>
         <translation>&lt;b&gt;Would you like to start the scan operation right now?&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="2977"/>
+        <location filename="ArmoryQt.py" line="2987"/>
         <source>&lt;br&gt;&lt;br&gt;Clicking &quot;No&quot; will abort the sweep operation</source>
         <translation>&lt;br&gt;&lt;br&gt;Clicking &quot;No&quot; will abort the sweep operation</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="2979"/>
+        <location filename="ArmoryQt.py" line="2989"/>
         <source>Confirm Rescan</source>
         <translation>Confirm Rescan</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3006"/>
+        <location filename="ArmoryQt.py" line="3016"/>
         <source>Nothing to do</source>
         <translation>Nothing to do</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3013"/>
+        <location filename="ArmoryQt.py" line="3023"/>
         <source>Cannot sweep</source>
         <translation>Cannot sweep</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3028"/>
+        <location filename="ArmoryQt.py" line="3038"/>
         <source>multiple addresses</source>
         <translation>multiple addresses</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3032"/>
+        <location filename="ArmoryQt.py" line="3042"/>
         <source>address &lt;b&gt;%1&lt;/b&gt;</source>
         <translation>address &lt;b&gt;%1&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3034"/>
+        <location filename="ArmoryQt.py" line="3044"/>
         <source>wallet &lt;b&gt;&quot;%1&quot;&lt;/b&gt; (%2) </source>
         <translation>wallet &lt;b&gt;&quot;%1&quot;&lt;/b&gt; (%2) </translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3077"/>
+        <location filename="ArmoryQt.py" line="3087"/>
         <source>Broadcast failed</source>
         <translation>Broadcast failed</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3098"/>
+        <location filename="ArmoryQt.py" line="3108"/>
         <source>Transaction Not Accepted</source>
         <translation>Transaction Not Accepted</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3130"/>
+        <location filename="ArmoryQt.py" line="3140"/>
         <source>In the future, you may avoid scanning twice by starting Armory in offline mode (--offline), and perform the import before switching to online mode.</source>
         <translation>In the future, you may avoid scanning twice by starting Armory in offline mode (--offline), and perform the import before switching to online mode.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3134"/>
+        <location filename="ArmoryQt.py" line="3144"/>
         <source>Armory is Busy</source>
         <translation>Armory is Busy</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3134"/>
+        <location filename="ArmoryQt.py" line="3144"/>
         <source>Wallets and addresses cannot be imported while Armory is in the middle of an existing blockchain scan.  Please wait for the scan to finish.  </source>
         <translation>Wallets and addresses cannot be imported while Armory is in the middle of an existing blockchain scan.  Please wait for the scan to finish.  </translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3148"/>
+        <location filename="ArmoryQt.py" line="3158"/>
         <source>Scanning</source>
         <translation>Scanning</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3168"/>
+        <location filename="ArmoryQt.py" line="3178"/>
         <source>Duplicate Wallet!</source>
         <translation>Duplicate Wallet!</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3187"/>
+        <location filename="ArmoryQt.py" line="3197"/>
         <source>Be Careful!</source>
         <translation>Be Careful!</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3204"/>
+        <location filename="ArmoryQt.py" line="3214"/>
         <source>Blockchain Not Ready</source>
         <translation>Blockchain Not Ready</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3210"/>
+        <location filename="ArmoryQt.py" line="3220"/>
         <source>No wallets!</source>
         <translation>No wallets!</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3262"/>
+        <location filename="ArmoryQt.py" line="3272"/>
         <source>Invalid Tx</source>
         <translation>Invalid Tx</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3282"/>
+        <location filename="ArmoryQt.py" line="3292"/>
         <source>View Details</source>
         <translation>View Details</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3283"/>
+        <location filename="ArmoryQt.py" line="3293"/>
         <source>View on %1</source>
         <translation>View on %1</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3284"/>
+        <location filename="ArmoryQt.py" line="3294"/>
         <source>Change Comment</source>
         <translation>Change Comment</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3285"/>
+        <location filename="ArmoryQt.py" line="3295"/>
         <source>Copy Transaction ID</source>
         <translation>Copy Transaction ID</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3286"/>
+        <location filename="ArmoryQt.py" line="3296"/>
         <source>Open Relevant Wallet</source>
         <translation>Open Relevant Wallet</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3296"/>
+        <location filename="ArmoryQt.py" line="3306"/>
         <source>Could not open browser</source>
         <translation>Could not open browser</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3335"/>
+        <location filename="ArmoryQt.py" line="3345"/>
         <source>Armory Not Ready</source>
         <translation>Armory Not Ready</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3376"/>
+        <location filename="ArmoryQt.py" line="3386"/>
         <source>&lt;br&gt;--&lt;b&gt;Address&lt;/b&gt;:<byte value="x9"/>%1 </source>
         <translation>&lt;br&gt;--&lt;b&gt;Address&lt;/b&gt;:&lt;byte value=&quot;x9&quot;/&gt;%1 </translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3388"/>
+        <location filename="ArmoryQt.py" line="3398"/>
         <source>&lt;br&gt;--&lt;b&gt;Amount&lt;/b&gt;:<byte value="x9"/>%1 BTC</source>
         <translation>&lt;br&gt;--&lt;b&gt;Amount&lt;/b&gt;:&lt;byte value=&quot;x9&quot;/&gt;%1 BTC</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3393"/>
+        <location filename="ArmoryQt.py" line="3403"/>
         <source>&lt;br&gt;--&lt;b&gt;Message&lt;/b&gt;:<byte value="x9"/>%1...</source>
         <translation>&lt;br&gt;--&lt;b&gt;Message&lt;/b&gt;:&lt;byte value=&quot;x9&quot;/&gt;%1...</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3395"/>
+        <location filename="ArmoryQt.py" line="3405"/>
         <source>&lt;br&gt;--&lt;b&gt;Message&lt;/b&gt;:<byte value="x9"/>%1</source>
         <translation>&lt;br&gt;--&lt;b&gt;Message&lt;/b&gt;:&lt;byte value=&quot;x9&quot;/&gt;%1</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3445"/>
+        <location filename="ArmoryQt.py" line="3455"/>
         <source>Receive coins with wallet...</source>
         <translation>Receive coins with wallet...</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3535"/>
+        <location filename="ArmoryQt.py" line="3545"/>
         <source>Privacy Warning</source>
         <translation>Privacy Warning</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3603"/>
+        <location filename="ArmoryQt.py" line="3613"/>
         <source>Already running!</source>
         <translation>Already running!</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3611"/>
+        <location filename="ArmoryQt.py" line="3621"/>
         <source>Still Missing</source>
         <translation>Still Missing</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3618"/>
+        <location filename="ArmoryQt.py" line="3628"/>
         <source>Still Running</source>
         <translation>Still Running</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3732"/>
+        <location filename="ArmoryQt.py" line="3742"/>
         <source>Close Bitcoin Process</source>
         <translation>Close Bitcoin Process</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3733"/>
+        <location filename="ArmoryQt.py" line="3743"/>
         <source>Open https://bitcoin.org</source>
         <translation>Open https://bitcoin.org</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3734"/>
+        <location filename="ArmoryQt.py" line="3744"/>
         <source>Change Settings</source>
         <translation>Change Settings</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3738"/>
+        <location filename="ArmoryQt.py" line="3748"/>
         <source>Preparing to shut down..</source>
         <translation>Preparing to shut down..</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3766"/>
+        <location filename="ArmoryQt.py" line="3776"/>
         <source>Stop existing Bitcoin processes so that Armory can open its own</source>
         <translation>Stop existing Bitcoin processes so that Armory can open its own</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3768"/>
+        <location filename="ArmoryQt.py" line="3778"/>
         <source>Open browser to Bitcoin webpage to download and install Bitcoin software</source>
         <translation>Open browser to Bitcoin webpage to download and install Bitcoin software</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3770"/>
+        <location filename="ArmoryQt.py" line="3780"/>
         <source>Open Armory settings window to change Bitcoin software management</source>
         <translation>Open Armory settings window to change Bitcoin software management</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3833"/>
+        <location filename="ArmoryQt.py" line="3843"/>
         <source>Not Found</source>
         <translation>Not Found</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3886"/>
+        <location filename="ArmoryQt.py" line="3896"/>
         <source>Loading Database Headers</source>
         <translation>Loading Database Headers</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3895"/>
+        <location filename="ArmoryQt.py" line="3905"/>
         <source>Organizing Blockchain</source>
         <translation>Organizing Blockchain</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4615"/>
+        <location filename="ArmoryQt.py" line="4625"/>
         <source>Scan Transaction History</source>
         <translation>Scan Transaction History</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3906"/>
+        <location filename="ArmoryQt.py" line="3916"/>
         <source>Reading New Block Headers</source>
         <translation>Reading New Block Headers</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3914"/>
+        <location filename="ArmoryQt.py" line="3924"/>
         <source>Building Databases</source>
         <translation>Building Databases</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4548"/>
+        <location filename="ArmoryQt.py" line="4558"/>
         <source>Build Databases</source>
         <translation>Build Databases</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3924"/>
+        <location filename="ArmoryQt.py" line="3934"/>
         <source>Scanning Transaction History</source>
         <translation>Scanning Transaction History</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3934"/>
+        <location filename="ArmoryQt.py" line="3944"/>
         <source>Computing Balances</source>
         <translation>Computing Balances</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3944"/>
+        <location filename="ArmoryQt.py" line="3954"/>
         <source>Parsing Tx Hashes</source>
         <translation>Parsing Tx Hashes</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3958"/>
+        <location filename="ArmoryQt.py" line="3968"/>
         <source>Resolving Tx Hashes</source>
         <translation>Resolving Tx Hashes</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4067"/>
+        <location filename="ArmoryQt.py" line="4077"/>
         <source>&lt;ul&gt;&lt;li&gt;Create, import or recover Armory wallets&lt;/li&gt;&lt;li&gt;Generate new addresses to receive coins&lt;/li&gt;&lt;li&gt;Send bitcoins to other people&lt;/li&gt;&lt;li&gt;Create one-time backups of your wallets (in printed or digital form)&lt;/li&gt;&lt;li&gt;Click on &quot;bitcoin:&quot; links in your web browser (not supported on all operating systems)&lt;/li&gt;&lt;li&gt;Import private keys to wallets&lt;/li&gt;&lt;li&gt;Monitor payments to watching-only wallets and create unsigned transactions&lt;/li&gt;&lt;li&gt;Sign messages&lt;/li&gt;&lt;li&gt;&lt;b&gt;Create transactions with watching-only wallets, to be signed by an offline wallets&lt;/b&gt;&lt;/li&gt;&lt;/ul&gt;</source>
         <translation>&lt;ul&gt;&lt;li&gt;Create, import or recover Armory wallets&lt;/li&gt;&lt;li&gt;Generate new addresses to receive coins&lt;/li&gt;&lt;li&gt;Send bitcoins to other people&lt;/li&gt;&lt;li&gt;Create one-time backups of your wallets (in printed or digital form)&lt;/li&gt;&lt;li&gt;Click on &quot;bitcoin:&quot; links in your web browser (not supported on all operating systems)&lt;/li&gt;&lt;li&gt;Import private keys to wallets&lt;/li&gt;&lt;li&gt;Monitor payments to watching-only wallets and create unsigned transactions&lt;/li&gt;&lt;li&gt;Sign messages&lt;/li&gt;&lt;li&gt;&lt;b&gt;Create transactions with watching-only wallets, to be signed by an offline wallets&lt;/b&gt;&lt;/li&gt;&lt;/ul&gt;</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4109"/>
+        <location filename="ArmoryQt.py" line="4119"/>
         <source>&lt;p&gt;&lt;b&gt;You now have access to all the features Armory has to offer!&lt;/b&gt;&lt;br&gt;To see your balances and transaction history, please click on the &quot;Transactions&quot; tab above this text.  &lt;br&gt;Here&apos;s some things you can do with Armory Bitcoin Client:&lt;br&gt;</source>
         <translation>&lt;p&gt;&lt;b&gt;You now have access to all the features Armory has to offer!&lt;/b&gt;&lt;br&gt;To see your balances and transaction history, please click on the &quot;Transactions&quot; tab above this text.  &lt;br&gt;Here&apos;s some things you can do with Armory Bitcoin Client:&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4116"/>
+        <location filename="ArmoryQt.py" line="4126"/>
         <source>If you experience any performance issues with Armory, please confirm that Bitcoin Core is running and &lt;i&gt;fully synchronized with the Bitcoin network&lt;/i&gt;.  You will see a green checkmark in the bottom right corner of the Bitcoin Core window if it is synchronized.  If not, it is recommended you close Armory and restart it only when you see that checkmark.&lt;br&gt;&lt;br&gt;</source>
         <translation>If you experience any performance issues with Armory, please confirm that Bitcoin Core is running and &lt;i&gt;fully synchronized with the Bitcoin network&lt;/i&gt;.  You will see a green checkmark in the bottom right corner of the Bitcoin Core window if it is synchronized.  If not, it is recommended you close Armory and restart it only when you see that checkmark.&lt;br&gt;&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4116"/>
+        <location filename="ArmoryQt.py" line="4126"/>
         <source>&lt;b&gt;Please backup your wallets!&lt;/b&gt;  Armory wallets are &quot;deterministic&quot;, meaning they only need to be backed up one time (unless you have imported external addresses/keys). Make a backup and keep it in a safe place!  All funds from Armory-generated addresses will always be recoverable with a paper backup, any time in the future.  Use the &quot;Backup Individual Keys&quot; option for each wallet to backup imported keys.&lt;/p&gt;</source>
         <translation>&lt;b&gt;Please backup your wallets!&lt;/b&gt;  Armory wallets are &quot;deterministic&quot;, meaning they only need to be backed up one time (unless you have imported external addresses/keys). Make a backup and keep it in a safe place!  All funds from Armory-generated addresses will always be recoverable with a paper backup, any time in the future.  Use the &quot;Backup Individual Keys&quot; option for each wallet to backup imported keys.&lt;/p&gt;</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4144"/>
+        <location filename="ArmoryQt.py" line="4154"/>
         <source>&lt;b&gt;Wallet balances may be incorrect until the rescan operation is performed!&lt;/b&gt;&lt;br&gt;&lt;br&gt;Armory is currently online, but addresses/keys have been added without rescanning the blockchain.  You may continue using Armory in online mode, but any transactions associated with the new addresses will not appear in the ledger. &lt;br&gt;&lt;br&gt;Pressing the button above will put Armory into offline mode for a few minutes until the scan operation is complete.</source>
         <translation>&lt;b&gt;Wallet balances may be incorrect until the rescan operation is performed!&lt;/b&gt;&lt;br&gt;&lt;br&gt;Armory is currently online, but addresses/keys have been added without rescanning the blockchain.  You may continue using Armory in online mode, but any transactions associated with the new addresses will not appear in the ledger. &lt;br&gt;&lt;br&gt;Pressing the button above will put Armory into offline mode for a few minutes until the scan operation is complete.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4156"/>
+        <location filename="ArmoryQt.py" line="4166"/>
         <source>There is no connection to the internet, and there is no other Bitcoin software running.  Most likely you are here because this is a system dedicated to manage offline wallets! &lt;br&gt;&lt;br&gt;&lt;b&gt;If you expected Armory to be in online mode&lt;/b&gt;, please verify your internet connection is active, then restart Armory.  If you think the lack of internet connection is in error (such as if you are using Tor), then you can restart Armory with the &quot;--skip-online-check&quot; option, or change it in the Armory settings.&lt;br&gt;&lt;br&gt;If you do not have Bitcoin Core installed, you can download it from &lt;a href=&quot;https://bitcoin.org&quot;&gt;https://bitcoin.org&lt;/a&gt;.</source>
         <translation>There is no connection to the internet, and there is no other Bitcoin software running.  Most likely you are here because this is a system dedicated to manage offline wallets! &lt;br&gt;&lt;br&gt;&lt;b&gt;If you expected Armory to be in online mode&lt;/b&gt;, please verify your internet connection is active, then restart Armory.  If you think the lack of internet connection is in error (such as if you are using Tor), then you can restart Armory with the &quot;--skip-online-check&quot; option, or change it in the Armory settings.&lt;br&gt;&lt;br&gt;If you do not have Bitcoin Core installed, you can download it from &lt;a href=&quot;https://bitcoin.org&quot;&gt;https://bitcoin.org&lt;/a&gt;.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4179"/>
+        <location filename="ArmoryQt.py" line="4189"/>
         <source>You are currently in offline mode, but can switch to online mode by pressing the button above.  However, it is not recommended that you switch until Bitcoin Core/bitcoind is fully synchronized with the bitcoin network.  You will see a green checkmark in the bottom-right corner of the Bitcoin Core window when it is finished.&lt;br&gt;&lt;br&gt;Switching to online mode will give you access to more Armory functionality, including sending and receiving bitcoins and viewing the balances and transaction histories of each of your wallets.&lt;br&gt;&lt;br&gt;</source>
         <translation>You are currently in offline mode, but can switch to online mode by pressing the button above.  However, it is not recommended that you switch until Bitcoin Core/bitcoind is fully synchronized with the bitcoin network.  You will see a green checkmark in the bottom-right corner of the Bitcoin Core window when it is finished.&lt;br&gt;&lt;br&gt;Switching to online mode will give you access to more Armory functionality, including sending and receiving bitcoins and viewing the balances and transaction histories of each of your wallets.&lt;br&gt;&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4193"/>
+        <location filename="ArmoryQt.py" line="4203"/>
         <source>You are currently in offline mode because Bitcoin Core is not running.  To switch to online mode, start Bitcoin Core and let it synchronize with the network -- you will see a green checkmark in the bottom-right corner when it is complete.  If Bitcoin Core is already running and you believe the lack of connection is an error (especially if using proxies), please see &lt;a href=&quot;https://bitcointalk.org/index.php?topic=155717.msg1719077#msg1719077&quot;&gt;this link&lt;/a&gt; for options.&lt;br&gt;&lt;br&gt;&lt;b&gt;If you prefer to have Armory do this for you&lt;/b&gt;, then please check &quot;Let Armory run Bitcoin Core in the background&quot; under &quot;File&quot;-&gt;&quot;Settings.&quot;&lt;br&gt;&lt;br&gt;If you already know what you&apos;re doing and simply need to fetch the latest version of Bitcoin Core, you can download it from &lt;a href=&quot;https://bitcoin.org&quot;&gt;https://bitcoin.org&lt;/a&gt;.</source>
         <translation>You are currently in offline mode because Bitcoin Core is not running.  To switch to online mode, start Bitcoin Core and let it synchronize with the network -- you will see a green checkmark in the bottom-right corner when it is complete.  If Bitcoin Core is already running and you believe the lack of connection is an error (especially if using proxies), please see &lt;a href=&quot;https://bitcointalk.org/index.php?topic=155717.msg1719077#msg1719077&quot;&gt;this link&lt;/a&gt; for options.&lt;br&gt;&lt;br&gt;&lt;b&gt;If you prefer to have Armory do this for you&lt;/b&gt;, then please check &quot;Let Armory run Bitcoin Core in the background&quot; under &quot;File&quot;-&gt;&quot;Settings.&quot;&lt;br&gt;&lt;br&gt;If you already know what you&apos;re doing and simply need to fetch the latest version of Bitcoin Core, you can download it from &lt;a href=&quot;https://bitcoin.org&quot;&gt;https://bitcoin.org&lt;/a&gt;.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4212"/>
+        <location filename="ArmoryQt.py" line="4222"/>
         <source>You are currently in offline mode because Armory could not detect an internet connection.  If you think this is in error, then restart Armory using the &quot; --skip-online-check&quot; option, or adjust the Armory settings.  Then restart Armory.&lt;br&gt;&lt;br&gt;If this is intended to be an offline computer, note that it is not necessary to have Bitcoin Core or bitcoind running.</source>
         <translation>You are currently in offline mode because Armory could not detect an internet connection.  If you think this is in error, then restart Armory using the &quot; --skip-online-check&quot; option, or adjust the Armory settings.  Then restart Armory.&lt;br&gt;&lt;br&gt;If this is intended to be an offline computer, note that it is not necessary to have Bitcoin Core or bitcoind running.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4223"/>
+        <location filename="ArmoryQt.py" line="4233"/>
         <source>You are currently in offline mode because Armory could not find the blockchain files produced by Bitcoin Core.  Do you run Bitcoin Core (or bitcoind) from a non-standard directory?   Armory expects to find the blkXXXX.dat files in &lt;br&gt;&lt;br&gt;%1&lt;br&gt;&lt;br&gt; If you know where they are located, please restart Armory using the &quot; --satoshi-datadir=[path]&quot; to notify Armory where to find them.</source>
         <translation>You are currently in offline mode because Armory could not find the blockchain files produced by Bitcoin Core.  Do you run Bitcoin Core (or bitcoind) from a non-standard directory?   Armory expects to find the blkXXXX.dat files in &lt;br&gt;&lt;br&gt;%1&lt;br&gt;&lt;br&gt; If you know where they are located, please restart Armory using the &quot; --satoshi-datadir=[path]&quot; to notify Armory where to find them.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4233"/>
+        <location filename="ArmoryQt.py" line="4243"/>
         <source>Armory was previously online, but the connection to Bitcoin Core/bitcoind was interrupted.  You will not be able to send bitcoins or confirm receipt of bitcoins until the connection is reestablished.  &lt;br&gt;&lt;br&gt;Please check that Bitcoin Core is open and synchronized with the network.  Armory will &lt;i&gt;try to reconnect&lt;/i&gt; automatically when the connection is available again.  If Bitcoin Core is available again, and reconnection does not happen, please restart Armory.&lt;br&gt;&lt;br&gt;</source>
         <translation>Armory was previously online, but the connection to Bitcoin Core/bitcoind was interrupted.  You will not be able to send bitcoins or confirm receipt of bitcoins until the connection is reestablished.  &lt;br&gt;&lt;br&gt;Please check that Bitcoin Core is open and synchronized with the network.  Armory will &lt;i&gt;try to reconnect&lt;/i&gt; automatically when the connection is available again.  If Bitcoin Core is available again, and reconnection does not happen, please restart Armory.&lt;br&gt;&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4243"/>
+        <location filename="ArmoryQt.py" line="4253"/>
         <source>Please wait while the global transaction history is scanned. Armory will go into online mode automatically, as soon as the scan is complete.</source>
         <translation>Please wait while the global transaction history is scanned. Armory will go into online mode automatically, as soon as the scan is complete.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4248"/>
+        <location filename="ArmoryQt.py" line="4258"/>
         <source>Armory is scanning the global transaction history to retrieve information about your wallets.  The &quot;Transactions&quot; tab will be updated with wallet balance and history as soon as the scan is complete.  You may manage your wallets while you wait.&lt;br&gt;&lt;br&gt;</source>
         <translation>Armory is scanning the global transaction history to retrieve information about your wallets.  The &quot;Transactions&quot; tab will be updated with wallet balance and history as soon as the scan is complete.  You may manage your wallets while you wait.&lt;br&gt;&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4260"/>
+        <location filename="ArmoryQt.py" line="4270"/>
         <source>It appears you are already running Bitcoin software (Bitcoin Core or bitcoind). Unlike previous versions of Armory, you should &lt;u&gt;not&lt;/u&gt; run this software yourself --  Armory will run it in the background for you.  Either close the Bitcoin application or adjust your settings.  If you change your settings, then please restart Armory.</source>
         <translation>It appears you are already running Bitcoin software (Bitcoin Core or bitcoind). Unlike previous versions of Armory, you should &lt;u&gt;not&lt;/u&gt; run this software yourself --  Armory will run it in the background for you.  Either close the Bitcoin application or adjust your settings.  If you change your settings, then please restart Armory.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4269"/>
+        <location filename="ArmoryQt.py" line="4279"/>
         <source>&lt;b&gt;Only one more step to getting online with Armory!&lt;/b&gt;   You must install the Bitcoin software from https://bitcoin.org in order for Armory to communicate with the Bitcoin network.  If the Bitcoin software is already installed and/or you would prefer to manage it yourself, please adjust your settings and restart Armory.</source>
         <translation>&lt;b&gt;Only one more step to getting online with Armory!&lt;/b&gt;   You must install the Bitcoin software from https://bitcoin.org in order for Armory to communicate with the Bitcoin network.  If the Bitcoin software is already installed and/or you would prefer to manage it yourself, please adjust your settings and restart Armory.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4310"/>
+        <location filename="ArmoryQt.py" line="4320"/>
         <source>Armory&apos;s communication with the Bitcoin network was interrupted. This usually does not happen unless you closed the process that Armory was using to communicate with the network. Armory requires %1 to be running in the background, and this error pops up if it disappears.&lt;br&gt;&lt;br&gt;You may continue in offline mode, or you can close all Bitcoin processes and restart Armory.</source>
         <translation>Armory&apos;s communication with the Bitcoin network was interrupted. This usually does not happen unless you closed the process that Armory was using to communicate with the network. Armory requires %1 to be running in the background, and this error pops up if it disappears.&lt;br&gt;&lt;br&gt;You may continue in offline mode, or you can close all Bitcoin processes and restart Armory.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4319"/>
+        <location filename="ArmoryQt.py" line="4329"/>
         <source>Armory has experienced an issue trying to communicate with the Bitcoin software.  The software is running in the background, but Armory cannot communicate with it through RPC as it expects to be able to.  If you changed any settings in the Bitcoin home directory, please make sure that RPC is enabled and that it is accepting connections from localhost.  &lt;br&gt;&lt;br&gt;If you have not changed anything, please export the log file (from the &quot;File&quot; menu) and open an issue at https://github.com/goatpig/BitcoinArmory/issues</source>
         <translation>Armory has experienced an issue trying to communicate with the Bitcoin software.  The software is running in the background, but Armory cannot communicate with it through RPC as it expects to be able to.  If you changed any settings in the Bitcoin home directory, please make sure that RPC is enabled and that it is accepting connections from localhost.  &lt;br&gt;&lt;br&gt;If you have not changed anything, please export the log file (from the &quot;File&quot; menu) and open an issue at https://github.com/goatpig/BitcoinArmory/issues</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4330"/>
+        <location filename="ArmoryQt.py" line="4340"/>
         <source>Armory does not detect internet access, but it does detect running Bitcoin software.  Armory is in offline-mode. &lt;br&gt;&lt;br&gt;If you are intending to run an offline system, you will not need to have the Bitcoin software installed on the offline computer.  It is only needed for the online computer. If you expected to be online and the absence of internet is an error, please restart Armory using the &quot;--skip-online-check&quot; option.  </source>
         <translation>Armory does not detect internet access, but it does detect running Bitcoin software.  Armory is in offline-mode. &lt;br&gt;&lt;br&gt;If you are intending to run an offline system, you will not need to have the Bitcoin software installed on the offline computer.  It is only needed for the online computer. If you expected to be online and the absence of internet is an error, please restart Armory using the &quot;--skip-online-check&quot; option.  </translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4340"/>
+        <location filename="ArmoryQt.py" line="4350"/>
         <source>Armory was started in offline-mode, but detected you are running Bitcoin software.  If you are intending to run an offline system, you will &lt;u&gt;not&lt;/u&gt; need to have the Bitcoin software installed or running on the offline computer.  It is only required for being online. </source>
         <translation>Armory was started in offline-mode, but detected you are running Bitcoin software.  If you are intending to run an offline system, you will &lt;u&gt;not&lt;/u&gt; need to have the Bitcoin software installed or running on the offline computer.  It is only required for being online. </translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4509"/>
+        <location filename="ArmoryQt.py" line="4519"/>
         <source>Armory is &lt;u&gt;offline&lt;/u&gt;</source>
         <translation>Armory is &lt;u&gt;offline&lt;/u&gt;</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4494"/>
+        <location filename="ArmoryQt.py" line="4504"/>
         <source>In case you actually do have internet access, you can use the following links to get Armory installed.  Or change your settings.</source>
         <translation>In case you actually do have internet access, you can use the following links to get Armory installed.  Or change your settings.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4513"/>
+        <location filename="ArmoryQt.py" line="4523"/>
         <source>Cannot find Bitcoin Home Directory</source>
         <translation>Cannot find Bitcoin Home Directory</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4521"/>
+        <location filename="ArmoryQt.py" line="4531"/>
         <source>Check Again</source>
         <translation>Check Again</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4543"/>
+        <location filename="ArmoryQt.py" line="4553"/>
         <source>Initializing Bitcoin Engine</source>
         <translation>Initializing Bitcoin Engine</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4603"/>
+        <location filename="ArmoryQt.py" line="4613"/>
         <source>Synchronizing with Network</source>
         <translation>Synchronizing with Network</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4557"/>
+        <location filename="ArmoryQt.py" line="4567"/>
         <source>Since version 0.88, Armory runs bitcoind in the background.  You can switch back to the old way in the Settings dialog. </source>
         <translation>Since version 0.88, Armory runs bitcoind in the background.  You can switch back to the old way in the Settings dialog. </translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4575"/>
+        <location filename="ArmoryQt.py" line="4585"/>
         <source>Armory is disconnected</source>
         <translation>Armory is disconnected</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4582"/>
+        <location filename="ArmoryQt.py" line="4592"/>
         <source>Armory is online!</source>
         <translation>Armory is online!</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4611"/>
+        <location filename="ArmoryQt.py" line="4621"/>
         <source>Preparing Databases</source>
         <translation>Preparing Databases</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4780"/>
+        <location filename="ArmoryQt.py" line="4790"/>
         <source>&lt;font color=%1&gt;Connected (%2 blocks)&lt;/font&gt; </source>
         <translation>&lt;font color=%1&gt;Connected (%2 blocks)&lt;/font&gt; </translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4786"/>
+        <location filename="ArmoryQt.py" line="4796"/>
         <source>Last block received %1 ago</source>
         <translation>Last block received %1 ago</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4792"/>
+        <location filename="ArmoryQt.py" line="4802"/>
         <source>&lt;font color=%1&gt;Node offline (%2 blocks)&lt;/font&gt; </source>
         <translation>&lt;font color=%1&gt;Node offline (%2 blocks)&lt;/font&gt; </translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4797"/>
+        <location filename="ArmoryQt.py" line="4807"/>
         <source>Disconnected from Bitcoin Node, cannot update history &lt;br&gt;&lt;br&gt;Last known block: %1 &lt;br&gt;Received %2 ago</source>
         <translation>Disconnected from Bitcoin Node, cannot update history &lt;br&gt;&lt;br&gt;Last known block: %1 &lt;br&gt;Received %2 ago</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4934"/>
+        <location filename="ArmoryQt.py" line="4944"/>
         <source>BDM error!</source>
         <translation>BDM error!</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4928"/>
+        <location filename="ArmoryQt.py" line="4938"/>
         <source>Rebuild and rescan on next start</source>
         <translation>Rebuild and rescan on next start</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4934"/>
+        <location filename="ArmoryQt.py" line="4944"/>
         <source>Factory reset on next start</source>
         <translation>Factory reset on next start</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4940"/>
+        <location filename="ArmoryQt.py" line="4950"/>
         <source>BlockDataManager Warning</source>
         <translation>BlockDataManager Warning</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4989"/>
+        <location filename="ArmoryQt.py" line="4999"/>
         <source>Disconnected</source>
         <translation>Disconnected</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4989"/>
+        <location filename="ArmoryQt.py" line="4999"/>
         <source>Connection to Bitcoin Core client lost!  Armory cannot send nor receive bitcoins until connection is re-established.</source>
         <translation>Connection to Bitcoin Core client lost!  Armory cannot send nor receive bitcoins until connection is re-established.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4995"/>
+        <location filename="ArmoryQt.py" line="5005"/>
         <source>Connected</source>
         <translation>Connected</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4995"/>
+        <location filename="ArmoryQt.py" line="5005"/>
         <source>Connection to Bitcoin Core re-established</source>
         <translation>Connection to Bitcoin Core re-established</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5676"/>
+        <location filename="ArmoryQt.py" line="5686"/>
         <source>Database Error</source>
         <translation>Database Error</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5136"/>
+        <location filename="ArmoryQt.py" line="5146"/>
         <source>Wallet %1 (%2)</source>
         <translation>Wallet %1 (%2)</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5143"/>
+        <location filename="ArmoryQt.py" line="5153"/>
         <source>Lockbox %1 (%2)</source>
         <translation>Lockbox %1 (%2)</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5237"/>
+        <location filename="ArmoryQt.py" line="5247"/>
         <source>Bitcoins Received!</source>
         <translation>Bitcoins Received!</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5256"/>
+        <location filename="ArmoryQt.py" line="5266"/>
         <source>Amount:  %1 BTC</source>
         <translation>Amount:  %1 BTC</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5153"/>
+        <location filename="ArmoryQt.py" line="5163"/>
         <source>Recipient:  %1</source>
         <translation>Recipient:  %1</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5255"/>
+        <location filename="ArmoryQt.py" line="5265"/>
         <source>Bitcoins Sent!</source>
         <translation>Bitcoins Sent!</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5158"/>
+        <location filename="ArmoryQt.py" line="5168"/>
         <source>Sender:  %1</source>
         <translation>Sender:  %1</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5209"/>
+        <location filename="ArmoryQt.py" line="5219"/>
         <source>Wallet &quot;%1&quot; (%2)</source>
         <translation>Wallet &quot;%1&quot; (%2)</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5217"/>
+        <location filename="ArmoryQt.py" line="5227"/>
         <source>Lockbox %1-of-%2 &quot;%3&quot; (%4)</source>
         <translation>Lockbox %1-of-%2 &quot;%3&quot; (%4)</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5228"/>
+        <location filename="ArmoryQt.py" line="5238"/>
         <source>Your bitcoins just did a lap!</source>
         <translation>Your bitcoins just did a lap!</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5228"/>
+        <location filename="ArmoryQt.py" line="5238"/>
         <source>%1 just sent some BTC to itself!</source>
         <translation>%1 just sent some BTC to itself!</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5239"/>
+        <location filename="ArmoryQt.py" line="5249"/>
         <source>From:    %2</source>
         <translation>From:    %2</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5253"/>
+        <location filename="ArmoryQt.py" line="5263"/>
         <source>&lt;Multiple Recipients&gt;</source>
         <translation>&lt;Multiple Recipients&gt;</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5257"/>
+        <location filename="ArmoryQt.py" line="5267"/>
         <source>From:    %1</source>
         <translation>From:    %1</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5258"/>
+        <location filename="ArmoryQt.py" line="5268"/>
         <source>To:      %1</source>
         <translation>To:      %1</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5274"/>
+        <location filename="ArmoryQt.py" line="5284"/>
         <source>Minimize or Close</source>
         <translation>Minimize or Close</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5274"/>
+        <location filename="ArmoryQt.py" line="5284"/>
         <source>Would you like to minimize Armory to the system tray instead of closing it?</source>
         <translation>Would you like to minimize Armory to the system tray instead of closing it?</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5274"/>
+        <location filename="ArmoryQt.py" line="5284"/>
         <source>Remember my answer</source>
         <translation>Remember my answer</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5274"/>
+        <location filename="ArmoryQt.py" line="5284"/>
         <source>Minimize</source>
         <translation>Minimize</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5274"/>
+        <location filename="ArmoryQt.py" line="5284"/>
         <source>Close</source>
         <translation>Close</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5477"/>
+        <location filename="ArmoryQt.py" line="5487"/>
         <source>All wallets are consistent</source>
         <translation>All wallets are consistent</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5481"/>
+        <location filename="ArmoryQt.py" line="5491"/>
         <source>Consistency Check Failed!</source>
         <translation>Consistency Check Failed!</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5550"/>
+        <location filename="ArmoryQt.py" line="5560"/>
         <source>Wallet Consistency Check: %p%</source>
         <translation>Wallet Consistency Check: %p%</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5794"/>
+        <location filename="ArmoryQt.py" line="5804"/>
         <source>Filter:</source>
         <translation>Filter:</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5812"/>
+        <location filename="ArmoryQt.py" line="5822"/>
         <source>Transactions</source>
         <translation>Transactions</translation>
     </message>
     <message numerus="yes">
-        <location filename="ArmoryQt.py" line="4297"/>
+        <location filename="ArmoryQt.py" line="4307"/>
         <source>The software is downloading and processing the latest activity on the network related to your wallet(s).  This should take only a few minutes.  While you wait, you can manage your wallet(s).  &lt;br&gt;&lt;br&gt;Now would be a good time to make paper (or digital) backups of your wallet(s) if you have not done so already!  You are protected &lt;i&gt;forever&lt;/i&gt; from hard-drive loss, or forgetting you password. If you do not have a backup, you could lose all of your Bitcoins forever!</source>
         <translation>
             <numerusform>The software is downloading and processing the latest activity on the network related to your wallet.  This should take only a few minutes.  While you wait, you can manage your wallet.  &lt;br&gt;&lt;br&gt;Now would be a good time to make paper (or digital) backups of your wallet if you have not done so already!  You are protected &lt;i&gt;forever&lt;/i&gt; from hard-drive loss, or forgetting you password. If you do not have a backup, you could lose all of your Bitcoins forever!</numerusform>
@@ -1300,57 +1325,57 @@
         </translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4034"/>
+        <location filename="ArmoryQt.py" line="4044"/>
         <source>The following functionalities are available while scanning in offline mode:&lt;ul&gt;&lt;li&gt;Create new wallets&lt;/li&gt;&lt;li&gt;Generate receiving addresses for your wallets&lt;/li&gt;&lt;li&gt;Create backups of your wallets (printed or digital)&lt;/li&gt;&lt;li&gt;Change wallet encryption settings&lt;/li&gt;&lt;li&gt;Sign transactions created from an online system&lt;/li&gt;&lt;li&gt;Sign messages&lt;/li&gt;&lt;/ul&gt;&lt;br&gt;&lt;br&gt;&lt;b&gt;NOTE:&lt;/b&gt;  The Bitcoin network &lt;u&gt;will&lt;/u&gt; process transactions to your addresses, even if you are offline.  It is perfectly okay to create and distribute payment addresses while Armory is offline, you just won&apos;t be able to verify those payments until the next time Armory is online.</source>
         <translation>The following functionalities are available while scanning in offline mode:&lt;ul&gt;&lt;li&gt;Create new wallets&lt;/li&gt;&lt;li&gt;Generate receiving addresses for your wallets&lt;/li&gt;&lt;li&gt;Create backups of your wallets (printed or digital)&lt;/li&gt;&lt;li&gt;Change wallet encryption settings&lt;/li&gt;&lt;li&gt;Sign transactions created from an online system&lt;/li&gt;&lt;li&gt;Sign messages&lt;/li&gt;&lt;/ul&gt;&lt;br&gt;&lt;br&gt;&lt;b&gt;NOTE:&lt;/b&gt;  The Bitcoin network &lt;u&gt;will&lt;/u&gt; process transactions to your addresses, even if you are offline.  It is perfectly okay to create and distribute payment addresses while Armory is offline, you just won&apos;t be able to verify those payments until the next time Armory is online.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4050"/>
+        <location filename="ArmoryQt.py" line="4060"/>
         <source>The following functionalities are available in offline mode:&lt;ul&gt;&lt;li&gt;Create, import or recover wallets&lt;/li&gt;&lt;li&gt;Generate new receiving addresses for your wallets&lt;/li&gt;&lt;li&gt;Create backups of your wallets (printed or digital)&lt;/li&gt;&lt;li&gt;Import private keys to wallets&lt;/li&gt;&lt;li&gt;Change wallet encryption settings&lt;/li&gt;&lt;li&gt;Sign messages&lt;/li&gt;&lt;li&gt;&lt;b&gt;Sign transactions created from an online system&lt;/b&gt;&lt;/li&gt;&lt;/ul&gt;&lt;br&gt;&lt;br&gt;&lt;b&gt;NOTE:&lt;/b&gt;  The Bitcoin network &lt;u&gt;will&lt;/u&gt; process transactions to your addresses, regardless of whether you are online.  It is perfectly okay to create and distribute payment addresses while Armory is offline, you just won&apos;t be able to verify those payments until the next time Armory is online.</source>
         <translation>The following functionalities are available in offline mode:&lt;ul&gt;&lt;li&gt;Create, import or recover wallets&lt;/li&gt;&lt;li&gt;Generate new receiving addresses for your wallets&lt;/li&gt;&lt;li&gt;Create backups of your wallets (printed or digital)&lt;/li&gt;&lt;li&gt;Import private keys to wallets &lt;/li&gt;&lt;li&gt;Change wallet encryption settings&lt;/li&gt;&lt;li&gt;Sign messages&lt;/li&gt;&lt;li&gt;&lt;b&gt;Sign transactions created from an online system&lt;/b&gt;&lt;/li&gt;&lt;/ul&gt;&lt;br&gt;&lt;br&gt;&lt;b&gt;NOTE:&lt;/b&gt;  The Bitcoin network &lt;u&gt;will&lt;/u&gt; process transactions to your addresses, regardlesss of whether you are online.  It is perfectly okay to create and distribute payment addresses while Armory is offline, you just won&apos;t be able to verify those payments until the next time Armory is online.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4134"/>
+        <location filename="ArmoryQt.py" line="4144"/>
         <source>Armory is currently online, but you have requested a sweep operation on one or more private keys.  This requires searching the global transaction history for the available balance of the keys to be swept. &lt;br&gt;&lt;br&gt;Press the button to start the blockchain scan, which will also put Armory into offline mode for a few minutes until the scan operation is complete.</source>
         <translation>Armory is currently online, but you have requested a sweep operation on one or more private keys.  This requires searching the global transaction history for the available balance of the keys to be swept. &lt;br&gt;&lt;br&gt;Press the button to start the blockchain scan, which will also put Armory into offline mode for a few minutes until the scan operation is complete.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4347"/>
+        <location filename="ArmoryQt.py" line="4357"/>
         <source>The Bitcoin software indicates there is a problem with its databases.  This can occur when Bitcoin Core/bitcoind is upgraded or downgraded, or sometimes just by chance after an unclean shutdown.&lt;br&gt;&lt;br&gt;You can either revert your installed Bitcoin software to the last known working version (but not earlier than version 0.8.1) or delete everything &lt;b&gt;except&lt;/b&gt; &quot;wallet.dat&quot; from your Bitcoin home directory &lt;font face=&quot;courier&quot;&gt;&lt;b&gt;%1&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;br&gt;If you choose to delete the contents of the Bitcoin home directory, you will have to do a fresh download of the blockchain again, which will require a few hours the first time.</source>
         <translation>The Bitcoin software indicates there is a problem with its databases.  This can occur when Bitcoin Core/bitcoind is upgraded or downgraded, or sometimes just by chance after an unclean shutdown.&lt;br&gt;&lt;br&gt;You can either revert your installed Bitcoin software to the last known working version (but not earlier than version 0.8.1) or delete everything &lt;b&gt;except&lt;/b&gt; &quot;wallet.dat&quot; from your Bitcoin home directory&lt;font face=&quot;courier&quot;&gt;&lt;b&gt;%1&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;br&gt;If you choose to delete the contents of the Bitcoin home directory, you will have to do a fresh download of the blockchain again, which will require a few hours the first time.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="1930"/>
+        <location filename="ArmoryQt.py" line="1936"/>
         <source>It looks like you just clicked a &quot;bitcoin:&quot; link, but that link is malformed.</source>
         <translation>It looks like you just clicked a &quot;bitcoin:&quot; link, but that link is malformed.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="1932"/>
+        <location filename="ArmoryQt.py" line="1938"/>
         <source>It looks like you just entered a &quot;bitcoin:&quot; link, but that link is malformed.</source>
         <translation>It looks like you just entered a &quot;bitcoin:&quot; link, but that link is malformed.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="1934"/>
+        <location filename="ArmoryQt.py" line="1940"/>
         <source>Please check the source of the link and enter the transaction manually.</source>
         <translation>Please check the source of the link and enter the transaction manually.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="2750"/>
+        <location filename="ArmoryQt.py" line="2760"/>
         <source>Add Transaction Comment</source>
         <translation>Add Transaction Comment</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="2752"/>
+        <location filename="ArmoryQt.py" line="2762"/>
         <source>Change Transaction Comment</source>
         <translation>Change Transaction Comment</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="2768"/>
+        <location filename="ArmoryQt.py" line="2778"/>
         <source>Add Address Comment</source>
         <translation>Add Address Comment</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="2770"/>
+        <location filename="ArmoryQt.py" line="2780"/>
         <source>Change Address Comment</source>
         <translation>Change Address Comment</translation>
     </message>
@@ -1525,72 +1550,72 @@
         <translation>The date format you specified was not valid.  Please re-enter it using only the strftime symbols shown in the help text.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="1747"/>
+        <location filename="ArmoryQt.py" line="1753"/>
         <source>Armory is already running!  You can only have one Armory open at a time.  Exiting...</source>
         <translation>Armory is already running!  You can only have one Armory open at a time.  Exiting...</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="1897"/>
+        <location filename="ArmoryQt.py" line="1903"/>
         <source>You have not entered a URL String yet. Please go back and enter a URL String.</source>
         <translation>You have not entered a URL String yet. Please go back and enter a URL String.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="1915"/>
+        <location filename="ArmoryQt.py" line="1921"/>
         <source>You clicked on a &quot;bitcoin:&quot; link, but Armory is in offline mode, and is not capable of creating transactions. Using links will only work if Armory is connected to the Bitcoin network!</source>
         <translation>You clicked on a &quot;bitcoin:&quot; link, but Armory is in offline mode, and is not capable of creating transactions. Using links will only work if Armory is connected to the Bitcoin network!</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="1921"/>
+        <location filename="ArmoryQt.py" line="1927"/>
         <source>You entered a &quot;bitcoin:&quot; link, but Armory is in offline mode, and is not capable of creating transactions. Using links will only work if Armory is connected to the Bitcoin network!</source>
         <translation>You entered a &quot;bitcoin:&quot; link, but Armory is in offline mode, and is not capable of creating transactions. Using links will only work if Armory is connected to the Bitcoin network!</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="1943"/>
+        <location filename="ArmoryQt.py" line="1949"/>
         <source>The &quot;bitcoin:&quot; link you just clicked does not even contain an address!  There is nothing that Armory can do with this link!</source>
         <translation>The &quot;bitcoin:&quot; link you just clicked does not even contain an address!  There is nothing that Armory can do with this link!</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="1947"/>
+        <location filename="ArmoryQt.py" line="1953"/>
         <source>The &quot;bitcoin:&quot; link you just entered does not even contain an address!  There is nothing that Armory can do with this link!</source>
         <translation>The &quot;bitcoin:&quot; link you just entered does not even contain an address!  There is nothing that Armory can do with this link!</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="1960"/>
+        <location filename="ArmoryQt.py" line="1966"/>
         <source>The address for the &quot;bitcoin:&quot; link you just clicked is for the wrong network!  You are on the &lt;b&gt;%2&lt;/b&gt; and the address you supplied is for the &lt;b&gt;%3&lt;/b&gt;!</source>
         <translation>The address for the &quot;bitcoin:&quot; link you just clicked is for the wrong network!  You are on the &lt;b&gt;%2&lt;/b&gt; and the address you supplied is for the &lt;b&gt;%3&lt;/b&gt;!</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="1979"/>
+        <location filename="ArmoryQt.py" line="1985"/>
         <source>The &quot;bitcoin:&quot; link you just clicked contains fields that are required but not recognized by Armory.  This may be an older version of Armory, or the link you clicked on uses an exotic, unsupported format. &lt;br&gt;&lt;br&gt;The action cannot be completed.</source>
         <translation>The &quot;bitcoin:&quot; link you just clicked contains fields that are required but not recognized by Armory.  This may be an older version of Armory, or the link you clicked on uses an exotic, unsupported format. &lt;br&gt;&lt;br&gt;The action cannot be completed.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="1985"/>
+        <location filename="ArmoryQt.py" line="1991"/>
         <source>The &quot;bitcoin:&quot; link you just entered contains fields that are required but not recognized by Armory.  This may be an older version of Armory, or the link you entered on uses an exotic, unsupported format. &lt;br&gt;&lt;br&gt;The action cannot be completed.</source>
         <translation>The &quot;bitcoin:&quot; link you just entered contains fields that are required but not recognized by Armory.  This may be an older version of Armory, or the link you entered on uses an exotic, unsupported format. &lt;br&gt;&lt;br&gt;The action cannot be completed.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="2001"/>
+        <location filename="ArmoryQt.py" line="2007"/>
         <source>You just clicked on a &quot;bitcoin:&quot; link, but Armory is offline and cannot send transactions.  Please click the link again when Armory is online.</source>
         <translation>You just clicked on a &quot;bitcoin:&quot; link, but Armory is offline and cannot send transactions.  Please click the link again when Armory is online.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="2465"/>
+        <location filename="ArmoryQt.py" line="2471"/>
         <source>Blockchain loading is complete. Your balances and transaction history are now available under the &quot;Transactions&quot; tab.  You can also send and receive bitcoins.</source>
         <translation>Blockchain loading is complete. Your balances and transaction history are now available under the &quot;Transactions&quot; tab.  You can also send and receive bitcoins.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="2700"/>
+        <location filename="ArmoryQt.py" line="2710"/>
         <source>You currently do not have any wallets.  Would you like to create one, now?</source>
         <translation>You currently do not have any wallets.  Would you like to create one, now?</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="2931"/>
+        <location filename="ArmoryQt.py" line="2941"/>
         <source>You are already in the process of scanning the blockchain for the purposes of sweeping other addresses.  You cannot initiate sweeping new addresses until the current operation completes. &lt;br&gt;&lt;br&gt;In the future, you may select &quot;Multiple Keys&quot; when entering addresses to sweep.  There is no limit on the number that can be specified, but they must all be entered at once.</source>
         <translation>You are already in the process of scanning the blockchain for the purposes of sweeping other addresses.  You cannot initiate sweeping new addresses until the current operation completes. &lt;br&gt;&lt;br&gt;In the future, you may select &quot;Multiple Keys&quot; when entering addresses to sweep.  There is no limit on the number that can be specified, but they must all be entered at once.</translation>
     </message>
     <message numerus="yes">
-        <location filename="ArmoryQt.py" line="2953"/>
+        <location filename="ArmoryQt.py" line="2963"/>
         <source>You have chosen to sweep %n key(s), but Armory is currently in offline mode.  The sweep will be performed the next time you go into online mode.  You can initiate online mode (if available) from the dashboard in the main window.</source>
         <translation>
             <numerusform>You have chosen to sweep %n key, but Armory is currently in offline mode.  The sweep will be performed the next time you go into online mode.  You can initiate online mode (if available) from the dashboard in the main window.</numerusform>
@@ -1598,7 +1623,7 @@
         </translation>
     </message>
     <message numerus="yes">
-        <location filename="ArmoryQt.py" line="2961"/>
+        <location filename="ArmoryQt.py" line="2971"/>
         <source>Armory must scan the global transaction history in order to find any bitcoins associated with the keys you supplied. Armory will go into offline mode temporarily while the scan is performed, and you will not have access to balances or be able to create transactions.  The scan may take several minutes.&lt;br&gt;&lt;br&gt;</source>
         <translation>
             <numerusform>Armory must scan the global transaction history in order to find any bitcoins associated with the key you supplied. Armory will go into offline mode temporarily while the scan is performed, and you will not have access to balances or be able to create transactions.  The scan may take several minutes.&lt;br&gt;&lt;br&gt;</numerusform>
@@ -1606,12 +1631,12 @@
         </translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="2970"/>
+        <location filename="ArmoryQt.py" line="2980"/>
         <source>There is currently another scan operation being performed. Would you like to start the sweep operation after it completes? </source>
         <translation>There is currently another scan operation being performed. Would you like to start the sweep operation after it completes? </translation>
     </message>
     <message numerus="yes">
-        <location filename="ArmoryQt.py" line="3006"/>
+        <location filename="ArmoryQt.py" line="3016"/>
         <source>The private key(s) you have provided does not appear to contain any funds.  There is nothing to sweep.</source>
         <translation>
             <numerusform>The private key you have provided does not appear to contain any funds.  There is nothing to sweep.</numerusform>
@@ -1619,177 +1644,177 @@
         </translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3077"/>
+        <location filename="ArmoryQt.py" line="3087"/>
         <source>The broadcast process failed unexpectedly. Report this error to the development team if this issue occurs repeatedly</source>
         <translation>The broadcast process failed unexpectedly. Report this error to the development team if this issue occurs repeatedly</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3098"/>
+        <location filename="ArmoryQt.py" line="3108"/>
         <source>The transaction that you just executed failed with the following error message: &lt;br&gt;&lt;br&gt; &lt;b&gt;%1&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;On time out errors, the transaction may have actually succeeded and this message is displayed prematurely.  To confirm whether the the transaction actually succeeded, you can try this direct link to %2: &lt;br&gt;&lt;br&gt;&lt;a href=&quot;%3&quot;&gt;%4...&lt;/a&gt;&lt;br&gt;&lt;br&gt;If you do not see the transaction on that webpage within one minute, it failed and you should attempt to re-send it. If it &lt;i&gt;does&lt;/i&gt; show up, then you do not need to do anything else -- it will show up in Armory as soon as it receives one confirmation. &lt;br&gt;&lt;br&gt;If the transaction did fail, it is likely because the fee is too low. Try again with a higher fee. If the problem persists, go to &quot;&lt;i&gt;File&lt;/i&gt;&quot; -&gt; &quot;&lt;i&gt;Export Log File&lt;/i&gt;&quot; and then attach it to a support ticket at &lt;a href=&quot;%5&quot;&gt;%5&lt;/a&gt;</source>
         <translation>The transaction that you just executed failed with the following error message: &lt;br&gt;&lt;br&gt; &lt;b&gt;%1&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;On time out errors, the transaction may have actually succeeded and this message is displayed prematurely.  To confirm whether the the transaction actually succeeded, you can try this direct link to %2: &lt;br&gt;&lt;br&gt;&lt;a href=&quot;%3&quot;&gt;%4...&lt;/a&gt;&lt;br&gt;&lt;br&gt;If you do not see the transaction on that webpage within one minute, it failed and you should attempt to re-send it. If it &lt;i&gt;does&lt;/i&gt; show up, then you do not need to do anything else -- it will show up in Armory as soon as it receives one confirmation. &lt;br&gt;&lt;br&gt;If the transaction did fail, it is likely because the fee is too low. Try again with a higher fee. If the problem persists, go to &quot;&lt;i&gt;File&lt;/i&gt;&quot; -&gt; &quot;&lt;i&gt;Export Log File&lt;/i&gt;&quot; and then attach it to a support ticket at &lt;a href=&quot;%5&quot;&gt;%5&lt;/a&gt;</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3148"/>
+        <location filename="ArmoryQt.py" line="3158"/>
         <source>Armory is currently in the middle of scanning the blockchain for your existing wallets.  New wallets cannot be imported until this operation is finished.</source>
         <translation>Armory is currently in the middle of scanning the blockchain for your existing wallets.  New wallets cannot be imported until this operation is finished.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3168"/>
+        <location filename="ArmoryQt.py" line="3178"/>
         <source>You selected a wallet that has the same ID as one already in your wallet (%1)!  If you would like to import it anyway, please delete the duplicate wallet in Armory, first.</source>
         <translation>You selected a wallet that has the same ID as one already in your wallet (%1)!  If you would like to import it anyway, please delete the duplicate wallet in Armory, first.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3187"/>
+        <location filename="ArmoryQt.py" line="3197"/>
         <source>&lt;font color=&quot;red&quot;&gt;&lt;b&gt;WARNING:&lt;/b&gt;&lt;/font&gt; You are about to make an &lt;u&gt;unencrypted&lt;/u&gt; backup of your wallet.  It is highly recommended that you do &lt;u&gt;not&lt;/u&gt; ever save unencrypted wallets to your regular hard drive.  This feature is intended for saving to a USB key or other removable media.</source>
         <translation>&lt;font color=&quot;red&quot;&gt;&lt;b&gt;WARNING:&lt;/b&gt;&lt;/font&gt; You are about to make an &lt;u&gt;unencrypted&lt;/u&gt; backup of your wallet.  It is highly recommended that you do &lt;u&gt;not&lt;/u&gt; ever save unencrypted wallets to your regular hard drive.  This feature is intended for saving to a USB key or other removable media.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3199"/>
+        <location filename="ArmoryQt.py" line="3209"/>
         <source>The address book is created from transaction data available in the blockchain, which has not finished loading.  The address book will become available when Armory is online.</source>
         <translation>The address book is created from transaction data available in the blockchain, which has not finished loading.  The address book will become available when Armory is online.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3204"/>
+        <location filename="ArmoryQt.py" line="3214"/>
         <source>The address book is created from transaction data available in the blockchain, but Armory is currently offline.  The address book will become available when Armory is online.</source>
         <translation>The address book is created from transaction data available in the blockchain, but Armory is currently offline.  The address book will become available when Armory is online.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3210"/>
+        <location filename="ArmoryQt.py" line="3220"/>
         <source>You have no wallets so there is no address book to display.</source>
         <translation>You have no wallets so there is no address book to display.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3262"/>
+        <location filename="ArmoryQt.py" line="3272"/>
         <source>The transaction you requested be displayed does not exist in Armory&apos;s database.  This is unusual...</source>
         <translation>The transaction you requested be displayed does not exist in Armory&apos;s database.  This is unusual...</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3296"/>
+        <location filename="ArmoryQt.py" line="3306"/>
         <source>Armory encountered an error opening your web browser.  To view this transaction on blockchain.info, please copy and paste the following URL into your browser: &lt;br&gt;&lt;br&gt;%1</source>
         <translation>Armory encountered an error opening your web browser.  To view this transaction on blockchain.info, please copy and paste the following URL into your browser: &lt;br&gt;&lt;br&gt;%1</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3325"/>
+        <location filename="ArmoryQt.py" line="3335"/>
         <source>Armory is currently running in offline mode, and has no ability to determine balances or create transactions. &lt;br&gt;&lt;br&gt;In order to send coins from this wallet you must use a full copy of this wallet from an online computer, or initiate an &quot;offline transaction&quot; using a watching-only wallet on an online computer.</source>
         <translation>Armory is currently running in offline mode, and has no ability to determine balances or create transactions. &lt;br&gt;&lt;br&gt;In order to send coins from this wallet you must use a full copy of this wallet from an online computer, or initiate an &quot;offline transaction&quot; using a watching-only wallet on an online computer.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3335"/>
+        <location filename="ArmoryQt.py" line="3345"/>
         <source>Armory is currently scanning the blockchain to collect the information needed to create transactions.  This typically takes between one and five minutes.  Please wait until your balance appears on the main window, then try again.</source>
         <translation>Armory is currently scanning the blockchain to collect the information needed to create transactions.  This typically takes between one and five minutes.  Please wait until your balance appears on the main window, then try again.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3344"/>
+        <location filename="ArmoryQt.py" line="3354"/>
         <source>You cannot send any bitcoins until you create a wallet and receive some coins.  Would you like to create a wallet?</source>
         <translation>You cannot send any bitcoins until you create a wallet and receive some coins.  Would you like to create a wallet?</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3373"/>
+        <location filename="ArmoryQt.py" line="3383"/>
         <source>You just clicked on a &quot;bitcoin:&quot; link requesting bitcoins to be sent to the following address:&lt;br&gt; </source>
         <translation>You just clicked on a &quot;bitcoin:&quot; link requesting bitcoins to be sent to the following address:&lt;br&gt; </translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3400"/>
+        <location filename="ArmoryQt.py" line="3410"/>
         <source>&lt;br&gt;&lt;br&gt;There is no amount specified in the link, so you can decide the amount after selecting a wallet to use for this transaction. </source>
         <translation>&lt;br&gt;&lt;br&gt;There is no amount specified in the link, so you can decide the amount after selecting a wallet to use for this transaction. </translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3404"/>
+        <location filename="ArmoryQt.py" line="3414"/>
         <source>&lt;br&gt;&lt;br&gt;&lt;b&gt;The specified amount &lt;u&gt;can&lt;/u&gt; be changed&lt;/b&gt; on the next screen before hitting the &quot;Send&quot; button. </source>
         <translation>&lt;br&gt;&lt;br&gt;&lt;b&gt;The specified amount &lt;u&gt;can&lt;/u&gt; be changed&lt;/b&gt; on the next screen before hitting the &quot;Send&quot; button. </translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3409"/>
+        <location filename="ArmoryQt.py" line="3419"/>
         <source>You just clicked on a &quot;bitcoin:&quot; link to send money, but you currently have no wallets!  Would you like to create a wallet now?</source>
         <translation>You just clicked on a &quot;bitcoin:&quot; link to send money, but you currently have no wallets!  Would you like to create a wallet now?</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3428"/>
+        <location filename="ArmoryQt.py" line="3438"/>
         <source>You have not created any wallets which means there is nowhere to store you bitcoins!  Would you like to create a wallet now?</source>
         <translation>You have not created any wallets which means there is nowhere to store you bitcoins!  Would you like to create a wallet now?</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3501"/>
+        <location filename="ArmoryQt.py" line="3511"/>
         <source>&lt;b&gt;&lt;u&gt;&lt;font size=3&gt;Wallet Analysis Log Files&lt;/font&gt;&lt;/u&gt;&lt;/b&gt; &lt;br&gt;&lt;br&gt; The wallet analysis logs contain no personally-identifiable information, only a record of errors and inconsistencies found in your wallet file.  No private keys or even public keys are included. &lt;br&gt;&lt;br&gt;&lt;b&gt;&lt;u&gt;&lt;font size=3&gt;Regular Log Files&lt;/font&gt;&lt;/u&gt;&lt;/b&gt;&lt;br&gt;&lt;br&gt;The regular log files do not contain any &lt;u&gt;security&lt;/u&gt;-sensitive information, but some users may consider the information to be &lt;u&gt;privacy&lt;/u&gt;-sensitive.  The log files may identify some addresses and transactions that are related to your wallets.  It is always recommended you include your log files with any request to the Armory team, unless you are uncomfortable with the privacy implications. &lt;br&gt;&lt;br&gt;&lt;b&gt;&lt;u&gt;&lt;font size=3&gt;Watching-only Wallet&lt;/font&gt;&lt;/u&gt;&lt;/b&gt; &lt;br&gt;&lt;br&gt;A watching-only wallet is a copy of a regular wallet that does not contain any signing keys.  This allows the holder to see the balance and transaction history of the wallet, but not spend any of the funds. &lt;br&gt;&lt;br&gt; You may be requested to submit a watching-only copy of your wallet to make sure that there is no risk to the security of your funds.  You should not even consider sending your watching-only wallet unless it was specifically requested by an Armory representative.</source>
         <translation>&lt;b&gt;&lt;u&gt;&lt;font size=3&gt;Wallet Analysis Log Files&lt;/font&gt;&lt;/u&gt;&lt;/b&gt; &lt;br&gt;&lt;br&gt; The wallet analysis logs contain no personally-identifiable information, only a record of errors and inconsistencies found in your wallet file.  No private keys or even public keys are included. &lt;br&gt;&lt;br&gt;&lt;b&gt;&lt;u&gt;&lt;font size=3&gt;Regular Log Files&lt;/font&gt;&lt;/u&gt;&lt;/b&gt;&lt;br&gt;&lt;br&gt;The regular log files do not contain any &lt;u&gt;security&lt;/u&gt;-sensitive information, but some users may consider the information to be &lt;u&gt;privacy&lt;/u&gt;-sensitive.  The log files may identify some addresses and transactions that are related to your wallets.  It is always recommended you include your log files with any request to the Armory team, unless you are uncomfortable with the privacy implications. &lt;br&gt;&lt;br&gt;&lt;b&gt;&lt;u&gt;&lt;font size=3&gt;Watching-only Wallet&lt;/font&gt;&lt;/u&gt;&lt;/b&gt; &lt;br&gt;&lt;br&gt;A watching-only wallet is a copy of a regular wallet that does not contain any signing keys.  This allows the holder to see the balance and transaction history of the wallet, but not spend any of the funds. &lt;br&gt;&lt;br&gt; You may be requested to submit a watching-only copy of your wallet to make sure that there is no risk to the security of your funds.  You should not even consider sending your watching-only wallet unless it was specifically requested by an Armory representative.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3535"/>
+        <location filename="ArmoryQt.py" line="3545"/>
         <source>Armory log files do not contain any &lt;u&gt;security&lt;/u&gt;-sensitive information, but some users may consider the information to be &lt;u&gt;privacy&lt;/u&gt;-sensitive.  The log files may identify some addresses and transactions that are related to your wallets. &lt;br&gt;&lt;br&gt; &lt;b&gt;No signing-key data is ever written to the log file&lt;/b&gt;. Only enough data is there to help the Armory developers track down bugs in the software, but it may still be considered sensitive information to some users. &lt;br&gt;&lt;br&gt;Please do not send the log file to the Armory developers if you are not comfortable with the privacy implications!  However, if you do not send the log file, it may be very difficult or impossible for us to help you with your problem.</source>
         <translation>Armory log files do not contain any &lt;u&gt;security&lt;/u&gt;-sensitive information, but some users may consider the information to be &lt;u&gt;privacy&lt;/u&gt;-sensitive.  The log files may identify some addresses and transactions that are related to your wallets. &lt;br&gt;&lt;br&gt; &lt;b&gt;No signing-key data is ever written to the log file&lt;/b&gt;. Only enough data is there to help the Armory developers track down bugs in the software, but it may still be considered sensitive information to some users. &lt;br&gt;&lt;br&gt;Please do not send the log file to the Armory developers if you are not comfortable with the privacy implications!  However, if you do not send the log file, it may be very difficult or impossible for us to help you with your problem.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3603"/>
+        <location filename="ArmoryQt.py" line="3613"/>
         <source>The Bitcoin software appears to be installed now, but it needs to be closed for Armory to work.  Would you like Armory to close it for you?</source>
         <translation>The Bitcoin software appears to be installed now, but it needs to be closed for Armory to work.  Would you like Armory to close it for you?</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3611"/>
+        <location filename="ArmoryQt.py" line="3621"/>
         <source>The Bitcoin software still appears to be missing.  If you just installed it, then please adjust your settings to point to the installation directory.</source>
         <translation>The Bitcoin software still appears to be missing.  If you just installed it, then please adjust your settings to point to the installation directory.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3618"/>
+        <location filename="ArmoryQt.py" line="3628"/>
         <source>Bitcoin Core is still running.  Armory cannot start until it is closed.  Do you want Armory to close it for you?</source>
         <translation>Bitcoin Core is still running.  Armory cannot start until it is closed.  Do you want Armory to close it for you?</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3774"/>
+        <location filename="ArmoryQt.py" line="3784"/>
         <source>Will open your default browser to https://bitcoin.org where you can download the latest version of Bitcoin Core, and get other information and links about Bitcoin, in general.</source>
         <translation>Will open your default browser to https://bitcoin.org where you can download the latest version of Bitcoin Core, and get other information and links about Bitcoin, in general.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3778"/>
+        <location filename="ArmoryQt.py" line="3788"/>
         <source>Change Bitcoin Core/bitcoind management settings or point Armory to a non-standard Bitcoin installation</source>
         <translation>Change Bitcoin Core/bitcoind management settings or point Armory to a non-standard Bitcoin installation</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3781"/>
+        <location filename="ArmoryQt.py" line="3791"/>
         <source>Armory has detected a running Bitcoin Core or bitcoind instance and will force it to exit</source>
         <translation>Armory has detected a running Bitcoin Core or bitcoind instance and will force it to exit</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="3833"/>
+        <location filename="ArmoryQt.py" line="3843"/>
         <source>Attempted to kill the running Bitcoin Core/bitcoind instance, but it was not found.</source>
         <translation>Attempted to kill the running Bitcoin Core/bitcoind instance, but it was not found.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4093"/>
+        <location filename="ArmoryQt.py" line="4103"/>
         <source>For more information about Armory, and even Bitcoin itself, you should visit the &lt;a href=&quot;https://bitcointalk.org/index.php?board=97.0&quot;&gt;Armory Forum&lt;/a&gt; and &lt;a href=&quot;https://bitcoin.org&quot;&gt;Bitcoin.org&lt;/a&gt;.  If you are experiencing problems using this software, please visit the &lt;a href=&quot;https://bitcointalk.org/index.php?board=97.0&quot;&gt;Armory Forum&lt;/a&gt;. Users there will help you with any issues that you have. &lt;br&gt;&lt;br&gt;&lt;b&gt;&lt;u&gt;IMPORTANT:&lt;/u&gt;&lt;/b&gt; Make a backup of your wallet(s)!  Paper backups protect you &lt;i&gt;forever&lt;/i&gt; against forgotten passwords, hard-drive failure, and make it easy for your family to recover your funds if something terrible happens to you.  &lt;i&gt;Each wallet only needs to be backed up once, ever!&lt;/i&gt;  Without it, you are at risk of losing all of your Bitcoins! &lt;br&gt;&lt;br&gt;</source>
         <translation>For more information about Armory, and even Bitcoin itself, you should visit the &lt;a href=&quot;https://bitcointalk.org/index.php?board=97.0&quot;&gt;Armory Forum&lt;/a&gt; and &lt;a href=&quot;https://bitcoin.org&quot;&gt;Bitcoin.org&lt;/a&gt;.  If you are experiencing problems using this software, please visit the &lt;a href=&quot;https://bitcointalk.org/index.php?board=97.0&quot;&gt;Armory Forum&lt;/a&gt;. Users there will help you with any issues that you have. &lt;br&gt;&lt;br&gt;&lt;b&gt;&lt;u&gt;IMPORTANT:&lt;/u&gt;&lt;/b&gt; Make a backup of your wallet(s)!  Paper backups protect you &lt;i&gt;forever&lt;/i&gt; against forgotten passwords, hard-drive failure, and make it easy for your family to recover your funds if something terrible happens to you.  &lt;i&gt;Each wallet only needs to be backed up once, ever!&lt;/i&gt;  Without it, you are at risk of losing all of your Bitcoins! &lt;br&gt;&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4371"/>
+        <location filename="ArmoryQt.py" line="4381"/>
         <source>There was an error starting the underlying Bitcoin engine. This should not normally happen.  Usually it occurs when you have been using Bitcoin Core prior to using Armory, especially if you have upgraded or downgraded Bitcoin Core recently. Output from bitcoind:&lt;br&gt;</source>
         <translation>There was an error starting the underlying Bitcoin engine. This should not normally happen.  Usually it occurs when you have been using Bitcoin Core prior to using Armory, especially if you have upgraded or downgraded Bitcoin Core recently. Output from bitcoind:&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4380"/>
+        <location filename="ArmoryQt.py" line="4390"/>
         <source>There was an error starting the underlying Bitcoin engine. This should not normally happen.  Usually it occurs when you have been using Bitcoin Core prior to using Armory, especially if you have upgraded or downgraded Bitcoin Core recently. &lt;br&gt;&lt;br&gt; Unfortunately, this error is so strange, Armory does not recognize it.  Please go to &quot;Export Log File&quot; from the &quot;File&quot; menu and submit an issue at https://github.com/goatpig/BitcoinArmory/issues. We apologize for the inconvenience!</source>
         <translation>There was an error starting the underlying Bitcoin engine. This should not normally happen.  Usually it occurs when you have been using Bitcoin Core prior to using Armory, especially if you have upgraded or downgraded Bitcoin Core recently. &lt;br&gt;&lt;br&gt; Unfortunately, this error is so strange, Armory does not recognize it.  Please go to &quot;Export Log File&quot; from the &quot;File&quot; menu and submit an issue at https://github.com/goatpig/BitcoinArmory/issues. We apologize for the inconvenience!</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5040"/>
+        <location filename="ArmoryQt.py" line="5050"/>
         <source>The DB has returned the following error: &lt;br&gt;&lt;br&gt; &lt;b&gt; %1 &lt;/b&gt; &lt;br&gt;&lt;br&gt; Armory will now shutdown.</source>
         <translation>The DB has returned the following error: &lt;br&gt;&lt;br&gt; &lt;b&gt; %1 &lt;/b&gt; &lt;br&gt;&lt;br&gt; Armory will now shutdown.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5493"/>
+        <location filename="ArmoryQt.py" line="5503"/>
         <source>The wallet analysis tool will become available as soon as Armory is done loading. You can close this window and it will reappear when ready.</source>
         <translation>The wallet analysis tool will become available as soon as Armory is done loading. You can close this window and it will reappear when ready.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5526"/>
+        <location filename="ArmoryQt.py" line="5536"/>
         <source>&lt;b&gt;The following dialogs need closed before you can run the wallet analysis tool:&lt;/b&gt;</source>
         <translation>&lt;b&gt;The following dialogs need closed before you can run the wallet analysis tool:&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="5676"/>
+        <location filename="ArmoryQt.py" line="5686"/>
         <source>Armory failed to spawn the DB!&lt;br&gt; Continuing operations in offline mode instead. &lt;br&gt; Refer to the dbLog.txt for more information.</source>
         <translation>Armory failed to spawn the DB!&lt;br&gt; Continuing operations in offline mode instead. &lt;br&gt; Refer to the dbLog.txt for more information.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="1966"/>
+        <location filename="ArmoryQt.py" line="1972"/>
         <source>The address for the &quot;bitcoin:&quot; link you just entered is for the wrong network!  You are on the &lt;b&gt;%2&lt;/b&gt; and the address you supplied is for the &lt;b&gt;%3&lt;/b&gt;!</source>
         <translation>The address for the &quot;bitcoin:&quot; link you just entered is for the wrong network!  You are on the &lt;b&gt;%2&lt;/b&gt; and the address you supplied is for the &lt;b&gt;%3&lt;/b&gt;!</translation>
     </message>
@@ -1799,23 +1824,33 @@
         <translation>Armory detected the following module which is &lt;font color=%1&gt;&lt;b&gt;invalid&lt;/b&gt;&lt;/font&gt;:&lt;br&gt;&lt;br&gt;   &lt;b&gt;Module Name:&lt;/b&gt; %2&lt;br&gt;   &lt;b&gt;Module Path:&lt;/b&gt; %3&lt;br&gt;&lt;br&gt;&lt;br&gt;Armory will only run a module from a zip file that has the required stucture.</translation>
     </message>
     <message>
-        <location filename="ArmoryQt.py" line="4277"/>
+        <location filename="ArmoryQt.py" line="4287"/>
         <source>&lt;b&gt;To maximize your security, the Bitcoin engine is downloading and verifying the global transaction ledger.  &lt;u&gt;This will take several hours, but only needs to be done once&lt;/u&gt;!&lt;/b&gt;  It is usually best to leave it running over night for this initialization process.  Subsequent loads will only take a few minutes. &lt;br&gt;&lt;br&gt; &lt;b&gt;Please Note:&lt;/b&gt; Between Armory and the underlying Bitcoin engine, you need to have 120-130 GB of spare disk space available to hold the global transaction history. &lt;br&gt;&lt;br&gt; While you wait, you can manage your wallets.  Make new wallets, make digital or paper backups, create Bitcoin addresses to receive payments, sign messages, and/or import private keys.  You will always receive Bitcoin payments regardless of whether you are online, but you will have to verify that payment through another service until Armory is finished this initialization.</source>
         <translation>&lt;b&gt;To maximize your security, the Bitcoin engine is downloading and verifying the global transaction ledger.  &lt;u&gt;This will take several hours, but only needs to be done once&lt;/u&gt;!&lt;/b&gt;  It is usually best to leave it running over night for this initialization process.  Subsequent loads will only take a few minutes. &lt;br&gt;&lt;br&gt; &lt;b&gt;Please Note:&lt;/b&gt; Between Armory and the underlying Bitcoin engine, you need to have 120-130 GB of spare disk space available to hold the global transaction history. &lt;br&gt;&lt;br&gt; While you wait, you can manage your wallets.  Make new wallets, make digital or paper backups, create Bitcoin addresses to receive payments, sign messages, and/or import private keys.  You will always receive Bitcoin payments regardless of whether you are online, but you will have to verify that payment through another service until Armory is finished this initialization.</translation>
     </message>
     <message numerus="yes">
-        <location filename="ArmoryQt.py" line="3013"/>
+        <location filename="ArmoryQt.py" line="3023"/>
         <source>You cannot sweep the funds from the address(es) you specified because the transaction fee would be greater than or equal to the amount swept. &lt;br&gt;&lt;br&gt; &lt;b&gt;Balance of address(es):&lt;/b&gt; %1&lt;br&gt; &lt;b&gt;Fee to sweep address(es):&lt;/b&gt; %2 &lt;br&gt;&lt;br&gt;The sweep operation has been canceled.</source>
         <translation>
             <numerusform>You cannot sweep the funds from the address you specified because the transaction fee would be greater than or equal to the amount swept. &lt;br&gt;&lt;br&gt; &lt;b&gt;Balance of address:&lt;/b&gt; %1&lt;br&gt; &lt;b&gt;Fee to sweep address:&lt;/b&gt; %2 &lt;br&gt;&lt;br&gt;The sweep operation has been canceled.</numerusform>
             <numerusform>You cannot sweep the funds from the addresses you specified because the transaction fee would be greater than or equal to the amount swept. &lt;br&gt;&lt;br&gt; &lt;b&gt;Balance of addresses:&lt;/b&gt; %1&lt;br&gt; &lt;b&gt;Fee to sweep addresses:&lt;/b&gt; %2 &lt;br&gt;&lt;br&gt;The sweep operation has been canceled.</numerusform>
         </translation>
     </message>
+    <message>
+        <location filename="ArmoryQt.py" line="2650"/>
+        <source>*** RBF Flagged *** </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="ArmoryQt.py" line="2652"/>
+        <source>*** Chained ZC *** </source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>ArmorySplashScreen</name>
     <message>
-        <location filename="qtdialogs.py" line="13744"/>
+        <location filename="qtdialogs.py" line="13764"/>
         <source>Loading: %1%</source>
         <translation>Loading: %1%</translation>
     </message>
@@ -1841,7 +1876,7 @@
 <context>
     <name>CardDeckFrame</name>
     <message>
-        <location filename="WalletFrames.py" line="499"/>
+        <location filename="WalletFrames.py" line="558"/>
         <source>Please shuffle a deck of cards and enter the first 40 cards in order below to get at least 192 bits of entropy to properly randomize.
 
 </source>
@@ -1850,7 +1885,7 @@
 </translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="534"/>
+        <location filename="WalletFrames.py" line="593"/>
         <source>Entropy: %1 bits</source>
         <translation>Entropy: %1 bits</translation>
     </message>
@@ -1891,24 +1926,24 @@
 <context>
     <name>CoinControlTreeModel</name>
     <message>
-        <location filename="TreeViewGUI.py" line="711"/>
+        <location filename="TreeViewGUI.py" line="932"/>
         <source>Address/ID</source>
         <translation>Address/ID</translation>
     </message>
     <message>
-        <location filename="TreeViewGUI.py" line="712"/>
+        <location filename="TreeViewGUI.py" line="933"/>
         <source>Comment</source>
         <translation>Comment</translation>
     </message>
     <message>
-        <location filename="TreeViewGUI.py" line="713"/>
-        <source>Selected Balance</source>
-        <translation>Selected Balance</translation>
-    </message>
-    <message>
-        <location filename="TreeViewGUI.py" line="714"/>
+        <location filename="TreeViewGUI.py" line="935"/>
         <source>Count</source>
         <translation>Count</translation>
+    </message>
+    <message>
+        <location filename="TreeViewGUI.py" line="934"/>
+        <source>Selected Balance/Value</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -1922,142 +1957,142 @@
 <context>
     <name>DlgAddressBook</name>
     <message>
-        <location filename="qtdialogs.py" line="7609"/>
+        <location filename="qtdialogs.py" line="7628"/>
         <source>Select</source>
         <translation>Select</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7629"/>
+        <location filename="qtdialogs.py" line="7648"/>
         <source>&lt;b&gt;Send to Wallet:&lt;/b&gt;</source>
         <translation>&lt;b&gt;Send to Wallet:&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7630"/>
+        <location filename="qtdialogs.py" line="7649"/>
         <source>&lt;b&gt;Send to Address:&lt;/b&gt;</source>
         <translation>&lt;b&gt;Send to Address:&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7681"/>
+        <location filename="qtdialogs.py" line="7700"/>
         <source>Receiving (Mine)</source>
         <translation>Receiving (Mine)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7683"/>
+        <location filename="qtdialogs.py" line="7702"/>
         <source>Sending (Other&apos;s)</source>
         <translation>Sending (Other&apos;s)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7718"/>
+        <location filename="qtdialogs.py" line="7737"/>
         <source>The next unused address in that wallet will be calculated and selected. </source>
         <translation>The next unused address in that wallet will be calculated and selected. </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7720"/>
+        <location filename="qtdialogs.py" line="7739"/>
         <source>Addresses that are in other wallets you own are &lt;b&gt;not showns&lt;/b&gt;.</source>
         <translation>Addresses that are in other wallets you own are &lt;b&gt;not showns&lt;/b&gt;.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7725"/>
+        <location filename="qtdialogs.py" line="7744"/>
         <source>No Wallet Selected</source>
         <translation>No Wallet Selected</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7726"/>
+        <location filename="qtdialogs.py" line="7745"/>
         <source>Use Bare Multi-Sig (No P2SH)</source>
         <translation>Use Bare Multi-Sig (No P2SH)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7737"/>
+        <location filename="qtdialogs.py" line="7756"/>
         <source>No Address Selected</source>
         <translation>No Address Selected</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7740"/>
+        <location filename="qtdialogs.py" line="7759"/>
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7746"/>
+        <location filename="qtdialogs.py" line="7765"/>
         <source>&lt;&lt;&lt; Go Back</source>
         <translation>&lt;&lt;&lt; Go Back</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7853"/>
+        <location filename="qtdialogs.py" line="7872"/>
         <source>None Selected</source>
         <translation>None Selected</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7945"/>
+        <location filename="qtdialogs.py" line="7964"/>
         <source>%1 Wallet: %2</source>
         <translation>%1 Wallet: %2</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7984"/>
+        <location filename="qtdialogs.py" line="8003"/>
         <source>%1 Address: %2...</source>
         <translation>%1 Address: %2...</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8087"/>
+        <location filename="qtdialogs.py" line="8106"/>
         <source>P2SH Not Allowed</source>
         <translation>P2SH Not Allowed</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8121"/>
+        <location filename="qtdialogs.py" line="8140"/>
         <source>No Public Key</source>
         <translation>No Public Key</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8172"/>
+        <location filename="qtdialogs.py" line="8191"/>
         <source>Copy Address</source>
         <translation>Copy Address</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8173"/>
+        <location filename="qtdialogs.py" line="8192"/>
         <source>Copy Hash160 (hex)</source>
         <translation>Copy Hash160 (hex)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8174"/>
+        <location filename="qtdialogs.py" line="8193"/>
         <source>Copy Comment</source>
         <translation>Copy Comment</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8050"/>
+        <location filename="qtdialogs.py" line="8069"/>
         <source>Add Address Comment</source>
         <translation>Add Address Comment</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8052"/>
+        <location filename="qtdialogs.py" line="8071"/>
         <source>Change Address Comment</source>
         <translation>Change Address Comment</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7619"/>
+        <location filename="qtdialogs.py" line="7638"/>
         <source>Choose an address from your transaction history, or your own wallet.  If you choose to send to one of your own wallets, the next unused address in that wallet will be used.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7625"/>
+        <location filename="qtdialogs.py" line="7644"/>
         <source>Browse all receiving addresses in this wallet, and all addresses to which this wallet has sent bitcoins.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7728"/>
+        <location filename="qtdialogs.py" line="7747"/>
         <source>EXPERT OPTION:  Do not check this box unless you know what it means and you need it!  Forces Armory to exposes public keys to the blockchain before the funds are spent. This is only needed for very specific use cases, and otherwise creates blockchain bloat.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8035"/>
+        <location filename="qtdialogs.py" line="8054"/>
         <source>Bare multi-sig is not available for M-of-N lockboxes on the main Bitcoin network with N higher than 3.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8087"/>
+        <location filename="qtdialogs.py" line="8106"/>
         <source>This operation requires a public key, but you selected a P2SH address which does not have a public key (these addresses start with &quot;2&quot; or &quot;3&quot;).  Please select a different address.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8121"/>
+        <location filename="qtdialogs.py" line="8140"/>
         <source>This operation requires a full public key, not just an address. Unfortunately, Armory cannot find the public key for the address you selected.  In general public keys will only be available for addresses in your wallet.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2213,12 +2248,12 @@
 <context>
     <name>DlgBackupCenter</name>
     <message>
-        <location filename="qtdialogs.py" line="9934"/>
+        <location filename="qtdialogs.py" line="9954"/>
         <source>Done</source>
         <translation>Done</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9945"/>
+        <location filename="qtdialogs.py" line="9965"/>
         <source>Backup Center</source>
         <translation>Backup Center</translation>
     </message>
@@ -2226,27 +2261,27 @@
 <context>
     <name>DlgBadConnection</name>
     <message>
-        <location filename="qtdialogs.py" line="7111"/>
+        <location filename="qtdialogs.py" line="7130"/>
         <source>Continue in Offline Mode</source>
         <translation>Continue in Offline Mode</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7112"/>
+        <location filename="qtdialogs.py" line="7131"/>
         <source>Close Armory</source>
         <translation>Close Armory</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7124"/>
+        <location filename="qtdialogs.py" line="7143"/>
         <source>Network not available</source>
         <translation>Network not available</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7078"/>
+        <location filename="qtdialogs.py" line="7097"/>
         <source>Armory was not able to detect an internet connection, so Armory will operate in &quot;Offline&quot; mode.  In this mode, only wallet -management and unsigned-transaction functionality will be available. &lt;br&gt;&lt;br&gt;If this is an error, please check your internet connection and restart Armory.&lt;br&gt;&lt;br&gt;Would you like to continue in &quot;Offline&quot; mode?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7086"/>
+        <location filename="qtdialogs.py" line="7105"/>
         <source>Armory was not able to detect the presence of Bitcoin Core or bitcoind client software (available at https://bitcoin.org).  Please make sure that the one of those programs is... &lt;br&gt; &lt;br&gt;&lt;b&gt;(1)&lt;/b&gt; ...open and connected to the network &lt;br&gt;&lt;b&gt;(2)&lt;/b&gt; ...on the same network as Armory (main-network or test-network) &lt;br&gt;&lt;b&gt;(3)&lt;/b&gt; ...synchronized with the blockchain before starting Armory&lt;br&gt;&lt;br&gt;Without the Bitcoin Core or bitcoind open, you will only be able to run Armory in &quot;Offline&quot; mode, which will not have access to new blockchain data, and you will not be able to send outgoing transactions&lt;br&gt;&lt;br&gt;If you do not want to be in &quot;Offline&quot; mode, please restart Armory after one of these programs is open and synchronized with the network</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2254,42 +2289,42 @@
 <context>
     <name>DlgBroadcastBlindTx</name>
     <message>
-        <location filename="qtdialogs.py" line="13629"/>
+        <location filename="qtdialogs.py" line="13649"/>
         <source>Parsed Transaction:</source>
         <translation>Parsed Transaction:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13639"/>
+        <location filename="qtdialogs.py" line="13659"/>
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13640"/>
+        <location filename="qtdialogs.py" line="13660"/>
         <source>Broadcast</source>
         <translation>Broadcast</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13656"/>
+        <location filename="qtdialogs.py" line="13676"/>
         <source>Broadcast Raw Transaction</source>
         <translation>Broadcast Raw Transaction</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13709"/>
+        <location filename="qtdialogs.py" line="13729"/>
         <source>Broadcast!</source>
         <translation>Broadcast!</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13595"/>
+        <location filename="qtdialogs.py" line="13615"/>
         <source>Copy a raw, hex-encoded transaction below to have Armory broadcast it to the Bitcoin network.  This function is provided as a convenience to expert users, and carries no guarantees of usefulness. &lt;br&gt;&lt;br&gt;Specifically, be aware of the following limitations of this broadcast function: &lt;ul&gt;&lt;li&gt;The transaction will be &quot;broadcast&quot; by sending it to the connected Bitcon Core instance which will forward it to the rest of the Bitcoin network. However, if the transaction is non-standard or does not satisfy standard fee rules, Bitcoin Core &lt;u&gt;will&lt;/u&gt; drop it and it will never be seen by the Bitcoin network. &lt;/li&gt;&lt;li&gt;There will be no feedback as to whether the transaction succeeded.  You will have to verify the success of this operation via other means. However, if the transaction sends funds directly to or from an address in one of your wallets, it will still generate a notification and show up in your transaction history for that wallet. &lt;/li&gt;&lt;/ul&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13682"/>
+        <location filename="qtdialogs.py" line="13702"/>
         <source>&lt;font color=&quot;%1&quot;&gt;&lt;b&gt;Raw transaction is invalid!&lt;/font&gt;&lt;/b&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13709"/>
+        <location filename="qtdialogs.py" line="13729"/>
         <source>Your transaction was successfully sent to the local Bitcoin Core instance, though there is no guarantees that it was forwarded to the rest of the network.   On testnet, just about every valid transaction will successfully propagate.  On the main Bitcoin network, this will fail unless it was a standard transaction type. The transaction had the following hash: &lt;br&gt;&lt;br&gt; %1 &lt;br&gt;&lt;br&gt;You can check whether it was seen by other nodes on the network with the link below: &lt;br&gt;&lt;br&gt;&lt;a href=&quot;%2&quot;&gt;%3&lt;/a&gt;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2503,47 +2538,47 @@ random letters, or 5 or more random words.
 <context>
     <name>DlgCorruptWallet</name>
     <message>
-        <location filename="qtdialogs.py" line="13056"/>
+        <location filename="qtdialogs.py" line="13076"/>
         <source>Wallet Consistency Check Failed!</source>
         <translation>Wallet Consistency Check Failed!</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13058"/>
+        <location filename="qtdialogs.py" line="13078"/>
         <source>Perform Wallet Consistency Check</source>
         <translation>Perform Wallet Consistency Check</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13110"/>
+        <location filename="qtdialogs.py" line="13130"/>
         <source>Hide</source>
         <translation>Hide</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13111"/>
+        <location filename="qtdialogs.py" line="13131"/>
         <source>Run Analysis and Recovery Tool</source>
         <translation>Run Analysis and Recovery Tool</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13143"/>
+        <location filename="qtdialogs.py" line="13163"/>
         <source>Wallet Error</source>
         <translation>Wallet Error</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13169"/>
+        <location filename="qtdialogs.py" line="13189"/>
         <source>Close</source>
         <translation>Close</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13258"/>
+        <location filename="qtdialogs.py" line="13278"/>
         <source>Continue</source>
         <translation>Continue</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13295"/>
+        <location filename="qtdialogs.py" line="13315"/>
         <source>&lt;h2 style=&quot;color: red;&quot;&gt;                                     Consistency check failed! &lt;/h2&gt;</source>
         <translation>&lt;h2 style=&quot;color: red;&quot;&gt;                                     Consistency check failed! &lt;/h2&gt;</translation>
     </message>
     <message numerus="yes">
-        <location filename="qtdialogs.py" line="13280"/>
+        <location filename="qtdialogs.py" line="13300"/>
         <source>Wallet(s) consistent!</source>
         <translation>
             <numerusform>Wallet consistent!</numerusform>
@@ -2551,27 +2586,27 @@ random letters, or 5 or more random words.
         </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13060"/>
+        <location filename="qtdialogs.py" line="13080"/>
         <source>&lt;font color=&quot;%1&quot; size=5&gt;&lt;b&gt;&lt;u&gt;%2&lt;/u&gt;&lt;/b&gt;&lt;/font&gt; &lt;br&gt;&lt;br&gt;Armory software now detects and prevents certain kinds of hardware errors that could lead to problems with your wallet. &lt;br&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13079"/>
+        <location filename="qtdialogs.py" line="13099"/>
         <source>Armory will perform a consistency check on &lt;b&gt;Wallet &quot;%1&quot; (%2)&lt;/b&gt; and determine if any further action is required to keep your funds protected.  This check is normally performed on startup on all your wallets, but you can click below to force another check.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13121"/>
+        <location filename="qtdialogs.py" line="13141"/>
         <source>&lt;u&gt;Your wallets will be ready to fix once the scan is over&lt;/u&gt;&lt;br&gt; You can hide this window until then&lt;br&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13273"/>
+        <location filename="qtdialogs.py" line="13293"/>
         <source>&lt;font size=4 color=&quot;%1&quot;&gt;&lt;b&gt;Failed to fix wallets!&lt;/b&gt;&lt;/font&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message numerus="yes">
-        <location filename="qtdialogs.py" line="13277"/>
+        <location filename="qtdialogs.py" line="13297"/>
         <source>&lt;font size=4 color=&quot;%1&quot;&gt;&lt;b&gt;Wallet(s) consistent, nothing to fix.&lt;/b&gt;&lt;/font&gt;</source>
         <translation type="unfinished">
             <numerusform>&lt;font size=4 color=&quot;%1&quot;&gt;&lt;b&gt;Wallet consistent, nothing to fix.&lt;/b&gt;&lt;/font&gt;</numerusform>
@@ -2579,12 +2614,12 @@ random letters, or 5 or more random words.
         </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13071"/>
+        <location filename="qtdialogs.py" line="13091"/>
         <source>Armory has detected that wallet file &lt;b&gt;Wallet &quot;%1&quot; (%2)&lt;/b&gt; is inconsistent and should be further analyzed to ensure that your funds are protected. &lt;br&gt;&lt;br&gt;&lt;font color=&quot;%3&quot;&gt;This error will pop up every time you start Armory until the wallet has been analyzed and fixed!&lt;/font&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13285"/>
+        <location filename="qtdialogs.py" line="13305"/>
         <source>&lt;font color=&quot;%1&quot;&gt;&lt;b&gt; &lt;font size=4&gt;&lt;b&gt;&lt;u&gt;There may still be issues with your wallet!&lt;/u&gt;&lt;/b&gt;&lt;/font&gt; &lt;br&gt;It is important that you send us the recovery logs and an email address so the Armory team can check for further risk to your funds!&lt;/b&gt;&lt;/font&gt;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2785,385 +2820,400 @@ random letters, or 5 or more random words.
 <context>
     <name>DlgDispTxInfo</name>
     <message>
-        <location filename="qtdialogs.py" line="5289"/>
+        <location filename="qtdialogs.py" line="5293"/>
         <source>Sent-to-Self</source>
         <translation>Sent-to-Self</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5306"/>
+        <location filename="qtdialogs.py" line="5310"/>
         <source>Received</source>
         <translation>Received</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5310"/>
+        <location filename="qtdialogs.py" line="5314"/>
         <source>Sent</source>
         <translation>Sent</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5327"/>
+        <location filename="qtdialogs.py" line="5331"/>
         <source>Transaction Information:</source>
         <translation>Transaction Information:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5347"/>
+        <location filename="qtdialogs.py" line="5351"/>
         <source>Unique identifier for this transaction</source>
         <translation>Unique identifier for this transaction</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5348"/>
+        <location filename="qtdialogs.py" line="5352"/>
         <source>Transaction ID</source>
         <translation>Transaction ID</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5353"/>
+        <location filename="qtdialogs.py" line="5357"/>
         <source>[[ Transaction ID cannot be determined without all signatures ]]</source>
         <translation>[[ Transaction ID cannot be determined without all signatures ]]</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5377"/>
+        <location filename="qtdialogs.py" line="5381"/>
         <source>Bitcoin Protocol Version Number</source>
         <translation>Bitcoin Protocol Version Number</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5378"/>
+        <location filename="qtdialogs.py" line="5382"/>
         <source>Tx Version:</source>
         <translation>Tx Version:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5382"/>
+        <location filename="qtdialogs.py" line="5386"/>
         <source>The time at which this transaction becomes valid.</source>
         <translation>The time at which this transaction becomes valid.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5384"/>
+        <location filename="qtdialogs.py" line="5388"/>
         <source>Lock-Time:</source>
         <translation>Lock-Time:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5386"/>
+        <location filename="qtdialogs.py" line="5390"/>
         <source>Immediate (0)</source>
         <translation>Immediate (0)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5388"/>
+        <location filename="qtdialogs.py" line="5392"/>
         <source>Block %1</source>
         <translation>Block %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5395"/>
+        <location filename="qtdialogs.py" line="5399"/>
         <source>Comment stored for this transaction in this wallet</source>
         <translation>Comment stored for this transaction in this wallet</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5396"/>
+        <location filename="qtdialogs.py" line="5400"/>
         <source>User Comment:</source>
         <translation>User Comment:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5400"/>
+        <location filename="qtdialogs.py" line="5404"/>
         <source>&lt;font color=&quot;gray&quot;&gt;[None]&lt;/font&gt;</source>
         <translation>&lt;font color=&quot;gray&quot;&gt;[None]&lt;/font&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5406"/>
+        <location filename="qtdialogs.py" line="5410"/>
         <source>The time that you computer first saw this transaction</source>
         <translation>The time that you computer first saw this transaction</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5444"/>
+        <location filename="qtdialogs.py" line="5448"/>
         <source>Confirmations:</source>
         <translation>Confirmations:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5454"/>
+        <location filename="qtdialogs.py" line="5458"/>
         <source>Mempool Replaceable: </source>
         <translation>Mempool Replaceable: </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5468"/>
+        <location filename="qtdialogs.py" line="5472"/>
         <source>Sum of Outputs:</source>
         <translation>Sum of Outputs:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5472"/>
+        <location filename="qtdialogs.py" line="5476"/>
         <source>Bitcoins were either sent or received, or sent-to-self</source>
         <translation>Bitcoins were either sent or received, or sent-to-self</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5530"/>
+        <location filename="qtdialogs.py" line="5549"/>
         <source>Recipients:</source>
         <translation>Recipients:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5544"/>
+        <location filename="qtdialogs.py" line="5563"/>
         <source>[%1 more recipients]</source>
         <translation>[%1 more recipients]</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5658"/>
+        <location filename="qtdialogs.py" line="5677"/>
         <source>Transaction Inputs (Sending addresses):</source>
         <translation>Transaction Inputs (Sending addresses):</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5671"/>
+        <location filename="qtdialogs.py" line="5690"/>
         <source>Transaction Outputs (Receiving addresses):</source>
         <translation>Transaction Outputs (Receiving addresses):</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5694"/>
+        <location filename="qtdialogs.py" line="5713"/>
         <source>Copy Raw Tx (Hex)</source>
         <translation>Copy Raw Tx (Hex)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5696"/>
+        <location filename="qtdialogs.py" line="5715"/>
         <source>OK</source>
         <translation>OK</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5733"/>
+        <location filename="qtdialogs.py" line="5752"/>
         <source>Transaction Info</source>
         <translation>Transaction Info</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5742"/>
+        <location filename="qtdialogs.py" line="5761"/>
         <source>&lt;&lt;&lt; Less Info</source>
         <translation>&lt;&lt;&lt; Less Info</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5752"/>
+        <location filename="qtdialogs.py" line="5771"/>
         <source>Advanced &gt;&gt;&gt;</source>
         <translation>Advanced &gt;&gt;&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5763"/>
+        <location filename="qtdialogs.py" line="5782"/>
         <source>TxIn Script:</source>
         <translation>TxIn Script:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5770"/>
+        <location filename="qtdialogs.py" line="5789"/>
         <source>TxOut Script:</source>
         <translation>TxOut Script:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5809"/>
+        <location filename="qtdialogs.py" line="5828"/>
         <source>&lt;i&gt;Copied to Clipboard!&lt;/i&gt;</source>
         <translation>&lt;i&gt;Copied to Clipboard!&lt;/i&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5839"/>
+        <location filename="qtdialogs.py" line="5858"/>
         <source>Copy Sender Address</source>
         <translation>Copy Sender Address</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5875"/>
+        <location filename="qtdialogs.py" line="5894"/>
         <source>Copy Wallet ID</source>
         <translation>Copy Wallet ID</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5876"/>
+        <location filename="qtdialogs.py" line="5895"/>
         <source>Copy Amount</source>
         <translation>Copy Amount</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5842"/>
+        <location filename="qtdialogs.py" line="5861"/>
         <source>More Info</source>
         <translation>More Info</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5874"/>
+        <location filename="qtdialogs.py" line="5893"/>
         <source>Copy Recipient Address</source>
         <translation>Copy Recipient Address</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5877"/>
+        <location filename="qtdialogs.py" line="5896"/>
         <source>Copy Raw Script</source>
         <translation>Copy Raw Script</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5363"/>
+        <location filename="qtdialogs.py" line="5367"/>
         <source>&lt;font color=&quot;gray&quot;&gt; [[ Transaction ID cannot be determined without all signatures ]] &lt;/font&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5409"/>
+        <location filename="qtdialogs.py" line="5413"/>
         <source>All transactions are eventually included in a &quot;block.&quot;  The time shown here is the time that the block entered the &quot;blockchain.&quot;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5419"/>
+        <location filename="qtdialogs.py" line="5423"/>
         <source>This transaction has not yet been included in a block. It usually takes 5-20 minutes for a transaction to get included in a block after the user hits the &quot;Send&quot; button.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5431"/>
+        <location filename="qtdialogs.py" line="5435"/>
         <source>Every transaction is eventually included in a &quot;block&quot; which is where the transaction is permanently recorded.  A new block is produced approximately every 10 minutes.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5440"/>
+        <location filename="qtdialogs.py" line="5444"/>
         <source>The number of blocks that have been produced since this transaction entered the blockchain.  A transaction with 6 or more confirmations is nearly impossible to reverse.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5450"/>
+        <location filename="qtdialogs.py" line="5454"/>
         <source>This transaction can be replaced by another transaction that spends the same inputs if the replacement transaction has a higher fee.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5463"/>
+        <location filename="qtdialogs.py" line="5467"/>
         <source>Most transactions have at least a recipient output and a returned-change output.  You do not have enough information to determine which is which, and so this fields shows the sum of &lt;b&gt;all&lt;/b&gt; outputs.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5478"/>
+        <location filename="qtdialogs.py" line="5482"/>
         <source>The value shown here is the net effect on your wallet, including transaction fee.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5492"/>
+        <location filename="qtdialogs.py" line="5505"/>
         <source>Transaction fees go to users supplying the Bitcoin network with computing power for processing transactions and maintaining security.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5524"/>
+        <location filename="qtdialogs.py" line="5543"/>
         <source>All outputs of the transaction &lt;b&gt;excluding&lt;/b&gt; change-back-to-sender outputs.  If this list does not look correct, it is possible that the change-output was detected incorrectly -- please check the complete input/output list below.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5659"/>
+        <location filename="qtdialogs.py" line="5678"/>
         <source>All transactions require previous transaction outputs as inputs.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5661"/>
+        <location filename="qtdialogs.py" line="5680"/>
         <source>&lt;b&gt;Since the blockchain is not available, not all input information is available&lt;/b&gt;.  You need to view this transaction on a system with an internet connection (and blockchain) if you want to see the complete information.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5666"/>
+        <location filename="qtdialogs.py" line="5685"/>
         <source>Each input is like an X amount dollar bill.  Usually there are more inputs than necessary for the transaction, and there will be an extra output returning change to the sender</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5672"/>
+        <location filename="qtdialogs.py" line="5691"/>
         <source>Shows &lt;b&gt;all&lt;/b&gt; outputs, including other recipients of the same transaction, and change-back-to-sender outputs (change outputs are displayed in light gray).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5677"/>
+        <location filename="qtdialogs.py" line="5696"/>
         <source>Some outputs might be &quot;change.&quot;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="qtdialogs.py" line="5495"/>
+        <source>%1 Bytes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="qtdialogs.py" line="5497"/>
+        <source>Size of the transaction in bytes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="qtdialogs.py" line="5499"/>
+        <source>Tx Size: </source>
         <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
     <name>DlgDisplayTxIn</name>
     <message>
-        <location filename="qtdialogs.py" line="5903"/>
+        <location filename="qtdialogs.py" line="5922"/>
         <source>&lt;center&gt;&lt;u&gt;&lt;b&gt;TxIn Information&lt;/b&gt;&lt;/u&gt;&lt;/center&gt;</source>
         <translation>&lt;center&gt;&lt;u&gt;&lt;b&gt;TxIn Information&lt;/b&gt;&lt;/u&gt;&lt;/center&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5928"/>
+        <location filename="qtdialogs.py" line="5947"/>
         <source>[[Cannot determine from TxIn Script]]</source>
         <translation>[[Cannot determine from TxIn Script]]</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5933"/>
+        <location filename="qtdialogs.py" line="5952"/>
         <source>Wallet &quot;%1&quot; (%2)</source>
         <translation>Wallet &quot;%1&quot; (%2)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5937"/>
+        <location filename="qtdialogs.py" line="5956"/>
         <source>Lockbox %1-of-%2 &quot;%3&quot; (%4)</source>
         <translation>Lockbox %1-of-%2 &quot;%3&quot; (%4)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5942"/>
+        <location filename="qtdialogs.py" line="5961"/>
         <source>&lt;font size=4&gt;&lt;u&gt;&lt;b&gt;Information on TxIn&lt;/b&gt;&lt;/u&gt;&lt;/font&gt;:</source>
         <translation>&lt;font size=4&gt;&lt;u&gt;&lt;b&gt;Information on TxIn&lt;/b&gt;&lt;/u&gt;&lt;/font&gt;:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5943"/>
+        <location filename="qtdialogs.py" line="5962"/>
         <source>   &lt;b&gt;TxIn Index:&lt;/b&gt;         %1</source>
         <translation>   &lt;b&gt;TxIn Index:&lt;/b&gt;         %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5944"/>
+        <location filename="qtdialogs.py" line="5963"/>
         <source>   &lt;b&gt;TxIn Spending:&lt;/b&gt;      %1:%2</source>
         <translation>   &lt;b&gt;TxIn Spending:&lt;/b&gt;      %1:%2</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5945"/>
+        <location filename="qtdialogs.py" line="5964"/>
         <source>   &lt;b&gt;TxIn Sequence&lt;/b&gt;:      0x%1</source>
         <translation>   &lt;b&gt;TxIn Sequence&lt;/b&gt;:      0x%1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5947"/>
+        <location filename="qtdialogs.py" line="5966"/>
         <source>   &lt;b&gt;TxIn Script Type&lt;/b&gt;:   %1</source>
         <translation>   &lt;b&gt;TxIn Script Type&lt;/b&gt;:   %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5948"/>
+        <location filename="qtdialogs.py" line="5967"/>
         <source>   &lt;b&gt;TxIn Source&lt;/b&gt;:        %1</source>
         <translation>   &lt;b&gt;TxIn Source&lt;/b&gt;:        %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5950"/>
+        <location filename="qtdialogs.py" line="5969"/>
         <source>   &lt;b&gt;TxIn Wallet&lt;/b&gt;:        %1</source>
         <translation>   &lt;b&gt;TxIn Wallet&lt;/b&gt;:        %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5951"/>
+        <location filename="qtdialogs.py" line="5970"/>
         <source>   &lt;b&gt;TxIn Script&lt;/b&gt;:</source>
         <translation>   &lt;b&gt;TxIn Script&lt;/b&gt;:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5979"/>
+        <location filename="qtdialogs.py" line="5998"/>
         <source>&lt;font size=4&gt;&lt;u&gt;&lt;b&gt;Information on TxOut being spent by this TxIn&lt;/b&gt;&lt;/u&gt;&lt;/font&gt;:</source>
         <translation>&lt;font size=4&gt;&lt;u&gt;&lt;b&gt;Information on TxOut being spent by this TxIn&lt;/b&gt;&lt;/u&gt;&lt;/font&gt;:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5980"/>
+        <location filename="qtdialogs.py" line="5999"/>
         <source>   &lt;b&gt;Tx Hash:&lt;/b&gt;            %1</source>
         <translation>   &lt;b&gt;Tx Hash:&lt;/b&gt;            %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5981"/>
+        <location filename="qtdialogs.py" line="6000"/>
         <source>   &lt;b&gt;Tx Out Index:&lt;/b&gt;       %1</source>
         <translation>   &lt;b&gt;Tx Out Index:&lt;/b&gt;       %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5982"/>
+        <location filename="qtdialogs.py" line="6001"/>
         <source>   &lt;b&gt;Tx in Block#:&lt;/b&gt;       %1</source>
         <translation>   &lt;b&gt;Tx in Block#:&lt;/b&gt;       %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5983"/>
+        <location filename="qtdialogs.py" line="6002"/>
         <source>   &lt;b&gt;TxOut Value:&lt;/b&gt;        %1</source>
         <translation>   &lt;b&gt;TxOut Value:&lt;/b&gt;        %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5984"/>
+        <location filename="qtdialogs.py" line="6003"/>
         <source>   &lt;b&gt;TxOut Script Type:&lt;/b&gt;  %1</source>
         <translation>   &lt;b&gt;TxOut Script Type:&lt;/b&gt;  %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5985"/>
+        <location filename="qtdialogs.py" line="6004"/>
         <source>   &lt;b&gt;TxOut Address:&lt;/b&gt;      %1</source>
         <translation>   &lt;b&gt;TxOut Address:&lt;/b&gt;      %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5987"/>
+        <location filename="qtdialogs.py" line="6006"/>
         <source>   &lt;b&gt;TxOut Wallet:&lt;/b&gt;       %1</source>
         <translation>   &lt;b&gt;TxOut Wallet:&lt;/b&gt;       %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5988"/>
+        <location filename="qtdialogs.py" line="6007"/>
         <source>   &lt;b&gt;TxOUt Script:&lt;/b&gt;</source>
         <translation>   &lt;b&gt;TxOUt Script:&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="5995"/>
+        <location filename="qtdialogs.py" line="6014"/>
         <source>Ok</source>
         <translation>Ok</translation>
     </message>
@@ -3171,52 +3221,52 @@ random letters, or 5 or more random words.
 <context>
     <name>DlgDisplayTxOut</name>
     <message>
-        <location filename="qtdialogs.py" line="6013"/>
+        <location filename="qtdialogs.py" line="6032"/>
         <source>&lt;center&gt;&lt;u&gt;&lt;b&gt;TxOut Information&lt;/b&gt;&lt;/u&gt;&lt;/center&gt;</source>
         <translation>&lt;center&gt;&lt;u&gt;&lt;b&gt;TxOut Information&lt;/b&gt;&lt;/u&gt;&lt;/center&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6049"/>
+        <location filename="qtdialogs.py" line="6068"/>
         <source>&lt;font size=4&gt;&lt;u&gt;&lt;b&gt;Information on TxOut&lt;/b&gt;&lt;/u&gt;&lt;/font&gt;:</source>
         <translation>&lt;font size=4&gt;&lt;u&gt;&lt;b&gt;Information on TxOut&lt;/b&gt;&lt;/u&gt;&lt;/font&gt;:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6050"/>
+        <location filename="qtdialogs.py" line="6069"/>
         <source>   &lt;b&gt;Tx Out Index:&lt;/b&gt;       %1</source>
         <translation>   &lt;b&gt;Tx Out Index:&lt;/b&gt;       %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6051"/>
+        <location filename="qtdialogs.py" line="6070"/>
         <source>   &lt;b&gt;TxOut Value:&lt;/b&gt;        %1</source>
         <translation>   &lt;b&gt;TxOut Value:&lt;/b&gt;        %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6052"/>
+        <location filename="qtdialogs.py" line="6071"/>
         <source>   &lt;b&gt;TxOut Script Type:&lt;/b&gt;  %1</source>
         <translation>   &lt;b&gt;TxOut Script Type:&lt;/b&gt;  %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6053"/>
+        <location filename="qtdialogs.py" line="6072"/>
         <source>   &lt;b&gt;TxOut Address:&lt;/b&gt;      %1</source>
         <translation>   &lt;b&gt;TxOut Address:&lt;/b&gt;      %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6055"/>
+        <location filename="qtdialogs.py" line="6074"/>
         <source>   &lt;b&gt;TxOut Wallet:&lt;/b&gt;       %1</source>
         <translation>   &lt;b&gt;TxOut Wallet:&lt;/b&gt;       %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6057"/>
+        <location filename="qtdialogs.py" line="6076"/>
         <source>   &lt;b&gt;TxOut Wallet:&lt;/b&gt;       [[Unrelated to any loaded wallets]]</source>
         <translation>   &lt;b&gt;TxOut Wallet:&lt;/b&gt;       [[Unrelated to any loaded wallets]]</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6058"/>
+        <location filename="qtdialogs.py" line="6077"/>
         <source>   &lt;b&gt;TxOut Script:&lt;/b&gt;</source>
         <translation>   &lt;b&gt;TxOut Script:&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6065"/>
+        <location filename="qtdialogs.py" line="6084"/>
         <source>Ok</source>
         <translation>Ok</translation>
     </message>
@@ -3262,62 +3312,62 @@ random letters, or 5 or more random words.
 <context>
     <name>DlgECDSACalc</name>
     <message>
-        <location filename="qtdialogs.py" line="7353"/>
+        <location filename="qtdialogs.py" line="7372"/>
         <source>Multiply Scalars (mod n)</source>
         <translation>Multiply Scalars (mod n)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7354"/>
+        <location filename="qtdialogs.py" line="7373"/>
         <source>Scalar Multiply EC Point</source>
         <translation>Scalar Multiply EC Point</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7355"/>
+        <location filename="qtdialogs.py" line="7374"/>
         <source>Add EC Points</source>
         <translation>Add EC Points</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7470"/>
+        <location filename="qtdialogs.py" line="7489"/>
         <source>Clear</source>
         <translation>Clear</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7474"/>
+        <location filename="qtdialogs.py" line="7493"/>
         <source>&lt;&lt;&lt; Go Back</source>
         <translation>&lt;&lt;&lt; Go Back</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7490"/>
+        <location filename="qtdialogs.py" line="7509"/>
         <source>ECDSA Calculator</source>
         <translation>ECDSA Calculator</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7500"/>
+        <location filename="qtdialogs.py" line="7519"/>
         <source>Bad Input</source>
         <translation>Bad Input</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7554"/>
+        <location filename="qtdialogs.py" line="7573"/>
         <source>Invalid EC Point</source>
         <translation>Invalid EC Point</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7500"/>
+        <location filename="qtdialogs.py" line="7519"/>
         <source>Value &quot;%1&quot; is invalid. Make sure the value is specified in hex, big-endian.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7554"/>
+        <location filename="qtdialogs.py" line="7573"/>
         <source>The point you specified (&lt;b&gt;B&lt;/b&gt;) is not on the elliptic curve used in Bitcoin (secp256k1).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7548"/>
+        <location filename="qtdialogs.py" line="7567"/>
         <source>The point you specified (&lt;b&gt;A&lt;/b&gt;) is not on the elliptic curve used in Bitcoin (secp256k1).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7457"/>
+        <location filename="qtdialogs.py" line="7476"/>
         <source>Use this form to perform Bitcoin elliptic curve calculations.  All operations are performed on the secp256k1 elliptic curve, which is the one used for Bitcoin. Supply all values as 32-byte, big-endian, hex-encoded integers. &lt;br&gt;&lt;br&gt;The following is the secp256k1 generator point coordinates (G): &lt;br&gt; &lt;b&gt;G&lt;/b&gt;&lt;sub&gt;x&lt;/sub&gt;: %1 &lt;br&gt; &lt;b&gt;G&lt;/b&gt;&lt;sub&gt;y&lt;/sub&gt;: %2</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3353,62 +3403,62 @@ random letters, or 5 or more random words.
 <context>
     <name>DlgEnterOneFrag</name>
     <message>
-        <location filename="qtdialogs.py" line="12280"/>
+        <location filename="qtdialogs.py" line="12300"/>
         <source>&lt;b&gt;Backup Type:&lt;/b&gt;</source>
         <translation>&lt;b&gt;Backup Type:&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12327"/>
+        <location filename="qtdialogs.py" line="12347"/>
         <source>Done</source>
         <translation>Done</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12328"/>
+        <location filename="qtdialogs.py" line="12348"/>
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12344"/>
+        <location filename="qtdialogs.py" line="12364"/>
         <source>Restore Single-Sheet Backup</source>
         <translation>Restore Single-Sheet Backup</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12428"/>
+        <location filename="qtdialogs.py" line="12448"/>
         <source>Verify Wallet ID</source>
         <translation>Verify Wallet ID</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12447"/>
+        <location filename="qtdialogs.py" line="12467"/>
         <source>Verify Fragment ID</source>
         <translation>Verify Fragment ID</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12228"/>
+        <location filename="qtdialogs.py" line="12248"/>
         <source>You have entered fragments %1, so far.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12410"/>
+        <location filename="qtdialogs.py" line="12430"/>
         <source>The ID field indicates that this is a SecurePrint&#xe2;&#x84;&#xa2; Backup Type. You have either entered the ID incorrectly or have chosen an incorrect Backup Type.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12428"/>
+        <location filename="qtdialogs.py" line="12448"/>
         <source>There is an error in the data you entered that could not be fixed automatically.  Please double-check that you entered the text exactly as it appears on the wallet-backup page. &lt;br&gt;&lt;br&gt; The error occured on the &quot;%1&quot; line.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12447"/>
+        <location filename="qtdialogs.py" line="12467"/>
         <source>The data you entered is for fragment: &lt;br&gt;&lt;br&gt; &lt;font color=&quot;%1 size=3&gt;&lt;b&gt;%2&lt;/b&gt;&lt;/font&gt;  &lt;br&gt;&lt;br&gt; Does this ID match the &quot;Fragment:&quot; field displayed on your backup? If not, click &quot;No&quot; and re-enter the fragment data.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12230"/>
+        <location filename="qtdialogs.py" line="12250"/>
         <source>&lt;b&gt;&lt;u&gt;Enter Another Fragment...&lt;/u&gt;&lt;/b&gt; &lt;br&gt;&lt;br&gt; %1 The fragments can be entered in any order, as long as you provide enough of them to restore the wallet.  If any fragments use a SecurePrintu200bu2122 code, please enter it once on the previous window, and it will be applied to all fragments that require it.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12312"/>
+        <location filename="qtdialogs.py" line="12332"/>
         <source>SecurePrintu200bu2122 Code:</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3416,27 +3466,27 @@ random letters, or 5 or more random words.
 <context>
     <name>DlgEnterSecurePrintCode</name>
     <message>
-        <location filename="qtdialogs.py" line="12191"/>
+        <location filename="qtdialogs.py" line="12211"/>
         <source>Done</source>
         <translation>Done</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12192"/>
+        <location filename="qtdialogs.py" line="12212"/>
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12204"/>
+        <location filename="qtdialogs.py" line="12224"/>
         <source>Enter Secure Print Code</source>
         <translation>Enter Secure Print Code</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12182"/>
+        <location filename="qtdialogs.py" line="12202"/>
         <source>This fragment file requires a SecurePrintu200bu2122 code. You will only have to enter this code once since it is the same on all fragments.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12187"/>
+        <location filename="qtdialogs.py" line="12207"/>
         <source>SecurePrintu200bu2122 Code: </source>
         <translation type="unfinished"></translation>
     </message>
@@ -3444,7 +3494,7 @@ random letters, or 5 or more random words.
 <context>
     <name>DlgExecLongProcess</name>
     <message>
-        <location filename="qtdialogs.py" line="7268"/>
+        <location filename="qtdialogs.py" line="7287"/>
         <source>Please Wait...</source>
         <translation>Please Wait...</translation>
     </message>
@@ -3452,57 +3502,57 @@ random letters, or 5 or more random words.
 <context>
     <name>DlgExpWOWltData</name>
     <message>
-        <location filename="qtdialogs.py" line="10054"/>
+        <location filename="qtdialogs.py" line="10074"/>
         <source>Export Watching-Only Wallet File</source>
         <translation>Export Watching-Only Wallet File</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10055"/>
+        <location filename="qtdialogs.py" line="10075"/>
         <source>Copy to clipboard</source>
         <translation>Copy to clipboard</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10057"/>
+        <location filename="qtdialogs.py" line="10077"/>
         <source>Save to Text File</source>
         <translation>Save to Text File</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10058"/>
+        <location filename="qtdialogs.py" line="10078"/>
         <source>Print Root Data</source>
         <translation>Print Root Data</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10077"/>
+        <location filename="qtdialogs.py" line="10097"/>
         <source>Watch-Only Wallet Export</source>
         <translation>Watch-Only Wallet Export</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10089"/>
+        <location filename="qtdialogs.py" line="10109"/>
         <source>&lt;i&gt;Copied!&lt;/i&gt;</source>
         <translation>&lt;i&gt;Copied!&lt;/i&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10119"/>
+        <location filename="qtdialogs.py" line="10139"/>
         <source>Done</source>
         <translation>Done</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10070"/>
+        <location filename="qtdialogs.py" line="10090"/>
         <source>Watch-Only Root ID:&lt;br&gt;&lt;b&gt;%1&lt;/b&gt;&lt;br&gt;&lt;br&gt;Watch-Only Root Data:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10094"/>
+        <location filename="qtdialogs.py" line="10114"/>
         <source>&lt;center&gt;&lt;b&gt;&lt;u&gt;&lt;font size=4 color=&quot;%1&quot;&gt;Export Watch-Only Wallet: %2&lt;/font&gt;&lt;/u&gt;&lt;/b&gt;&lt;/center&gt; &lt;br&gt;Use a watching-only wallet on an online computer to distribute payment addresses, verify transactions and monitor balances, but without the ability to move the funds.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10102"/>
+        <location filename="qtdialogs.py" line="10122"/>
         <source>&lt;center&gt;&lt;b&gt;&lt;u&gt;Entire Wallet File&lt;/u&gt;&lt;/b&gt;&lt;/center&gt; &lt;br&gt;&lt;i&gt;&lt;b&gt;&lt;font color=&quot;%1&quot;&gt;(Recommended)&lt;/font&gt;&lt;/b&gt;&lt;/i&gt; An exact copy of your wallet file but without any of the private signing keys. All existing comments and labels will be carried with the file. Use this option if it is easy to transfer files from this system to the target system.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10111"/>
+        <location filename="qtdialogs.py" line="10131"/>
         <source>&lt;center&gt;&lt;b&gt;&lt;u&gt;Only Root Data&lt;/u&gt;&lt;/b&gt;&lt;/center&gt; &lt;br&gt;Same as above, but only five lines of text that are easy to print, email inline, or copy by hand.  Only produces the wallet addresses.   No comments or labels are carried with it.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3553,204 +3603,204 @@ random letters, or 5 or more random words.
 <context>
     <name>DlgExportTxHistory</name>
     <message>
-        <location filename="qtdialogs.py" line="9014"/>
+        <location filename="qtdialogs.py" line="9033"/>
         <source>My Wallets</source>
         <translation>My Wallets</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9015"/>
+        <location filename="qtdialogs.py" line="9034"/>
         <source>Offline Wallets</source>
         <translation>Offline Wallets</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9016"/>
+        <location filename="qtdialogs.py" line="9035"/>
         <source>Other Wallets</source>
         <translation>Other Wallets</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9019"/>
+        <location filename="qtdialogs.py" line="9038"/>
         <source>All Wallets</source>
         <translation>All Wallets</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9020"/>
+        <location filename="qtdialogs.py" line="9039"/>
         <source>All Lockboxes</source>
         <translation>All Lockboxes</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9021"/>
+        <location filename="qtdialogs.py" line="9040"/>
         <source>All Wallets &amp; Lockboxes</source>
         <translation>All Wallets &amp; Lockboxes</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9034"/>
+        <location filename="qtdialogs.py" line="9053"/>
         <source>Date (newest first)</source>
         <translation>Date (newest first)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9035"/>
+        <location filename="qtdialogs.py" line="9054"/>
         <source>Date (oldest first)</source>
         <translation>Date (oldest first)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9040"/>
+        <location filename="qtdialogs.py" line="9059"/>
         <source>Comma-Separated Values (*.csv)</source>
         <translation>Comma-Separated Values (*.csv)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9044"/>
+        <location filename="qtdialogs.py" line="9063"/>
         <source>Use any of the following symbols:&lt;br&gt;</source>
         <translation>Use any of the following symbols:&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9055"/>
+        <location filename="qtdialogs.py" line="9074"/>
         <source>Reset to Default</source>
         <translation>Reset to Default</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9065"/>
+        <location filename="qtdialogs.py" line="9084"/>
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9066"/>
+        <location filename="qtdialogs.py" line="9085"/>
         <source>Export</source>
         <translation>Export</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9075"/>
+        <location filename="qtdialogs.py" line="9094"/>
         <source>Export Format:</source>
         <translation>Export Format:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9082"/>
+        <location filename="qtdialogs.py" line="9101"/>
         <source>Wallet(s) to export:</source>
         <translation>Wallet(s) to export:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9089"/>
+        <location filename="qtdialogs.py" line="9108"/>
         <source>Sort Table:</source>
         <translation>Sort Table:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9095"/>
+        <location filename="qtdialogs.py" line="9114"/>
         <source>Date Format:</source>
         <translation>Date Format:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9120"/>
+        <location filename="qtdialogs.py" line="9139"/>
         <source>Example: %1</source>
         <translation>Example: %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9123"/>
+        <location filename="qtdialogs.py" line="9142"/>
         <source>Example: [[invalid date format]]</source>
         <translation>Example: [[invalid date format]]</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9135"/>
+        <location filename="qtdialogs.py" line="9154"/>
         <source>Invalid date format</source>
         <translation>Invalid date format</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9135"/>
+        <location filename="qtdialogs.py" line="9154"/>
         <source>Cannot create CSV without a valid format for transaction dates and times</source>
         <translation>Cannot create CSV without a valid format for transaction dates and times</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9231"/>
+        <location filename="qtdialogs.py" line="9250"/>
         <source>Export Date: %1
 </source>
         <translation>Export Date: %1
 </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9232"/>
+        <location filename="qtdialogs.py" line="9251"/>
         <source>Total Funds: %1
 </source>
         <translation>Total Funds: %1
 </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9233"/>
+        <location filename="qtdialogs.py" line="9252"/>
         <source>Spendable Funds: %1
 </source>
         <translation>Spendable Funds: %1
 </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9234"/>
+        <location filename="qtdialogs.py" line="9253"/>
         <source>Unconfirmed Funds: %1
 </source>
         <translation>Unconfirmed Funds: %1
 </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9237"/>
+        <location filename="qtdialogs.py" line="9256"/>
         <source>Included Wallets:
 </source>
         <translation>Included Wallets:
 </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9244"/>
+        <location filename="qtdialogs.py" line="9263"/>
         <source>%1 (lockbox),%2
 </source>
         <translation>%1 (lockbox),%2
 </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9248"/>
+        <location filename="qtdialogs.py" line="9267"/>
         <source>Date</source>
         <translation>Date</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9248"/>
+        <location filename="qtdialogs.py" line="9267"/>
         <source>Transaction ID</source>
         <translation>Transaction ID</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9248"/>
+        <location filename="qtdialogs.py" line="9267"/>
         <source>Number of Confirmations</source>
         <translation>Number of Confirmations</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9248"/>
+        <location filename="qtdialogs.py" line="9267"/>
         <source>Wallet ID</source>
         <translation>Wallet ID</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9249"/>
+        <location filename="qtdialogs.py" line="9268"/>
         <source>Wallet Name</source>
         <translation>Wallet Name</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9249"/>
+        <location filename="qtdialogs.py" line="9268"/>
         <source>Credit</source>
         <translation>Credit</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9249"/>
+        <location filename="qtdialogs.py" line="9268"/>
         <source>Debit</source>
         <translation>Debit</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9249"/>
+        <location filename="qtdialogs.py" line="9268"/>
         <source>Fee (paid by this wallet)</source>
         <translation>Fee (paid by this wallet)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9250"/>
+        <location filename="qtdialogs.py" line="9269"/>
         <source>Wallet Balance</source>
         <translation>Wallet Balance</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9250"/>
+        <location filename="qtdialogs.py" line="9269"/>
         <source>Total Balance</source>
         <translation>Total Balance</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9250"/>
+        <location filename="qtdialogs.py" line="9269"/>
         <source>Label</source>
         <translation>Label</translation>
     </message>
@@ -3758,112 +3808,112 @@ random letters, or 5 or more random words.
 <context>
     <name>DlgFactoryReset</name>
     <message>
-        <location filename="qtdialogs.py" line="13367"/>
+        <location filename="qtdialogs.py" line="13387"/>
         <source>Do not delete settings files</source>
         <translation>Do not delete settings files</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13398"/>
+        <location filename="qtdialogs.py" line="13418"/>
         <source>Continue</source>
         <translation>Continue</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13399"/>
+        <location filename="qtdialogs.py" line="13419"/>
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13413"/>
+        <location filename="qtdialogs.py" line="13433"/>
         <source>Factory Reset</source>
         <translation>Factory Reset</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13472"/>
+        <location filename="qtdialogs.py" line="13492"/>
         <source>Confirmation</source>
         <translation>Confirmation</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13510"/>
+        <location filename="qtdialogs.py" line="13530"/>
         <source>Aborted</source>
         <translation>Aborted</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13526"/>
+        <location filename="qtdialogs.py" line="13546"/>
         <source>Restart Armory</source>
         <translation>Restart Armory</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13327"/>
+        <location filename="qtdialogs.py" line="13347"/>
         <source>&lt;b&gt;&lt;u&gt;Armory Factory Reset&lt;/u&gt;&lt;/b&gt; &lt;br&gt;&lt;br&gt;It is &lt;i&gt;strongly&lt;/i&gt; recommended that you make backups of your wallets before continuing, though &lt;b&gt;wallet files will never be intentionally deleted!&lt;/b&gt;  All Armory wallet files, and the wallet.dat file used by Bitcoin Core/bitcoind should remain untouched in their current locations.  All Armory wallets will automatically be detected and loaded after the reset. &lt;br&gt;&lt;br&gt;If you are not sure which option to pick, try the &quot;lightest option&quot; first, and see if your problems are resolved before trying the more extreme options.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13344"/>
+        <location filename="qtdialogs.py" line="13364"/>
         <source>&lt;b&gt;Delete settings and rescan (lightest option)&lt;/b&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13346"/>
+        <location filename="qtdialogs.py" line="13366"/>
         <source>Only delete the settings file and transient network data.  The databases built by Armory will be rescanned (about 5-45 minutes)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13351"/>
+        <location filename="qtdialogs.py" line="13371"/>
         <source>&lt;b&gt;Also delete databases and rebuild&lt;/b&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13357"/>
+        <location filename="qtdialogs.py" line="13377"/>
         <source>&lt;b&gt;Also re-download the blockchain (extreme)&lt;/b&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13358"/>
+        <location filename="qtdialogs.py" line="13378"/>
         <source>This will delete settings, network data, Armory&apos;s databases, &lt;b&gt;and&lt;/b&gt; Bitcoin Core&apos;s databases.  Bitcoin Core will have to download the blockchain again. This can take 8-72 hours depending on your system&apos;s speed and connection.  Only use this if you suspect blockchain corruption, such as receiving StdOut/StdErr errors on the dashboard.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13423"/>
+        <location filename="qtdialogs.py" line="13443"/>
         <source>You are about to delete your settings and force Armory to rescan its databases.  Are you sure you want to do this?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13438"/>
+        <location filename="qtdialogs.py" line="13458"/>
         <source>You are about to delete your settings and force Armory to delete and rebuild its databases.  Are you sure you want to do this?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13510"/>
+        <location filename="qtdialogs.py" line="13530"/>
         <source>You canceled the factory reset operation.  No changes were made.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13485"/>
+        <location filename="qtdialogs.py" line="13505"/>
         <source>&lt;b&gt;Bitcoin Core (or bitcoind) must be closed to do the reset!&lt;/b&gt; Please close all Bitcoin software, &lt;u&gt;&lt;b&gt;right now&lt;/b&gt;&lt;/u&gt;, before clicking &quot;Continue&quot;. &lt;br&gt;&lt;br&gt;Armory will now close.  Please restart Bitcoin Core/bitcoind first and wait for it to finish synchronizing before restarting Armory.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13504"/>
+        <location filename="qtdialogs.py" line="13524"/>
         <source>Armory will now close to apply the requested changes.  Please restart it when you are ready to start the blockchain download again.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13526"/>
+        <location filename="qtdialogs.py" line="13546"/>
         <source>Armory will now close so that the requested changes can be applied.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13352"/>
+        <location filename="qtdialogs.py" line="13372"/>
         <source>Will delete settings, network data, and delete Armory&apos;s databases. The databases will be rebuilt and rescanned (45 min to 3 hours)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13464"/>
+        <location filename="qtdialogs.py" line="13484"/>
         <source>You are about to delete your settings and delete &lt;b&gt;all&lt;/b&gt; blockchain databases on your system.  The Bitcoin software will have to redownload all of the blockchain data over the peer-to-peer network again. This can take from 8 to 72 hours depending on your system&apos;s speed and connection.  &lt;br&gt;&lt;br&gt;&lt;b&gt;Are you absolutely sure you want to do this?&lt;/b&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13456"/>
+        <location filename="qtdialogs.py" line="13476"/>
         <source>You are about to delete &lt;b&gt;all&lt;/b&gt; blockchain databases on your system.  The Bitcoin software will have to redownload all of the blockchain data over the peer-to-peer network again. This can take from 8 to 72 hours depending on your system&apos;s speed and connection.  &lt;br&gt;&lt;br&gt;&lt;b&gt;Are you absolutely sure you want to do this?&lt;/b&gt;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3871,27 +3921,27 @@ random letters, or 5 or more random words.
 <context>
     <name>DlgForkedImports</name>
     <message>
-        <location filename="qtdialogs.py" line="13537"/>
+        <location filename="qtdialogs.py" line="13557"/>
         <source>&lt;h2 style=&quot;color: red; text-align: center;&quot;&gt;Forked imported addresses have been       detected in your wallets!!!&lt;/h2&gt;</source>
         <translation>&lt;h2 style=&quot;color: red; text-align: center;&quot;&gt;Forked imported addresses have been       detected in your wallets!!!&lt;/h2&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13540"/>
+        <location filename="qtdialogs.py" line="13560"/>
         <source>The following wallets have forked imported addresses: &lt;br&gt;&lt;br&gt;&lt;b&gt;</source>
         <translation>The following wallets have forked imported addresses: &lt;br&gt;&lt;br&gt;&lt;b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13543"/>
+        <location filename="qtdialogs.py" line="13563"/>
         <source>When you fix a corrupted wallet, any damaged private keys will be off       the deterministic chain. It means these private keys cannot be recreated       by your paper backup. If such private keys are encountered, Armory saves       them as forked imported private keys after it fixes the relevant wallets.</source>
         <translation>When you fix a corrupted wallet, any damaged private keys will be off       the deterministic chain. It means these private keys cannot be recreated       by your paper backup. If such private keys are encountered, Armory saves       them as forked imported private keys after it fixes the relevant wallets.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13584"/>
+        <location filename="qtdialogs.py" line="13604"/>
         <source>Forked Imported Addresses</source>
         <translation>Forked Imported Addresses</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13548"/>
+        <location filename="qtdialogs.py" line="13568"/>
         <source>&lt;h1 style=&quot;color: orange;&quot;&gt; - Do not accept payments to these wallets anymore&lt;br&gt;      - Do not delete or overwrite these wallets. &lt;br&gt;       - Transfer all funds to a fresh and backed up wallet&lt;/h1&gt;</source>
         <translation>&lt;h1 style=&quot;color: orange;&quot;&gt; - Do not accept payments to these wallets anymore&lt;br&gt;      - Do not delete or overwrite these wallets. &lt;br&gt;       - Transfer all funds to a fresh and backed up wallet&lt;/h1&gt;</translation>
     </message>
@@ -3899,102 +3949,102 @@ random letters, or 5 or more random words.
 <context>
     <name>DlgFragBackup</name>
     <message>
-        <location filename="qtdialogs.py" line="10446"/>
+        <location filename="qtdialogs.py" line="10466"/>
         <source>Close</source>
         <translation>Close</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10536"/>
+        <location filename="qtdialogs.py" line="10556"/>
         <source>&lt;u&gt;&lt;b&gt;Required Fragments&lt;/b&gt;&lt;/u&gt; </source>
         <translation>&lt;u&gt;&lt;b&gt;Required Fragments&lt;/b&gt;&lt;/u&gt; </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10537"/>
+        <location filename="qtdialogs.py" line="10557"/>
         <source>&lt;u&gt;&lt;b&gt;Total Fragments&lt;/b&gt;&lt;/u&gt; </source>
         <translation>&lt;u&gt;&lt;b&gt;Total Fragments&lt;/b&gt;&lt;/u&gt; </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10541"/>
+        <location filename="qtdialogs.py" line="10561"/>
         <source>Print All Fragments</source>
         <translation>Print All Fragments</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10583"/>
+        <location filename="qtdialogs.py" line="10603"/>
         <source>&lt;b&gt;Fragment ID:&lt;br&gt;%1-%2&lt;/b&gt;</source>
         <translation>&lt;b&gt;Fragment ID:&lt;br&gt;%1-%2&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10615"/>
+        <location filename="qtdialogs.py" line="10635"/>
         <source>View/Print</source>
         <translation>View/Print</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10616"/>
+        <location filename="qtdialogs.py" line="10636"/>
         <source>Save to File</source>
         <translation>Save to File</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10650"/>
+        <location filename="qtdialogs.py" line="10670"/>
         <source>Fragments</source>
         <translation>Fragments</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10660"/>
+        <location filename="qtdialogs.py" line="10680"/>
         <source>Secure Backup?</source>
         <translation>Secure Backup?</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10686"/>
+        <location filename="qtdialogs.py" line="10706"/>
         <source>Save Fragment</source>
         <translation>Save Fragment</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10686"/>
+        <location filename="qtdialogs.py" line="10706"/>
         <source>Wallet Fragments (*.frag)</source>
         <translation>Wallet Fragments (*.frag)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10736"/>
+        <location filename="qtdialogs.py" line="10756"/>
         <source>Success</source>
         <translation>Success</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10407"/>
+        <location filename="qtdialogs.py" line="10427"/>
         <source>&lt;b&gt;&lt;u&gt;Create M-of-N Fragmented Backup&lt;/u&gt; of &quot;%1&quot; (%2)&lt;/b&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10568"/>
+        <location filename="qtdialogs.py" line="10588"/>
         <source>Any &lt;font color=&quot;%1&quot;&gt;&lt;b&gt;%2&lt;/b&gt;&lt;/font&gt; of these &lt;font color=&quot;%1&quot;&gt;&lt;b&gt;%3&lt;/b&gt;&lt;/font&gt;fragments are sufficient to restore your wallet, and each fragment has the ID, &lt;font color=&quot;%1&quot;&gt;&lt;b&gt;%4&lt;/b&gt;&lt;/font&gt;.  All fragments with the same fragment ID are compatible with each other!</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10721"/>
+        <location filename="qtdialogs.py" line="10741"/>
         <source>The fragment was successfully saved to the following location: &lt;br&gt;&lt;br&gt; %1 &lt;br&gt;&lt;br&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10463"/>
+        <location filename="qtdialogs.py" line="10483"/>
         <source>Use SecurePrintu200bu2122 to prevent exposing keys to printer or other devices</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10470"/>
+        <location filename="qtdialogs.py" line="10490"/>
         <source>SecurePrintu200bu2122 encrypts your backup with a code displayed on the screen, so that no other devices or processes has access to the unencrypted private keys (either network devices when printing, or other applications if you save a fragment to disk or USB device). &lt;u&gt;You must keep the SecurePrintu200bu2122 code with the backup!&lt;/u&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10476"/>
+        <location filename="qtdialogs.py" line="10496"/>
         <source>&lt;b&gt;&lt;font color=&quot;%1&quot;&gt;&lt;u&gt;IMPORTANT:&lt;/u&gt;  You must keep the SecurePrintu200bu2122 encryption code with your backup! Your SecurePrintu200bu2122 code is &lt;/font&gt; &lt;font color=&quot;%2&quot;&gt;%3&lt;/font&gt;&lt;font color=&quot;%4&quot;&gt;. All fragments for a given wallet use the same code.&lt;/font&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10660"/>
+        <location filename="qtdialogs.py" line="10680"/>
         <source>You have selected to use SecurePrintu200bu2122 for the printed backups, which can also be applied to fragments saved to file. Doing so will require you store the SecurePrintu200bu2122 code with the backup, but it will prevent unencrypted key data from touching any disks.  &lt;br&gt;&lt;br&gt; Do you want to encrpt the fragment file with the same SecurePrintu200bu2122 code?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10726"/>
+        <location filename="qtdialogs.py" line="10746"/>
         <source>&lt;b&gt;&lt;u&gt;&lt;font color=&quot;%1&quot;&gt;Important&lt;/font&lt;/u&gt;&lt;/b&gt;: The fragment was encrypted with the SecurePrintu200bu2122 encryption code.  You must keep this code with the backup in order to use it!  The code &lt;u&gt;is&lt;/u&gt; case-sensitive! &lt;br&gt;&lt;br&gt; &lt;font color=&quot;%2&quot; size=5&gt;&lt;b&gt;%3&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;br&gt;The above code &lt;u&gt;&lt;b&gt;is&lt;/b&gt;&lt;/u&gt; case-sensitive!</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4058,32 +4108,32 @@ random letters, or 5 or more random words.
 <context>
     <name>DlgHelpAbout</name>
     <message>
-        <location filename="qtdialogs.py" line="8230"/>
+        <location filename="qtdialogs.py" line="8249"/>
         <source>Armory Bitcoin Wallet : Version %1-beta-%2</source>
         <translation>Armory Bitcoin Wallet : Version %1-beta-%2</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8233"/>
+        <location filename="qtdialogs.py" line="8252"/>
         <source>Copyright &amp;copy; 2011-2015 Armory Technologies, Inc.</source>
         <translation>Copyright &amp;copy; 2011-2015 Armory Technologies, Inc.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8234"/>
+        <location filename="qtdialogs.py" line="8253"/>
         <source>Copyright &amp;copy; 2016 Goatpig</source>
         <translation>Copyright &amp;copy; 2016 Goatpig</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8235"/>
+        <location filename="qtdialogs.py" line="8254"/>
         <source>Licensed to Armory Technologies, Inc. under the &lt;a href=&quot;http://www.gnu.org/licenses/agpl-3.0.html&quot;&gt;Affero General Public License, Version 3&lt;/a&gt; (AGPLv3)</source>
         <translation>Licensed to Armory Technologies, Inc. under the &lt;a href=&quot;http://www.gnu.org/licenses/agpl-3.0.html&quot;&gt;Affero General Public License, Version 3&lt;/a&gt; (AGPLv3)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8239"/>
+        <location filename="qtdialogs.py" line="8258"/>
         <source>Licensed to Goatpig under the &lt;a href=&quot;https://opensource.org/licenses/mit-license.php&quot;&gt;MIT License</source>
         <translation>Licensed to Goatpig under the &lt;a href=&quot;https://opensource.org/licenses/mit-license.php&quot;&gt;MIT License</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8257"/>
+        <location filename="qtdialogs.py" line="8276"/>
         <source>About Armory</source>
         <translation>About Armory</translation>
     </message>
@@ -5744,142 +5794,142 @@ Anyone who gets hold of your paper backup will be able to spend the money in you
 <context>
     <name>DlgPrintBackup</name>
     <message>
-        <location filename="qtdialogs.py" line="6380"/>
+        <location filename="qtdialogs.py" line="6399"/>
         <source>Error Creating Backup</source>
         <translation>Error Creating Backup</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6461"/>
+        <location filename="qtdialogs.py" line="6480"/>
         <source>Print imported keys</source>
         <translation>Print imported keys</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6464"/>
+        <location filename="qtdialogs.py" line="6483"/>
         <source>Page:</source>
         <translation>Page:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6603"/>
+        <location filename="qtdialogs.py" line="6622"/>
         <source>Lots to Print!</source>
         <translation>Lots to Print!</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6637"/>
+        <location filename="qtdialogs.py" line="6656"/>
         <source>of %1</source>
         <translation>of %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6680"/>
+        <location filename="qtdialogs.py" line="6699"/>
         <source>SecurePrint Code</source>
         <translation>SecurePrint Code</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6752"/>
+        <location filename="qtdialogs.py" line="6771"/>
         <source>Fragmented Backup (%1-of-%2)</source>
         <translation>Fragmented Backup (%1-of-%2)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6769"/>
+        <location filename="qtdialogs.py" line="6788"/>
         <source>&lt;b&gt;%1-&lt;font color=&quot;%2&quot;&gt;#%2&lt;/font&gt;&lt;/b&gt;</source>
         <translation>&lt;b&gt;%1-&lt;font color=&quot;%2&quot;&gt;#%2&lt;/font&gt;&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6380"/>
+        <location filename="qtdialogs.py" line="6399"/>
         <source>There was an error with the backup creator.  The operation is being canceled to avoid making bad backups!</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6509"/>
+        <location filename="qtdialogs.py" line="6528"/>
         <source>&lt;b&gt;&lt;u&gt;Print Wallet Backup Fragments&lt;/u&gt;&lt;/b&gt;&lt;br&gt;&lt;br&gt; When any %1 of these fragments are combined, all &lt;u&gt;previous &lt;b&gt;and&lt;/b&gt; future&lt;/u&gt; addresses generated by this wallet will be restored, giving you complete access to your bitcoins.  The data can be copied by hand if a working printer is not available.  Please make sure that all data lines contain &lt;b&gt;9 columns&lt;/b&gt; of &lt;b&gt;4 characters each&lt;/b&gt; (excluding &quot;ID&quot; lines).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6520"/>
+        <location filename="qtdialogs.py" line="6539"/>
         <source>&lt;b&gt;&lt;u&gt;Print a Forever-Backup&lt;/u&gt;&lt;/b&gt;&lt;br&gt;&lt;br&gt; Printing this sheet protects all &lt;u&gt;previous &lt;b&gt;and&lt;/b&gt; future&lt;/u&gt; addresses generated by this wallet!  You can copy the &quot;Root Key&quot; %1 by hand if a working printer is not available.  Please make sure that all data lines contain &lt;b&gt;9 columns&lt;/b&gt; of &lt;b&gt;4 characters each&lt;/b&gt;.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6603"/>
+        <location filename="qtdialogs.py" line="6622"/>
         <source>This wallet contains &lt;b&gt;%1&lt;/b&gt; imported keys, which will require &lt;b&gt;%2&lt;/b&gt; pages to print.  Not only will this use a lot of paper, it will be a lot of work to manually type in these keys in the event that you need to restore this backup. It is recommended that you do &lt;u&gt;not&lt;/u&gt; print your imported keys and instead make a digital backup, which can be restored instantly if needed. &lt;br&gt;&lt;br&gt; Do you want to print the imported keys, anyway?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6781"/>
+        <location filename="qtdialogs.py" line="6800"/>
         <source>Any subset of &lt;font color=&quot;%1&quot;&gt;&lt;b&gt;%2&lt;/b&gt;&lt;/font&gt; fragments with this ID (&lt;font color=&quot;%3&quot;&gt;&lt;b&gt;%4&lt;/b&gt;&lt;/font&gt;) are sufficient to recover all the coins contained in this wallet.  To optimize the physical security of your wallet, please store the fragments in different locations.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6789"/>
+        <location filename="qtdialogs.py" line="6808"/>
         <source>&lt;font color=&quot;#aa0000&quot;&gt;&lt;b&gt;WARNING:&lt;/b&gt;&lt;/font&gt; Anyone who has access to this page has access to all the bitcoins in %1!  Please keep this page in a safe place.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6807"/>
+        <location filename="qtdialogs.py" line="6826"/>
         <source>The following %1 lines backup all addresses &lt;i&gt;ever generated&lt;/i&gt; by this wallet (previous and future). This can be used to recover your wallet if you forget your passphrase or suffer hardware failure and lose your wallet files.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6822"/>
+        <location filename="qtdialogs.py" line="6841"/>
         <source>The following is a list of all private keys imported into your wallet before this backup was made.  Each one must be copied manually into the application where you wish to import them.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6828"/>
+        <location filename="qtdialogs.py" line="6847"/>
         <source>The following is fragment &lt;font color=&quot;%1&quot;&gt;&lt;b&gt;#%2&lt;/b&gt;&lt;/font&gt; for this wallet.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6958"/>
+        <location filename="qtdialogs.py" line="6977"/>
         <source>The following QR code is for convenience only.  It contains the exact same data as the %1 lines above.  If you copy this backup by hand, you can safely ignore this QR code.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6491"/>
+        <location filename="qtdialogs.py" line="6510"/>
         <source>&lt;b&gt;&lt;font color=&quot;%1&quot;&gt;&lt;u&gt;IMPORTANT:&lt;/u&gt;&lt;/b&gt;  You must write the SecurePrintu200bu2122 encryption code on each printed backup page!  Your SecurePrintu200bu2122 code is &lt;/font&gt; &lt;font color=&quot;%2&quot;&gt;%3&lt;/font&gt;.  &lt;font color=&quot;%4&quot;&gt;Your backup will not work if this code is lost!&lt;/font&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6680"/>
+        <location filename="qtdialogs.py" line="6699"/>
         <source>&lt;br&gt;&lt;b&gt;You must write your SecurePrintu200bu2122 code on each sheet of paper you just printed!&lt;/b&gt; Write it in the red box in upper-right corner of each printed page. &lt;br&gt;&lt;br&gt;SecurePrintu200bu2122 code: &lt;font color=&quot;%1&quot; size=5&gt;&lt;b&gt;%2&lt;/b&gt;&lt;/font&gt; &lt;br&gt;&lt;br&gt; &lt;b&gt;NOTE: the above code &lt;u&gt;is&lt;/u&gt; case-sensitive!&lt;/b&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6814"/>
+        <location filename="qtdialogs.py" line="6833"/>
         <source>The following is a list of all private keys imported into your wallet before this backup was made.   These keys are encrypted with the SecurePrintu200bu2122 code and can only be restored by entering them into Armory.  Print a copy of this backup without the SecurePrintu200bu2122 option if you want to be able to import them into another application.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6851"/>
+        <location filename="qtdialogs.py" line="6870"/>
         <source>&lt;b&gt;&lt;font color=&quot;#770000&quot;&gt;CRITICAL:&lt;/font&gt;  This backup will not work without the SecurePrintu200bu2122 code displayed on the screen during printing. Copy it here in ink:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6477"/>
+        <location filename="qtdialogs.py" line="6496"/>
         <source>Use SecurePrintu200bu2122 to prevent exposing keys to printer or other network devices</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6483"/>
+        <location filename="qtdialogs.py" line="6502"/>
         <source>SecurePrintu200bu2122 encrypts your backup with a code displayed on the screen, so that no other devices on your network see the sensitive data when you send it to the printer.  If you turn on SecurePrintu200bu2122 &lt;u&gt;you must write the code on the page after it is done printing!&lt;/u&gt;  There is no point in using this feature if you copy the data by hand.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6746"/>
+        <location filename="qtdialogs.py" line="6765"/>
         <source> (SecurePrintu200bu2122)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6746"/>
+        <location filename="qtdialogs.py" line="6765"/>
         <source> (Unencrypted)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6748"/>
+        <location filename="qtdialogs.py" line="6767"/>
         <source>Single-Sheet %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="6750"/>
+        <location filename="qtdialogs.py" line="6769"/>
         <source>Imported Keys %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5887,17 +5937,17 @@ Anyone who gets hold of your paper backup will be able to spend the money in you
 <context>
     <name>DlgProgress</name>
     <message>
-        <location filename="qtdialogs.py" line="12871"/>
+        <location filename="qtdialogs.py" line="12891"/>
         <source>Close</source>
         <translation>Close</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12902"/>
+        <location filename="qtdialogs.py" line="12922"/>
         <source>Enter Passphrase</source>
         <translation>Enter Passphrase</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="13021"/>
+        <location filename="qtdialogs.py" line="13041"/>
         <source>Progress Bar</source>
         <translation>Progress Bar</translation>
     </message>
@@ -5905,7 +5955,7 @@ Anyone who gets hold of your paper backup will be able to spend the money in you
 <context>
     <name>DlgRegAndTest</name>
     <message>
-        <location filename="qtdialogs.py" line="13758"/>
+        <location filename="qtdialogs.py" line="13778"/>
         <source>Error: You cannot run the Regression Test network and Bitcoin Test Network at the same time.</source>
         <translation>Error: You cannot run the Regression Test network and Bitcoin Test Network at the same time.</translation>
     </message>
@@ -6126,27 +6176,27 @@ Are you absolutely sure you want to delete %1 ?</source>
 <context>
     <name>DlgReplaceWallet</name>
     <message>
-        <location filename="qtdialogs.py" line="12536"/>
+        <location filename="qtdialogs.py" line="12556"/>
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12537"/>
+        <location filename="qtdialogs.py" line="12557"/>
         <source>Overwrite</source>
         <translation>Overwrite</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12538"/>
+        <location filename="qtdialogs.py" line="12558"/>
         <source>Merge</source>
         <translation>Merge</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12586"/>
+        <location filename="qtdialogs.py" line="12606"/>
         <source>Ripping Meta Data</source>
         <translation>Ripping Meta Data</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12522"/>
+        <location filename="qtdialogs.py" line="12542"/>
         <source>&lt;b&gt;You already have this wallet loaded!&lt;/b&gt;&lt;br&gt;You can choose to:&lt;br&gt;- Cancel wallet restore operation&lt;br&gt;- Set new password and fix any errors&lt;br&gt;- Overwrite old wallet (delete comments &amp; labels)&lt;br&gt;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6154,198 +6204,198 @@ Are you absolutely sure you want to delete %1 ?</source>
 <context>
     <name>DlgRequestPayment</name>
     <message>
-        <location filename="qtdialogs.py" line="9724"/>
+        <location filename="qtdialogs.py" line="9744"/>
         <source>Other Options &gt;&gt;&gt;</source>
         <translation>Other Options &gt;&gt;&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9410"/>
+        <location filename="qtdialogs.py" line="9430"/>
         <source>Copy to Clipboard</source>
         <translation>Copy to Clipboard</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9411"/>
+        <location filename="qtdialogs.py" line="9431"/>
         <source>Copy Raw HTML</source>
         <translation>Copy Raw HTML</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9412"/>
+        <location filename="qtdialogs.py" line="9432"/>
         <source>Copy Raw URL</source>
         <translation>Copy Raw URL</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9413"/>
+        <location filename="qtdialogs.py" line="9433"/>
         <source>Copy All Text</source>
         <translation>Copy All Text</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9436"/>
+        <location filename="qtdialogs.py" line="9456"/>
         <source>Create a clickable link that you can copy into email or webpage to request a payment.   If the user is running a Bitcoin program that supports &quot;bitcoin:&quot; links, that program will open with all this information pre-filled after they click the link.</source>
         <translation>Create a clickable link that you can copy into email or webpage to request a payment.   If the user is running a Bitcoin program that supports &quot;bitcoin:&quot; links, that program will open with all this information pre-filled after they click the link.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9446"/>
+        <location filename="qtdialogs.py" line="9466"/>
         <source>The following Bitcoin desktop applications &lt;i&gt;try&lt;/i&gt; to register themselves with your computer to handle &quot;bitcoin:&quot; links: Armory, Multibit, Electrum</source>
         <translation>The following Bitcoin desktop applications &lt;i&gt;try&lt;/i&gt; to register themselves with your computer to handle &quot;bitcoin:&quot; links: Armory, Multibit, Electrum</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9450"/>
+        <location filename="qtdialogs.py" line="9470"/>
         <source>This is the text to be shown as the clickable link.  It should usually begin with &quot;Click here...&quot; to reaffirm to the user it is is clickable.</source>
         <translation>This is the text to be shown as the clickable link.  It should usually begin with &quot;Click here...&quot; to reaffirm to the user it is is clickable.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9454"/>
+        <location filename="qtdialogs.py" line="9474"/>
         <source>All amounts are specifed in BTC</source>
         <translation>All amounts are specifed in BTC</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9456"/>
+        <location filename="qtdialogs.py" line="9476"/>
         <source>The person clicking the link will be sending bitcoins to this address</source>
         <translation>The person clicking the link will be sending bitcoins to this address</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9458"/>
+        <location filename="qtdialogs.py" line="9478"/>
         <source>This will be pre-filled as the label/comment field after the user clicks the link. They can modify it if desired, but you can provide useful info such as contact details, order number, etc, as convenience to them.</source>
         <translation>This will be pre-filled as the label/comment field after the user clicks the link. They can modify it if desired, but you can provide useful info such as contact details, order number, etc, as convenience to them.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9466"/>
+        <location filename="qtdialogs.py" line="9486"/>
         <source>Close</source>
         <translation>Close</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9474"/>
+        <location filename="qtdialogs.py" line="9494"/>
         <source>&lt;b&gt;Link Text:&lt;/b&gt;</source>
         <translation>&lt;b&gt;Link Text:&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9479"/>
+        <location filename="qtdialogs.py" line="9499"/>
         <source>&lt;b&gt;Address (yours):&lt;/b&gt;</source>
         <translation>&lt;b&gt;Address (yours):&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9484"/>
+        <location filename="qtdialogs.py" line="9504"/>
         <source>&lt;b&gt;Request (BTC):&lt;/b&gt;</source>
         <translation>&lt;b&gt;Request (BTC):&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9488"/>
+        <location filename="qtdialogs.py" line="9508"/>
         <source>&lt;b&gt;Label:&lt;/b&gt;</source>
         <translation>&lt;b&gt;Label:&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9494"/>
+        <location filename="qtdialogs.py" line="9514"/>
         <source>Copy and paste the following text into email or other document:</source>
         <translation>Copy and paste the following text into email or other document:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9503"/>
+        <location filename="qtdialogs.py" line="9523"/>
         <source>Creating QR Code Please Wait</source>
         <translation>Creating QR Code Please Wait</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9507"/>
+        <location filename="qtdialogs.py" line="9527"/>
         <source>This QR code contains address &lt;b&gt;and&lt;/b&gt; the other payment information shown to the left.</source>
         <translation>This QR code contains address &lt;b&gt;and&lt;/b&gt; the other payment information shown to the left.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9541"/>
+        <location filename="qtdialogs.py" line="9561"/>
         <source>Create Payment Request Link</source>
         <translation>Create Payment Request Link</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9599"/>
+        <location filename="qtdialogs.py" line="9619"/>
         <source>Amount</source>
         <translation>Amount</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9609"/>
+        <location filename="qtdialogs.py" line="9629"/>
         <source>Message</source>
         <translation>Message</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9614"/>
+        <location filename="qtdialogs.py" line="9634"/>
         <source>Address</source>
         <translation>Address</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9619"/>
+        <location filename="qtdialogs.py" line="9639"/>
         <source>Inputs</source>
         <translation>Inputs</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9623"/>
+        <location filename="qtdialogs.py" line="9643"/>
         <source>&lt;font color=&quot;red&quot;&gt;Invalid %1&lt;/font&gt;</source>
         <translation>&lt;font color=&quot;red&quot;&gt;Invalid %1&lt;/font&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9639"/>
+        <location filename="qtdialogs.py" line="9659"/>
         <source>If clicking on the line above does not work, use this payment info:</source>
         <translation>If clicking on the line above does not work, use this payment info:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9641"/>
+        <location filename="qtdialogs.py" line="9661"/>
         <source>&lt;b&gt;Pay to&lt;/b&gt;:<byte value="x9"/>%1&lt;br&gt;</source>
         <translation>&lt;b&gt;Pay to&lt;/b&gt;:&lt;byte value=&quot;x9&quot;/&gt;%1&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9643"/>
+        <location filename="qtdialogs.py" line="9663"/>
         <source>&lt;b&gt;Amount&lt;/b&gt;:<byte value="x9"/>%1 BTC&lt;br&gt;</source>
         <translation>&lt;b&gt;Amount&lt;/b&gt;:&lt;byte value=&quot;x9&quot;/&gt;%1 BTC&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9645"/>
+        <location filename="qtdialogs.py" line="9665"/>
         <source>&lt;b&gt;Message&lt;/b&gt;:<byte value="x9"/>%1&lt;br&gt;</source>
         <translation>&lt;b&gt;Message&lt;/b&gt;:&lt;byte value=&quot;x9&quot;/&gt;%1&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9655"/>
+        <location filename="qtdialogs.py" line="9675"/>
         <source>If clicking on the line above does not work, use this payment info:
 </source>
         <translation>If clicking on the line above does not work, use this payment info:
 </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9656"/>
+        <location filename="qtdialogs.py" line="9676"/>
         <source>Pay to:  %1</source>
         <translation>Pay to:  %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9658"/>
+        <location filename="qtdialogs.py" line="9678"/>
         <source>
 Amount:  %1 BTC</source>
         <translation>
 Amount:  %1 BTC</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9660"/>
+        <location filename="qtdialogs.py" line="9680"/>
         <source>
 Message: %1</source>
         <translation>
 Message: %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9664"/>
+        <location filename="qtdialogs.py" line="9684"/>
         <source>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt; &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;meta http-equiv=&quot;Content-Type&quot; content=&quot;text/html; charset=utf-8&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt; p, li { white-space: pre-wrap; } &lt;/style&gt;&lt;/head&gt;&lt;body&gt;&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;!--StartFragment--&gt;&lt;a href=&quot;%1&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;%2&lt;/span&gt;&lt;/a&gt;&lt;br /&gt;If clicking on the line above does not work, use this payment info:&lt;br /&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Pay to&lt;/span&gt;: %3</source>
         <translation>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt; &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;meta http-equiv=&quot;Content-Type&quot; content=&quot;text/html; charset=utf-8&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt; p, li { white-space: pre-wrap; } &lt;/style&gt;&lt;/head&gt;&lt;body&gt;&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;!--StartFragment--&gt;&lt;a href=&quot;%1&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;%2&lt;/span&gt;&lt;/a&gt;&lt;br /&gt;If clicking on the line above does not work, use this payment info:&lt;br /&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Pay to&lt;/span&gt;: %3</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9678"/>
+        <location filename="qtdialogs.py" line="9698"/>
         <source>&lt;br /&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Amount&lt;/span&gt;: %1</source>
         <translation>&lt;br /&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Amount&lt;/span&gt;: %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9681"/>
+        <location filename="qtdialogs.py" line="9701"/>
         <source>&lt;br /&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Message&lt;/span&gt;: %1</source>
         <translation>&lt;br /&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Message&lt;/span&gt;: %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9744"/>
+        <location filename="qtdialogs.py" line="9764"/>
         <source>&lt;i&gt;Copied!&lt;/i&gt;</source>
         <translation>&lt;i&gt;Copied!&lt;/i&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9722"/>
+        <location filename="qtdialogs.py" line="9742"/>
         <source>Hide Buttons &lt;&lt;&lt;</source>
         <translation>Hide Buttons &lt;&lt;&lt;</translation>
     </message>
@@ -6353,132 +6403,132 @@ Message: %1</translation>
 <context>
     <name>DlgRestoreFragged</name>
     <message>
-        <location filename="qtdialogs.py" line="11528"/>
+        <location filename="qtdialogs.py" line="11548"/>
         <source>Restore Wallet from Fragments</source>
         <translation>Restore Wallet from Fragments</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11554"/>
+        <location filename="qtdialogs.py" line="11574"/>
         <source>Input Fragments Below:</source>
         <translation>Input Fragments Below:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11555"/>
+        <location filename="qtdialogs.py" line="11575"/>
         <source>+Frag</source>
         <translation>+Frag</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11556"/>
+        <location filename="qtdialogs.py" line="11576"/>
         <source>-Frag</source>
         <translation>-Frag</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11560"/>
+        <location filename="qtdialogs.py" line="11580"/>
         <source>Encrypt Restored Wallet</source>
         <translation>Encrypt Restored Wallet</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11569"/>
+        <location filename="qtdialogs.py" line="11589"/>
         <source>Test Backup</source>
         <translation>Test Backup</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11569"/>
+        <location filename="qtdialogs.py" line="11589"/>
         <source>Restore from Fragments</source>
         <translation>Restore from Fragments</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11571"/>
+        <location filename="qtdialogs.py" line="11591"/>
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11619"/>
+        <location filename="qtdialogs.py" line="11639"/>
         <source>Fragments</source>
         <translation>Fragments</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11621"/>
+        <location filename="qtdialogs.py" line="11641"/>
         <source>Advanced Options</source>
         <translation>Advanced Options</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11636"/>
+        <location filename="qtdialogs.py" line="11656"/>
         <source>Restore wallet from fragments</source>
         <translation>Restore wallet from fragments</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11654"/>
+        <location filename="qtdialogs.py" line="11674"/>
         <source>Type Data</source>
         <translation>Type Data</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11655"/>
+        <location filename="qtdialogs.py" line="11675"/>
         <source>Load File</source>
         <translation>Load File</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11656"/>
+        <location filename="qtdialogs.py" line="11676"/>
         <source>Clear</source>
         <translation>Clear</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11723"/>
+        <location filename="qtdialogs.py" line="11743"/>
         <source>Load Fragment File</source>
         <translation>Load Fragment File</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11723"/>
+        <location filename="qtdialogs.py" line="11743"/>
         <source>Wallet Fragments (*.frag)</source>
         <translation>Wallet Fragments (*.frag)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11731"/>
+        <location filename="qtdialogs.py" line="11751"/>
         <source>File Does Not Exist</source>
         <translation>File Does Not Exist</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11765"/>
+        <location filename="qtdialogs.py" line="11785"/>
         <source>Fragment Error</source>
         <translation>Fragment Error</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11798"/>
+        <location filename="qtdialogs.py" line="11818"/>
         <source>&lt;b&gt;&lt;u&gt;Wallet Being Restored:&lt;/u&gt;&lt;/b&gt;</source>
         <translation>&lt;b&gt;&lt;u&gt;Wallet Being Restored:&lt;/u&gt;&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11800"/>
+        <location filename="qtdialogs.py" line="11820"/>
         <source>&lt;b&gt;Frags Needed:&lt;/b&gt; %1</source>
         <translation>&lt;b&gt;Frags Needed:&lt;/b&gt; %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11801"/>
+        <location filename="qtdialogs.py" line="11821"/>
         <source>&lt;b&gt;Wallet:&lt;/b&gt; %1</source>
         <translation>&lt;b&gt;Wallet:&lt;/b&gt; %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11802"/>
+        <location filename="qtdialogs.py" line="11822"/>
         <source>&lt;b&gt;Fragments:&lt;/b&gt; %1</source>
         <translation>&lt;b&gt;Fragments:&lt;/b&gt; %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11844"/>
+        <location filename="qtdialogs.py" line="11864"/>
         <source>Mixed fragment types</source>
         <translation>Mixed fragment types</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11875"/>
+        <location filename="qtdialogs.py" line="11895"/>
         <source>Duplicate Fragment</source>
         <translation>Duplicate Fragment</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11912"/>
+        <location filename="qtdialogs.py" line="11932"/>
         <source>Invalid Target Compute Time</source>
         <translation>Invalid Target Compute Time</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11912"/>
+        <location filename="qtdialogs.py" line="11932"/>
         <source>You entered Target Compute Time incorrectly.
 
 Enter: &lt;Number&gt; (ms, s)</source>
@@ -6487,32 +6537,32 @@ Enter: &lt;Number&gt; (ms, s)</source>
 Enter: &lt;Number&gt; (ms, s)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11916"/>
+        <location filename="qtdialogs.py" line="11936"/>
         <source>Invalid Max Memory Usage</source>
         <translation>Invalid Max Memory Usage</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11987"/>
+        <location filename="qtdialogs.py" line="12007"/>
         <source>Verify Wallet ID</source>
         <translation>Verify Wallet ID</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12003"/>
+        <location filename="qtdialogs.py" line="12023"/>
         <source>Cannot Encrypt</source>
         <translation>Cannot Encrypt</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12045"/>
+        <location filename="qtdialogs.py" line="12065"/>
         <source>Computing New Addresses</source>
         <translation>Computing New Addresses</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11864"/>
+        <location filename="qtdialogs.py" line="11884"/>
         <source>Multiple Wallets</source>
         <translation>Multiple Wallets</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11916"/>
+        <location filename="qtdialogs.py" line="11936"/>
         <source>You entered Max Memory Usage incorrectly.
 
 Enter: &lt;Number&gt; (kB, MB)</source>
@@ -6521,62 +6571,62 @@ Enter: &lt;Number&gt; (kB, MB)</source>
 Enter: &lt;Number&gt; (kB, MB)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11525"/>
+        <location filename="qtdialogs.py" line="11545"/>
         <source>&lt;font color=&quot;blue&quot; size=&quot;4&quot;&gt;Testing a Fragmented Backup&lt;/font&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11539"/>
+        <location filename="qtdialogs.py" line="11559"/>
         <source>&lt;br&gt;&lt;br&gt;&lt;b&gt;For testing purposes, you may enter more fragments than needed and Armory will test all subsets of the entered fragments to verify that each one still recovers the wallet successfully.&lt;/b&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11731"/>
+        <location filename="qtdialogs.py" line="11751"/>
         <source>The file you select somehow does not exist...? &lt;br&gt;&lt;br&gt;%1&lt;br&gt;&lt;br&gt; Try a different file</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11765"/>
+        <location filename="qtdialogs.py" line="11785"/>
         <source>There was an unfixable error in the fragment file: &lt;br&gt;&lt;br&gt; File: %1 &lt;br&gt; Line: %2 &lt;br&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11793"/>
+        <location filename="qtdialogs.py" line="11813"/>
         <source>&lt;b&gt;Start entering fragments into the table to left...&lt;/b&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11844"/>
+        <location filename="qtdialogs.py" line="11864"/>
         <source>You entered a fragment for a different wallet type.  Please check that all fragments are for the same wallet, of the same version, and require the same number of fragments.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11864"/>
+        <location filename="qtdialogs.py" line="11884"/>
         <source>The fragment you just entered is actually for a different wallet than the previous fragments you entered.  Please double-check that all the fragments you are entering belong to the same wallet and have the &quot;number of needed fragments&quot; (M-value, in M-of-N).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11875"/>
+        <location filename="qtdialogs.py" line="11895"/>
         <source>You just input fragment #%1, but that fragment has already been entered!</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11987"/>
+        <location filename="qtdialogs.py" line="12007"/>
         <source>The data you entered corresponds to a wallet with a wallet ID:&lt;blockquote&gt;&lt;b&gt;{}&lt;/b&gt;&lt;/blockquote&gt;Does this ID match the &quot;Wallet Unique ID&quot; printed on your paper backup? If not, click &quot;No&quot; and reenter key and chain-code data again.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12003"/>
+        <location filename="qtdialogs.py" line="12023"/>
         <source>You requested your restored wallet be encrypted, but no valid passphrase was supplied.  Aborting wallet recovery.</source>
         <translation type="unfinished">You requested your restored wallet be encrypted, but no valid passphrase was supplied.  Aborting wallet recovery.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11530"/>
+        <location filename="qtdialogs.py" line="11550"/>
         <source>&lt;b&gt;&lt;u&gt;%1&lt;/u&gt;&lt;/b&gt; &lt;br&gt;&lt;br&gt;Use this form to enter all the fragments to be restored.  Fragments can be stored on a mix of paper printouts, and saved files. If any of the fragments require a SecurePrintu200bu2122 code, you will only have to enter it once, since that code is the same for all fragments of any given wallet.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11578"/>
+        <location filename="qtdialogs.py" line="11598"/>
         <source>SecurePrintu200bu2122 Code:</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6584,87 +6634,87 @@ Enter: &lt;Number&gt; (kB, MB)</translation>
 <context>
     <name>DlgRestoreSingle</name>
     <message>
-        <location filename="qtdialogs.py" line="10974"/>
+        <location filename="qtdialogs.py" line="10994"/>
         <source>&lt;b&gt;Backup Type:&lt;/b&gt;</source>
         <translation>&lt;b&gt;Backup Type:&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10976"/>
+        <location filename="qtdialogs.py" line="10996"/>
         <source>Version 1.35 (4 lines)</source>
         <translation>Version 1.35 (4 lines)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10977"/>
+        <location filename="qtdialogs.py" line="10997"/>
         <source>Version 1.35a (4 lines Unencrypted)</source>
         <translation>Version 1.35a (4 lines Unencrypted)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10979"/>
+        <location filename="qtdialogs.py" line="10999"/>
         <source>Version 1.35c (2 lines Unencrypted)</source>
         <translation>Version 1.35c (2 lines Unencrypted)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11005"/>
+        <location filename="qtdialogs.py" line="11025"/>
         <source>Root Key:</source>
         <translation>Root Key:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11005"/>
+        <location filename="qtdialogs.py" line="11025"/>
         <source>Chaincode:</source>
         <translation>Chaincode:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11022"/>
+        <location filename="qtdialogs.py" line="11042"/>
         <source>Test Backup</source>
         <translation>Test Backup</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11022"/>
+        <location filename="qtdialogs.py" line="11042"/>
         <source>Restore Wallet</source>
         <translation>Restore Wallet</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11025"/>
+        <location filename="qtdialogs.py" line="11045"/>
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11032"/>
+        <location filename="qtdialogs.py" line="11052"/>
         <source>Encrypt Wallet</source>
         <translation>Encrypt Wallet</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11038"/>
+        <location filename="qtdialogs.py" line="11058"/>
         <source>Backup</source>
         <translation>Backup</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11040"/>
+        <location filename="qtdialogs.py" line="11060"/>
         <source>Advanced Options</source>
         <translation>Advanced Options</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11054"/>
+        <location filename="qtdialogs.py" line="11074"/>
         <source>Test Single-Sheet Backup</source>
         <translation>Test Single-Sheet Backup</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11056"/>
+        <location filename="qtdialogs.py" line="11076"/>
         <source>Restore Single-Sheet Backup</source>
         <translation>Restore Single-Sheet Backup</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11113"/>
+        <location filename="qtdialogs.py" line="11133"/>
         <source>Invalid Data</source>
         <translation>Invalid Data</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11126"/>
+        <location filename="qtdialogs.py" line="11146"/>
         <source>Invalid Target Compute Time</source>
         <translation>Invalid Target Compute Time</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11126"/>
+        <location filename="qtdialogs.py" line="11146"/>
         <source>You entered Target Compute Time incorrectly.
 
 Enter: &lt;Number&gt; (ms, s)</source>
@@ -6673,37 +6723,37 @@ Enter: &lt;Number&gt; (ms, s)</source>
 Enter: &lt;Number&gt; (ms, s)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11130"/>
+        <location filename="qtdialogs.py" line="11150"/>
         <source>Invalid Max Memory Usage</source>
         <translation>Invalid Max Memory Usage</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11142"/>
+        <location filename="qtdialogs.py" line="11162"/>
         <source>Errors Corrected</source>
         <translation>Errors Corrected</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11191"/>
+        <location filename="qtdialogs.py" line="11211"/>
         <source>Verify Wallet ID</source>
         <translation>Verify Wallet ID</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11206"/>
+        <location filename="qtdialogs.py" line="11226"/>
         <source>Cannot Encrypt</source>
         <translation>Cannot Encrypt</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11206"/>
+        <location filename="qtdialogs.py" line="11226"/>
         <source>You requested your restored wallet be encrypted, but no valid passphrase was supplied.  Aborting wallet recovery.</source>
         <translation>You requested your restored wallet be encrypted, but no valid passphrase was supplied.  Aborting wallet recovery.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11250"/>
+        <location filename="qtdialogs.py" line="11270"/>
         <source>Computing New Addresses</source>
         <translation>Computing New Addresses</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11130"/>
+        <location filename="qtdialogs.py" line="11150"/>
         <source>You entered Max Memory Usage incorrectly.
 
 Enter: &lt;Number&gt; (kB, MB)</source>
@@ -6712,7 +6762,7 @@ Enter: &lt;Number&gt; (kB, MB)</source>
 Enter: &lt;Number&gt; (kB, MB)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11191"/>
+        <location filename="qtdialogs.py" line="11211"/>
         <source>The data you entered corresponds to a wallet with a wallet ID: 
 
 %1
@@ -6721,37 +6771,37 @@ Does this ID match the &quot;Wallet Unique ID&quot; printed on your paper backup
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10958"/>
+        <location filename="qtdialogs.py" line="10978"/>
         <source>&lt;b&gt;&lt;u&gt;&lt;font color=&quot;blue&quot; size=&quot;4&quot;&gt;Test a Paper Backup&lt;/font&gt;&lt;/u&gt;&lt;/b&gt; &lt;br&gt;&lt;br&gt;Use this window to test a single-sheet paper backup.  If your backup includes imported keys, those will not be covered by this test.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10964"/>
+        <location filename="qtdialogs.py" line="10984"/>
         <source>&lt;b&gt;&lt;u&gt;Restore a Wallet from Paper Backup&lt;/u&gt;&lt;/b&gt; &lt;br&gt;&lt;br&gt;Use this window to restore a single-sheet paper backup. If your backup includes extra pages with imported keys, please restore the base wallet first, then double-click the restored wallet and select &quot;Import Private Keys&quot; from the right-hand menu.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11113"/>
+        <location filename="qtdialogs.py" line="11133"/>
         <source>There is an error in the data you entered that could not be fixed automatically.  Please double-check that you entered the text exactly as it appears on the wallet-backup page.  &lt;br&gt;&lt;br&gt; The error occured on &lt;font color=&quot;red&quot;&gt;line #%1&lt;/font&gt;.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11136"/>
+        <location filename="qtdialogs.py" line="11156"/>
         <source>Detected errors in the data you entered. Armory attempted to fix the errors but it is not always right.  Be sure to verify the &quot;Wallet Unique ID&quot; closely on the next window.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10980"/>
+        <location filename="qtdialogs.py" line="11000"/>
         <source>Version 1.35c (2 lines + SecurePrintu200bu2122)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11003"/>
+        <location filename="qtdialogs.py" line="11023"/>
         <source>SecurePrintu200bu2122 Code:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10978"/>
+        <location filename="qtdialogs.py" line="10998"/>
         <source>Version 1.35a (4 lines + SecurePrintu200bu2122)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6759,72 +6809,72 @@ Does this ID match the &quot;Wallet Unique ID&quot; printed on your paper backup
 <context>
     <name>DlgRestoreWOData</name>
     <message>
-        <location filename="qtdialogs.py" line="11301"/>
+        <location filename="qtdialogs.py" line="11321"/>
         <source>Watch-Only Root ID:</source>
         <translation>Watch-Only Root ID:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11309"/>
+        <location filename="qtdialogs.py" line="11329"/>
         <source>Data:</source>
         <translation>Data:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11328"/>
+        <location filename="qtdialogs.py" line="11348"/>
         <source>Test Backup</source>
         <translation>Test Backup</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11328"/>
+        <location filename="qtdialogs.py" line="11348"/>
         <source>Restore Wallet</source>
         <translation>Restore Wallet</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11329"/>
+        <location filename="qtdialogs.py" line="11349"/>
         <source>Load From Text File</source>
         <translation>Load From Text File</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11331"/>
+        <location filename="qtdialogs.py" line="11351"/>
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11358"/>
+        <location filename="qtdialogs.py" line="11378"/>
         <source>Test Watch-Only Wallet Backup</source>
         <translation>Test Watch-Only Wallet Backup</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11360"/>
+        <location filename="qtdialogs.py" line="11380"/>
         <source>Restore Watch-Only Wallet Backup</source>
         <translation>Restore Watch-Only Wallet Backup</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11370"/>
+        <location filename="qtdialogs.py" line="11390"/>
         <source>Import Wallet File</source>
         <translation>Import Wallet File</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11370"/>
+        <location filename="qtdialogs.py" line="11390"/>
         <source>Root Pubkey Text Files (*.rootpubkey)</source>
         <translation>Root Pubkey Text Files (*.rootpubkey)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11453"/>
+        <location filename="qtdialogs.py" line="11473"/>
         <source>Invalid Data</source>
         <translation>Invalid Data</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11486"/>
+        <location filename="qtdialogs.py" line="11506"/>
         <source>Wallet Already Exists</source>
         <translation>Wallet Already Exists</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11493"/>
+        <location filename="qtdialogs.py" line="11513"/>
         <source>Verify Wallet ID</source>
         <translation>Verify Wallet ID</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11493"/>
+        <location filename="qtdialogs.py" line="11513"/>
         <source>The data you entered corresponds to a wallet with a wallet ID: 
 
 <byte value="x9"/>%1
@@ -6837,32 +6887,32 @@ Does this ID match the &quot;Wallet Unique ID&quot; you intend to restore? If no
 Does this ID match the &quot;Wallet Unique ID&quot; you intend to restore? If not, click &quot;No&quot; and enter the key and chain-code data again.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11508"/>
+        <location filename="qtdialogs.py" line="11528"/>
         <source>Computing New Addresses</source>
         <translation>Computing New Addresses</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11286"/>
+        <location filename="qtdialogs.py" line="11306"/>
         <source>&lt;b&gt;&lt;u&gt;&lt;font color=&quot;blue&quot; size=&quot;4&quot;&gt;Test a Watch-Only Wallet Restore &lt;/font&gt;&lt;/u&gt;&lt;/b&gt;&lt;br&gt;&lt;br&gt;Use this window to test the restoration of a watch-only wallet using the wallet&apos;s data. You can either type the data on a root data printout or import the data from a file.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11293"/>
+        <location filename="qtdialogs.py" line="11313"/>
         <source>&lt;b&gt;&lt;u&gt;&lt;font color=&quot;blue&quot; size=&quot;4&quot;&gt;Restore a Watch-Only Wallet &lt;/font&gt;&lt;/u&gt;&lt;/b&gt;&lt;br&gt;&lt;br&gt;Use this window to restore a watch-only wallet using the wallet&apos;s data. You can either type the data on a root data printout or import the data from a file.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11423"/>
+        <location filename="qtdialogs.py" line="11443"/>
         <source>There is an error in the root ID you entered that could not be fixed automatically.  Please double-check that you entered the text exactly as it appears on the wallet-backup page.&lt;br&gt;&lt;br&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11453"/>
+        <location filename="qtdialogs.py" line="11473"/>
         <source>There is an error in the root data you entered that could not be fixed automatically.  Please double-check that you entered the text exactly as it appears on the wallet-backup page.  &lt;br&gt;&lt;br&gt;The error occured on &lt;font color=&quot;red&quot;&gt;line #%1&lt;/font&gt;.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="11486"/>
+        <location filename="qtdialogs.py" line="11506"/>
         <source>The wallet already exists and will not be replaced.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7080,357 +7130,357 @@ Does this ID match the &quot;Wallet Unique ID&quot; you intend to restore? If no
 <context>
     <name>DlgSettings</name>
     <message>
-        <location filename="qtdialogs.py" line="8280"/>
+        <location filename="qtdialogs.py" line="8299"/>
         <source>Bitcoin Core/bitcoind management is not available on Mac/OSX</source>
         <translation>Bitcoin Core/bitcoind management is not available on Mac/OSX</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8290"/>
+        <location filename="qtdialogs.py" line="8309"/>
         <source>&lt;b&gt;Bitcoin Software Management&lt;/b&gt;&lt;br&gt;&lt;br&gt;By default, Armory will manage the Bitcoin engine/software in the background.  You can choose to manage it yourself, or tell Armory about non-standard installation configuration.</source>
         <translation>&lt;b&gt;Bitcoin Software Management&lt;/b&gt;&lt;br&gt;&lt;br&gt;By default, Armory will manage the Bitcoin engine/software in the background.  You can choose to manage it yourself, or tell Armory about non-standard installation configuration.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8303"/>
+        <location filename="qtdialogs.py" line="8322"/>
         <source>Bitcoin Install Dir:</source>
         <translation>Bitcoin Install Dir:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8304"/>
+        <location filename="qtdialogs.py" line="8323"/>
         <source>Bitcoin Home Dir:</source>
         <translation>Bitcoin Home Dir:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8305"/>
+        <location filename="qtdialogs.py" line="8324"/>
         <source>Leave blank to have Armory search default locations for your OS</source>
         <translation>Leave blank to have Armory search default locations for your OS</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8307"/>
+        <location filename="qtdialogs.py" line="8326"/>
         <source>Leave blank to use default datadir (%1)</source>
         <translation>Leave blank to use default datadir (%1)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8344"/>
+        <location filename="qtdialogs.py" line="8363"/>
         <source>&lt;b&gt;Privacy Settings&lt;/b&gt;</source>
         <translation>&lt;b&gt;Privacy Settings&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8367"/>
+        <location filename="qtdialogs.py" line="8386"/>
         <source>Set Armory as Default</source>
         <translation>Set Armory as Default</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8377"/>
+        <location filename="qtdialogs.py" line="8396"/>
         <source>Registered</source>
         <translation>Registered</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8419"/>
+        <location filename="qtdialogs.py" line="8438"/>
         <source>Minimize to system tray on open</source>
         <translation>Minimize to system tray on open</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8424"/>
+        <location filename="qtdialogs.py" line="8443"/>
         <source>Minimize to system tray on close</source>
         <translation>Minimize to system tray on close</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8437"/>
+        <location filename="qtdialogs.py" line="8456"/>
         <source>&lt;b&gt;Enable notifications from the system-tray:&lt;/b&gt;</source>
         <translation>&lt;b&gt;Enable notifications from the system-tray:&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8438"/>
+        <location filename="qtdialogs.py" line="8457"/>
         <source>Bitcoins Received</source>
         <translation>Bitcoins Received</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8439"/>
+        <location filename="qtdialogs.py" line="8458"/>
         <source>Bitcoins Sent</source>
         <translation>Bitcoins Sent</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8440"/>
+        <location filename="qtdialogs.py" line="8459"/>
         <source>Bitcoin Core/bitcoind disconnected</source>
         <translation>Bitcoin Core/bitcoind disconnected</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8441"/>
+        <location filename="qtdialogs.py" line="8460"/>
         <source>Bitcoin Core/bitcoind reconnected</source>
         <translation>Bitcoin Core/bitcoind reconnected</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8445"/>
+        <location filename="qtdialogs.py" line="8464"/>
         <source>&lt;b&gt;Sorry!  Notifications are not available on your version of OS X.&lt;/b&gt;</source>
         <translation>&lt;b&gt;Sorry!  Notifications are not available on your version of OS X.&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8470"/>
+        <location filename="qtdialogs.py" line="8489"/>
         <source>&lt;b&gt;Preferred Date Format&lt;b&gt;:&lt;br&gt;</source>
         <translation>&lt;b&gt;Preferred Date Format&lt;b&gt;:&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8471"/>
+        <location filename="qtdialogs.py" line="8490"/>
         <source>You can specify how you would like dates to be displayed using percent-codes to represent components of the date.  The mouseover text of the &quot;(?)&quot; icon shows the most commonly used codes/symbols.  The text next to it shows how &quot;%1&quot; would be shown with the specified format.</source>
         <translation>You can specify how you would like dates to be displayed using percent-codes to represent components of the date.  The mouseover text of the &quot;(?)&quot; icon shows the most commonly used codes/symbols.  The text next to it shows how &quot;%1&quot; would be shown with the specified format.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8482"/>
+        <location filename="qtdialogs.py" line="8501"/>
         <source>Use any of the following symbols:&lt;br&gt;</source>
         <translation>Use any of the following symbols:&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8496"/>
+        <location filename="qtdialogs.py" line="8515"/>
         <source>Reset to Default</source>
         <translation>Reset to Default</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8514"/>
+        <location filename="qtdialogs.py" line="8533"/>
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8515"/>
+        <location filename="qtdialogs.py" line="8534"/>
         <source>Save</source>
         <translation>Save</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8536"/>
+        <location filename="qtdialogs.py" line="8555"/>
         <source>&lt;b&gt;Armory user mode:&lt;/b&gt;</source>
         <translation>&lt;b&gt;Armory user mode:&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8544"/>
+        <location filename="qtdialogs.py" line="8563"/>
         <source>&lt;b&gt;Preferred Language&lt;b&gt;:&lt;br&gt;</source>
         <translation>&lt;b&gt;Preferred Language&lt;b&gt;:&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8545"/>
+        <location filename="qtdialogs.py" line="8564"/>
         <source>Specify which language you would like Armory to be displayed in.</source>
         <translation>Specify which language you would like Armory to be displayed in.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8653"/>
+        <location filename="qtdialogs.py" line="8672"/>
         <source>General</source>
         <translation>General</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8673"/>
+        <location filename="qtdialogs.py" line="8692"/>
         <source>Armory Settings</source>
         <translation>Armory Settings</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8712"/>
+        <location filename="qtdialogs.py" line="8731"/>
         <source>&lt;b&gt;Fee&lt;br&gt;&lt;/b&gt;</source>
         <translation>&lt;b&gt;Fee&lt;br&gt;&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8714"/>
+        <location filename="qtdialogs.py" line="8733"/>
         <source>Auto fee/byte</source>
         <translation>Auto fee/byte</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8736"/>
+        <location filename="qtdialogs.py" line="8755"/>
         <source>Manual fee/byte</source>
         <translation>Manual fee/byte</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8741"/>
+        <location filename="qtdialogs.py" line="8760"/>
         <source>Flat fee</source>
         <translation>Flat fee</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8746"/>
+        <location filename="qtdialogs.py" line="8765"/>
         <source>Auto-adjust fee/byte for better privacy</source>
         <translation>Auto-adjust fee/byte for better privacy</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8810"/>
+        <location filename="qtdialogs.py" line="8829"/>
         <source>&lt;b&gt;Change Address Type&lt;br&gt;&lt;/b&gt;</source>
         <translation>&lt;b&gt;Change Address Type&lt;br&gt;&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8812"/>
+        <location filename="qtdialogs.py" line="8831"/>
         <source>Auto change</source>
         <translation>Auto change</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8826"/>
+        <location filename="qtdialogs.py" line="8845"/>
         <source>Force P2PKH</source>
         <translation>Force P2PKH</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8829"/>
+        <location filename="qtdialogs.py" line="8848"/>
         <source>Force P2SH-P2PK</source>
         <translation>Force P2SH-P2PK</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8832"/>
+        <location filename="qtdialogs.py" line="8851"/>
         <source>Force P2SH-P2WPKH</source>
         <translation>Force P2SH-P2WPKH</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8890"/>
+        <location filename="qtdialogs.py" line="8909"/>
         <source>Invalid Path</source>
         <translation>Invalid Path</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8873"/>
+        <location filename="qtdialogs.py" line="8892"/>
         <source>The path you specified for the Bitcoin software installation does not exist.  Please select the directory that contains %1 or leave it blank to have Armory search the default location for your operating system</source>
         <translation>The path you specified for the Bitcoin software installation does not exist.  Please select the directory that contains %1 or leave it blank to have Armory search the default location for your operating system</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8890"/>
+        <location filename="qtdialogs.py" line="8909"/>
         <source>The path you specified for the Bitcoin software home directory does not exist.  Only specify this directory if you use a non-standard &quot;-datadir=&quot; option when running Bitcoin Core or bitcoind.  If you leave this field blank, the following path will be used: &lt;br&gt;&lt;br&gt; %1</source>
         <translation>The path you specified for the Bitcoin software home directory does not exist.  Only specify this directory if you use a non-standard &quot;-datadir=&quot; option when running Bitcoin Core or bitcoind.  If you leave this field blank, the following path will be used: &lt;br&gt;&lt;br&gt; %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8913"/>
+        <location filename="qtdialogs.py" line="8932"/>
         <source>Invalid Amount</source>
         <translation>Invalid Amount</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8913"/>
+        <location filename="qtdialogs.py" line="8932"/>
         <source>The default fee specified could not be understood.  Please specify in BTC with no more than 8 decimal places.</source>
         <translation>The default fee specified could not be understood.  Please specify in BTC with no more than 8 decimal places.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8968"/>
+        <location filename="qtdialogs.py" line="8987"/>
         <source>&quot;Standard&quot; is for users that only need the core set of features to send and receive bitcoins.  This includes maintaining multiple wallets, wallet encryption, and the ability to make backups of your wallets.</source>
         <translation>&quot;Standard&quot; is for users that only need the core set of features to send and receive bitcoins.  This includes maintaining multiple wallets, wallet encryption, and the ability to make backups of your wallets.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8974"/>
+        <location filename="qtdialogs.py" line="8993"/>
         <source>&quot;Advanced&quot; mode provides extra Armory features such as private key importing &amp; sweeping, message signing, and the offline wallet interface.  But, with advanced features come advanced risks...</source>
         <translation>&quot;Advanced&quot; mode provides extra Armory features such as private key importing &amp; sweeping, message signing, and the offline wallet interface.  But, with advanced features come advanced risks...</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8980"/>
+        <location filename="qtdialogs.py" line="8999"/>
         <source>&quot;Expert&quot; mode is similar to &quot;Advanced&quot; but includes access to lower-level info about transactions, scripts, keys and network protocol.  Most extra functionality is geared towards Bitcoin software developers.</source>
         <translation>&quot;Expert&quot; mode is similar to &quot;Advanced&quot; but includes access to lower-level info about transactions, scripts, keys and network protocol.  Most extra functionality is geared towards Bitcoin software developers.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8991"/>
+        <location filename="qtdialogs.py" line="9010"/>
         <source>Sample: </source>
         <translation>Sample: </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8994"/>
+        <location filename="qtdialogs.py" line="9013"/>
         <source>Sample: [[invalid date format]]</source>
         <translation>Sample: [[invalid date format]]</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8350"/>
+        <location filename="qtdialogs.py" line="8369"/>
         <source>Enable settings for proxies/Tor</source>
         <translation>Enable settings for proxies/Tor</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8659"/>
+        <location filename="qtdialogs.py" line="8678"/>
         <source>Fee and Change Settings</source>
         <translation>Fee and Change Settings</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8724"/>
+        <location filename="qtdialogs.py" line="8743"/>
         <source>Blocks to confirm: %1</source>
         <translation>Blocks to confirm: %1</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8523"/>
+        <location filename="qtdialogs.py" line="8542"/>
         <source>Standard</source>
         <translation>Standard</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8524"/>
+        <location filename="qtdialogs.py" line="8543"/>
         <source>Advanced</source>
         <translation>Advanced</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8525"/>
+        <location filename="qtdialogs.py" line="8544"/>
         <source>Expert</source>
         <translation>Expert</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8814"/>
+        <location filename="qtdialogs.py" line="8833"/>
         <source>Change address type will match the address type of recipient addresses. &lt;br&gt;Favors P2SH when recipients are heterogenous. &lt;br&gt;Will create nested SegWit change if inputs are SegWit and recipient are P2SH. &lt;br&gt;&lt;br&gt;&lt;b&gt;Pre 0.96 Armory cannot spend from P2SH address types&lt;/b&gt;</source>
         <translation>Change address type will match the address type of recipient addresses. &lt;br&gt;Favors P2SH when recipients are heterogenous. &lt;br&gt;Will create nested SegWit change if inputs are SegWit and recipient are P2SH. &lt;br&gt;&lt;br&gt;&lt;b&gt;Pre 0.96 Armory cannot spend from P2SH address types&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8834"/>
+        <location filename="qtdialogs.py" line="8853"/>
         <source>Defaults back to P2SH-P2PK if SegWit is not enabled</source>
         <translation>Defaults back to P2SH-P2PK if SegWit is not enabled</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8269"/>
+        <location filename="qtdialogs.py" line="8288"/>
         <source>Let Armory run Bitcoin Core/bitcoind in the background</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8334"/>
+        <location filename="qtdialogs.py" line="8353"/>
         <source>Skip online check on startup (assume internet is available, do not check)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8345"/>
+        <location filename="qtdialogs.py" line="8364"/>
         <source>If you are going to use Armory and Bitcoin Core with a proxy (such as Tor), you should disable all Armory communications that might operate outside the proxy.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8361"/>
+        <location filename="qtdialogs.py" line="8380"/>
         <source>&lt;b&gt;Set Armory as default URL handler&lt;/b&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8362"/>
+        <location filename="qtdialogs.py" line="8381"/>
         <source>Set Armory to be the default when you click on &quot;bitcoin:&quot; links in your browser or in emails. You can test if your operating system is supported by clicking on a &quot;bitcoin:&quot; link right after clicking this button.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8370"/>
+        <location filename="qtdialogs.py" line="8389"/>
         <source>Check whether Armory is the default handler at startup</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8377"/>
+        <location filename="qtdialogs.py" line="8396"/>
         <source>Armory just attempted to register itself to handle &quot;bitcoin:&quot; links, but this does not work on all operating systems.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8384"/>
+        <location filename="qtdialogs.py" line="8403"/>
         <source>&lt;b&gt;Default fee to include with transactions:&lt;/b&gt;&lt;br&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8386"/>
+        <location filename="qtdialogs.py" line="8405"/>
         <source>Fees go to users that contribute computing power to keep the Bitcoin network secure.  It also increases the priority of your transactions so they confirm faster (%1 BTC is standard).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8391"/>
+        <location filename="qtdialogs.py" line="8410"/>
         <source>NOTE: Some transactions will require a certain fee regardless of your settings -- in such cases you will be prompted to include the correct value or cancel the transaction</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8406"/>
+        <location filename="qtdialogs.py" line="8425"/>
         <source>&lt;b&gt;Minimize to System Tray&lt;/b&gt; &lt;br&gt;You can have Armory automatically minimize itself to your system tray on open or close.  Armory will stay open but run in the background, and you will still receive notifications.  Access Armory through the icon on your system tray. &lt;br&gt;&lt;br&gt;If you select &quot;Minimize on close&quot;, the &apos;x&apos; on the top window bar will minimize Armory instead of exiting the application.  You can always use &lt;i&gt;&quot;File&quot;&lt;/i&gt; -&gt; &lt;i&gt;&quot;Quit Armory&quot;&lt;/i&gt; to actually close it.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8732"/>
+        <location filename="qtdialogs.py" line="8751"/>
         <source>Fetch fee/byte from local Bitcoin node. Defaults to manual fee/byte on failure.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8739"/>
+        <location filename="qtdialogs.py" line="8758"/>
         <source>Values in satoshis/byte</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8744"/>
+        <location filename="qtdialogs.py" line="8763"/>
         <source>Values in BTC</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8748"/>
+        <location filename="qtdialogs.py" line="8767"/>
         <source>Auto-adjust fee may increase your total fee using the selected fee/byte rate as its basis in an attempt to align the amount of digits after the decimal point between your spend values and change value.&lt;br&gt;&lt;br&gt;The purpose of this obfuscation technique is to make the change output less obvious. &lt;br&gt;&lt;br&gt;The auto-adjust fee feature only applies to fee/byte options and does not inflate your fee by more that 10% of its original value.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7634,32 +7684,32 @@ Does this ID match the &quot;Wallet Unique ID&quot; you intend to restore? If no
 <context>
     <name>DlgShowTestResults</name>
     <message>
-        <location filename="qtdialogs.py" line="12161"/>
+        <location filename="qtdialogs.py" line="12181"/>
         <source>Ok</source>
         <translation>Ok</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12173"/>
+        <location filename="qtdialogs.py" line="12193"/>
         <source>Fragment Test Results</source>
         <translation>Fragment Test Results</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12114"/>
+        <location filename="qtdialogs.py" line="12134"/>
         <source>The total number of fragment subsets (%1) is too high to test and display.  Instead, %2 subsets were tested at random.  The results are below </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12119"/>
+        <location filename="qtdialogs.py" line="12139"/>
         <source>For the fragments you entered, there are a total of %1 possible subsets that can restore your wallet. The test results for all subsets are shown below</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12126"/>
+        <location filename="qtdialogs.py" line="12146"/>
         <source>The wallet ID is computed from the first address in your wallet based on the root key data (and the &quot;chain code&quot;).  Therefore, a matching wallet ID proves that the wallet will produce identical addresses.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12139"/>
+        <location filename="qtdialogs.py" line="12159"/>
         <source>Fragments &lt;b&gt;%1&lt;/b&gt; and &lt;b&gt;%2&lt;/b&gt; produce a wallet with ID &quot;&lt;b&gt;%3&lt;/b&gt;&quot;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7685,47 +7735,47 @@ Does this ID match the &quot;Wallet Unique ID&quot; you intend to restore? If no
 <context>
     <name>DlgSimpleBackup</name>
     <message>
-        <location filename="qtdialogs.py" line="9968"/>
+        <location filename="qtdialogs.py" line="9988"/>
         <source>Make Paper Backup</source>
         <translation>Make Paper Backup</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9974"/>
+        <location filename="qtdialogs.py" line="9994"/>
         <source>Make Digital Backup</source>
         <translation>Make Digital Backup</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9977"/>
+        <location filename="qtdialogs.py" line="9997"/>
         <source>See Other Backup Options</source>
         <translation>See Other Backup Options</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10020"/>
+        <location filename="qtdialogs.py" line="10040"/>
         <source>Done</source>
         <translation>Done</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10030"/>
+        <location filename="qtdialogs.py" line="10050"/>
         <source>Backup Options</source>
         <translation>Backup Options</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9955"/>
+        <location filename="qtdialogs.py" line="9975"/>
         <source>&lt;b&gt;Protect Your Bitcoins -- Make a Wallet Backup!&lt;/b&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9958"/>
+        <location filename="qtdialogs.py" line="9978"/>
         <source>A failed hard-drive or forgotten passphrase will lead to &lt;u&gt;permanent loss of bitcoins&lt;/u&gt;!  Luckily, Armory wallets only need to be backed up &lt;u&gt;one time&lt;/u&gt;, and protect you in both of these events.   If you&apos;ve ever forgotten a password or had a hardware failure, make a backup!</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9966"/>
+        <location filename="qtdialogs.py" line="9986"/>
         <source>Use a printer or pen-and-paper to write down your wallet &quot;seed.&quot;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9971"/>
+        <location filename="qtdialogs.py" line="9991"/>
         <source>Create an unencrypted copy of your wallet file, including imported addresses.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7824,47 +7874,47 @@ Does this ID match the &quot;Wallet Unique ID&quot; you intend to restore? If no
 <context>
     <name>DlgUniversalRestoreSelect</name>
     <message>
-        <location filename="qtdialogs.py" line="10828"/>
+        <location filename="qtdialogs.py" line="10848"/>
         <source>Single-Sheet Backup (printed)</source>
         <translation>Single-Sheet Backup (printed)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10829"/>
+        <location filename="qtdialogs.py" line="10849"/>
         <source>Fragmented Backup (incl. mix of paper and files)</source>
         <translation>Fragmented Backup (incl. mix of paper and files)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10830"/>
+        <location filename="qtdialogs.py" line="10850"/>
         <source>Import digital backup or watching-only wallet</source>
         <translation>Import digital backup or watching-only wallet</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10831"/>
+        <location filename="qtdialogs.py" line="10851"/>
         <source>Import watching-only wallet data</source>
         <translation>Import watching-only wallet data</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10832"/>
+        <location filename="qtdialogs.py" line="10852"/>
         <source>This is a test recovery to make sure my backup works</source>
         <translation>This is a test recovery to make sure my backup works</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10846"/>
+        <location filename="qtdialogs.py" line="10866"/>
         <source>Continue</source>
         <translation>Continue</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10847"/>
+        <location filename="qtdialogs.py" line="10867"/>
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10822"/>
+        <location filename="qtdialogs.py" line="10842"/>
         <source>&lt;b&gt;&lt;u&gt;Restore Wallet from Backup&lt;/u&gt;&lt;/b&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10823"/>
+        <location filename="qtdialogs.py" line="10843"/>
         <source>You can restore any kind of backup ever created by Armory using one of the options below.  If you have a list of private keys you should open the target wallet and select &quot;Import/Sweep Private Keys.&quot;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7955,17 +8005,17 @@ Does this ID match the &quot;Wallet Unique ID&quot; you intend to restore? If no
 <context>
     <name>DlgUriCopyAndPaste</name>
     <message>
-        <location filename="qtdialogs.py" line="9752"/>
+        <location filename="qtdialogs.py" line="9772"/>
         <source>Copy and paste a raw bitcoin URL string here.  A valid string starts with &quot;bitcoin:&quot; followed by a bitcoin address.&lt;br&gt;&lt;br&gt;You should use this feature if there is a &quot;bitcoin:&quot; link in a webpage or email that does not load Armory when you click on it.  Instead, right-click on the link and select &quot;Copy Link Location&quot; then paste it into the box below. </source>
         <translation>Copy and paste a raw bitcoin URL string here.  A valid string starts with &quot;bitcoin:&quot; followed by a bitcoin address.&lt;br&gt;&lt;br&gt;You should use this feature if there is a &quot;bitcoin:&quot; link in a webpage or email that does not load Armory when you click on it.  Instead, right-click on the link and select &quot;Copy Link Location&quot; then paste it into the box below. </translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9768"/>
+        <location filename="qtdialogs.py" line="9788"/>
         <source>Done</source>
         <translation>Done</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="9769"/>
+        <location filename="qtdialogs.py" line="9789"/>
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
@@ -8011,22 +8061,22 @@ Does this ID match the &quot;Wallet Unique ID&quot; you intend to restore? If no
 <context>
     <name>DlgWODataPrintBackup</name>
     <message>
-        <location filename="qtdialogs.py" line="10306"/>
+        <location filename="qtdialogs.py" line="10326"/>
         <source>&lt;b&gt;&lt;font size=4&gt;&lt;font color=&quot;#aa0000&quot;&gt;WARNING:&lt;/font&gt;  &lt;u&gt;This is not a wallet backup!&lt;/u&gt;&lt;/font&gt;&lt;/b&gt; &lt;br&gt;&lt;br&gt;Please make a regular digital or paper backup of your wallet to keep it protected!  This data simply lets you monitor the funds in this wallet but gives you no ability to move any funds.</source>
         <translation>&lt;b&gt;&lt;font size=4&gt;&lt;font color=&quot;#aa0000&quot;&gt;WARNING:&lt;/font&gt;  &lt;u&gt;This is not a wallet backup!&lt;/u&gt;&lt;/font&gt;&lt;/b&gt; &lt;br&gt;&lt;br&gt;Please make a regular digital or paper backup of your wallet to keep it protected!  This data simply lets you monitor the funds in this wallet but gives you no ability to move any funds.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10222"/>
+        <location filename="qtdialogs.py" line="10242"/>
         <source>&lt;b&gt;&lt;u&gt;Print Watch-Only Wallet Root&lt;/u&gt;&lt;/b&gt;&lt;br&gt;&lt;br&gt; The lines below are sufficient to calculate public keys for every private key ever produced by the full wallet. Importing this data to an online computer is sufficient to receive and verify transactions, and monitor balances, but without the ability to spend the funds.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10336"/>
+        <location filename="qtdialogs.py" line="10356"/>
         <source>The following five lines are sufficient to reproduce all public keys matching the private keys produced by the full wallet.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10375"/>
+        <location filename="qtdialogs.py" line="10395"/>
         <source>The following QR code is for convenience only.  It contains the exact same data as the five lines above.  If you copy this data by hand, you can safely ignore this QR code.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8520,77 +8570,77 @@ Does this ID match the &quot;Wallet Unique ID&quot; you intend to restore? If no
 <context>
     <name>DlgWltRecoverWallet</name>
     <message>
-        <location filename="qtdialogs.py" line="12604"/>
+        <location filename="qtdialogs.py" line="12624"/>
         <source>Browse File System</source>
         <translation>Browse File System</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12620"/>
+        <location filename="qtdialogs.py" line="12640"/>
         <source>Wallet Path:</source>
         <translation>Wallet Path:</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12625"/>
+        <location filename="qtdialogs.py" line="12645"/>
         <source>Select Wallet...</source>
         <translation>Select Wallet...</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12631"/>
+        <location filename="qtdialogs.py" line="12651"/>
         <source>Select Loaded Wallet</source>
         <translation>Select Loaded Wallet</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12655"/>
+        <location filename="qtdialogs.py" line="12675"/>
         <source>&lt;b&gt;Stripped Recovery&lt;/b&gt;&lt;br&gt;Only attempts to                             recover the wallet&apos;s rootkey and chaincode</source>
         <translation>&lt;b&gt;Stripped Recovery&lt;/b&gt;&lt;br&gt;Only attempts to                             recover the wallet&apos;s rootkey and chaincode</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12662"/>
+        <location filename="qtdialogs.py" line="12682"/>
         <source>&lt;b&gt;Bare Recovery&lt;/b&gt;&lt;br&gt;Attempts to recover all private key related data</source>
         <translation>&lt;b&gt;Bare Recovery&lt;/b&gt;&lt;br&gt;Attempts to recover all private key related data</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12669"/>
+        <location filename="qtdialogs.py" line="12689"/>
         <source>&lt;b&gt;Full Recovery&lt;/b&gt;&lt;br&gt;Attempts to recover as much data as possible</source>
         <translation>&lt;b&gt;Full Recovery&lt;/b&gt;&lt;br&gt;Attempts to recover as much data as possible</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12675"/>
+        <location filename="qtdialogs.py" line="12695"/>
         <source>&lt;b&gt;Consistency Check&lt;/b&gt;&lt;br&gt;Checks wallet consistency. Works with both full and watch only&lt;br&gt; wallets. Unlocking of encrypted wallets is not mandatory</source>
         <translation>&lt;b&gt;Consistency Check&lt;/b&gt;&lt;br&gt;Checks wallet consistency. Works with both full and watch only&lt;br&gt; wallets. Unlocking of encrypted wallets is not mandatory</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12719"/>
+        <location filename="qtdialogs.py" line="12739"/>
         <source>Recover</source>
         <translation>Recover</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12720"/>
+        <location filename="qtdialogs.py" line="12740"/>
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12731"/>
+        <location filename="qtdialogs.py" line="12751"/>
         <source>The entered path does not exist</source>
         <translation>The entered path does not exist</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12744"/>
+        <location filename="qtdialogs.py" line="12764"/>
         <source>Wallet Recovery Tool</source>
         <translation>Wallet Recovery Tool</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12788"/>
+        <location filename="qtdialogs.py" line="12808"/>
         <source>Wallet files (*.wallet);; All files (*)</source>
         <translation>Wallet files (*.wallet);; All files (*)</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12795"/>
+        <location filename="qtdialogs.py" line="12815"/>
         <source>Recover Wallet</source>
         <translation>Recover Wallet</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12608"/>
+        <location filename="qtdialogs.py" line="12628"/>
         <source>&lt;b&gt;Wallet Recovery Tool: &lt;/b&gt;&lt;br&gt;This tool will recover data from damaged or inconsistent wallets.  Specify a wallet file and Armory will analyze the wallet and fix any errors with it. &lt;br&gt;&lt;br&gt;&lt;font color=&quot;%1&quot;&gt;If any problems are found with the specified wallet, Armory will provide explanation and instructions to transition to a new wallet.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8641,7 +8691,7 @@ Does this ID match the &quot;Wallet Unique ID&quot; you intend to restore? If no
 <context>
     <name>LedgerDispModelSimple</name>
     <message>
-        <location filename="armorymodels.py" line="260"/>
+        <location filename="armorymodels.py" line="263"/>
         <source>
 
 This is a &quot;generation&quot; transaction from
@@ -8656,12 +8706,7 @@ Bitcoin mining.  These transactions take
 before they are available to be spent.</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="265"/>
-        <source>This is a mempool replaceable transaction. Do not consider you have been sent these coins until this transaction has at least 1 confirmation.</source>
-        <translation>This is a mempool replaceable transaction. Do not consider you have been sent these coins until this transaction has at least 1 confirmation.</translation>
-    </message>
-    <message>
-        <location filename="armorymodels.py" line="270"/>
+        <location filename="armorymodels.py" line="282"/>
         <source>
 
 For small transactions, 2 or 3 confirmations is usually acceptable. For larger transactions, you should wait for 6 confirmations before trusting that the transaction is valid.</source>
@@ -8670,91 +8715,101 @@ For small transactions, 2 or 3 confirmations is usually acceptable. For larger t
 For small transactions, 2 or 3 confirmations is usually acceptable. For larger transactions, you should wait for 6 confirmations before trusting that the transaction is valid.</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="280"/>
+        <location filename="armorymodels.py" line="292"/>
         <source>Bitcoins sent and received by the same wallet</source>
         <translation>Bitcoins sent and received by the same wallet</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="285"/>
+        <location filename="armorymodels.py" line="297"/>
         <source>You mined these Bitcoins!</source>
         <translation>You mined these Bitcoins!</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="287"/>
+        <location filename="armorymodels.py" line="299"/>
         <source>Bitcoins sent</source>
         <translation>Bitcoins sent</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="289"/>
+        <location filename="armorymodels.py" line="301"/>
         <source>Bitcoins received</source>
         <translation>Bitcoins received</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="292"/>
+        <location filename="armorymodels.py" line="304"/>
         <source>The net effect on the balance of this wallet &lt;b&gt;not including transaction fees.&lt;/b&gt;  You can change this behavior in the Armory preferences window.</source>
         <translation>The net effect on the balance of this wallet &lt;b&gt;not including transaction fees.&lt;/b&gt;  You can change this behavior in the Armory preferences window.</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="297"/>
+        <location filename="armorymodels.py" line="309"/>
         <source>The net effect on the balance of this wallet, including transaction fees.</source>
         <translation>The net effect on the balance of this wallet, including transaction fees.</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="307"/>
+        <location filename="armorymodels.py" line="319"/>
         <source>Date</source>
         <translation>Date</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="308"/>
+        <location filename="armorymodels.py" line="320"/>
         <source>Lockbox</source>
         <translation>Lockbox</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="308"/>
+        <location filename="armorymodels.py" line="320"/>
         <source>Wallet</source>
         <translation>Wallet</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="309"/>
+        <location filename="armorymodels.py" line="321"/>
         <source>Comments</source>
         <translation>Comments</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="311"/>
+        <location filename="armorymodels.py" line="323"/>
         <source>Amount</source>
         <translation>Amount</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="312"/>
+        <location filename="armorymodels.py" line="324"/>
         <source>Other Owner</source>
         <translation>Other Owner</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="313"/>
+        <location filename="armorymodels.py" line="325"/>
         <source>Wallet ID</source>
         <translation>Wallet ID</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="314"/>
+        <location filename="armorymodels.py" line="326"/>
         <source>Tx Hash (LE)</source>
         <translation>Tx Hash (LE)</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="254"/>
+        <location filename="armorymodels.py" line="257"/>
         <source>Transaction confirmed!
 (%1 confirmations)</source>
         <translation>Transaction confirmed!
 (%1 confirmations)</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="259"/>
+        <location filename="armorymodels.py" line="262"/>
         <source>%1/120 confirmations</source>
         <translation>%1/120 confirmations</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="269"/>
+        <location filename="armorymodels.py" line="281"/>
         <source>%1/6 confirmations</source>
         <translation>%1/6 confirmations</translation>
+    </message>
+    <message>
+        <location filename="armorymodels.py" line="268"/>
+        <source>This transaction has been RBF flagged (Replaceable By Fee)&lt;br&gt;&lt;br&gt;It means the network will accept and broadcast a double spend of the underlying outputs as long as the double spend pays a higher fee.&lt;br&gt;&lt;br&gt;Do not consider a RBF transaction as a valid payment until it receives at least 1 confirmation.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="armorymodels.py" line="274"/>
+        <source>This transaction spends ZC (zero confirmation) outputs&lt;br&gt;&lt;br&gt;Transactions built on top of yet to confirm transactions are at risk of being invalidated for as long as the parent transaction remains unconfirmed.&lt;br&gt;&lt;br&gt;It is recommended to wait for at least 1 confirmation before accepting these as valid payment.</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -8953,27 +9008,27 @@ For small transactions, 2 or 3 confirmations is usually acceptable. For larger t
 <context>
     <name>NewWalletFrame</name>
     <message>
-        <location filename="WalletFrames.py" line="352"/>
+        <location filename="WalletFrames.py" line="411"/>
         <source>Wallet &amp;name:</source>
         <translation>Wallet &amp;name:</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="359"/>
+        <location filename="WalletFrames.py" line="418"/>
         <source>Wallet &amp;description:</source>
         <translation>Wallet &amp;description:</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="364"/>
+        <location filename="WalletFrames.py" line="423"/>
         <source>Add Manual &amp;Entropy</source>
         <translation>Add Manual &amp;Entropy</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="381"/>
+        <location filename="WalletFrames.py" line="440"/>
         <source>Configure</source>
         <translation>Configure</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="385"/>
+        <location filename="WalletFrames.py" line="444"/>
         <source>Advanced Options</source>
         <translation>Advanced Options</translation>
     </message>
@@ -9107,77 +9162,113 @@ For small transactions, 2 or 3 confirmations is usually acceptable. For larger t
     </message>
     <message>
         <location filename="MultiSigDialogs.py" line="3014"/>
-        <source>&lt;font color=&quot;%1&quot;&gt;This transaction has enough signatures and can be broadcast</source>
+        <source>&lt;font color=&quot;%1&quot;&gt;This transaction has enough signatures and can be broadcast&lt;/font&gt;</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
     <name>PromissoryCollectModel</name>
     <message>
-        <location filename="armorymodels.py" line="1490"/>
+        <location filename="armorymodels.py" line="1502"/>
         <source>Note ID</source>
         <translation>Note ID</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="1490"/>
+        <location filename="armorymodels.py" line="1502"/>
         <source>Label</source>
         <translation>Label</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="1490"/>
+        <location filename="armorymodels.py" line="1502"/>
         <source>Funding</source>
         <translation>Funding</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="1490"/>
+        <location filename="armorymodels.py" line="1502"/>
         <source>Fee</source>
         <translation>Fee</translation>
     </message>
 </context>
 <context>
+    <name>RBFDlg</name>
+    <message>
+        <location filename="CoinControlUI.py" line="144"/>
+        <source>Accept</source>
+        <translation type="unfinished">Accept</translation>
+    </message>
+    <message>
+        <location filename="CoinControlUI.py" line="145"/>
+        <source>Cancel</source>
+        <translation type="unfinished">Cancel</translation>
+    </message>
+    <message>
+        <location filename="CoinControlUI.py" line="166"/>
+        <source>RBF (Expert)</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>RBFTreeModel</name>
+    <message>
+        <location filename="TreeViewGUI.py" line="974"/>
+        <source>Output ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="TreeViewGUI.py" line="975"/>
+        <source>Address</source>
+        <translation type="unfinished">Address</translation>
+    </message>
+    <message>
+        <location filename="TreeViewGUI.py" line="976"/>
+        <source>Value</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>ReviewOfflineTxFrame</name>
     <message>
-        <location filename="TxFrames.py" line="1192"/>
+        <location filename="TxFrames.py" line="1216"/>
         <source>There is no security-sensitive information in this data below, so it is perfectly safe to copy-and-paste it into an email message, or save it to a borrowed USB key.</source>
         <translation>There is no security-sensitive information in this data below, so it is perfectly safe to copy-and-paste it into an email message, or save it to a borrowed USB key.</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1197"/>
+        <location filename="TxFrames.py" line="1221"/>
         <source>Save as file...</source>
         <translation>Save as file...</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1199"/>
+        <location filename="TxFrames.py" line="1223"/>
         <source>Save this data to a USB key or other device, to be transferred to a computer that contains the private keys for this wallet.</source>
         <translation>Save this data to a USB key or other device, to be transferred to a computer that contains the private keys for this wallet.</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1203"/>
+        <location filename="TxFrames.py" line="1227"/>
         <source>Copy to clipboard</source>
         <translation>Copy to clipboard</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1208"/>
+        <location filename="TxFrames.py" line="1232"/>
         <source>Copy the transaction data to the clipboard, so that it can be pasted into an email or a text document.</source>
         <translation>Copy the transaction data to the clipboard, so that it can be pasted into an email or a text document.</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1212"/>
+        <location filename="TxFrames.py" line="1236"/>
         <source>&lt;b&gt;Instructions for completing this transaction:&lt;/b&gt;</source>
         <translation>&lt;b&gt;Instructions for completing this transaction:&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1270"/>
+        <location filename="TxFrames.py" line="1294"/>
         <source>&lt;b&gt;Transaction Data&lt;/b&gt; <byte value="x9"/> (Unsigned ID: %1)</source>
         <translation>&lt;b&gt;Transaction Data&lt;/b&gt; &lt;byte value=&quot;x9&quot;/&gt; (Unsigned ID: %1)</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1277"/>
+        <location filename="TxFrames.py" line="1301"/>
         <source>The block of data shown below is the complete transaction you just requested, but is invalid because it does not contain any signatures.  You must take this data to the computer with the full wallet to get it signed, then bring it back here to be broadcast to the Bitcoin network. &lt;br&gt;&lt;br&gt;Use &quot;Save as file...&quot; to save an &lt;i&gt;*.unsigned.tx&lt;/i&gt; file to USB drive or other removable media. On the offline computer, click &quot;Offline Transactions&quot; on the main window.  Load the transaction, &lt;b&gt;review it&lt;/b&gt;, then sign it (the filename now end with &lt;i&gt;*.signed.tx&lt;/i&gt;).  Click &quot;Continue&quot; below when you have the signed transaction on this computer. &lt;br&gt;&lt;br&gt;&lt;b&gt;NOTE:&lt;/b&gt; The USB drive only ever holds public transaction data that will be broadcast to the network.  This data may be considered privacy-sensitive, but does &lt;u&gt;not&lt;/u&gt; compromise the security of your wallet.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1296"/>
+        <location filename="TxFrames.py" line="1320"/>
         <source>You have chosen to create the previous transaction but not sign it or broadcast it, yet.  You can save the unsigned transaction to file, or copy&amp;paste from the text box. You can use the following window (after clicking &quot;Continue&quot;) to sign and broadcast the transaction when you are ready</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9198,74 +9289,89 @@ For small transactions, 2 or 3 confirmations is usually acceptable. For larger t
 <context>
     <name>SelectWalletFrame</name>
     <message>
-        <location filename="WalletFrames.py" line="115"/>
+        <location filename="WalletFrames.py" line="118"/>
         <source>No Wallets!</source>
         <translation>No Wallets!</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="115"/>
+        <location filename="WalletFrames.py" line="118"/>
         <source>There are no wallets to select from.  Please create or import a wallet first.</source>
         <translation>There are no wallets to select from.  Please create or import a wallet first.</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="159"/>
+        <location filename="WalletFrames.py" line="162"/>
         <source>Wallet ID:</source>
         <translation>Wallet ID:</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="160"/>
+        <location filename="WalletFrames.py" line="163"/>
         <source>Name:</source>
         <translation>Name:</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="161"/>
+        <location filename="WalletFrames.py" line="164"/>
         <source>Description:</source>
         <translation>Description:</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="162"/>
+        <location filename="WalletFrames.py" line="165"/>
         <source>Spendable BTC:</source>
         <translation>Spendable BTC:</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="301"/>
+        <location filename="WalletFrames.py" line="352"/>
         <source>Source: All addresses</source>
         <translation>Source: All addresses</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="199"/>
+        <location filename="WalletFrames.py" line="207"/>
         <source>Coin Control</source>
         <translation>Coin Control</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="255"/>
+        <location filename="WalletFrames.py" line="272"/>
         <source>Source: None selected</source>
         <translation>Source: None selected</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="259"/>
+        <location filename="WalletFrames.py" line="309"/>
         <source>Source: %1...</source>
         <translation>Source: %1...</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="261"/>
+        <location filename="WalletFrames.py" line="311"/>
         <source>Source: %1 Outputs</source>
         <translation>Source: %1 Outputs</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="301"/>
+        <location filename="WalletFrames.py" line="352"/>
         <source>Source: 0 addresses</source>
         <translation>Source: 0 addresses</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="322"/>
+        <location filename="WalletFrames.py" line="374"/>
         <source>*Coin Control Subset*</source>
         <translation>*Coin Control Subset*</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="329"/>
+        <location filename="WalletFrames.py" line="392"/>
         <source>(available when online)</source>
         <translation>(available when online)</translation>
+    </message>
+    <message>
+        <location filename="WalletFrames.py" line="302"/>
+        <source>Source: N/A</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="WalletFrames.py" line="210"/>
+        <source>RBF Control</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="WalletFrames.py" line="388"/>
+        <source>*RBF subset*</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -9321,162 +9427,162 @@ For small transactions, 2 or 3 confirmations is usually acceptable. For larger t
         <translation>Create Unsigned</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="280"/>
+        <location filename="TxFrames.py" line="293"/>
         <source>Send!</source>
         <translation>Send!</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="108"/>
+        <location filename="TxFrames.py" line="116"/>
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="150"/>
+        <location filename="TxFrames.py" line="163"/>
         <source>Manually Enter &quot;bitcoin:&quot; Link</source>
         <translation>Manually Enter &quot;bitcoin:&quot; Link</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="216"/>
+        <location filename="TxFrames.py" line="229"/>
         <source>&lt;b&gt;Sending from Wallet:&lt;/b&gt;</source>
         <translation>&lt;b&gt;Sending from Wallet:&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="231"/>
+        <location filename="TxFrames.py" line="244"/>
         <source>Send Bitcoins</source>
         <translation>Send Bitcoins</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="277"/>
+        <location filename="TxFrames.py" line="290"/>
         <source>Continue</source>
         <translation>Continue</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="278"/>
+        <location filename="TxFrames.py" line="291"/>
         <source>Click to create an unsigned transaction!</source>
         <translation>Click to create an unsigned transaction!</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="281"/>
+        <location filename="TxFrames.py" line="294"/>
         <source>Click to send bitcoins!</source>
         <translation>Click to send bitcoins!</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="911"/>
+        <location filename="TxFrames.py" line="935"/>
         <source>Invalid Address</source>
         <translation>Invalid Address</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="527"/>
+        <location filename="TxFrames.py" line="551"/>
         <source>Wrong Network!</source>
         <translation>Wrong Network!</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="543"/>
+        <location filename="TxFrames.py" line="567"/>
         <source>Zero Amount</source>
         <translation>Zero Amount</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="543"/>
+        <location filename="TxFrames.py" line="567"/>
         <source>You cannot send 0 BTC to any recipients.  &lt;br&gt;Please enter a positive amount for recipient %1.</source>
         <translation>You cannot send 0 BTC to any recipients.  &lt;br&gt;Please enter a positive amount for recipient %1.</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="549"/>
+        <location filename="TxFrames.py" line="573"/>
         <source>Negative Value</source>
         <translation>Negative Value</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="549"/>
+        <location filename="TxFrames.py" line="573"/>
         <source>You have specified a negative amount for recipient %1. &lt;br&gt;Only positive values are allowed!.</source>
         <translation>You have specified a negative amount for recipient %1. &lt;br&gt;Only positive values are allowed!.</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="554"/>
+        <location filename="TxFrames.py" line="578"/>
         <source>Too much precision</source>
         <translation>Too much precision</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="554"/>
+        <location filename="TxFrames.py" line="578"/>
         <source>Bitcoins can only be specified down to 8 decimal places. The smallest value that can be sent is  0.0000 0001 BTC. Please enter a new amount for recipient %1.</source>
         <translation>Bitcoins can only be specified down to 8 decimal places. The smallest value that can be sent is  0.0000 0001 BTC. Please enter a new amount for recipient %1.</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="560"/>
+        <location filename="TxFrames.py" line="584"/>
         <source>Missing recipient amount</source>
         <translation>Missing recipient amount</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="560"/>
+        <location filename="TxFrames.py" line="584"/>
         <source>You did not specify an amount to send!</source>
         <translation>You did not specify an amount to send!</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="564"/>
+        <location filename="TxFrames.py" line="588"/>
         <source>Invalid Value String</source>
         <translation>Invalid Value String</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="564"/>
+        <location filename="TxFrames.py" line="588"/>
         <source>The amount you specified to send to address %1 is invalid (%2).</source>
         <translation>The amount you specified to send to address %1 is invalid (%2).</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="584"/>
+        <location filename="TxFrames.py" line="608"/>
         <source>Excessive Fee</source>
         <translation>Excessive Fee</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="597"/>
+        <location filename="TxFrames.py" line="621"/>
         <source>Insufficient Fee</source>
         <translation>Insufficient Fee</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="611"/>
+        <location filename="TxFrames.py" line="635"/>
         <source>Coin Selection Error</source>
         <translation>Coin Selection Error</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="733"/>
+        <location filename="TxFrames.py" line="757"/>
         <source>Wallet is Locked</source>
         <translation>Wallet is Locked</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="733"/>
+        <location filename="TxFrames.py" line="757"/>
         <source>Cannot sign transaction while your wallet is locked. </source>
         <translation>Cannot sign transaction while your wallet is locked. </translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="957"/>
+        <location filename="TxFrames.py" line="981"/>
         <source>Invalid Input</source>
         <translation>Invalid Input</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="957"/>
+        <location filename="TxFrames.py" line="981"/>
         <source>Cannot compute the maximum amount because there is an error in the amount for recipient %1.</source>
         <translation>Cannot compute the maximum amount because there is an error in the amount for recipient %1.</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="967"/>
+        <location filename="TxFrames.py" line="991"/>
         <source>Insufficient funds</source>
         <translation>Insufficient funds</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="967"/>
+        <location filename="TxFrames.py" line="991"/>
         <source>You have specified more than your spendable balance to the other recipients and the transaction fee.  Therefore, the maximum amount for this recipient would actually be negative.</source>
         <translation>You have specified more than your spendable balance to the other recipients and the transaction fee.  Therefore, the maximum amount for this recipient would actually be negative.</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1092"/>
+        <location filename="TxFrames.py" line="1116"/>
         <source>+ Recipient</source>
         <translation>+ Recipient</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1094"/>
+        <location filename="TxFrames.py" line="1118"/>
         <source>- Recipient</source>
         <translation>- Recipient</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="982"/>
+        <location filename="TxFrames.py" line="1006"/>
         <source>Fills in the maximum spendable amount minus the amounts specified for other recipients and the transaction fee </source>
         <translation>Fills in the maximum spendable amount minus the amounts specified for other recipients and the transaction fee </translation>
     </message>
@@ -9486,70 +9592,80 @@ For small transactions, 2 or 3 confirmations is usually acceptable. For larger t
         <translation>Transaction fees go to users who contribute computing power to keep the Bitcoin network secure, and in return they get your transaction included in the blockchain faster.</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="516"/>
+        <location filename="TxFrames.py" line="540"/>
         <source>You have entered %1 invalid addresses. The errors have been highlighted on the entry screen</source>
         <translation>You have entered %1 invalid addresses. The errors have been highlighted on the entry screen</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="838"/>
+        <location filename="TxFrames.py" line="862"/>
         <source>Change address type mismatch</source>
         <translation>Change address type mismatch</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="838"/>
+        <location filename="TxFrames.py" line="862"/>
         <source>Armory is set to force the change address type to %1.&lt;br&gt;All the recipients in this transaction are of the %2 type.&lt;br&gt;&lt;br&gt;If sent as such, this transaction will damage your privacy. It is recommended you let Armory define the change script type automatically. You can do this by going to File -&gt; Settings and picking &lt;u&gt;&apos;Auto change&apos;&lt;/u&gt; in the Fee &amp; Change settings tab.&lt;br&gt;&lt;br&gt;&lt;b&gt;Note&lt;/b&gt;: When paying a P2SH script with the auto change setting on, the change script type will be set to P2SH. Only Armory 0.96 and later can spend from these scripts.&lt;br&gt;If you use an offline signing setup, make sure your signer is up to date.</source>
         <translation>Armory is set to force the change address type to %1.&lt;br&gt;All the recipients in this transaction are of the %2 type.&lt;br&gt;&lt;br&gt;If sent as such, this transaction will damage your privacy. It is recommended you let Armory define the change script type automatically. You can do this by going to File -&gt; Settings and picking &lt;u&gt;&apos;Auto change&apos;&lt;/u&gt; in the Fee &amp; Change settings tab.&lt;br&gt;&lt;br&gt;&lt;b&gt;Note&lt;/b&gt;: When paying a P2SH script with the auto change setting on, the change script type will be set to P2SH. Only Armory 0.96 and later can spend from these scripts.&lt;br&gt;If you use an offline signing setup, make sure your signer is up to date.</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="151"/>
+        <location filename="TxFrames.py" line="164"/>
         <source>Armory does not always succeed at registering itself to handle URL links from webpages and email. Click this button to copy a &quot;bitcoin:&quot; link directly into Armory.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="527"/>
+        <location filename="TxFrames.py" line="551"/>
         <source>Address %1 is for the wrong network!  You are on the &lt;b&gt;%2&lt;/b&gt; and the address you supplied is for the the &lt;b&gt;%3&lt;/b&gt;!</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="584"/>
+        <location filename="TxFrames.py" line="608"/>
         <source>Your transaction comes with a fee rate of &lt;b&gt;%1 satoshis per byte&lt;/b&gt;. &lt;/br&gt;&lt;/br&gt; This is much higher than the median fee rate of &lt;b&gt;%2 satoshi/Byte&lt;/b&gt;. &lt;br&gt;&lt;br&gt;Are you &lt;i&gt;absolutely sure&lt;/i&gt; that you want to send with this fee? If you do not want to proceed with this fee rate, click &quot;No&quot;.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="597"/>
+        <location filename="TxFrames.py" line="621"/>
         <source>Your transaction comes with a fee rate of &lt;b&gt;%1 satoshi/Byte&lt;/b&gt;. &lt;/br&gt;&lt;br&gt; This is much lower than the median fee rate of &lt;b&gt;%2 satoshi/Byte&lt;/b&gt;. &lt;br&gt;&lt;br&gt;Are you &lt;i&gt;absolutely sure&lt;/i&gt; that you want to send with this fee? If you do not want to proceed with this fee rate, click &quot;No&quot;.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="611"/>
+        <location filename="TxFrames.py" line="635"/>
         <source>There was an error constructing your transaction, due to a quirk in the way Bitcoin transactions work.  If you see this error more than once, try sending your BTC in two or more separate transactions.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="911"/>
+        <location filename="TxFrames.py" line="935"/>
         <source>You specified an invalid change address for this transcation.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="TxFrames.py" line="108"/>
+        <source>enable RBF</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="TxFrames.py" line="109"/>
+        <source>RBF flagged inputs allow to respend the underlying outpoint for a higher fee as long as the original spending transaction remains unconfirmed. &lt;br&gt;&lt;br&gt;Checking this box will RBF flag all inputs in this transaction</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
     <name>SentToAddrBookModel</name>
     <message>
-        <location filename="armorymodels.py" line="1405"/>
+        <location filename="armorymodels.py" line="1417"/>
         <source>Address</source>
         <translation>Address</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="1406"/>
+        <location filename="armorymodels.py" line="1418"/>
         <source>Ownership</source>
         <translation>Ownership</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="1407"/>
+        <location filename="armorymodels.py" line="1419"/>
         <source>Times Used</source>
         <translation>Times Used</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="1408"/>
+        <location filename="armorymodels.py" line="1420"/>
         <source>Comment</source>
         <translation>Comment</translation>
     </message>
@@ -9557,7 +9673,7 @@ For small transactions, 2 or 3 confirmations is usually acceptable. For larger t
 <context>
     <name>SetPassphraseFrame</name>
     <message>
-        <location filename="WalletFrames.py" line="562"/>
+        <location filename="WalletFrames.py" line="621"/>
         <source>Please enter a passphrase for wallet encryption.
 
 A good passphrase consists of at least 10 or more
@@ -9570,32 +9686,32 @@ random letters, or 6 or more random words.
 </translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="567"/>
+        <location filename="WalletFrames.py" line="626"/>
         <source>New Passphrase:</source>
         <translation>New Passphrase:</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="572"/>
+        <location filename="WalletFrames.py" line="631"/>
         <source>Again:</source>
         <translation>Again:</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="607"/>
+        <location filename="WalletFrames.py" line="666"/>
         <source>&lt;font color=%1&gt;&lt;b&gt;Passphrase is non-ASCII!&lt;/b&gt;&lt;/font&gt;</source>
         <translation>&lt;font color=%1&gt;&lt;b&gt;Passphrase is non-ASCII!&lt;/b&gt;&lt;/font&gt;</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="611"/>
+        <location filename="WalletFrames.py" line="670"/>
         <source>&lt;font color=%1&gt;&lt;b&gt;Passphrases do not match!&lt;/b&gt;&lt;/font&gt;</source>
         <translation>&lt;font color=%1&gt;&lt;b&gt;Passphrases do not match!&lt;/b&gt;&lt;/font&gt;</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="615"/>
+        <location filename="WalletFrames.py" line="674"/>
         <source>&lt;font color=%1&gt;&lt;b&gt;Passphrase is too short!&lt;/b&gt;&lt;/font&gt;</source>
         <translation>&lt;font color=%1&gt;&lt;b&gt;Passphrase is too short!&lt;/b&gt;&lt;/font&gt;</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="619"/>
+        <location filename="WalletFrames.py" line="678"/>
         <source>&lt;font color=%1&gt;&lt;b&gt;Passphrases match!&lt;/b&gt;&lt;/font&gt;</source>
         <translation>&lt;font color=%1&gt;&lt;b&gt;Passphrases match!&lt;/b&gt;&lt;/font&gt;</translation>
     </message>
@@ -9603,272 +9719,272 @@ random letters, or 6 or more random words.
 <context>
     <name>SignBroadcastOfflineTxFrame</name>
     <message>
-        <location filename="TxFrames.py" line="1357"/>
+        <location filename="TxFrames.py" line="1381"/>
         <source>Sign</source>
         <translation>Sign</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1358"/>
+        <location filename="TxFrames.py" line="1382"/>
         <source>Broadcast</source>
         <translation>Broadcast</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1359"/>
+        <location filename="TxFrames.py" line="1383"/>
         <source>Save file...</source>
         <translation>Save file...</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1360"/>
+        <location filename="TxFrames.py" line="1384"/>
         <source>Load file...</source>
         <translation>Load file...</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1361"/>
+        <location filename="TxFrames.py" line="1385"/>
         <source>Copy Text</source>
         <translation>Copy Text</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1362"/>
+        <location filename="TxFrames.py" line="1386"/>
         <source>Copy Raw Tx (Hex)</source>
         <translation>Copy Raw Tx (Hex)</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1381"/>
+        <location filename="TxFrames.py" line="1405"/>
         <source>Signature is Invalid!</source>
         <translation>Signature is Invalid!</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1392"/>
+        <location filename="TxFrames.py" line="1416"/>
         <source>This is wallet from which the offline transaction spends bitcoins</source>
         <translation>This is wallet from which the offline transaction spends bitcoins</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1399"/>
+        <location filename="TxFrames.py" line="1423"/>
         <source>The name of the wallet</source>
         <translation>The name of the wallet</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1400"/>
+        <location filename="TxFrames.py" line="1424"/>
         <source>&lt;b&gt;Wallet Label:&lt;/b&gt;</source>
         <translation>&lt;b&gt;Wallet Label:&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1410"/>
+        <location filename="TxFrames.py" line="1434"/>
         <source>&lt;b&gt;Pre-Broadcast ID:&lt;/b&gt;</source>
         <translation>&lt;b&gt;Pre-Broadcast ID:&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1415"/>
+        <location filename="TxFrames.py" line="1439"/>
         <source>Net effect on this wallet&apos;s balance</source>
         <translation>Net effect on this wallet&apos;s balance</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1417"/>
+        <location filename="TxFrames.py" line="1441"/>
         <source>&lt;b&gt;Transaction Amount:&lt;/b&gt;</source>
         <translation>&lt;b&gt;Transaction Amount:&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1420"/>
+        <location filename="TxFrames.py" line="1444"/>
         <source>Click here for more&lt;br&gt; information about &lt;br&gt;this transaction</source>
         <translation>Click here for more&lt;br&gt; information about &lt;br&gt;this transaction</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1491"/>
+        <location filename="TxFrames.py" line="1515"/>
         <source>Inconsistent Data!</source>
         <translation>Inconsistent Data!</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1491"/>
+        <location filename="TxFrames.py" line="1515"/>
         <source>This transaction contains inconsistent information.  This is probably not your fault...</source>
         <translation>This transaction contains inconsistent information.  This is probably not your fault...</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1497"/>
+        <location filename="TxFrames.py" line="1521"/>
         <source>Wrong Network!</source>
         <translation>Wrong Network!</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1497"/>
+        <location filename="TxFrames.py" line="1521"/>
         <source>This transaction is actually for a different network!  Did you load the correct transaction?</source>
         <translation>This transaction is actually for a different network!  Did you load the correct transaction?</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1513"/>
+        <location filename="TxFrames.py" line="1537"/>
         <source>No connection to Bitcoin network!</source>
         <translation>No connection to Bitcoin network!</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1524"/>
+        <location filename="TxFrames.py" line="1548"/>
         <source>&lt;b&gt;&lt;font color=&quot;red&quot;&gt;Unrecognized!&lt;/font&gt;&lt;/b&gt;</source>
         <translation>&lt;b&gt;&lt;font color=&quot;red&quot;&gt;Unrecognized!&lt;/font&gt;&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1534"/>
+        <location filename="TxFrames.py" line="1558"/>
         <source>Offline Warning</source>
         <translation>Offline Warning</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1534"/>
+        <location filename="TxFrames.py" line="1558"/>
         <source>&lt;b&gt;Please review your transaction carefully before signing and broadcasting it!&lt;/b&gt;  The extra security of using offline wallets is lost if you do not confirm the transaction is correct!</source>
         <translation>&lt;b&gt;Please review your transaction carefully before signing and broadcasting it!&lt;/b&gt;  The extra security of using offline wallets is lost if you do not confirm the transaction is correct!</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1540"/>
+        <location filename="TxFrames.py" line="1564"/>
         <source>&lt;b&gt;&lt;font color=&quot;red&quot;&gt;Unsigned&lt;/font&gt;&lt;/b&gt;</source>
         <translation>&lt;b&gt;&lt;font color=&quot;red&quot;&gt;Unsigned&lt;/font&gt;&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1544"/>
+        <location filename="TxFrames.py" line="1568"/>
         <source>&lt;b&gt;&lt;font color=&quot;red&quot;&gt;Bad Signature!&lt;/font&gt;&lt;/b&gt;</source>
         <translation>&lt;b&gt;&lt;font color=&quot;red&quot;&gt;Bad Signature!&lt;/font&gt;&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1548"/>
+        <location filename="TxFrames.py" line="1572"/>
         <source>&lt;b&gt;&lt;font color=&quot;green&quot;&gt;All Signatures Valid!&lt;/font&gt;&lt;/b&gt;</source>
         <translation>&lt;b&gt;&lt;font color=&quot;green&quot;&gt;All Signatures Valid!&lt;/font&gt;&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1567"/>
+        <location filename="TxFrames.py" line="1591"/>
         <source>Multiple Input Wallets</source>
         <translation>Multiple Input Wallets</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1567"/>
+        <location filename="TxFrames.py" line="1591"/>
         <source>Somehow, you have obtained a transaction that actually pulls from more than one wallet.  The support for handling multi-wallet signatures is not currently implemented (this also could have happened if you imported the same private key into two different wallets).</source>
         <translation>Somehow, you have obtained a transaction that actually pulls from more than one wallet.  The support for handling multi-wallet signatures is not currently implemented (this also could have happened if you imported the same private key into two different wallets).</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1575"/>
+        <location filename="TxFrames.py" line="1599"/>
         <source>Unrelated Transaction</source>
         <translation>Unrelated Transaction</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1575"/>
+        <location filename="TxFrames.py" line="1599"/>
         <source>This transaction appears to have no relationship to any of the wallets stored on this computer.  Did you load the correct transaction?</source>
         <translation>This transaction appears to have no relationship to any of the wallets stored on this computer.  Did you load the correct transaction?</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1635"/>
+        <location filename="TxFrames.py" line="1659"/>
         <source>[[ Unrelated ]]</source>
         <translation>[[ Unrelated ]]</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1655"/>
+        <location filename="TxFrames.py" line="1679"/>
         <source>Invalid Transaction</source>
         <translation>Invalid Transaction</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1655"/>
+        <location filename="TxFrames.py" line="1679"/>
         <source>Transaction data is invalid and cannot be shown!</source>
         <translation>Transaction data is invalid and cannot be shown!</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1668"/>
+        <location filename="TxFrames.py" line="1692"/>
         <source>Cannot Sign</source>
         <translation>Cannot Sign</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1668"/>
+        <location filename="TxFrames.py" line="1692"/>
         <source>This transaction is not relevant to any of your wallets.Did you load the correct transaction?</source>
         <translation>This transaction is not relevant to any of your wallets.Did you load the correct transaction?</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1674"/>
+        <location filename="TxFrames.py" line="1698"/>
         <source>Not Signable</source>
         <translation>Not Signable</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1674"/>
+        <location filename="TxFrames.py" line="1698"/>
         <source>This is not a valid transaction, and thus it cannot be signed. </source>
         <translation>This is not a valid transaction, and thus it cannot be signed. </translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1679"/>
+        <location filename="TxFrames.py" line="1703"/>
         <source>Already Signed</source>
         <translation>Already Signed</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1679"/>
+        <location filename="TxFrames.py" line="1703"/>
         <source>This transaction has already been signed!</source>
         <translation>This transaction has already been signed!</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1685"/>
+        <location filename="TxFrames.py" line="1709"/>
         <source>No Private Keys!</source>
         <translation>No Private Keys!</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1685"/>
+        <location filename="TxFrames.py" line="1709"/>
         <source>This transaction refers one of your wallets, but that wallet is a watching-only wallet.  Therefore, private keys are not available to sign this transaction.</source>
         <translation>This transaction refers one of your wallets, but that wallet is a watching-only wallet.  Therefore, private keys are not available to sign this transaction.</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1708"/>
+        <location filename="TxFrames.py" line="1736"/>
         <source>Missing Change</source>
         <translation>Missing Change</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1728"/>
+        <location filename="TxFrames.py" line="1756"/>
         <source>Send Transaction</source>
         <translation>Send Transaction</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1735"/>
+        <location filename="TxFrames.py" line="1763"/>
         <source>Wallet is Locked</source>
         <translation>Wallet is Locked</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1735"/>
+        <location filename="TxFrames.py" line="1763"/>
         <source>Cannot sign transaction while your wallet is locked. </source>
         <translation>Cannot sign transaction while your wallet is locked. </translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1761"/>
+        <location filename="TxFrames.py" line="1789"/>
         <source>No Internet!</source>
         <translation>No Internet!</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1761"/>
+        <location filename="TxFrames.py" line="1789"/>
         <source>You do not currently have a connection to the Bitcoin network. If this does not seem correct, verify that  is open and synchronized with the network.</source>
         <translation>You do not currently have a connection to the Bitcoin network. If this does not seem correct, verify that  is open and synchronized with the network.</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1772"/>
+        <location filename="TxFrames.py" line="1800"/>
         <source>Signature Error</source>
         <translation>Signature Error</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1776"/>
+        <location filename="TxFrames.py" line="1804"/>
         <source>Error</source>
         <translation>Error</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1802"/>
+        <location filename="TxFrames.py" line="1830"/>
         <source>File Remove Error</source>
         <translation>File Remove Error</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1802"/>
+        <location filename="TxFrames.py" line="1830"/>
         <source>The file could not be deleted.  If you want to delete it, please do so manually.  The file was loaded from: &lt;br&gt;&lt;br&gt;%1: </source>
         <translation>The file could not be deleted.  If you want to delete it, please do so manually.  The file was loaded from: &lt;br&gt;&lt;br&gt;%1: </translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1840"/>
+        <location filename="TxFrames.py" line="1868"/>
         <source>Formatting Error</source>
         <translation>Formatting Error</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1840"/>
+        <location filename="TxFrames.py" line="1868"/>
         <source>The transaction data was not in a format recognized by Armory.</source>
         <translation>The transaction data was not in a format recognized by Armory.</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1832"/>
+        <location filename="TxFrames.py" line="1860"/>
         <source>Transaction Saved!</source>
         <translation>Transaction Saved!</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1832"/>
+        <location filename="TxFrames.py" line="1860"/>
         <source>Your transaction has been saved to the following location:
 
 %1
@@ -9881,42 +9997,42 @@ It can now be broadcast from any computer running Armory in online mode.</source
 It can now be broadcast from any computer running Armory in online mode.</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1871"/>
+        <location filename="TxFrames.py" line="1899"/>
         <source>Load Transaction</source>
         <translation>Load Transaction</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1893"/>
+        <location filename="TxFrames.py" line="1921"/>
         <source>&lt;i&gt;Copied!&lt;/i&gt;</source>
         <translation>&lt;i&gt;Copied!&lt;/i&gt;</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1342"/>
+        <location filename="TxFrames.py" line="1366"/>
         <source>Copy or load a transaction from file into the text box below.  If the transaction is unsigned and you have the correct wallet, you will have the opportunity to sign it.  If it is already signed you will have the opportunity to broadcast it to the Bitcoin network to make it final.</source>
         <translation>Copy or load a transaction from file into the text box below.  If the transaction is unsigned and you have the correct wallet, you will have the opportunity to sign it.  If it is already signed you will have the opportunity to broadcast it to the Bitcoin network to make it final.</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1405"/>
+        <location filename="TxFrames.py" line="1429"/>
         <source>A unique string that identifies an &lt;i&gt;unsigned&lt;/i&gt; transaction.  This is different than the ID that the transaction will have when it is finally broadcast, because the broadcast ID cannot be calculated without all the signatures</source>
         <translation>A unique string that identifies an &lt;i&gt;unsigned&lt;/i&gt; transaction.  This is different than the ID that the transaction will have when it is finally broadcast, because the broadcast ID cannot be calculated without all the signatures</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1754"/>
+        <location filename="TxFrames.py" line="1782"/>
         <source>Armory lost its connection to Bitcoin Core, and cannot broadcast any transactions until it is reconnected. Please verify that Bitcoin Core (or bitcoind) is open and synchronized with the network.</source>
         <translation>Armory lost its connection to Bitcoin Core, and cannot broadcast any transactions until it is reconnected. Please verify that Bitcoin Core (or bitcoind) is open and synchronized with the network.</translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1708"/>
+        <location filename="TxFrames.py" line="1736"/>
         <source>This transaction has %1 recipients, and none of them are addresses in this wallet (for receiving change). This can happen if you specified a custom change address for this transaction, or sometimes happens solely by chance with a multi-recipient transaction.  It could also be the result of someone tampering with the transaction. &lt;br&gt;&lt;br&gt;The transaction is valid and ready to be signed. Please verify the recipient and amounts carefully before confirming the transaction on the next screen.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1772"/>
+        <location filename="TxFrames.py" line="1800"/>
         <source>Not all signatures are valid.  This transaction cannot be broadcast.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="TxFrames.py" line="1776"/>
+        <location filename="TxFrames.py" line="1804"/>
         <source>There was an error processing this transaction, for reasons that are probably not your fault...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9993,47 +10109,47 @@ It can now be broadcast from any computer running Armory in online mode.</transl
 <context>
     <name>TxInDispModel</name>
     <message>
-        <location filename="armorymodels.py" line="1213"/>
+        <location filename="armorymodels.py" line="1225"/>
         <source>Wallet ID</source>
         <translation>Wallet ID</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="1214"/>
+        <location filename="armorymodels.py" line="1226"/>
         <source>Sender</source>
         <translation>Sender</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="1215"/>
+        <location filename="armorymodels.py" line="1227"/>
         <source>Amount</source>
         <translation>Amount</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="1216"/>
+        <location filename="armorymodels.py" line="1228"/>
         <source>Prev. Tx Hash</source>
         <translation>Prev. Tx Hash</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="1217"/>
+        <location filename="armorymodels.py" line="1229"/>
         <source>Index</source>
         <translation>Index</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="1218"/>
+        <location filename="armorymodels.py" line="1230"/>
         <source>From Block#</source>
         <translation>From Block#</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="1219"/>
+        <location filename="armorymodels.py" line="1231"/>
         <source>Script Type</source>
         <translation>Script Type</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="1220"/>
+        <location filename="armorymodels.py" line="1232"/>
         <source>Sequence</source>
         <translation>Sequence</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="1221"/>
+        <location filename="armorymodels.py" line="1233"/>
         <source>Script</source>
         <translation>Script</translation>
     </message>
@@ -10041,22 +10157,22 @@ It can now be broadcast from any computer running Armory in online mode.</transl
 <context>
     <name>TxOutDispModel</name>
     <message>
-        <location filename="armorymodels.py" line="1307"/>
+        <location filename="armorymodels.py" line="1319"/>
         <source>Wallet ID</source>
         <translation>Wallet ID</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="1308"/>
+        <location filename="armorymodels.py" line="1320"/>
         <source>Recipient</source>
         <translation>Recipient</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="1309"/>
+        <location filename="armorymodels.py" line="1321"/>
         <source>Amount</source>
         <translation>Amount</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="1310"/>
+        <location filename="armorymodels.py" line="1322"/>
         <source>Script Type</source>
         <translation>Script Type</translation>
     </message>
@@ -10087,12 +10203,12 @@ It can now be broadcast from any computer running Armory in online mode.</transl
 <context>
     <name>VerifyPassphraseFrame</name>
     <message>
-        <location filename="WalletFrames.py" line="634"/>
+        <location filename="WalletFrames.py" line="693"/>
         <source>&lt;font color=&quot;red&quot;&gt;&lt;b&gt;!!! DO NOT FORGET YOUR PASSPHRASE !!!&lt;/b&gt;&lt;/font&gt;</source>
         <translation>&lt;font color=&quot;red&quot;&gt;&lt;b&gt;!!! DO NOT FORGET YOUR PASSPHRASE !!!&lt;/b&gt;&lt;/font&gt;</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="637"/>
+        <location filename="WalletFrames.py" line="696"/>
         <source>&lt;b&gt;No one can help you recover you bitcoins if you forget the passphrase and don&apos;t have a paper backup!&lt;/b&gt; Your wallet and any &lt;u&gt;digital&lt;/u&gt; backups are useless if you forget it.  &lt;br&gt;&lt;br&gt;A &lt;u&gt;paper&lt;/u&gt; backup protects your wallet forever, against hard-drive loss and losing your passphrase.  It also protects you from theft, if the wallet was encrypted and the paper backup was not stolen with it.  Please make a paper backup and keep it in a safe place.&lt;br&gt;&lt;br&gt;Please enter your passphrase a third time to indicate that you are aware of the risks of losing your passphrase!&lt;/b&gt;</source>
         <translation>&lt;b&gt;No one can help you recover you bitcoins if you forget the passphrase and don&apos;t have a paper backup!&lt;/b&gt; Your wallet and any &lt;u&gt;digital&lt;/u&gt; backups are useless if you forget it.  &lt;br&gt;&lt;br&gt;A &lt;u&gt;paper&lt;/u&gt; backup protects your wallet forever, against hard-drive loss and losing your passphrase.  It also protects you from theft, if the wallet was encrypted and the paper backup was not stolen with it.  Please make a paper backup and keep it in a safe place.&lt;br&gt;&lt;br&gt;Please enter your passphrase a third time to indicate that you are aware of the risks of losing your passphrase!&lt;/b&gt;</translation>
     </message>
@@ -10113,37 +10229,37 @@ It can now be broadcast from any computer running Armory in online mode.</transl
 <context>
     <name>WalletAddrDispModel</name>
     <message>
-        <location filename="armorymodels.py" line="1058"/>
+        <location filename="armorymodels.py" line="1070"/>
         <source>Address</source>
         <translation>Address</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="1059"/>
+        <location filename="armorymodels.py" line="1071"/>
         <source>Comment</source>
         <translation>Comment</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="1060"/>
+        <location filename="armorymodels.py" line="1072"/>
         <source>#Tx</source>
         <translation>#Tx</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="1061"/>
+        <location filename="armorymodels.py" line="1073"/>
         <source>Balance</source>
         <translation>Balance</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="1029"/>
+        <location filename="armorymodels.py" line="1041"/>
         <source>&lt;u&gt;&lt;/u&gt;This is an imported address. Imported addresses are not protected by regular paper backups.  You must use the &quot;Backup Individual Keys&quot; option to protect it.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="1034"/>
+        <location filename="armorymodels.py" line="1046"/>
         <source>&lt;u&gt;&lt;/u&gt;The order that this address was generated in this wallet</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="1038"/>
+        <location filename="armorymodels.py" line="1050"/>
         <source>This address was created by Armory to receive change-back-to-self from an oversized transaction.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10151,197 +10267,197 @@ It can now be broadcast from any computer running Armory in online mode.</transl
 <context>
     <name>WalletBackupFrame</name>
     <message>
-        <location filename="WalletFrames.py" line="679"/>
+        <location filename="WalletFrames.py" line="738"/>
         <source>&lt;b&gt;Backup Options&lt;/b&gt;</source>
         <translation>&lt;b&gt;Backup Options&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="686"/>
+        <location filename="WalletFrames.py" line="745"/>
         <source>Printable Paper Backup</source>
         <translation>Printable Paper Backup</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="688"/>
+        <location filename="WalletFrames.py" line="747"/>
         <source>Single-Sheet (Recommended)</source>
         <translation>Single-Sheet (Recommended)</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="690"/>
+        <location filename="WalletFrames.py" line="749"/>
         <source>Fragmented Backup (M-of-N)</source>
         <translation>Fragmented Backup (M-of-N)</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="693"/>
+        <location filename="WalletFrames.py" line="752"/>
         <source>Digital Backup</source>
         <translation>Digital Backup</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="695"/>
+        <location filename="WalletFrames.py" line="754"/>
         <source>Unencrypted</source>
         <translation>Unencrypted</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="697"/>
+        <location filename="WalletFrames.py" line="756"/>
         <source>Encrypted</source>
         <translation>Encrypted</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="1034"/>
+        <location filename="WalletFrames.py" line="1093"/>
         <source>Export Key Lists</source>
         <translation>Export Key Lists</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="808"/>
+        <location filename="WalletFrames.py" line="867"/>
         <source>Protects All Future Addresses</source>
         <translation>Protects All Future Addresses</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="893"/>
+        <location filename="WalletFrames.py" line="952"/>
         <source>Protects Imported Addresses</source>
         <translation>Protects Imported Addresses</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="810"/>
+        <location filename="WalletFrames.py" line="869"/>
         <source>Forgotten Passphrase</source>
         <translation>Forgotten Passphrase</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="811"/>
+        <location filename="WalletFrames.py" line="870"/>
         <source>Long-term Durability</source>
         <translation>Long-term Durability</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="812"/>
+        <location filename="WalletFrames.py" line="871"/>
         <source>Visual Integrity</source>
         <translation>Visual Integrity</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="813"/>
+        <location filename="WalletFrames.py" line="872"/>
         <source>Multi-Point Protection</source>
         <translation>Multi-Point Protection</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="841"/>
+        <location filename="WalletFrames.py" line="900"/>
         <source>Create Backup</source>
         <translation>Create Backup</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="937"/>
+        <location filename="WalletFrames.py" line="996"/>
         <source>Single-Sheet Paper Backup</source>
         <translation>Single-Sheet Paper Backup</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="946"/>
+        <location filename="WalletFrames.py" line="1005"/>
         <source>Fragmented Paper Backup</source>
         <translation>Fragmented Paper Backup</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="955"/>
+        <location filename="WalletFrames.py" line="1014"/>
         <source>Unencrypted Digital Backup</source>
         <translation>Unencrypted Digital Backup</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="964"/>
+        <location filename="WalletFrames.py" line="1023"/>
         <source>Encrypted Digital Backup</source>
         <translation>Encrypted Digital Backup</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="1013"/>
+        <location filename="WalletFrames.py" line="1072"/>
         <source>Create Paper Backup</source>
         <translation>Create Paper Backup</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="1022"/>
+        <location filename="WalletFrames.py" line="1081"/>
         <source>Create Digital Backup</source>
         <translation>Create Digital Backup</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="1045"/>
+        <location filename="WalletFrames.py" line="1104"/>
         <source>Unlocking Wallet</source>
         <translation>Unlocking Wallet</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="1072"/>
+        <location filename="WalletFrames.py" line="1131"/>
         <source>Unlock Failed</source>
         <translation>Unlock Failed</translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="680"/>
+        <location filename="WalletFrames.py" line="739"/>
         <source>Armory wallets only need to be backed up &lt;u&gt;one time, ever.&lt;/u&gt; The backup is good no matter how many addresses you use. </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="767"/>
+        <location filename="WalletFrames.py" line="826"/>
         <source>Every time you click &quot;Receive Bitcoins,&quot; a new address is generated. All of these addresses are generated from a single seed value, which is included in all backups.   Therefore, all addresses that you have generated so far &lt;b&gt;and&lt;/b&gt; will ever be generated with this wallet, are protected by this backup! </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="774"/>
+        <location filename="WalletFrames.py" line="833"/>
         <source>&lt;i&gt;This wallet &lt;u&gt;does not&lt;/u&gt; currently have any imported addresses, so you can safely ignore this feature!&lt;/i&gt; When imported addresses are present, backups only protects those imported before the backup was made.  You must replace that backup if you import more addresses! </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="781"/>
+        <location filename="WalletFrames.py" line="840"/>
         <source>Lost/forgotten passphrases are, &lt;b&gt;by far&lt;/b&gt;, the most common reason for users losing bitcoins.  It is critical you have at least one backup that works if you forget your wallet passphrase. </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="787"/>
+        <location filename="WalletFrames.py" line="846"/>
         <source>USB drives and CD/DVD disks are not intended for long-term storage. They will &lt;i&gt;probably&lt;/i&gt; last many years, but not guaranteed even for 3-5 years.   On the other hand, printed text on paper will last many decades, and useful even when thoroughly faded. </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="793"/>
+        <location filename="WalletFrames.py" line="852"/>
         <source>The ability to look at a backup and determine if it is still usable.   If a digital backup is stored in a safe deposit box, you have no way to verify its integrity unless you take a secure computer/device with you.  A simple glance at a paper backup is enough to verify that it is still intact. </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="800"/>
+        <location filename="WalletFrames.py" line="859"/>
         <source>If multiple pieces/fragments are required to restore this wallet. For instance, encrypted backups require the backup &lt;b&gt;and&lt;/b&gt; the passphrase.  This feature is only needed for those concerned about physical security, not just online security.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="876"/>
+        <location filename="WalletFrames.py" line="935"/>
         <source>When imported addresses are present, backups only protects those imported before the backup was made!  You must replace that backup if you import more addresses! &lt;i&gt;Your wallet &lt;u&gt;does&lt;/u&gt; contain imported addresses&lt;/i&gt;.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="884"/>
+        <location filename="WalletFrames.py" line="943"/>
         <source>&lt;b&gt;Backup Options for Wallet &quot;%1&quot; (%2)&lt;/b&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="907"/>
+        <location filename="WalletFrames.py" line="966"/>
         <source>Digital backups can be saved to an external hard-drive or USB removable media.  It is recommended you make a few copies to protect against &quot;bit rot&quot; (degradation). &lt;br&gt;&lt;br&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="911"/>
+        <location filename="WalletFrames.py" line="970"/>
         <source>&lt;b&gt;&lt;u&gt;IMPORTANT:&lt;/u&gt; Do not save an unencrypted digital backup to your primary hard drive!&lt;/b&gt; Please save it &lt;i&gt;directly&lt;/i&gt; to the backup device. Deleting the file does not guarantee the data is actually gone!</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="917"/>
+        <location filename="WalletFrames.py" line="976"/>
         <source>&lt;b&gt;&lt;u&gt;IMPORTANT:&lt;/u&gt; It is critical that you have at least one unencrypted backup!&lt;/b&gt;  Without it, your bitcoins will be lost forever if you forget your passphrase!  This is &lt;b&gt; by far&lt;/b&gt; the most common reason users lose coins!  Having at least one paper backup is recommended.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="923"/>
+        <location filename="WalletFrames.py" line="982"/>
         <source>View and export invidivual addresses strings, public keys and/or private keys contained in your wallet. This is useful for exporting your private keys to be imported into another wallet app or service. &lt;br&gt;&lt;br&gt;You can view/backup imported keys, as well as unused keys in your keypool (pregenerated addresses protected by your backup that have not yet been used).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="1072"/>
+        <location filename="WalletFrames.py" line="1131"/>
         <source>Wallet could not be unlocked to display individual keys.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="896"/>
+        <location filename="WalletFrames.py" line="955"/>
         <source>Paper backups protect every address ever generated by your wallet. It is unencrypted, which means it needs to be stored in a secure place, but it will help you recover your wallet if you forget your encryption passphrase! &lt;br&gt;&lt;br&gt;&lt;b&gt;You don&apos;t need a printer to make a paper backup! The data can be copied by hand with pen and paper.&lt;/b&gt; Paper backups are preferred to digital backups, because you know the paper backup will work no matter how many years (or decades) it sits in storage.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="WalletFrames.py" line="1066"/>
+        <location filename="WalletFrames.py" line="1125"/>
         <source>Wallet was not unlocked.  The public keys and addresses will still be shown, but private keys will not be available unless you reopen the dialog with the correct passphrase.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10403,7 +10519,7 @@ nter: &lt;Number&gt; (kb, mb)</translation>
 <context>
     <name>WizardCreateWatchingOnlyWalletFrame</name>
     <message>
-        <location filename="WalletFrames.py" line="1090"/>
+        <location filename="WalletFrames.py" line="1149"/>
         <source>Your wallet has been created and is ready to be used.  It will appear in the &quot;&lt;i&gt;Available Wallets&lt;/i&gt;&quot; list in the main window. You may click &quot;&lt;i&gt;Finish&lt;/i&gt;&quot; if you do not plan to use this wallet on any other computer.&lt;br&gt;&lt;br&gt;A &lt;b&gt;watching-only wallet&lt;/b&gt; behaves exactly like a a regular wallet, but does not contain any signing keys.  You can generate addresses and confirm receipt of payments, but not spend or move the funds in the wallet.  To move the funds, use the &quot;&lt;i&gt;Offline Transactions&lt;/i&gt;&quot; button on the main window for directions (which involves bringing the transaction to this computer for a signature).  Or you can give the watching-only wallet to someone who needs to monitor the wallet but should not be able to move the money. &lt;br&gt;&lt;br&gt;Click the button to save a watching-only copy of this wallet. Use the &quot;&lt;i&gt;Import or Restore Wallet&lt;/i&gt;&quot; button in the upper-right corner</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10411,27 +10527,27 @@ nter: &lt;Number&gt; (kb, mb)</translation>
 <context>
     <name>context</name>
     <message>
-        <location filename="qtdialogs.py" line="10930"/>
+        <location filename="qtdialogs.py" line="10950"/>
         <source>Invalid Code</source>
         <translation>Invalid Code</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10930"/>
+        <location filename="qtdialogs.py" line="10950"/>
         <source>You didn&apos;t enter a full SecurePrintu200bu2122 code.  This code is needed to decrypt your backup file.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10941"/>
+        <location filename="qtdialogs.py" line="10961"/>
         <source>Bad SecurePrintu200bu2122 Code</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10935"/>
+        <location filename="qtdialogs.py" line="10955"/>
         <source>The SecurePrintu200bu2122 code you entered has an error in it.  Note that the code is case-sensitive.  Please verify you entered it correctly and try again.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="10941"/>
+        <location filename="qtdialogs.py" line="10961"/>
         <source>The SecurePrintu200bu2122 code you entered has unrecognized characters in it.  %1 Only the following characters are allowed: %2</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10557,72 +10673,72 @@ nter: &lt;Number&gt; (kb, mb)</translation>
         <translation>You are getting an address for a wallet that you have specified belongs to you, but you cannot actually spend the funds from this computer.  This is usually the case when you keep the full wallet on a separate computer for security purposes.&lt;br&gt;&lt;br&gt;If this does not sound right, then please do not use the following address.  Instead, change the wallet properties &quot;Belongs To&quot; field to specify that this wallet is not actually yours.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7012"/>
+        <location filename="qtdialogs.py" line="7031"/>
         <source>Unlock Paper Backup</source>
         <translation>Unlock Paper Backup</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7015"/>
+        <location filename="qtdialogs.py" line="7034"/>
         <source>Unlock Failed</source>
         <translation>Unlock Failed</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7038"/>
+        <location filename="qtdialogs.py" line="7057"/>
         <source>Verify Your Backup!</source>
         <translation>Verify Your Backup!</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7174"/>
+        <location filename="qtdialogs.py" line="7193"/>
         <source>Bad Public Key</source>
         <translation>Bad Public Key</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7174"/>
+        <location filename="qtdialogs.py" line="7193"/>
         <source>Public key data was not recognized</source>
         <translation>Public key data was not recognized</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7183"/>
+        <location filename="qtdialogs.py" line="7202"/>
         <source>Bad Signature</source>
         <translation>Bad Signature</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7183"/>
+        <location filename="qtdialogs.py" line="7202"/>
         <source>Signature data is malformed!</source>
         <translation>Signature data is malformed!</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7191"/>
+        <location filename="qtdialogs.py" line="7210"/>
         <source>Address Mismatch</source>
         <translation>Address Mismatch</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8200"/>
+        <location filename="qtdialogs.py" line="8219"/>
         <source>Select</source>
         <translation>Select</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8206"/>
+        <location filename="qtdialogs.py" line="8225"/>
         <source>No wallets!</source>
         <translation>No wallets!</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8217"/>
+        <location filename="qtdialogs.py" line="8236"/>
         <source>Select from Address Book</source>
         <translation>Select from Address Book</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12463"/>
+        <location filename="qtdialogs.py" line="12483"/>
         <source>Recovery Test</source>
         <translation>Recovery Test</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12491"/>
+        <location filename="qtdialogs.py" line="12511"/>
         <source>Bad Backup!</source>
         <translation>Bad Backup!</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12504"/>
+        <location filename="qtdialogs.py" line="12524"/>
         <source>Backup is Good!</source>
         <translation>Backup is Good!</translation>
     </message>
@@ -10632,7 +10748,7 @@ nter: &lt;Number&gt; (kb, mb)</translation>
         <translation>Export Lockbox Definition</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12504"/>
+        <location filename="qtdialogs.py" line="12524"/>
         <source>Your backup works! &lt;br&gt;&lt;br&gt; The wallet ID computed from the data you entered matches the expected ID.  This confirms that the backup produces the same sequence of private keys as the original wallet! &lt;br&gt;&lt;br&gt; Computed wallet ID: %1 &lt;br&gt; Expected wallet ID: %2 &lt;br&gt; &lt;br&gt;</source>
         <translation>Your backup works! &lt;br&gt;&lt;br&gt; The wallet ID computed from the data you entered matches the expected ID.  This confirms that the backup produces the same sequence of private keys as the original wallet! &lt;br&gt;&lt;br&gt; Computed wallet ID: %1 &lt;br&gt; Expected wallet ID: %2 &lt;br&gt; &lt;br&gt;</translation>
     </message>
@@ -10642,42 +10758,42 @@ nter: &lt;Number&gt; (kb, mb)</translation>
         <translation>You are getting an address for a wallet that does not appear to belong to you.  Any money sent to this address will not appear in your total balance, and cannot be spent from this computer. &lt;br&gt;&lt;br&gt; If this is actually your wallet (perhaps you maintain the full wallet on a separate computer), then please change the &quot;Belongs To&quot; field in the wallet-properties for this wallet.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7191"/>
+        <location filename="qtdialogs.py" line="7210"/>
         <source>!!! The address included in the signature block does not match the supplied public key!  This should never happen, and may in fact be an attempt to mislead you !!!</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="8206"/>
+        <location filename="qtdialogs.py" line="8225"/>
         <source>You have no wallets so there is no address book to display.</source>
         <translation type="unfinished">You have no wallets so there is no address book to display.</translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7015"/>
+        <location filename="qtdialogs.py" line="7034"/>
         <source>The wallet could not be unlocked.  Please try again with the correct unlock passphrase.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7038"/>
+        <location filename="qtdialogs.py" line="7057"/>
         <source>&lt;b&gt;&lt;u&gt;Verify your backup!&lt;/u&gt;&lt;/b&gt; &lt;br&gt;&lt;br&gt;If you just made a backup, make sure that it is correct! The following steps are recommended to verify its integrity: &lt;br&gt;&lt;ul&gt;&lt;li&gt;Verify each line of the backup data contains &lt;b&gt;9 columns&lt;/b&gt; of &lt;b&gt;4 letters each&lt;/b&gt; (excluding any &quot;ID&quot; lines).&lt;/li&gt; &lt;li&gt;%1&lt;/li&gt;&lt;li&gt;Use Armory&apos;s backup tester to test the backup before you physiclly secure it.&lt;/li&gt; &lt;/ul&gt;&lt;br&gt;Armory has a backup tester that uses the exact same process as restoring your wallet, but stops before it writes any data to disk.  Would you like to test your backup now? </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12463"/>
+        <location filename="qtdialogs.py" line="12483"/>
         <source>From the data you entered, Armory calculated the following wallet ID: &lt;font color=&quot;blue&quot;&gt;&lt;b&gt;%1&lt;/b&gt;&lt;/font&gt; &lt;br&gt;&lt;br&gt;Does this match the wallet ID on the backup you are testing?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12471"/>
+        <location filename="qtdialogs.py" line="12491"/>
         <source>If this is your only backup and you are sure that you entered the data correctly, then it is &lt;b&gt;highly recommended you stop using this wallet!&lt;/b&gt;  If this wallet currently holds any funds, you should move the funds to a wallet that &lt;u&gt;does&lt;/u&gt; have a working backup. &lt;br&gt;&lt;br&gt; &lt;br&gt;&lt;br&gt;Wallet ID of the data you entered: %1 &lt;br&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12481"/>
+        <location filename="qtdialogs.py" line="12501"/>
         <source>&lt;b&gt;Your backup works!&lt;/b&gt; &lt;br&gt;&lt;br&gt;The wallet ID is computed from a combination of the root private key, the &quot;chaincode&quot; and the first address derived from those two pieces of data.  A matching wallet ID guarantees it will produce the same chain of addresses as the original.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="12491"/>
+        <location filename="qtdialogs.py" line="12511"/>
         <source>If you are sure that you entered the backup information correctly, then it is &lt;b&gt;highly recommended you stop using this wallet!&lt;/b&gt;  If this wallet currently holds any funds, you should move the funds to a wallet that &lt;u&gt;does&lt;/u&gt; have a working backup.&lt;br&gt;&lt;br&gt;Computed wallet ID: %1 &lt;br&gt;Expected wallet ID: %2 &lt;br&gt;&lt;br&gt;Is it possible that you loaded a different backup than the one you just made?</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10687,12 +10803,12 @@ nter: &lt;Number&gt; (kb, mb)</translation>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7025"/>
+        <location filename="qtdialogs.py" line="7044"/>
         <source>If the backup was printed with SecurePrintu200bu2122, please make sure you wrote the SecurePrintu200bu2122 code on the printed sheet of paper. Note that the code &lt;b&gt;&lt;u&gt;is&lt;/u&gt;&lt;/b&gt; case-sensitive!</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="qtdialogs.py" line="7032"/>
+        <location filename="qtdialogs.py" line="7051"/>
         <source>If the backup was created with SecurePrintu200bu2122, please make sure you wrote the SecurePrintu200bu2122 code on each fragment (or stored with each file fragment). The code is the same for all fragments.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10700,17 +10816,17 @@ nter: &lt;Number&gt; (kb, mb)</translation>
 <context>
     <name>self.main</name>
     <message>
-        <location filename="armorymodels.py" line="496"/>
+        <location filename="armorymodels.py" line="508"/>
         <source>&lt;a href=edtBlock&gt;Block:&lt;/a&gt;</source>
         <translation>&lt;a href=edtBlock&gt;Block:&lt;/a&gt;</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="502"/>
+        <location filename="armorymodels.py" line="514"/>
         <source>&lt;a href=edtDate&gt;Date:&lt;/a&gt;</source>
         <translation>&lt;a href=edtDate&gt;Date:&lt;/a&gt;</translation>
     </message>
     <message>
-        <location filename="armorymodels.py" line="508"/>
+        <location filename="armorymodels.py" line="520"/>
         <source>&lt;a href=goToTop&gt;Top&lt;/a&gt;</source>
         <translation>&lt;a href=goToTop&gt;Top&lt;/a&gt;</translation>
     </message>
@@ -10724,31 +10840,21 @@ nter: &lt;Number&gt; (kb, mb)</translation>
         <source>&lt;u&gt;&lt;font color=&apos;blue&apos;&gt;%1&lt;/font&gt;&lt;/u&gt;</source>
         <translation>&lt;u&gt;&lt;font color=&apos;blue&apos;&gt;%1&lt;/font&gt;&lt;/u&gt;</translation>
     </message>
-    <message>
-        <location filename="TreeViewGUI.py" line="495"/>
-        <source>Unspent Outputs</source>
-        <translation>Unspent Outputs</translation>
-    </message>
-    <message>
-        <location filename="TreeViewGUI.py" line="497"/>
-        <source>CPFP Eligible Outputs</source>
-        <translation>CPFP Eligible Outputs</translation>
-    </message>
 </context>
 <context>
     <name>self.parent_qobj</name>
     <message>
-        <location filename="TreeViewGUI.py" line="367"/>
+        <location filename="TreeViewGUI.py" line="539"/>
         <source>Used Addresses</source>
         <translation>Used Addresses</translation>
     </message>
     <message>
-        <location filename="TreeViewGUI.py" line="368"/>
+        <location filename="TreeViewGUI.py" line="540"/>
         <source>Change Addresses</source>
         <translation>Change Addresses</translation>
     </message>
     <message>
-        <location filename="TreeViewGUI.py" line="369"/>
+        <location filename="TreeViewGUI.py" line="541"/>
         <source>Unused Addresses</source>
         <translation>Unused Addresses</translation>
     </message>
