@@ -49,12 +49,6 @@ namespace SwigClient
       {}
    };
 
-   struct BroadcastStatus
-   {
-      bool success_;
-      string msg_;
-   };
-
    ///////////////////////////////////////////////////////////////////////////////
    class LedgerDelegate
    {
@@ -271,7 +265,8 @@ namespace SwigClient
          CBO_BDM_Ready,
          CBO_progress,
          CBO_terminate,
-         CBO_NodeStatus
+         CBO_NodeStatus,
+         CBO_BDV_Error
       };
 
       bool run_ = true;
@@ -364,7 +359,7 @@ namespace SwigClient
       void shutdown(const string&);
       void shutdownNode(const string&);
 
-      BroadcastStatus broadcastZC(const BinaryData& rawTx);
+      void broadcastZC(const BinaryData& rawTx);
       Tx getTxByHash(const BinaryData& txHash);
 
       void updateWalletsLedgerFilter(const vector<BinaryData>& wltIdVec);

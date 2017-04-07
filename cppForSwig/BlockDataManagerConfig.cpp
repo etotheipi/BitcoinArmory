@@ -722,3 +722,45 @@ void NodeChainState::unserialize(const BinaryData& bd)
    eta_ = brr.get_uint64_t();
    pct_ = brr.get_double();
 }
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// BDV_Error_Struct
+//
+////////////////////////////////////////////////////////////////////////////////
+BinaryData BDV_Error_Struct::serialize(void) const
+{
+   BinaryWriter bw;
+   bw.put_uint8_t(BDV_Error);
+
+   BinaryDataRef errbdr((const uint8_t*)errorStr_.c_str(), errorStr_.size());
+   bw.put_var_int(errorStr_.size());
+   bw.put_BinaryData(errbdr);
+
+   BinaryDataRef extbdr((const uint8_t*)extraMsg_.c_str(), extraMsg_.size());
+   bw.put_var_int(extraMsg_.size());
+   bw.put_BinaryData(extbdr);
+
+   return bw.getData();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BDV_Error_Struct::deserialize(const BinaryData& data)
+{
+   BinaryRefReader brr(data);
+
+   errType_ = BDV_ErrorType(brr.get_uint8_t());
+   
+   auto len = brr.get_var_int();
+   errorStr_ = move(string((char*)brr.get_BinaryDataRef(len).getPtr(), len));
+
+   len = brr.get_var_int();
+   extraMsg_ = move(string((char*)brr.get_BinaryDataRef(len).getPtr(), len));
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BDV_Error_Struct BDV_Error_Struct::cast_to_BDVErrorStruct(void* ptr)
+{
+   auto obj = (BDV_Error_Struct*)ptr;
+   return *obj;
+}

@@ -148,6 +148,7 @@ public:
       map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>> zcMap);
    void progressCallback(BDMPhase phase, double progress,
       unsigned time, unsigned numericProgress);
+   void zcErrorCallback(string&, string&);
 
    void haltThreads(void);
 };

@@ -1962,9 +1962,19 @@ void ZeroConfContainer::eraseBDVcallback(string id)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-shared_ptr<GetDataStatus> ZeroConfContainer::broadcastZC(const BinaryData& rawzc, 
-   uint32_t timeout_sec)
+void ZeroConfContainer::broadcastZC(const BinaryData& rawzc, 
+   const string& bdvId, uint32_t timeout_sec)
 {
+   BDV_Callbacks bdv_cb;
+   {
+      auto bdvsPtr = bdvCallbacks_.get();
+      auto bdvIter = bdvsPtr->find(bdvId);
+      if (bdvIter == bdvsPtr->end())
+         throw runtime_error("broadcast error: unknown bdvId");
+
+      bdv_cb = bdvIter->second;
+   }
+
    Tx zcTx(rawzc);
 
    //get tx hash
@@ -2033,7 +2043,8 @@ shared_ptr<GetDataStatus> ZeroConfContainer::broadcastZC(const BinaryData& rawzc
    if (!sent)
    {
       networkNode_->unregisterGetTxCallback(txHash);
-      return gds;
+      bdv_cb.zcErrorCallback_(gds->getMessage(), txHash.toHexStr());
+      return;
    }
 
    auto watchTxFuture = gds->getFuture();
@@ -2065,9 +2076,11 @@ shared_ptr<GetDataStatus> ZeroConfContainer::broadcastZC(const BinaryData& rawzc
          gds->setMessage("tx broadcast timed out (get)");
       }
    }
-
+   
    networkNode_->unregisterGetTxCallback(txHash);
-   return gds;
+
+   if (!gds->status())
+      bdv_cb.zcErrorCallback_(gds->getMessage(), txHash.toHexStr());
 }
 
 ///////////////////////////////////////////////////////////////////////////////

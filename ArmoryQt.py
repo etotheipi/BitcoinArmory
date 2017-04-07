@@ -165,6 +165,7 @@ class ArmoryMainWindow(QMainWindow):
       self.allLockboxes = []
       self.lockboxIDMap = {}
       self.cppLockboxWltMap = {}
+      self.broadcasting = {}
       
       self.nodeStatus = None
 
@@ -3076,56 +3077,59 @@ class ArmoryMainWindow(QMainWindow):
          LOGRAWDATA(pytx.serialize(), logging.INFO)
          LOGPPRINT(pytx, logging.INFO)
          newTxHash = pytx.getHash()
+         self.broadcasting[newTxHash] = pytx
 
          try:
             LOGINFO('Sending Tx, %s', binary_to_hex(newTxHash))
-            broadcastStatus = TheBDM.bdv().broadcastZC(pytx.serialize())
+            TheBDM.bdv().broadcastZC(pytx.serialize())
          except:
             QMessageBox.warning(self, self.tr('Broadcast failed'), self.tr(
                   'The broadcast process failed unexpectedly. Report this error to '
                   'the development team if this issue occurs repeatedly', QMessageBox.Ok))
-            return
-            
-         if broadcastStatus.success_ == True:   
-            LOGINFO('Transaction sent to Satoshi client...!')
 
-         else:
-            LOGERROR('Transaction was not accepted by the Satoshi client')
-            LOGERROR('Raw transaction:')
-            LOGRAWDATA(pytx.serialize(), logging.ERROR)
-            LOGERROR('Transaction details')
-            LOGPPRINT(pytx, logging.ERROR)
-            LOGERROR('Failure message: %s' % (broadcastStatus.msg_))
-            searchstr  = binary_to_hex(newTxHash, BIGENDIAN)
+   #############################################################################
+   def zcBroadcastError(self, txHash, errorMsg):
+      try:
+         pytx = self.broadcasting[txHash]
+      except:
+         return
+      
+      LOGERROR('Transaction was not accepted by the Satoshi client')
+      LOGERROR('Raw transaction:')
+      LOGRAWDATA(pytx.serialize(), logging.ERROR)
+      LOGERROR('Transaction details')
+      LOGPPRINT(pytx, logging.ERROR)
+      LOGERROR('Failure message: %s' % (errorMsg))
+      searchstr  = binary_to_hex(txHash, BIGENDIAN)
 
-            supportURL       = 'https://github.com/goatpig/BitcoinArmory/issues'
-            blkexplURL       = BLOCKEXPLORE_URL_TX % searchstr
-            blkexplURL_short = BLOCKEXPLORE_URL_TX % searchstr[:20]
+      supportURL       = 'https://github.com/goatpig/BitcoinArmory/issues'
+      blkexplURL       = BLOCKEXPLORE_URL_TX % searchstr
+      blkexplURL_short = BLOCKEXPLORE_URL_TX % searchstr[:20]
 
-            QMessageBox.warning(self, self.tr('Transaction Not Accepted'), self.tr(
-                  'The transaction that you just executed failed with '
-                  'the following error message: <br><br> '
-                  '<b>%1</b>'
-                  '<br><br>'
-                  '<br><br>On time out errors, the transaction may have actually succeeded '
-                  'and this message is displayed prematurely.  To confirm whether the '
-                  'the transaction actually succeeded, you can try this direct link '
-                  'to %2: '
-                  '<br><br>'
-                  '<a href="%3">%4...</a>'
-                  '<br><br>'
-                  'If you do not see the '
-                  'transaction on that webpage within one minute, it failed and you '
-                  'should attempt to re-send it. '
-                  'If it <i>does</i> show up, then you do not need to do anything '
-                  'else -- it will show up in Armory as soon as it receives one '
-                  'confirmation. '
-                  '<br><br>If the transaction did fail, it is likely because the fee '
-                  'is too low. Try again with a higher fee. '
-                  'If the problem persists, go to "<i>File</i>" -> '
-                  '"<i>Export Log File</i>" and then attach it to a support '
-                  'ticket at <a href="%5">%5</a>').arg(broadcastStatus.msg_, BLOCKEXPLORE_NAME, blkexplURL, \
-                     blkexplURL_short, supportURL), QMessageBox.Ok)
+      QMessageBox.warning(self, self.tr('Transaction Not Accepted'), self.tr(
+         'The transaction that you just executed failed with '
+         'the following error message: <br><br> '
+         '<b>%1</b>'
+         '<br><br>'
+         '<br><br>On time out errors, the transaction may have actually succeeded '
+         'and this message is displayed prematurely.  To confirm whether the '
+         'the transaction actually succeeded, you can try this direct link '
+         'to %2: '
+         '<br><br>'
+         '<a href="%3">%4...</a>'
+         '<br><br>'
+         'If you do not see the '
+         'transaction on that webpage within one minute, it failed and you '
+         'should attempt to re-send it. '
+         'If it <i>does</i> show up, then you do not need to do anything '
+         'else -- it will show up in Armory as soon as it receives one '
+         'confirmation. '
+         '<br><br>If the transaction did fail, it is likely because the fee '
+         'is too low. Try again with a higher fee. '
+         'If the problem persists, go to "<i>File</i>" -> '
+         '"<i>Export Log File</i>" and then attach it to a support '
+         'ticket at <a href="%5">%5</a>').arg(errorMsg, BLOCKEXPLORE_NAME, blkexplURL, \
+         blkexplURL_short, supportURL), QMessageBox.Ok)
 
 
 
@@ -5012,6 +5016,15 @@ class ArmoryMainWindow(QMainWindow):
       elif action == BDM_SCAN_PROGRESS:
          self.setDashboardDetails()
          self.updateSyncProgress()
+         
+      elif action == BDV_ERROR:
+         errorStruct = args[0]
+         
+         if errorStruct.errType_ == Cpp.BDV_ErrorType_Error_ZC:
+            errorMsg = errorStruct.errorStr_
+            txHash = errorStruct.extraMsg_
+            
+            self.zcBroadcastError(txHash, errorMsg)
 
    #############################################################################
    def Heartbeat(self, nextBeatSec=1):

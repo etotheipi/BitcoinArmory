@@ -386,6 +386,7 @@ public:
          )> newZcCallback_;
 
       function<bool(const BinaryData&)> addressFilter_;
+      function<void(string&, string&)> zcErrorCallback_;
    };
 
    struct ZcActionStruct
@@ -499,7 +500,8 @@ public:
    void insertBDVcallback(string, BDV_Callbacks);
    void eraseBDVcallback(string);
 
-   shared_ptr<GetDataStatus> broadcastZC(const BinaryData& rawzc, uint32_t timeout_sec = 3);
+   void broadcastZC(const BinaryData& rawzc, 
+      const string& bdvId, uint32_t timeout_sec = 5);
 };
 
 //////
@@ -601,6 +603,25 @@ struct BDV_Notification_NodeStatus : public BDV_Notification
    {
       return BDV_NodeStatus;
    }
+};
+
+struct BDV_Notification_Error : public BDV_Notification
+{
+   BDV_Error_Struct errStruct;
+
+   BDV_Notification_Error(
+      BDV_ErrorType errt, string errstr, string extra)
+   {
+      errStruct.errType_ = errt;
+      errStruct.errorStr_ = errstr;
+      errStruct.extraMsg_ = extra;
+   }
+
+   BDV_Action action_type(void)
+   {
+      return BDV_Error;
+   }
+
 };
 
 #endif

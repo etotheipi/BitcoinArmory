@@ -195,5 +195,18 @@ struct ConfigFile
    ConfigFile(const string& path);
 };
 
+////////////////////////////////////////////////////////////////////////////////
+struct BDV_Error_Struct
+{
+   string errorStr_;
+   BDV_ErrorType errType_;
+   string extraMsg_;
+
+   BinaryData serialize(void) const;
+   void deserialize(const BinaryData&);
+
+   static BDV_Error_Struct cast_to_BDVErrorStruct(void* ptr);
+};
+
 #endif
 // kate: indent-width 3; replace-tabs on;

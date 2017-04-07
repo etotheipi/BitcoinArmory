@@ -32,6 +32,7 @@ WARNING_ACTION = 'warning'
 SCAN_ACTION = 'StartedWalletScan'
 NODESTATUS_UPDATE = 'NodeStatusUpdate'
 BDM_SCAN_PROGRESS = 'BDM_Progress'
+BDV_ERROR = 'BDV_Error'
 
 def newTheBDM(isOffline=False):
    global TheBDM
@@ -75,6 +76,10 @@ class PySide_CallBack(Cpp.PythonCallback):
             act = WARNING_ACTION
             argstr = Cpp.BtcUtils_cast_to_string(arg)
             arglist.append(argstr)
+         elif action == Cpp.BDMAction_BDV_Error:
+            act = BDV_ERROR
+            argBdvError = Cpp.BDV_Error_Struct_cast_to_BDVErrorStruct(arg)
+            arglist.append(argBdvError)
          elif action == Cpp.BDMAction_StartedWalletScan:
             act = SCAN_ACTION
             argstr = Cpp.BtcUtils_cast_to_string_vec(arg)

@@ -34,11 +34,18 @@ void BlockDataManager::registerBDVwithZCcontainer(
       bdvPtr->zcCallback(move(zcMap));
    };
 
+   auto zcerror = [bdvPtr](string& error, string& id)->void
+   {
+      bdvPtr->zcErrorCallback(error, id);
+   };
+
    ZeroConfContainer::BDV_Callbacks callbacks;
    callbacks.addressFilter_ = filter;
    callbacks.newZcCallback_ = newzc;
+   callbacks.zcErrorCallback_ = zcerror;
 
-   zeroConfCont_->insertBDVcallback(move(bdvPtr->getID()), move(callbacks));
+   zeroConfCont_->insertBDVcallback(
+      move(bdvPtr->getID()), move(callbacks));
 }
 
 ////////////////////////////////////////////////////////////////////////////////

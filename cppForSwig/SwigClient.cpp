@@ -220,7 +220,7 @@ Blockchain BlockDataViewer::blockchain(void)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-BroadcastStatus BlockDataViewer::broadcastZC(const BinaryData& rawTx)
+void BlockDataViewer::broadcastZC(const BinaryData& rawTx)
 {
    auto&& txHash = BtcUtils::getHash256(rawTx.getRef());
    Tx tx(rawTx);
@@ -233,21 +233,7 @@ BroadcastStatus BlockDataViewer::broadcastZC(const BinaryData& rawTx)
    cmd.args_.push_back(BinaryDataObject(rawTx));
    cmd.serialize();
 
-   auto&& result = sock_->writeAndRead(cmd.command_);
-   Arguments retval(move(result));
-
-   BroadcastStatus bcs;
-   auto success = retval.get<IntType>().getVal();
-   bcs.success_ = (bool)success;
-   
-   if (!success)
-   {
-      auto msg = move(retval.get<BinaryDataObject>());
-      auto& bd = msg.get();
-      bcs.msg_ = move(string(bd.toCharPtr(), bd.getSize()));
-   }
-
-   return bcs;
+   sock_->writeAndRead(cmd.command_);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -872,6 +858,7 @@ PythonCallback::PythonCallback(const BlockDataViewer& bdv) :
    orderMap_["BDV_Progress"]     = CBO_progress;
    orderMap_["terminate"]        = CBO_terminate;
    orderMap_["BDV_NodeStatus"]   = CBO_NodeStatus;
+   orderMap_["BDV_Error"]        = CBO_BDV_Error;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1010,7 +997,21 @@ void PythonCallback::remoteLoop(void)
                nss.deserialize(serData.get());
 
                run(BDMAction::BDMAction_NodeStatus, &nss, 0);
+               break;
             }
+
+            case CBO_BDV_Error:
+            {
+               auto&& serData = args.get<BinaryDataObject>();
+               BDV_Error_Struct bdvErr;
+               bdvErr.deserialize(serData.get());
+
+               run(BDMAction::BDMAction_ErrorMsg, &bdvErr, 0);
+               break;
+            }
+
+            default:
+               continue;
          }
       }
 

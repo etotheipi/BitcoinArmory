@@ -510,22 +510,17 @@ void BDV_Server_Object::buildMethodMap()
       if (ids.size() != 1)
          throw runtime_error("unexpected id count");
 
+      auto broadcastLBD = [this](BinaryDataObject bdo)->void
+      {
+         this->zeroConfCont_->broadcastZC(bdo.get(), this->getID());
+      };
+      
       auto&& rawTx = args.get<BinaryDataObject>();
-
-      auto&& status = this->zeroConfCont_->broadcastZC(rawTx.get());
+      thread thr(broadcastLBD, move(rawTx));
+      if (thr.joinable())
+         thr.detach();
 
       Arguments retarg;
-
-      auto success = status->status();
-      IntType successIT(success);
-      retarg.push_back(move(successIT));
-      if (!success)
-      {
-         BinaryData bd(move(status->getMessage()));
-         BinaryDataObject bdo(move(bd));
-         retarg.push_back(move(bdo));
-      }
-
       return retarg;
    };
 
@@ -1588,6 +1583,21 @@ void BDV_Server_Object::maintenanceThread(void)
             break;
          }
 
+         case BDV_Error:
+         {
+            auto&& payload =
+               dynamic_pointer_cast<BDV_Notification_Error>(notifPtr);
+
+            Arguments args2;
+            BinaryDataObject bdo("BDV_Error");
+            BinaryDataObject errBdo(payload->errStruct.serialize());
+            args2.push_back(move(bdo));
+            args2.push_back(move(errBdo));
+
+            cb_->callback(move(args2), OrderNodeStatus);
+            break;
+         }
+
          default:
             continue;
       }
@@ -1600,6 +1610,15 @@ void BDV_Server_Object::zcCallback(
 {
    auto notificationPtr = make_unique<BDV_Notification_ZC>(
       move(zcMap));
+
+   notificationStack_.push_back(move(notificationPtr));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void BDV_Server_Object::zcErrorCallback(string& errorStr, string& txHash)
+{
+   auto notificationPtr = make_unique<BDV_Notification_Error>(
+      Error_ZC, move(errorStr), txHash);
 
    notificationStack_.push_back(move(notificationPtr));
 }

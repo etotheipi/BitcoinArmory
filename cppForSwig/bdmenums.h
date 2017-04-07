@@ -84,7 +84,8 @@ enum BDV_Action
    BDV_Refresh,
    BDV_ZC,
    BDV_Progress,
-   BDV_NodeStatus
+   BDV_NodeStatus,
+   BDV_Error
 };
 
 enum BDV_refresh
@@ -93,6 +94,11 @@ enum BDV_refresh
    BDV_refreshSkipRescan,
    BDV_refreshAndRescan,
    BDV_filterChanged
+};
+
+enum BDV_ErrorType
+{
+   Error_ZC
 };
 
 
