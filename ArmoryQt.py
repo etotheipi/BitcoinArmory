@@ -3084,11 +3084,11 @@ class ArmoryMainWindow(QMainWindow):
       else:
          LOGRAWDATA(pytx.serialize(), logging.INFO)
          LOGPPRINT(pytx, logging.INFO)
-         newTxHash = pytx.getHash()
+         newTxHash = binary_to_hex(pytx.getHash())
          self.broadcasting[newTxHash] = pytx
 
          try:
-            LOGINFO('Sending Tx, %s', binary_to_hex(newTxHash))
+            LOGINFO('Sending Tx, %s', newTxHash)
             TheBDM.bdv().broadcastZC(pytx.serialize())
          except:
             QMessageBox.warning(self, self.tr('Broadcast failed'), self.tr(
@@ -5028,10 +5028,10 @@ class ArmoryMainWindow(QMainWindow):
       elif action == BDV_ERROR:
          errorStruct = args[0]
          
-         if errorStruct.errType_ == Cpp.BDV_ErrorType_Error_ZC:
+         if errorStruct.errType_ == Cpp.Error_ZC:
             errorMsg = errorStruct.errorStr_
             txHash = errorStruct.extraMsg_
-            
+
             self.zcBroadcastError(txHash, errorMsg)
 
    #############################################################################

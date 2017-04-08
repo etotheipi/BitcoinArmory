@@ -46,7 +46,8 @@ enum BDMAction
    BDMAction_Exited,
    BDMAction_ErrorMsg,
    BDMAction_StartedWalletScan,
-   BDMAction_NodeStatus
+   BDMAction_NodeStatus,
+   BDMAction_BDV_Error
 };
 
 enum ARMORY_DB_TYPE

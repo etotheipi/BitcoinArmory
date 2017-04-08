@@ -1006,7 +1006,7 @@ void PythonCallback::remoteLoop(void)
                BDV_Error_Struct bdvErr;
                bdvErr.deserialize(serData.get());
 
-               run(BDMAction::BDMAction_ErrorMsg, &bdvErr, 0);
+               run(BDMAction::BDMAction_BDV_Error, &bdvErr, 0);
                break;
             }
 

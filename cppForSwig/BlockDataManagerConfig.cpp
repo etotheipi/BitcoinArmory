@@ -731,7 +731,7 @@ void NodeChainState::unserialize(const BinaryData& bd)
 BinaryData BDV_Error_Struct::serialize(void) const
 {
    BinaryWriter bw;
-   bw.put_uint8_t(BDV_Error);
+   bw.put_uint8_t(errType_);
 
    BinaryDataRef errbdr((const uint8_t*)errorStr_.c_str(), errorStr_.size());
    bw.put_var_int(errorStr_.size());
