@@ -1979,6 +1979,7 @@ void ZeroConfContainer::broadcastZC(const BinaryData& rawzc,
 
    //get tx hash
    auto&& txHash = zcTx.getThisHash();
+   auto&& txHashStr = txHash.toHexStr();
 
    //create inv payload
    InvEntry entry;
@@ -2043,7 +2044,7 @@ void ZeroConfContainer::broadcastZC(const BinaryData& rawzc,
    if (!sent)
    {
       networkNode_->unregisterGetTxCallback(txHash);
-      bdv_cb.zcErrorCallback_(gds->getMessage(), txHash.toHexStr());
+      bdv_cb.zcErrorCallback_(gds->getMessage(), txHashStr);
       return;
    }
 
@@ -2080,7 +2081,7 @@ void ZeroConfContainer::broadcastZC(const BinaryData& rawzc,
    networkNode_->unregisterGetTxCallback(txHash);
 
    if (!gds->status())
-      bdv_cb.zcErrorCallback_(gds->getMessage(), txHash.toHexStr());
+      bdv_cb.zcErrorCallback_(gds->getMessage(), txHashStr);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
