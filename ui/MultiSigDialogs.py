@@ -11,7 +11,7 @@ from PyQt4.QtNetwork import *
 from qtdefines import *
 from qtdialogs import createAddrBookButton, DlgSetComment, DlgSendBitcoins, \
                       DlgUnlockWallet, DlgQRCodeDisplay, DlgRequestPayment,\
-                      DlgDispTxInfo, STRETCH
+                      DlgDispTxInfo, DlgBrowserWarn, STRETCH
 from armoryengine.ALL import *
 from armorymodels import *
 from armorycolors import *
@@ -19,7 +19,6 @@ from armoryengine.MultiSigUtils import MultiSigLockbox, calcLockboxID,\
    createLockboxEntryStr, readLockboxEntryStr, isMofNNonStandardToSpend
 from ui.MultiSigModels import \
             LockboxDisplayModel,  LockboxDisplayProxy, LOCKBOXCOLS
-import webbrowser
 from armoryengine.CoinSelection import PySelectCoins, PyUnspentTxOut, \
                                     pprintUnspentTxOutList
 import cStringIO
@@ -1369,7 +1368,7 @@ class DlgLockboxManager(ArmoryDialog):
          self.showLedgerTx()
       elif action==actViewBlkChn:
          try:
-            webbrowser.open(blkExploreURL)
+            DlgBrowserWarn(blkExploreURL).exec_()
          except:
             LOGEXCEPT('Failed to open webbrowser')
             QMessageBox.critical(self, self.tr('Could not open browser'), \
@@ -1430,8 +1429,7 @@ class DlgLockboxManager(ArmoryDialog):
          elif action == actionBlkChnInfo:
             urlToOpen = BLOCKEXPLORE_URL_ADDR % p2shAddr
             try:
-               import webbrowser
-               webbrowser.open(urlToOpen)
+               DlgBrowserWarn(urlToOpen).exec_()
             except:
                QMessageBox.critical(self, self.tr('Could not open browser'), self.tr(
                   'Armory encountered an error opening your web browser.  To view '
