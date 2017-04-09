@@ -2043,8 +2043,9 @@ void ZeroConfContainer::broadcastZC(const BinaryData& rawzc,
 
    if (!sent)
    {
+      auto&& errorMsg = gds->getMessage();
       networkNode_->unregisterGetTxCallback(txHash);
-      bdv_cb.zcErrorCallback_(gds->getMessage(), txHashStr);
+      bdv_cb.zcErrorCallback_(errorMsg, txHashStr);
       return;
    }
 
@@ -2081,7 +2082,10 @@ void ZeroConfContainer::broadcastZC(const BinaryData& rawzc,
    networkNode_->unregisterGetTxCallback(txHash);
 
    if (!gds->status())
-      bdv_cb.zcErrorCallback_(gds->getMessage(), txHashStr);
+   {
+      auto&& errorMsg = gds->getMessage();
+      bdv_cb.zcErrorCallback_(errorMsg, txHashStr);
+   }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
