@@ -3001,7 +3001,7 @@ class DlgMultiSpendReview(ArmoryDialog):
          else:
             self.lblFinalMsg.setText(self.tr(
             '<font color="%1">This transaction has enough signatures and '
-            'can be broadcast').arg(htmlColor('TextGreen')))            
+            'can be broadcast</font>').arg(htmlColor('TextGreen')))            
          self.btnFinalBroad.setVisible(True)
          self.btnFinalBroad.setEnabled(self.main.netMode == NETWORKMODE.Full)
          self.btnFinalExport.setVisible(True)
