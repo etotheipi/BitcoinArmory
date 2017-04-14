@@ -17,7 +17,10 @@
 #include "BtcUtils.h"
 #include "DBUtils.h"
 
-////////////////////////////////////////////////////////////////////////////////
+#define USE_FULL_CUSTOM_LIST  1
+#define ADJUST_FEE            2
+#define SHUFFLE_ENTRIES       4
+
 ////////////////////////////////////////////////////////////////////////////////
 // OutPoint is just a reference to a TxOut
 class OutPoint
@@ -464,6 +467,7 @@ struct UTXO
    uint64_t   value_ = 0;
    BinaryData script_;
    bool       isMultisigRef_ = false;
+   unsigned   preferredSequence_ = UINT32_MAX;
 
    //for coin selection
    bool isInputSW_ = false;
@@ -496,6 +500,7 @@ struct UTXO
 
       return height - txHeight_ + 1;
    }
+   unsigned getPreferredSequence(void) const { return preferredSequence_; }
 
    uint32_t getHeight(void) const { return txHeight_; }
 

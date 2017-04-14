@@ -19,7 +19,7 @@ from armoryengine.ArmoryUtils import MIN_TX_FEE, MIN_FEE_BYTE, DEFAULT_FEE_TYPE
 class FeeSelectionDialog(ArmoryDialog):
    
    #############################################################################
-   def __init__(self, parent, main):
+   def __init__(self, parent, main, cs_callback, get_csstate):
       super(FeeSelectionDialog, self).__init__(parent, main)
       
       #Button Label
@@ -32,7 +32,8 @@ class FeeSelectionDialog(ArmoryDialog):
       blocksToConfirm = self.main.getSettingOrSetDefault(\
          "Default_FeeByte_BlocksToConfirm", NBLOCKS_TO_CONFIRM)
       
-      self.coinSelection = None
+      self.coinSelectionCallback = cs_callback
+      self.getCoinSelectionState = get_csstate
       self.validAutoFee = True
       try:
          autoFee_byte = str(estimateFee(blocksToConfirm) / 1000.0)
@@ -51,7 +52,6 @@ class FeeSelectionDialog(ArmoryDialog):
       
       def updateLbl():
          self.updateCoinSelection()
-         self.updateLabelButton(self.coinSelection)
       
       self.radioFlatFee = QRadioButton(self.tr("Flat Fee (BTC)"))
       self.edtFeeAmt = QLineEdit(flatFee)
@@ -193,15 +193,14 @@ class FeeSelectionDialog(ArmoryDialog):
             self.sliderAutoFeeByte.setEnabled(True)
             
       self.updateCoinSelection()
-      self.updateLabelButton(self.coinSelection)
+      self.updateLabelButton()
       
    #############################################################################
    def updateCoinSelection(self):
       try:
-         flatFee, feeByte, adjust = self.getFeeData()
-         self.coinSelection.updateState(flatFee, feeByte, adjust)
+         self.coinSelectionCallback()
       except:
-         pass
+         self.updateLabelButton()
    
    #############################################################################   
    def getLabelButton(self):
@@ -227,14 +226,11 @@ class FeeSelectionDialog(ArmoryDialog):
       self.lblButtonFee.setText(lblStr)
    
    #############################################################################   
-   def updateLabelButton(self, coinSelection):
-      self.coinSelection = coinSelection
-      
+   def updateLabelButton(self, reset=False):
       try:
-         txSize = self.coinSelection.getSizeEstimate()
-         flatFee = self.coinSelection.getFlatFee()
-         feeByte = self.coinSelection.getFeeByte()
-      
+         if reset:
+            raise Exception()
+         txSize, flatFee, feeByte = self.getCoinSelectionState()      
          self.updateLabelButtonText(txSize, flatFee, feeByte)
 
       except:
@@ -242,7 +238,7 @@ class FeeSelectionDialog(ArmoryDialog):
          
    #############################################################################
    def resetLabel(self):
-      self.updateLabelButton(None)
+      self.updateLabelButton(True)
    
    #############################################################################
    def getFeeData(self):

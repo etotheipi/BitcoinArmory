@@ -4550,7 +4550,7 @@ class DlgConfirmSend(ArmoryDialog):
 
 ################################################################################
 class DlgSendBitcoins(ArmoryDialog):
-   def __init__(self, wlt, parent=None, main=None, prefill=None,
+   def __init__(self, wlt, parent=None, main=None, 
                               wltIDList=None, onlyOfflineWallets=False,
                               spendFromLockboxID=None):
       super(DlgSendBitcoins, self).__init__(parent, main)
@@ -4559,7 +4559,7 @@ class DlgSendBitcoins(ArmoryDialog):
       self.spendFromLockboxID = spendFromLockboxID
 
       self.frame = SendBitcoinsFrame(self, main, self.tr('Send Bitcoins'),
-                   wlt, prefill, wltIDList, onlyOfflineWallets=onlyOfflineWallets,
+                   wlt, wltIDList, onlyOfflineWallets=onlyOfflineWallets,
                    sendCallback=self.createTxAndBroadcast,
                    createUnsignedTxCallback=self.createUnsignedTxAndDisplay,
                    spendFromLockboxID=spendFromLockboxID)

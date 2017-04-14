@@ -14,26 +14,22 @@
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 UtxoSelection CoinSelection::getUtxoSelectionForRecipients(
-   PaymentStruct& payStruct, const vector<UTXO>& utxoVec,
-   bool useExhaustiveList)
+   PaymentStruct& payStruct, const vector<UTXO>& utxoVec)
 {
    if (utxoVec.size() == 0)
    {
       updateUtxoVector(payStruct.spendVal_);
-      return getUtxoSelection(payStruct, utxoVec_, 
-         useExhaustiveList);
+      return getUtxoSelection(payStruct, utxoVec_);
    }
    else
    {
-      return getUtxoSelection(payStruct, utxoVec, 
-         useExhaustiveList);
+      return getUtxoSelection(payStruct, utxoVec);
    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 UtxoSelection CoinSelection::getUtxoSelection(
-   PaymentStruct& payStruct, const vector<UTXO>& utxoVec, 
-   bool useExhaustiveList)
+   PaymentStruct& payStruct, const vector<UTXO>& utxoVec)
 {
    //sanity check
    auto utxoVecVal = tallyValue(utxoVec);
@@ -45,6 +41,7 @@ UtxoSelection CoinSelection::getUtxoSelection(
 
    vector<UtxoSelection> selections;
 
+   bool useExhaustiveList = payStruct.flags_ & USE_FULL_CUSTOM_LIST;
    if (!useExhaustiveList)
    {
       uint64_t compiledFee_oneOutput = payStruct.fee_;
@@ -150,7 +147,9 @@ UtxoSelection CoinSelection::getUtxoSelection(
    fleshOutSelection(utxoVec, *selectPtr, payStruct);
 
    //one last shuffle for the good measure
-   selectPtr->shuffle();
+   bool shuffle = payStruct.flags_ & SHUFFLE_ENTRIES;
+   if (shuffle)
+      selectPtr->shuffle();
 
    return *selectPtr;
 }
@@ -943,7 +942,9 @@ void UtxoSelection::computeSizeAndFee(
    targetVal = payStruct.spendVal_ + fee_;
    changeVal = value_ - targetVal;
 
-   if (payStruct.adjustFee_ && !forcedFee && changeVal > 0)
+   bool adjustFee = payStruct.flags_ & ADJUST_FEE;
+
+      if (adjustFee && !forcedFee && changeVal > 0)
    {
       auto spendVal_ZeroCount = 
          (int)SelectionScoring::getTrailingZeroCount(payStruct.spendVal_);

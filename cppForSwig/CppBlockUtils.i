@@ -26,6 +26,7 @@
 #include "TxClasses.h"
 #include "WalletManager.h"
 #include "BlockDataManagerConfig.h"
+#include "TransactionBatch.h"
 %}
 
 %include "std_string.i"
@@ -72,6 +73,8 @@ namespace std
    %template(set_BinaryData) std::set<BinaryData>;
    %template(vector_UTXO) std::vector<UTXO>;
    %template(vector_AddressBookEntry) std::vector<AddressBookEntry>;
+   %template(vector_TxBatchRecipient) std::vector<Recipient>;
+   %template(vector_TxBatchSpender) std::vector<Spender>;
 }
 
 %exception
@@ -390,4 +393,5 @@ namespace std
 %include "TxClasses.h"
 %include "WalletManager.h"
 %include "BlockDataManagerConfig.h"
+%include "TransactionBatch.h"
 

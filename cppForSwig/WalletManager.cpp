@@ -341,9 +341,8 @@ void CoinSelectionInstance::decorateUTXOs(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void CoinSelectionInstance::selectUTXOs(
-   vector<UTXO>& vecUtxo, uint64_t fee, float fee_byte, 
-   bool useExhaustiveList, bool adjustFee)
+void CoinSelectionInstance::selectUTXOs(vector<UTXO>& vecUtxo, 
+   uint64_t fee, float fee_byte, unsigned flags)
 {
    //sanity check
    checkSpendVal();
@@ -352,38 +351,32 @@ void CoinSelectionInstance::selectUTXOs(
    decorateUTXOs(walletContainer_, vecUtxo);
 
    state_utxoVec_ = vecUtxo;
-   state_useAll_ = useExhaustiveList;
 
-
-   PaymentStruct payStruct(recipients_, fee, fee_byte, adjustFee);
+   PaymentStruct payStruct(recipients_, fee, fee_byte, flags);
    selection_ = move(
-      cs_.getUtxoSelectionForRecipients(payStruct, vecUtxo, useExhaustiveList));
+      cs_.getUtxoSelectionForRecipients(payStruct, vecUtxo));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 void CoinSelectionInstance::selectUTXOs(uint64_t fee, float fee_byte, 
-   bool adjustFee)
+   unsigned flags)
 {
    //sanity check
    checkSpendVal();
 
    state_utxoVec_.clear();
-   state_useAll_ = false;
-
-   PaymentStruct payStruct(recipients_, fee, fee_byte, adjustFee);
+   PaymentStruct payStruct(recipients_, fee, fee_byte, flags);
    selection_ = move(
-      cs_.getUtxoSelectionForRecipients(
-         payStruct, vector<UTXO>(), false));
+      cs_.getUtxoSelectionForRecipients(payStruct, vector<UTXO>()));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 void CoinSelectionInstance::updateState(
-   uint64_t fee, float fee_byte, bool adjustFee)
+   uint64_t fee, float fee_byte, unsigned flags)
 {
-   PaymentStruct payStruct(recipients_, fee, fee_byte, adjustFee);
+   PaymentStruct payStruct(recipients_, fee, fee_byte, flags);
    selection_ = move(
-      cs_.getUtxoSelectionForRecipients(payStruct, state_utxoVec_,
-         state_useAll_));
+      cs_.getUtxoSelectionForRecipients(payStruct, state_utxoVec_));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -479,8 +472,7 @@ void CoinSelectionInstance::checkSpendVal() const
 ////////////////////////////////////////////////////////////////////////////////
 void CoinSelectionInstance::processCustomUtxoList(
    const vector<BinaryData>& serializedUtxos,
-   uint64_t fee, float fee_byte,
-   bool useExhaustiveList, bool adjustFee)
+   uint64_t fee, float fee_byte, unsigned flags)
 {
    vector<UTXO> utxoVec;
 
@@ -491,7 +483,7 @@ void CoinSelectionInstance::processCustomUtxoList(
       utxoVec.push_back(move(utxo));
    }
 
-   selectUTXOs(utxoVec, fee, fee_byte, useExhaustiveList, adjustFee);
+   selectUTXOs(utxoVec, fee, fee_byte, flags);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

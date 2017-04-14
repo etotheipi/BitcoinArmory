@@ -42,7 +42,8 @@ enum OrderType
    OrderOther,
    OrderProgress,
    OrderTerminate,
-   OrderNodeStatus
+   OrderNodeStatus,
+   OrderBDVError
 };
 
 ///////////////////////////////////////////////////////////////////////////////

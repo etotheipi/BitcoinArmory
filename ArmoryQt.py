@@ -3297,6 +3297,7 @@ class ArmoryMainWindow(QMainWindow):
 
       row = self.ledgerView.selectedIndexes()[0].row()
 
+      wltID = str(self.ledgerView.model().index(row, LEDGERCOLS.WltID).data().toString())
       txHash = str(self.ledgerView.model().index(row, LEDGERCOLS.TxHash).data().toString())
       txHash = hex_switchEndian(txHash)
       
@@ -3335,8 +3336,8 @@ class ArmoryMainWindow(QMainWindow):
       elif action==actOpenWallet:
          DlgWalletDetails(self.getSelectedWallet(), self.usermode, self, self).exec_()
       elif flagged and action==actBump:
-         #bump the fee
-         return 
+         txHash = hex_switchEndian(txHash)
+         self.bumpFee(wltID, txHash)
 
    #############################################################################
 
@@ -3444,7 +3445,9 @@ class ArmoryMainWindow(QMainWindow):
             self.startWalletWizard()
          return False
       else:
-         DlgSendBitcoins(self.getSelectedWallet(), self, self, uriDict).exec_()
+         dlg = DlgSendBitcoins(self.getSelectedWallet(), self, self)
+         dlg.frame.prefillFromURI(uriDict)
+         dlg.exec_()
       return True
 
 
@@ -5847,7 +5850,46 @@ class ArmoryMainWindow(QMainWindow):
          restoreTableView(self.ledgerView, hexledgsz)
          self.ledgerView.setColumnWidth(LEDGERCOLS.NumConf, 20)
          self.ledgerView.setColumnWidth(LEDGERCOLS.TxDir,   72)
-
+         
+   #############################################################################
+   def bumpFee(self, walletId, txHash):
+      #grab wallet
+      wlt = self.walletMap[walletId]
+      
+      #grab ZC from DB
+      zctx = TheBDM.bdv().getTxByHash(txHash)
+      pytx = PyTx().unserialize(zctx.serialize())
+      
+      #create tx batch
+      batch = Cpp.TransactionBatch()
+      for txin in pytx.inputs:
+         outpoint = txin.outpoint
+         batch.addSpender(binary_to_hex(outpoint.txHash), \
+            outpoint.txOutIndex, txin.intSeq)
+         
+      for txout in pytx.outputs:
+         script = txout.getScript()
+         scrAddr = BtcUtils().getScrAddrForScript(script)
+         prefix, h160 = scrAddr_to_hash160(scrAddr)
+         addrComment = wlt.getCommentForAddress(h160)
+         
+         b58Addr = scrAddr_to_addrStr(scrAddr)
+         
+         if addrComment == CHANGE_ADDR_DESCR_STRING:
+            #change address
+            batch.setChange(b58Addr)
+            
+         else:
+            #recipient
+            batch.addRecipient(b58Addr, txout.value)
+      
+      batch.setWalletID(walletId)      
+      
+      #feed batch to spend dlg
+      batchStr = batch.serialize()
+      dlgSpend = DlgSendBitcoins(None, self, self)
+      dlgSpend.frame.prefillFromBatch(batchStr)
+      dlgSpend.exec_()
 
 ############################################
 def checkForAlreadyOpen():

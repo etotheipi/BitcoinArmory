@@ -2085,6 +2085,14 @@ class UnsignedTransaction(AsciiSerializable):
       if pytx:
          self.createFromPyTx(pytx, pubKeyMap, txMap, p2shMap)
 
+   #############################################################################
+   def computeUniqueIDB58(self, rawTxNoSigs):
+      
+      #force 0 locktime when computing tx unique ID for backwards compatibility
+      rawSigNoLockTime = rawTxNoSigs[0:-4]
+      rawSigNoLockTime += int_to_binary(0, 4)
+      
+      return binary_to_base58(hash256(rawSigNoLockTime))[:8]
 
    #############################################################################
    def createFromUnsignedTxIO(self, ustxinList, dtxoList, lockTime=0):
@@ -2136,7 +2144,7 @@ class UnsignedTransaction(AsciiSerializable):
          raise ValueError('Supplied inputs are less than the supplied outputs')
 
       rawTxNoSigs = self.pytxObj.serialize()
-      self.uniqueIDB58 = binary_to_base58(hash256(rawTxNoSigs))[:8]
+      self.uniqueIDB58 = self.computeUniqueIDB58(rawTxNoSigs)
       self.asciiID = self.uniqueIDB58
       return self
 
@@ -2226,7 +2234,7 @@ class UnsignedTransaction(AsciiSerializable):
    #############################################################################
    def createFromTxOutSelection(self, utxoSelection, scriptValuePairs,
                                 pubKeyMap=None, txMap=None, p2shMap=None, 
-                                RBF=False, lockTime=0):
+                                lockTime=0):
       
       totalUtxoSum = sumTxOutList(utxoSelection)
       totalOutputSum = sum([a[1] for a in scriptValuePairs])
@@ -2265,11 +2273,7 @@ class UnsignedTransaction(AsciiSerializable):
          txin = PyTxIn()
          txin.outpoint = PyOutPoint()
          txin.binScript = ''
-         
-         txin.intSeq = 2**32-1
-         if RBF:
-            txin.intSeq = txin.intSeq - 2
-
+         txin.intSeq = utxo.sequence
          txhash = utxo.getTxHash()
          txoIdx  = utxo.getTxOutIndex()
          txin.outpoint.txHash = str(txhash)
@@ -2321,7 +2325,7 @@ class UnsignedTransaction(AsciiSerializable):
       bp = BinaryPacker()
       bp.put(UINT32,       self.version)
       bp.put(BINARY_CHUNK, MAGIC_BYTES, 4)
-      bp.put(UINT32,       self.lockTime)
+      bp.put(UINT32,       0)
 
       bp.put(VAR_INT,  len(self.ustxInputs))
       for ustxi in self.ustxInputs:
@@ -2330,6 +2334,8 @@ class UnsignedTransaction(AsciiSerializable):
       bp.put(VAR_INT,  len(self.decorTxOuts))
       for dtxo in self.decorTxOuts:
          bp.put(VAR_STR, dtxo.serialize())
+         
+      bp.put(UINT32, self.lockTime)
 
       return bp.getBinaryString()
 
@@ -2350,6 +2356,9 @@ class UnsignedTransaction(AsciiSerializable):
       dtxoList = []
       for i in range(numDtxo):
          dtxoList.append( DecoratedTxOut().unserialize(bu.get(VAR_STR), skipMagicCheck) )
+         
+      if bu.getRemainingSize() == 4:
+         lockt = bu.get(UINT32)
 
       # Issue a warning if the versions don't match
       if not ver == UNSIGNED_TX_VERSION:

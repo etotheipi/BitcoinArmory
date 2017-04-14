@@ -49,12 +49,12 @@ struct PaymentStruct
    uint64_t spendVal_;
    size_t size_;
 
-   bool adjustFee_;
+   const unsigned flags_ = 0;
 
    PaymentStruct(map<unsigned, shared_ptr<ScriptRecipient>>& recipients,
-      uint64_t fee, float fee_byte, bool adjust_fee) :
+      uint64_t fee, float fee_byte, unsigned flags) :
       recipients_(recipients), fee_(fee), fee_byte_(fee_byte),
-      adjustFee_(adjust_fee)
+      flags_(flags)
    {
       init();
    }
@@ -102,7 +102,7 @@ private:
 
 protected:
    UtxoSelection getUtxoSelection(
-      PaymentStruct&, const vector<UTXO>&, bool useExhaustiveList);
+      PaymentStruct&, const vector<UTXO>&);
 
    void fleshOutSelection(const vector<UTXO>&, UtxoSelection& utxoSelect,
       PaymentStruct& payStruct);
@@ -121,7 +121,7 @@ public:
    }
 
    UtxoSelection getUtxoSelectionForRecipients(
-      PaymentStruct& payStruct, const vector<UTXO>&, bool useExhaustiveList);
+      PaymentStruct& payStruct, const vector<UTXO>&);
 
    uint64_t getFeeForMaxVal(
       size_t txOutSize, float fee_byte, const vector<UTXO>&);

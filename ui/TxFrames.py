@@ -21,12 +21,12 @@ from armoryengine.MultiSigUtils import \
    isP2SHLockbox
 from armoryengine.ArmoryUtils import MAX_COMMENT_LENGTH, getAddrByte
 from FeeSelectUI import FeeSelectionDialog
-from CppBlockUtils import TXOUT_SCRIPT_P2SH
+from CppBlockUtils import TXOUT_SCRIPT_P2SH, TransactionBatch
 
 
 class SendBitcoinsFrame(ArmoryFrame):
    def __init__(self, parent, main, initLabel='',
-                 wlt=None, prefill=None, wltIDList=None,
+                 wlt=None, wltIDList=None,
                  selectWltCallback = None, onlyOfflineWallets=False,
                  sendCallback = None, createUnsignedTxCallback = None,
                  spendFromLockboxID=None):
@@ -46,19 +46,33 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.widgetTable = []
       self.isMax = False
       self.scrollRecipArea = QScrollArea()
+
       lblRecip = QRichLabel('<b>Enter Recipients:</b>')
       lblRecip.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
 
-
-
+      self.shuffleEntries = True      
       self.freeOfErrors = True
+      
+      
+      def getWalletIdList(onlyOfflineWallets):
+         result = []
+         if onlyOfflineWallets:
+            result = self.main.getWatchingOnlyWallets()
+         else:
+            result = list(self.main.walletIDList)
+         return result      
+      
+      self.wltIDList = wltIDList
+      if wltIDList == None:
+         self.wltIDList = getWalletIdList(onlyOfflineWallets)
 
       feetip = self.main.createToolTipWidget(\
             self.tr('Transaction fees go to users who contribute computing power to '
             'keep the Bitcoin network secure, and in return they get your transaction '
             'included in the blockchain faster.'))
 
-      self.feeDialog = FeeSelectionDialog(self, self.main)
+      self.feeDialog = FeeSelectionDialog(self, self.main, \
+                        self.resolveCoinSelection, self.getCoinSelectionState)
       self.feeLblButton = self.feeDialog.getLabelButton()
       
       def feeDlg():
@@ -243,22 +257,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.makeRecipFrame(1)
       self.setWindowTitle(self.tr('Send Bitcoins'))
       self.setMinimumHeight(self.maxHeight * 20)
-
-      if prefill:
-         amount = prefill.get('amount','')
-         message = prefill.get('message','')
-         label = prefill.get('label','')
-         if prefill.get('lockbox',''):
-            plainStr = createLockboxEntryStr(prefill.get('lockbox',''))
-            self.addOneRecipient(None, amount, message, None, plainStr)
-         else:
-            addrStr = prefill.get('address','')
-            atype, addr160 = addrStr_to_hash160(addrStr)
-            if atype == getAddrByte():
-               self.addOneRecipient(addr160, amount, message, label)
-            else:
-               self.addOneRecipient(None, amount, message, label, plainText=addrStr)
-
+      
       if self.lbox:
          self.toggleSpecify(False)
          self.toggleChngAddr(False)
@@ -307,10 +306,13 @@ class SendBitcoinsFrame(ArmoryFrame):
       if label is not None and addr160:
          self.wlt.setComment(addr160, label)
 
-      lastIsEmpty = True
-      for widg in ['QLE_ADDR', 'QLE_AMT', 'QLE_COMM']: 
-         if len(str(self.widgetTable[-1][widg].text())) > 0:
-            lastIsEmpty = False
+      if len(self.widgetTable) > 0:
+         lastIsEmpty = True
+         for widg in ['QLE_ADDR', 'QLE_AMT', 'QLE_COMM']: 
+            if len(str(self.widgetTable[-1][widg].text())) > 0:
+               lastIsEmpty = False
+      else:
+         lastIsEmpty = False
 
       if not lastIsEmpty:
          self.makeRecipFrame(len(self.widgetTable) + 1)
@@ -460,28 +462,46 @@ class SendBitcoinsFrame(ArmoryFrame):
          bp.put(UINT16, utxo.getTxOutIndex())
          bp.put(VAR_STR, utxo.getTxHash())
          bp.put(VAR_STR, utxo.getScript())
-         serializedUtxoList.append(bp.getBinaryString())
+         bp.put(UINT32, utxo.sequence)         
          
+         serializedUtxoList.append(bp.getBinaryString())
+
       return serializedUtxoList
    
    #############################################################################   
-   def resolveCoinSelection(self):  
+   def resolveCoinSelection(self):          
       try:
          fee, feePerByte, adjust_fee = self.feeDialog.getFeeData()
+         processFlag = 0
+         if self.useCustomListInFull:
+            processFlag += Cpp.USE_FULL_CUSTOM_LIST
+                  
+         if adjust_fee:
+            processFlag += Cpp.ADJUST_FEE
+                  
+         if self.shuffleEntries:
+            processFlag += Cpp.SHUFFLE_ENTRIES         
          
          if self.customUtxoList is None or len(self.customUtxoList) == 0:
-            self.coinSelection.selectUTXOs(fee, feePerByte, adjust_fee)
+            self.coinSelection.selectUTXOs(fee, feePerByte, processFlag)
+         
          else:
-            
             serializedUtxoList = self.serializeUtxoList(self.customUtxoList)
-               
             self.coinSelection.processCustomUtxoList(\
-               serializedUtxoList, fee, feePerByte, self.useCustomListInFull, adjust_fee)   
+               serializedUtxoList, fee, feePerByte, processFlag)   
               
-         self.feeDialog.updateLabelButton(self.coinSelection)
+         self.feeDialog.updateLabelButton()
       except:
          self.resetCoinSelectionText()
+   
+   #############################################################################    
+   def getCoinSelectionState(self):
+      txSize = self.coinSelection.getSizeEstimate()
+      flatFee = self.coinSelection.getFlatFee()
+      feeByte = self.coinSelection.getFeeByte()
          
+      return txSize, flatFee, feeByte
+
    #############################################################################
    def resetCoinSelectionText(self):
       self.feeDialog.resetLabel()
@@ -660,7 +680,8 @@ class SendBitcoinsFrame(ArmoryFrame):
       origSVPairs = scriptValPairs[:]
 
       # Anonymize the outputs
-      random.shuffle(scriptValPairs)
+      if self.shuffleEntries:
+         random.shuffle(scriptValPairs)
 
       p2shMap = {}
       pubKeyMap = {}
@@ -717,11 +738,16 @@ class SendBitcoinsFrame(ArmoryFrame):
          and outputs to the new signer for processing instead of creating the
          unsigned tx in Python.
          '''
+            
+         if self.getRBFFlag():
+            for utxo in utxoSelect:
+               if utxo.sequence == 2**32 - 1:
+                  utxo.sequence = 2**32 - 3 
          
          # Now create the unsigned USTX
          ustx = UnsignedTransaction().createFromTxOutSelection(\
             utxoSelect, scriptValPairs, pubKeyMap, p2shMap=p2shMap, \
-            RBF=self.getRBFFlag(), lockTime=TheBDM.getTopBlockHeight())
+            lockTime=TheBDM.getTopBlockHeight())
 
       #ustx.pprint()
 
@@ -812,8 +838,6 @@ class SendBitcoinsFrame(ArmoryFrame):
          return cppWlt.getSpendableBalance()
          
          
-
-
    #############################################################################
    def getUsableTxOutList(self):
       utxoVec = self.coinSelection.getUtxoSelection()
@@ -1197,6 +1221,160 @@ class SendBitcoinsFrame(ArmoryFrame):
       txDlg = DlgDispTxInfo(ustx, self.wlt, self.parent(), self.main)
       txDlg.exec_()
       
+   #############################################################################      
+   def resetRecipients(self):
+      self.widgetTable = []
+     
+   #############################################################################  
+   def prefillFromURI(self, prefill):
+      amount = prefill.get('amount','')
+      message = prefill.get('message','')
+      label = prefill.get('label','')
+      if prefill.get('lockbox',''):
+         plainStr = createLockboxEntryStr(prefill.get('lockbox',''))
+         self.addOneRecipient(None, amount, message, None, plainStr)
+      else:
+         addrStr = prefill.get('address','')
+         atype, addr160 = addrStr_to_hash160(addrStr)
+         if atype == getAddrByte():
+            self.addOneRecipient(addr160, amount, message, label)
+         else:
+            self.addOneRecipient(None, amount, message, label, plainText=addrStr)
+
+   ############################################################################# 
+   def prefillFromBatch(self, txBatchStr):
+      batch = TransactionBatch()
+      batch.processBatchStr(txBatchStr)
+      
+      prefillData = {}
+      
+      walletID = batch.getWalletID()
+      prefillData['walletID'] = walletID
+      
+      prefillData['recipients'] = []
+      rcpDict = prefillData['recipients']
+      recipients = batch.getRecipients()
+      recCount = len(recipients)
+      for rcp in recipients:
+         rcpDict.append([rcp.address_, rcp.value_, rcp.comment_])
+         
+      spenders = batch.getSpenders()
+      if len(spenders) > 0:
+         prefillData['spenders'] = []
+         spdDict = prefillData['spenders']
+         for spd in spenders:
+            spdDict.append([spd.txHash_, spd.index_, spd.sequence_])
+            
+      changeAddr = batch.getChange().address_
+      if len(changeAddr) > 0:
+         prefillData['change'] = changeAddr
+         
+      fee_rate = batch.getFeeRate()
+      if fee_rate != 0:
+         prefillData['fee_rate'] = fee_rate
+         
+      flat_fee = batch.getFlatFee()
+      if flat_fee != 0:
+         prefillData['flat_fee'] = flat_fee
+         
+      self.prefill(prefillData)
+          
+   #############################################################################      
+   def prefill(self, prefill):
+      '''
+      format:
+      {
+      walleID:str,
+      recipients:[[b58addr, value, comment], ...],
+      spenders:[[txHashStr, txOutID, seq], ...],
+      change:b58addr,
+      fee_rate:integer,
+      flat_fee:float
+      }
+      '''
+      
+      #reset recipients
+      self.resetRecipients()
+            
+      #wallet
+      try:
+         wltid = prefill['walletID']
+         comboIndex = self.wltIDList.index(wltid)
+         self.frmSelectedWlt.walletComboBox.setCurrentIndex(comboIndex)
+         self.fireWalletChange()
+      except:
+         pass
+      
+      #recipients
+      recipients = prefill['recipients']
+      for rpt in recipients:
+         addrStr = rpt[0]
+         value = rpt[1]
+         
+         comment = ""
+         if len(rpt) == 3:
+            comment = rpt[2]
+         
+         prefix, hash160 = addrStr_to_hash160(addrStr)
+         self.addOneRecipient(hash160, value, comment, plainText=addrStr)
+         
+      self.resetCoinSelectionRecipients()
+      
+      #do not shuffle outputs on batches
+      self.shuffleEntries = False
+      
+      #change
+      changeAddr = prefill['change']
+      self.chkDefaultChangeAddr.setChecked(True)
+      self.radioSpecify.setChecked(True)
+      self.edtChangeAddr.setText(changeAddr)
+      
+      #fee
+         
+      #spenders     
+      spenders = prefill['spenders']    
+        
+      def findUtxo(utxoList):
+         utxoDict = {}
+         for utxo in utxoList:
+            txhashstr = utxo.getTxHashStr()
+            if not txhashstr in utxoDict:
+               utxoDict[txhashstr] = {}
+                   
+            hashDict = utxoDict[txhashstr]
+            txoutid = int(utxo.getTxOutIndex())
+            hashDict[txoutid] = utxo
+               
+         customUtxoList = []
+         customBalance = 0 
+         for spd in spenders:
+            txhashstr = spd[0]
+            txoutid = int(spd[1])
+            seq = spd[2]
+               
+            hashDict = utxoDict[txhashstr]
+            utxo = hashDict[txoutid]
+            utxo.sequence = seq
+                  
+            customUtxoList.append(utxo)
+            customBalance += utxo.getValue()
+
+         return customUtxoList, customBalance
+
+      
+      try:
+         utxolist, balance = findUtxo(self.wlt.getFullUTXOList())
+         self.frmSelectedWlt.customUtxoList = utxolist
+         self.frmSelectedWlt.altBalance = balance
+         self.frmSelectedWlt.useAllCCList = True
+         self.frmSelectedWlt.updateOnCoinControl()
+      except:
+         utxolist, balance = findUtxo(self.wlt.getRBFTxOutList())
+         self.frmSelectedWlt.customUtxoList = utxolist
+         self.frmSelectedWlt.altBalance = balance
+         self.frmSelectedWlt.updateOnRBF() 
+      
+         
 
 ################################################################################
 class ReviewOfflineTxFrame(ArmoryDialog):
@@ -1341,6 +1519,7 @@ class ReviewOfflineTxFrame(ArmoryDialog):
       except IOError:
          LOGEXCEPT('Failed to save file: %s', toSave)
          pass
+         
 
 ################################################################################
 class SignBroadcastOfflineTxFrame(ArmoryFrame):

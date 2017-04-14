@@ -742,6 +742,7 @@ BinaryData UTXO::serialize() const
 
    bw.put_var_int(script_.getSize());
    bw.put_BinaryData(script_);
+   bw.put_uint32_t(preferredSequence_);
 
    return move(bw.getData());
 }
@@ -767,6 +768,8 @@ void UTXO::unserialize(const BinaryData& data)
    if (scriptSize == 0)
       throw runtime_error("no script data in raw utxo");
    script_ = move(brr.get_BinaryData(scriptSize));
+
+   preferredSequence_ = brr.get_uint32_t();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

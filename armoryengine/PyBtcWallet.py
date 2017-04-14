@@ -442,7 +442,7 @@ class PyBtcWallet(object):
 
    #############################################################################
    @CheckWalletRegistration
-   def getUTXOListForSpendVal(self, valToSpend):
+   def getUTXOListForSpendVal(self, valToSpend = 2**64 - 1):
       """ Returns UnspentTxOut/C++ objects 
       returns a set of unspent TxOuts to cover for the value to spend 
       """

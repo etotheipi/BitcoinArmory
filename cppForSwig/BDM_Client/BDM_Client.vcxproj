@@ -182,6 +182,7 @@
     <ClInclude Include="..\SocketObject.h" />
     <ClInclude Include="..\StringSockets.h" />
     <ClInclude Include="..\SwigClient.h" />
+    <ClInclude Include="..\TransactionBatch.h" />
     <ClInclude Include="..\TxClasses.h" />
     <ClInclude Include="..\WalletManager.h" />
   </ItemGroup>
@@ -208,6 +209,7 @@
     <ClCompile Include="..\SocketObject.cpp" />
     <ClCompile Include="..\StringSockets.cpp" />
     <ClCompile Include="..\SwigClient.cpp" />
+    <ClCompile Include="..\TransactionBatch.cpp" />
     <ClCompile Include="..\Transactions.cpp" />
     <ClCompile Include="..\TxClasses.cpp" />
     <ClCompile Include="..\UniversalTimer.cpp" />

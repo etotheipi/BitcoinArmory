@@ -66,6 +66,9 @@
     <ClInclude Include="..\ReentrantLock.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\TransactionBatch.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\BinaryData.cpp">
@@ -141,6 +144,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\JSON_codec.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\TransactionBatch.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

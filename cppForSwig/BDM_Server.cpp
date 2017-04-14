@@ -1594,7 +1594,7 @@ void BDV_Server_Object::maintenanceThread(void)
             args2.push_back(move(bdo));
             args2.push_back(move(errBdo));
 
-            cb_->callback(move(args2), OrderNodeStatus);
+            cb_->callback(move(args2), OrderBDVError);
             break;
          }
 

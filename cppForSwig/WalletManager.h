@@ -45,8 +45,6 @@ private:
    WalletContainer* const walletContainer_;
 
    vector<UTXO> state_utxoVec_;
-   bool state_useAll_ = false;
-
    const uint64_t spendableBalance_;
 
 private:
@@ -63,8 +61,7 @@ private:
 
    static shared_ptr<ScriptRecipient> createRecipient(const BinaryData&, uint64_t);
    
-   void selectUTXOs(vector<UTXO>&, uint64_t fee, float fee_byte, 
-      bool useExhaustiveList, bool adjustFee);
+   void selectUTXOs(vector<UTXO>&, uint64_t fee, float fee_byte, unsigned flags);
 public:
    CoinSelectionInstance(WalletContainer* const walletContainer);
    CoinSelectionInstance(SwigClient::Lockbox* const, 
@@ -76,13 +73,13 @@ public:
    void removeRecipient(unsigned);
    void resetRecipients(void);
 
-   void selectUTXOs(uint64_t fee, float fee_byte, bool adjustFee);
+   void selectUTXOs(uint64_t fee, float fee_byte, unsigned flags);
    void processCustomUtxoList(
       const vector<BinaryData>& serializedUtxos, 
       uint64_t fee, float fee_byte,
-      bool useExhaustiveList, bool adjustFee);
+      unsigned flags);
 
-   void updateState(uint64_t fee, float fee_byte, bool adjustFee);
+   void updateState(uint64_t fee, float fee_byte, unsigned flags);
 
    uint64_t getFeeForMaxValUtxoVector(const vector<BinaryData>& serializedUtxos, float fee_byte);
    uint64_t getFeeForMaxVal(float fee_byte);

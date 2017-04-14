@@ -95,14 +95,16 @@ class PyUnspentTxOut(object):
       script = cppUtxo.getScript()
       txHeight = cppUtxo.getHeight()
       txIndex = cppUtxo.getTxIndex()
+      sequence = cppUtxo.getPreferredSequence()
 
       self.initialize(scrAddr, txHash, txHashStr, txHeight, txIndex, 
-                      txoIdx, val, conf, script)
+                      txoIdx, val, conf, script, sequence)
       return self
 
    #############################################################################
    def initialize(self, scrAddr, txHash, txHashStr, txHeight, txIndex, 
-                  txoIdx, val, numConf=None, fullScript=None):
+                  txoIdx, val, numConf=None, fullScript=None, 
+                  sequence=2**32-1):
       self.scrAddr    = scrAddr
       self.txHash     = txHash
       self.txHashStr  = txHashStr
@@ -111,6 +113,7 @@ class PyUnspentTxOut(object):
       self.conf       = numConf
       self.txHeight   = txHeight
       self.txIndex    = txIndex
+      self.sequence   = sequence
 
       if self.scrAddr and fullScript is None:
          self.binScript = scrAddr_to_script(self.scrAddr)
