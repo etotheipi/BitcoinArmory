@@ -415,7 +415,10 @@ class SendBitcoinsFrame(ArmoryFrame):
       for row in range(len(self.widgetTable)):
          self.addCoinSelectionRecipient(row)
          
-      self.resolveCoinSelection()
+      try:
+         self.resolveCoinSelection()
+      except:
+         pass
          
    #############################################################################
    def addCoinSelectionRecipient(self, id_):
@@ -491,8 +494,9 @@ class SendBitcoinsFrame(ArmoryFrame):
                serializedUtxoList, fee, feePerByte, processFlag)   
               
          self.feeDialog.updateLabelButton()
-      except:
+      except RuntimeError as e:
          self.resetCoinSelectionText()
+         raise e
    
    #############################################################################    
    def getCoinSelectionState(self):
@@ -515,7 +519,10 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.altBalance = altBalance
       self.useCustomListInFull = useAll
       
-      self.resolveCoinSelection()
+      try:
+         self.resolveCoinSelection()
+      except:
+         pass
       
    #############################################################################
    def RBFupdate(self, rbfList, altBalance):
@@ -617,7 +624,14 @@ class SendBitcoinsFrame(ArmoryFrame):
          scriptValPairs.append([script, value])
          self.comments.append((str(self.widgetTable[row]['QLE_COMM'].text()), value))
 
-      utxoSelect = self.getUsableTxOutList()
+      try:         
+         utxoSelect = self.getUsableTxOutList()
+      except RuntimeError as e:
+         QMessageBox.critical(self, self.tr('Coin Selection Failure'), \
+               self.tr('Coin selection failed with error: <b>%1<b/>').arg(e.message), \
+               QMessageBox.Ok)
+         return False
+      
       fee = self.coinSelection.getFlatFee()
       fee_byte = self.coinSelection.getFeeByte()
 
@@ -840,6 +854,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          
    #############################################################################
    def getUsableTxOutList(self):
+      self.resolveCoinSelection()
       utxoVec = self.coinSelection.getUtxoSelection()
       utxoSelect = []
       for i in range(len(utxoVec)):

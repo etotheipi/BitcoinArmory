@@ -34,7 +34,7 @@ UtxoSelection CoinSelection::getUtxoSelection(
    //sanity check
    auto utxoVecVal = tallyValue(utxoVec);
    if (utxoVecVal < payStruct.spendVal_)
-      throw CoinSelectionException("utxoVec cannot cover spendVal");
+      throw CoinSelectionException("spend value > usable balance");
 
    if (topHeight_ == UINT32_MAX)
       throw CoinSelectionException("uninitialized top height");

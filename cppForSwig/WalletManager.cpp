@@ -466,7 +466,7 @@ void CoinSelectionInstance::checkSpendVal() const
 {
    auto total = getSpendVal();
    if (total == 0 || total > spendableBalance_)
-      throw CoinSelectionException("invalid spendVal");
+      throw CoinSelectionException("Invalid spend value");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
