@@ -466,7 +466,11 @@ class AssetEntry_Multisig : public AssetEntry
    friend class ResolvedFeed_AssetWalletMS;
 
 private:
+   //map<AssetWalletID, AssetEntryPtr>
+   //ordering by wallet ids guarantees the ms script hash can be 
+   //reconstructed deterministically
    const map<BinaryData, shared_ptr<AssetEntry>> assetMap_;
+   
    const unsigned m_;
    const unsigned n_;
 
@@ -1017,7 +1021,7 @@ public:
    static shared_ptr<AssetWallet> createFromWallets(
       vector<shared_ptr<AssetWallet>> wallets,
       unsigned M,
-      unsigned loopup = UINT32_MAX);
+      unsigned lookup = UINT32_MAX);
 
    //local
 
