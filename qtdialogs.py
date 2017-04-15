@@ -2365,9 +2365,12 @@ class DlgNewAddressDisp(ArmoryDialog):
          self.qrcode.setAsciiData(self.addrStr)
          self.qrcode.repaint()       
   
-      #addr type selection framce
+      #addr type selection frame
       from ui.AddressTypeSelectDialog import AddressLabelFrame
       self.addrTypeFrame = AddressLabelFrame(main, setAddressType)
+      addrType = self.main.getSettingOrSetDefault('Default_ReceiveType', DEFAULT_RECEIVE_TYPE)
+      self.addrTypeFrame.setType(addrType)
+      setAddressType(addrType)
 
       layout = QGridLayout()
       layout.addWidget(frmNewAddr, 0, 0, 1, 1)
@@ -7651,8 +7654,10 @@ class DlgAddressBook(ArmoryDialog):
          
       from ui.AddressTypeSelectDialog import AddressLabelFrame
       self.addrTypeSelectFrame = AddressLabelFrame(self, toggleAddrType)
-      self.addrType = self.addrTypeSelectFrame.getType()
-      
+      self.addrType = self.main.getSettingOrSetDefault(\
+                        'Default_ReceiveType', DEFAULT_RECEIVE_TYPE)
+      self.addrTypeSelectFrame.setType(self.addrType)
+
       # DISPLAY sent-to addresses
       self.addrBookTxModel = None
       self.addrBookTxView = QTableView()
@@ -8646,10 +8651,11 @@ class DlgSettings(ArmoryDialog):
       self.settingsTab.addTab(frmOptions, self.tr("General"))
       
       #FeeChange tab
-      self.setupFeeAndChangeTab()      
-      frmFeeChange = makeVertFrame([self.frmFee, self.frmChange, 'Stretch'])
+      self.setupExtraTabs()      
+      frmFeeChange = makeVertFrame([\
+         self.frmFee, self.frmChange, self.frmAddrType, 'Stretch'])
       
-      self.settingsTab.addTab(frmFeeChange, self.tr("Fee and Change Settings"))
+      self.settingsTab.addTab(frmFeeChange, self.tr("Fee and Address Types"))
       
       self.scrollOptions = QScrollArea()
       self.scrollOptions.setWidget(self.settingsTab)
@@ -8666,7 +8672,7 @@ class DlgSettings(ArmoryDialog):
       self.setWindowTitle(self.tr('Armory Settings'))
 
    #############################################################################
-   def setupFeeAndChangeTab(self):
+   def setupExtraTabs(self):
       ##########
       #fee
       
@@ -8775,30 +8781,37 @@ class DlgSettings(ArmoryDialog):
       
       #########
       #change
-      
+
+      def setChangeType(changeType):
+         self.changeType = changeType
+               
+      from ui.AddressTypeSelectDialog import AddressLabelFrame
       changeType = self.main.getSettingOrSetDefault('Default_ChangeType', DEFAULT_CHANGE_TYPE)
+      self.changeTypeFrame = AddressLabelFrame(self.main, setChangeType)
       
       def changeRadio(strArg):
          self.radioAutoChange.setChecked(False)
-         self.radioForceP2PKH.setChecked(False)
-         self.radioForceP2SH_P2PK.setChecked(False)
-         self.radioForceP2SH_P2WPKH.setChecked(False)
+         self.radioForce.setChecked(False)
+         self.changeTypeFrame.getFrame().setEnabled(False)
          
          if strArg == 'Auto':
             self.radioAutoChange.setChecked(True)
-         elif strArg == 'P2PKH':
-            self.radioForceP2PKH.setChecked(True)
-         elif strArg == 'P2SH-P2PK':
-            self.radioForceP2SH_P2PK.setChecked(True)
-         elif strArg == 'P2SH-P2WPKH':
-            self.radioForceP2SH_P2WPKH.setChecked(True)
-            
-         self.changeType = strArg
+            self.changeType = 'Auto'
+         elif strArg == 'Force':
+            self.radioForce.setChecked(True)
+            self.changeTypeFrame.getFrame().setEnabled(True)
+            self.changeType = self.changeTypeFrame.getType()
+         else:
+            self.changeTypeFrame.setType(strArg)
+            self.radioForce.setChecked(True)
+            self.changeTypeFrame.getFrame().setEnabled(True)
+            self.changeType = self.changeTypeFrame.getType()
          
       def changeCallbck(strArg):
          def callbck():
             return changeRadio(strArg)
          return callbck
+      
       
       labelChange = QRichLabel(self.tr("<b>Change Address Type<br></b>"))
 
@@ -8816,21 +8829,9 @@ class DlgSettings(ArmoryDialog):
       "<b>Pre 0.96 Armory cannot spend from P2SH address types</b>"
       ))
       
-      self.radioForceP2PKH = QRadioButton(self.tr("Force P2PKH"))
-      self.connect(self.radioForceP2PKH, SIGNAL('clicked()'), changeCallbck('P2PKH'))
-      
-      self.radioForceP2SH_P2PK = QRadioButton(self.tr("Force P2SH-P2PK"))
-      self.connect(self.radioForceP2SH_P2PK, SIGNAL('clicked()'), changeCallbck('P2SH-P2PK'))
-      
-      self.radioForceP2SH_P2WPKH = QRadioButton(self.tr("Force P2SH-P2WPKH"))
-      self.connect(self.radioForceP2SH_P2WPKH, SIGNAL('clicked()'), changeCallbck('P2SH-P2WPKH'))      
-      toolTipForceP2SH_P2WPKH = self.main.createToolTipWidget(self.tr(
-         "Defaults back to P2SH-P2PK if SegWit is not enabled"))
-      
-      from armoryengine.ArmoryUtils import WITNESS
-      if WITNESS == False:
-         self.radioForceP2SH_P2WPKH.setEnabled(False)
-      
+      self.radioForce = QRadioButton(self.tr("Force a script type:"))
+      self.connect(self.radioForce, SIGNAL('clicked()'), changeCallbck('Force'))
+
       changeRadio(changeType)
       
       frmChangeLayout = QGridLayout()
@@ -8840,19 +8841,35 @@ class DlgSettings(ArmoryDialog):
                                       toolTipAutoChange, STRETCH])
       frmChangeLayout.addWidget(frmAutoChange, 1, 0, 1, 1)
       
-      frmForceP2PKH = makeHorizFrame([self.radioForceP2PKH])
-      frmChangeLayout.addWidget(frmForceP2PKH, 2, 0, 1, 1)
-      
-      frmForceP2PK = makeHorizFrame([self.radioForceP2SH_P2PK])
-      frmChangeLayout.addWidget(frmForceP2PK, 3, 0, 1, 1)
-
-      frmForceSW = makeHorizFrame([self.radioForceP2SH_P2WPKH, \
-                                   toolTipForceP2SH_P2WPKH, STRETCH])
-      frmChangeLayout.addWidget(frmForceSW, 4, 0, 1, 1)  
-      
+      frmForce = makeHorizFrame([self.radioForce, self.changeTypeFrame.getFrame()])
+      frmChangeLayout.addWidget(frmForce, 2, 0, 1, 1)
+            
       self.frmChange = QFrame()    
       self.frmChange.setFrameStyle(STYLE_RAISED)
       self.frmChange.setLayout(frmChangeLayout)
+      
+      #########
+      #receive addr type
+      
+      labelAddrType = QRichLabel(self.tr("<b>Preferred Receive Address Type</b>"))
+      
+      def setAddrType(addrType):
+         self.addrType = addrType
+
+      self.addrType = self.main.getSettingOrSetDefault('Default_ReceiveType', DEFAULT_RECEIVE_TYPE)
+      self.addrTypeFrame = AddressLabelFrame(self.main, setAddrType)
+      self.addrTypeFrame.setType(self.addrType)
+      
+      frmAddrLayout = QGridLayout()
+      frmAddrLayout.addWidget(labelAddrType, 0, 0, 1, 1)
+      
+      frmAddrTypeSelect = makeHorizFrame([self.addrTypeFrame.getFrame()])
+      
+      frmAddrLayout.addWidget(frmAddrTypeSelect, 2, 0, 1, 1)
+      
+      self.frmAddrType = QFrame()
+      self.frmAddrType.setFrameStyle(STYLE_RAISED)
+      self.frmAddrType.setLayout(frmAddrLayout)
 
    #############################################################################
    def accept(self, *args):
@@ -8942,7 +8959,9 @@ class DlgSettings(ArmoryDialog):
       
       #change
       self.main.writeSetting('Default_ChangeType', self.changeType)      
-      self.main.writeSetting('UseTorSettings', self.chkPrivacyTor.isChecked())
+
+      #addr type
+      self.main.writeSetting('Default_ReceiveType', self.addrType)
 
       try:
          self.main.createCombinedLedger()
