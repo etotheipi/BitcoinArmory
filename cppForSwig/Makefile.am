@@ -21,7 +21,8 @@ INCLUDE_FILES = UniversalTimer.h BinaryData.h lmdb_wrapper.h \
 	DataObject.h BitcoinP2p.h BDM_Server.h BDM_seder.h SocketObject.h \
 	FcgiMessage.h BlockDataManagerConfig.h \
 	Transactions.h Script.h Signer.h nodeRPC.h JSON_codec.h \
-	ReentrantLock.h StringSockets.h log.h OS_TranslatePath.h
+	ReentrantLock.h StringSockets.h log.h OS_TranslatePath.h \
+	TransactionBatch.h
 
 DB_SOURCE_FILES = UniversalTimer.cpp BinaryData.cpp lmdb_wrapper.cpp \
 	BtcUtils.cpp DBUtils.cpp BlockObj.cpp BlockUtils.cpp EncryptionUtils.cpp \
@@ -33,7 +34,7 @@ DB_SOURCE_FILES = UniversalTimer.cpp BinaryData.cpp lmdb_wrapper.cpp \
 	DataObject.cpp BitcoinP2P.cpp BDM_Server.cpp BDM_seder.cpp SocketObject.cpp \
 	FcgiMessage.cpp BlockDataManagerConfig.cpp \
 	Transactions.cpp Script.cpp Signer.cpp nodeRPC.cpp JSON_codec.cpp \
-	StringSockets.cpp main.cpp ReentrantLock.cpp
+	StringSockets.cpp main.cpp ReentrantLock.cpp 
 
 CPPBLOCKUTILS_SOURCE_FILES = UniversalTimer.cpp BinaryData.cpp \
 	BtcUtils.cpp DBUtils.cpp EncryptionUtils.cpp \
@@ -42,7 +43,8 @@ CPPBLOCKUTILS_SOURCE_FILES = UniversalTimer.cpp BinaryData.cpp \
 	BlockDataManagerConfig.cpp TxClasses.cpp \
 	WalletManager.cpp Wallets.cpp Script.cpp Signer.cpp \
 	Transactions.cpp \
-        CoinSelection.cpp ReentrantLock.cpp JSON_codec.cpp
+        CoinSelection.cpp ReentrantLock.cpp JSON_codec.cpp \
+	TransactionBatch.cpp
 
 noinst_PROGRAMS = ArmoryDB
 lib_LTLIBRARIES = libCppBlockUtils.la
