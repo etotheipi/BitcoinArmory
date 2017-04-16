@@ -192,7 +192,8 @@ void TransactionBatch::unserialize_recipients(
       if (!ss.good())
       {
          string valStr_ss(move(valueStr));
-         ss = stringstream(valStr_ss);
+         ss.str(valStr_ss); 
+        
          getline(ss, valueStr, ';');
 
          if (!ss.good())
@@ -249,7 +250,8 @@ void TransactionBatch::unserialize_spenders(
       if (!ss.good())
       {
          string idstr_ss(move(idStr));
-         ss = stringstream(idstr_ss);
+         ss.str(idstr_ss);
+
          getline(ss, idStr, ';');
 
          if (!ss.good())
