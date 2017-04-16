@@ -12551,7 +12551,7 @@ class DlgReplaceWallet(ArmoryDialog):
    def Replace(self):
       self.main.removeWalletFromApplication(self.WalletID)
 
-      datestr = RightNow('%Y-%m-%d-%H%M')
+      datestr = RightNowStr('%Y-%m-%d-%H%M')
       homedir = os.path.dirname(self.wltPath)
 
       oldpath = os.path.join(homedir, self.WalletID, datestr)
