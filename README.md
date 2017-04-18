@@ -1,4 +1,4 @@
-##Armory
+## Armory
 
 **Created by Alan Reiner on 13 July, 2011**
 
@@ -8,18 +8,18 @@ Multi-signature transactions are accommodated under-the-hood about 80%, and will
 
 **Armory has no independent networking components built in.** Instead, it relies on on the Satoshi client to securely connect to peers, validate blockchain data, and broadcast transactions for us.  Although it was initially planned to cut the umbilical cord to the Satoshi client and implement independent networking, it has turned out to be an inconvenience worth having. Reimplementing all the networking code would be fraught with bugs, security holes, and possible blockchain forking.  The reliance on Bitcoin-Qt right now is actually making Armory more secure!
 
-##Donations
+## Donations
 
 Please take a moment to donate! 1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv
 
 ![bitcoin:1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv][Donation Image]
 
-##Building Armory From Source
+## Building Armory From Source
 
 See instructions [here][Armory Build Instructions]
 
 
-##Dependencies
+## Dependencies
 
 * GNU Compiler Collection  
  Linux:   Install package `g++`
@@ -55,7 +55,7 @@ See instructions [here][Armory Build Instructions]
  (OPTIONAL - if you want to make a standalone executable in Windows)  
  Windows: [Download][Windows Py2Exe Download]  
 
-##Sample Code
+## Sample Code
 
 Armory contains over 25,000 lines of code, between the C++ and python libraries.  This can be very confusing for someone unfamiliar with the code (you).  Below I have attempted to illustrate the CONOPS (concept of operations) that the library was designed for, so you know how to use it in your own development activities.  There is a TON of sample code in the following:
 
@@ -63,12 +63,12 @@ Armory contains over 25,000 lines of code, between the C++ and python libraries.
 * Python -   [Unit Tests](pytest/), [sample_armory_code.py](extras/sample_armory_code.py)
 
 
-##License
+## License
 
 Distributed under the GNU Affero General Public License (AGPL v3)  
 See [LICENSE file](LICENSE) or [here][License]
 
-##Copyright
+## Copyright
 
 Copyright (C) 2011-2015, Armory Technologies, Inc.
 
