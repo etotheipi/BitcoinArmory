@@ -9,3 +9,8 @@ fi
 xdg-icon-resource uninstall --size 64 armoryicon
 xdg-icon-resource uninstall --size 64 armorytestneticon
 xdg-icon-resource uninstall --size 64 armoryofflineicon
+
+rm -f /usr/share/applications/armory.desktop
+rm -f /usr/share/applications/armorytestnet.desktop
+rm -f /usr/share/applications/armoryoffline.desktop
+
