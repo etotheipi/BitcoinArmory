@@ -1,25 +1,25 @@
 v0.96
 
 == Added ==
-   - 2 new payment script types have been introduced on top of legacy P2PKH:
+   - 2 new script types have been introduced on top of legacy P2PKH:
       - P2SH-P2PK: nested P2PK script. Uses compressed public keys.
-      - P2SH-P2WPKH: nested P2WPKH SegWit single address output script.
+      - P2SH-P2WPKH: nested P2WPKH SegWit single sig output script.
 
-   - Introduced a new signer that can sign outputs using the new script types. The new signer code is only active when
-     when redeeming outputs using the new scripts. Old outputs and new outputs using the legacy script type (P2PKH) 
-     are still signed by the original code and can be signed for by previous versions dating back to 0.92.x.
-     New address selection GUI let's the user pick the output script of their choice.
+   - Added new signer code to handle the new script types. The code is only used when redeeming outputs using 
+     the new scripts. All legacy outputs (P2PKH) are still handled by the original code and can be signed for 
+     by previous versions dating back to 0.92.x. New address selection GUI let's the user pick the output script 
+     of their choice.
 
    - The modified offline signing serialization format is backwards compatible. Older version can sign for legacy outputs.
      Older versions can also fund the new types (as they are P2SH scripts). You will need Armory 0.96+ to spend from these
      new scripts
 
    - Introducing brand new wallet code in C++, using LMDB for system I/O. The new code is compatible with Armory's 
-     proprietary chain derivation and can reproduce any existing Armory wallet. Starting 0.96, all existing wallets
+     own chain derivation and can reproduce any existing Armory wallet. Starting 0.96, all existing wallets
      are mirrored to this new format.
 
-   - Wallet mirrors are exclusively watching only (they only contain public data). The new wallet code introduces the new
-     address types and signer code. It is used to bridge the wallet data from client to database and distinguish 
+   - Wallet mirrors are exclusively watching only (they only contain public data). The new wallet code interfaces with 
+     the new address types and signer code. It is used to bridge the wallet data from client to database and distinguish 
      between output scripts.
 
    - Single address use patterns are preserved. While any wallet can return any of the new output scripts, the new 
@@ -34,8 +34,8 @@ v0.96
       - Auto fee/byte.
 
       Auto fee/byte queries fee/byte from your local node over the RPC. It defaults to the default manual fee/byte on
-      failure. New setting UI has been introduced to change the defaults. New UI has been added to the Send dialog
-      to pick custom fee schedule per transaction.
+      failure. UI has been added to the Settings dialog to change the defaults. UI has been added to the Send dialog
+      to select fee options on the fly.
 
    - Added optional auto adjust fee/byte feature. This feature ties back to the new coin selection logic. When using 
      fee/byte options, it attempts to increase your fee in order to lign up the precision of your change output with
@@ -52,11 +52,10 @@ v0.96
      When automated, the change output will attempt to match the output script type of the payement address. This
      feature improves privacy by unifying output script types, which obfuscates the change output. 
 
-     If the recipient address types do not match, the auto option will create a P2SH-P2PK change (as it uses compressed 
-     public keys, resulting in smaller transactions when redeeming the change). Keep in mind that all versions prior 
-     to 0.96 cannot redeem these type of P2SH outputs.
+     If the recipient address types do not match, auto change will create a P2SH-P2PK output (as it uses compressed 
+     public keys). Keep in mind that all versions prior to 0.96 cannot redeem these type of P2SH outputs.
 
-     If the transaction is SegWit and the change output is automated to P2SH, the output script type will be P2SH-P2WPKH.
+     If the transaction is SegWit and the change output is automated, the output script type will be P2SH-P2WPKH.
 
    - The coin selection code will attempt to consolidate unspent outputs in order to redeem more outputs than it creates. 
      This behavior only takes place if there are available outputs sharing the same address as the already selected ones. 
@@ -68,18 +67,33 @@ v0.96
      In such case, the change value will be added to the transaction fee instead. This will increase tx priority and 
      improve privacy (as there will be no change output).
 
-   - Reworked the coin control dialog. It now distinguishes between address types and has place holders for RBF and CPFP. 
-     These features will be introduced in a later release.
+   - Reworked the coin control dialog. It now distinguishes between address types. It also allows the selection of CPFP 
+     outputs when applicable.
+
+   - Added RBF support. You can create RBF transactions from the Send dialogue. Checking the RBF box will set all input
+     sequences to (UINT32_MAX - 2).
+
+   - Modified zero confirmation coloring in legders. Own RBFs are displayed in a teal line. Incoming RBFs are red, child
+     ZC (a zero confirmation transaction spending at least one zero confirmation output) are displayed as orange.
+
+   - Your own RBFs have an extra right click menu option, to bump the fee. This will spawn the send dialogue with
+     prefilled fields.
+
+   - A coin control like RBF dialog has been added. It can be accessed from the send dialogue, under the Coin Control
+     button. It allows you to pick any eligible RBF output to double spend. RBF coin control and regular coin control
+     are mutually exclusive. The UX is still experimental, and subject to improvements/redesign.
 
    - Added the option to force the full redemption of coin control selection. Previously, the coin selection code would 
-     pick outputs from within a custom coin control set. This option instructs the code to use the set as is.
+     pick outputs from within a custom coin control set. This option instructs the code to use the set as is, regardless
+     of total spent amount.
 
-   - Added a Tx preview button to the send dialog, to review tx before pressing "Send".
+   - Added a Tx preview button to the send dialog, to review transactions before clicking "Send".
 
    - Reworked address ledger in wallet properties dialog. Now distinguishes between address categories (Used, Change and 
      Unused) and address types (P2PKH, P2SH-P2PK, P2SH-P2WPKH)
 
-   - The SegWit address type (P2SH-P2WPKH) can only be used if your local node references a chain that has activated SegWit.
+   - The SegWit address type (P2SH-P2WPKH) can only be used if your local node operates on a chain that has activated SegWit.
+     SegWit is disabled on the Bitcoin mainnet through the use of a hardcoded flag.
 
    - Moved node RPC socketing to ArmoryDB. ArmoryDB now waits on node initiliazation and synchronization processes if it can 
      establish a RPC connection.
@@ -89,6 +103,11 @@ v0.96
    - Fixed wallet group selector in online lobby
    - Fixed lockbox spending
    - Will now properly display updated comments in global ledger
+   - Fixed wallet restore features
+   - Fixed P2P socketing with refactor Bitcoin Core networking layer (0.14+)
+   - Fixed clear mempool feature
+   - The bottom right block count indicator in the client now reports node connectivity properly, with tray notifications and
+     color coding
 
 v0.95.1
 
