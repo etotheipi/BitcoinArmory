@@ -83,6 +83,14 @@ v0.96
      button. It allows you to pick any eligible RBF output to double spend. RBF coin control and regular coin control
      are mutually exclusive. The UX is still experimental, and subject to improvements/redesign.
 
+   - Transactions are now time locked to the current top block. This means miners cannot mine this transaction in a 
+     block with a lower height than specified in the nLockTime field. This limits selfish mining attack scenarios, and
+     is in line with Bitcoin Core's own wallet practices. 
+
+     Due to a mismanagement of the nLockTime field in previous versions, older signers cannot sign transactions 
+     with a nLockTime other than 0. This means that when signing for a legacy P2PKH output with an a pre 0.96 signer, 
+     the transaction will default back to a 0 nLockTime.
+
    - Added the option to force the full redemption of coin control selection. Previously, the coin selection code would 
      pick outputs from within a custom coin control set. This option instructs the code to use the set as is, regardless
      of total spent amount.
@@ -98,6 +106,8 @@ v0.96
    - Moved node RPC socketing to ArmoryDB. ArmoryDB now waits on node initiliazation and synchronization processes if it can 
      establish a RPC connection.
 
+   - Migrated build system from raw Makefiles to autotools. This will eventually lead to deterministic builds through Gitian.
+
 == Fixed ==
    - Fixed transaction count display in wallet properties dialog
    - Fixed wallet group selector in online lobby
@@ -108,6 +118,7 @@ v0.96
    - Fixed clear mempool feature
    - The bottom right block count indicator in the client now reports node connectivity properly, with tray notifications and
      color coding
+   - Fixed interfacing between DB running on a Linux server and clients running on Windows.
 
 v0.95.1
 
