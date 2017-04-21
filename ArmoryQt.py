@@ -5900,7 +5900,7 @@ def checkForAlreadyOpen():
 
    urilink = ""
    if CLI_ARGS:
-      urilink = CLI_ARGS[0]
+      urilink = str(CLI_ARGS[0])
    
    if prc_mutex.test(urilink) == True:
       LOGERROR('Socket already in use.  Sent CLI args to existing proc.')      
