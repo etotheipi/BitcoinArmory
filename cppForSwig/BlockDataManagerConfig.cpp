@@ -627,7 +627,12 @@ vector<BinaryData> ConfigFile::fleshOutArgs(
    for (auto& keyval : cfile.keyvalMap_)
    {
       //skip if argv already has this key
-      auto keyiter = keyValMap.find(keyval.first);
+      stringstream argss;
+      if (keyval.first.compare(0, 2, "--") != 0)
+         argss << "--";
+      argss << keyval.first;
+
+      auto keyiter = keyValMap.find(argss.str());
       if (keyiter != keyValMap.end())
          continue;
 
