@@ -111,6 +111,7 @@ struct BlockDataManagerConfig
       const vector<string>&, char delim);
    static pair<string, string> getKeyValFromLine(const string&, char delim);
    static string stripQuotes(const string& input);
+   static vector<string> keyValToArgv(const map<string, string>&);
 };
 
 ////
@@ -193,6 +194,9 @@ struct ConfigFile
    map<string, string> keyvalMap_;
 
    ConfigFile(const string& path);
+
+   static vector<BinaryData> fleshOutArgs(
+      const string& path, const vector<BinaryData>& argv);
 };
 
 ////////////////////////////////////////////////////////////////////////////////

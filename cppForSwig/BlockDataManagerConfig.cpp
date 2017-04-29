@@ -548,6 +548,28 @@ pair<string, string> BlockDataManagerConfig::getKeyValFromLine(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+vector<string> BlockDataManagerConfig::keyValToArgv(
+   const map<string, string>& keyValMap)
+{
+   vector<string> argv;
+
+   for (auto& keyval : keyValMap)
+   {
+      stringstream ss;
+      if (keyval.first.compare(0, 2, "--") != 0)
+         ss << "--";
+      ss << keyval.first;
+
+      if (keyval.second.size() != 0)
+         ss << "=" << keyval.second;
+
+      argv.push_back(ss.str());
+   }
+
+   return argv;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 //
 // ConfigFile
 //
@@ -563,6 +585,72 @@ ConfigFile::ConfigFile(const string& path)
          keyval.first, BlockDataManagerConfig::stripQuotes(keyval.second)));
    }
 }
+
+////////////////////////////////////////////////////////////////////////////////
+vector<BinaryData> ConfigFile::fleshOutArgs(
+   const string& path, const vector<BinaryData>& argv)
+{
+   //sanity check
+   if (path.size() == 0)
+      throw runtime_error("invalid config file path");
+
+   //remove first arg
+   auto binaryPath = argv.front();
+   vector<string> arg_minus_1;
+
+   auto argvIter = argv.begin() + 1;
+   while (argvIter != argv.end())
+   {
+      string argStr((*argvIter).getCharPtr(), (*argvIter).getSize());
+      arg_minus_1.push_back(move(argStr));
+      ++argvIter;
+   }
+
+   //break down string vector
+   auto&& keyValMap = BlockDataManagerConfig::getKeyValsFromLines(arg_minus_1, '=');
+
+   //complete config file path
+   string configFile_path = BlockDataManagerConfig::defaultDataDir_;
+   auto datadir_iter = keyValMap.find("--datadir");
+   if (datadir_iter != keyValMap.end() && datadir_iter->second.size() > 0)
+      configFile_path = datadir_iter->second;
+
+   BlockDataManagerConfig::appendPath(configFile_path, path);
+   BlockDataManagerConfig::expandPath(configFile_path);
+
+   //process config file
+   ConfigFile cfile(configFile_path);
+   if (cfile.keyvalMap_.size() == 0)
+      return argv;
+
+   //merge with argv
+   for (auto& keyval : cfile.keyvalMap_)
+   {
+      //skip if argv already has this key
+      auto keyiter = keyValMap.find(keyval.first);
+      if (keyiter != keyValMap.end())
+         continue;
+
+      keyValMap.insert(keyval);
+   }
+
+   //convert back to string list format
+   auto&& newArgs = BlockDataManagerConfig::keyValToArgv(keyValMap);
+
+   //prepend the binary path and return
+   vector<BinaryData> fleshedOutArgs;
+   fleshedOutArgs.push_back(binaryPath);
+   auto newArgsIter = newArgs.begin();
+   while (newArgsIter != newArgs.end())
+   {
+      BinaryData bdStr(*newArgsIter);
+      fleshedOutArgs.push_back(move(bdStr));
+      ++newArgsIter;
+   }
+
+   return fleshedOutArgs;
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 //

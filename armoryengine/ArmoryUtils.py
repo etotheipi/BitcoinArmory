@@ -46,7 +46,7 @@ import subprocess
 #from psutil import Popen
 import psutil
 
-from CppBlockUtils import KdfRomix, CryptoAES
+from CppBlockUtils import KdfRomix, CryptoAES, ConfigFile_fleshOutArgs
 from qrcodenative import QRCode, QRErrorCorrectLevel
 from twisted.internet.protocol import Protocol, ClientFactory
 
@@ -60,6 +60,10 @@ try:
    from ArmoryBuild import BTCARMORY_BUILD
 except:
    BTCARMORY_BUILD = None
+   
+#pass sys.argv to the cpp config file parser, get the fleshed out verison 
+#in return
+sys.argv = ConfigFile_fleshOutArgs("armoryqt.conf", sys.argv)
 
 DEFAULT = 'DEFAULT'
 LEVELDB_BLKDATA = 'leveldb_blkdata'
