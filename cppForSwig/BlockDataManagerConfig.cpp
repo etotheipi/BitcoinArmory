@@ -581,6 +581,13 @@ ConfigFile::ConfigFile(const string& path)
    for (auto& line : lines)
    {
       auto&& keyval = BlockDataManagerConfig::getKeyValFromLine(line, '=');
+
+      if (keyval.first.size() == 0)
+         continue;
+
+      if (keyval.first.compare(0, 1, "#") == 0)
+         continue;
+
       keyvalMap_.insert(make_pair(
          keyval.first, BlockDataManagerConfig::stripQuotes(keyval.second)));
    }
