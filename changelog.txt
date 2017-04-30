@@ -108,6 +108,10 @@ v0.96
 
    - Migrated build system from raw Makefiles to autotools. This will eventually lead to deterministic builds through Gitian.
 
+   - Added config files for ArmoryQt (armoryqt.conf) and ArmoryDB (armorydb.conf). The config files can take any valid command
+     line arguments for their respective binaries (one arg per line). Config file arguments do not override command line 
+     arguments
+
 == Fixed ==
    - Fixed transaction count display in wallet properties dialog
    - Fixed wallet group selector in online lobby
