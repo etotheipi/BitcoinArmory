@@ -2098,7 +2098,6 @@ void ZeroConfContainer::broadcastZC(const BinaryData& rawzc,
 ///////////////////////////////////////////////////////////////////////////////
 void ZeroConfContainer::shutdown()
 {
-   zcEnabled_.store(false, memory_order_relaxed);
    newZcStack_.completed();
 
    //shutdow invtx processing threads by pushing inventries of 
@@ -2111,6 +2110,7 @@ void ZeroConfContainer::shutdown()
       vecIE.push_back(terminateEntry);
 
    processInvTxVec(vecIE, false);
+   zcEnabled_.store(false, memory_order_relaxed);
 
    while (parserThreads_.count() > 0)
    {
