@@ -1,10 +1,10 @@
 #! /usr/bin/python
 # -*- coding: UTF-8 -*-
-################################################################################
-#                                                                              #
-# Copyright (C) 2011-2015, Armory Technologies, Inc.                           #
-# Distributed under the GNU Affero General Public License (AGPL v3)            #
-# See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
+##############################################################################
+#                                                                            #
+# Copyright (C) 2011-2015, Armory Technologies, Inc.                         #
+# Distributed under the GNU Affero General Public License (AGPL v3)          #
+# See LICENSE or http://www.gnu.org/licenses/agpl.html                       #
 #                                                                            #
 # Copyright (C) 2016-17, goatpig                                             #
 #  Distributed under the MIT license                                         #
@@ -36,8 +36,6 @@ import glob
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 import psutil
-from twisted.internet.defer import Deferred
-from twisted.internet.protocol import Protocol, ClientFactory
 
 import CppBlockUtils as Cpp
 from armorycolors import Colors, htmlColor, QAPP
@@ -46,8 +44,7 @@ from armoryengine.Block import PyBlock
 from armoryengine.Decorators import RemoveRepeatingExtensions
 from armoryengine.PyBtcWalletRecovery import WalletConsistencyCheck
 
-import qt4reactor
-qt4reactor.install()
+from ui.QtExecuteSignal import QtExecuteSignal
 
 # Setup translations
 translator = QTranslator(QAPP)
@@ -95,8 +92,6 @@ if OS_MACOSX:
 # - Mentions that this must be called before the app (QAPP) is created.
    QApplication.setDesktopSettingsAware(False)
 
-# PyQt4 Imports
-# All the twisted/networking functionality
 if OS_WINDOWS:
    from _winreg import *
 
@@ -197,7 +192,6 @@ class ArmoryMainWindow(QMainWindow):
       self.maxPriorityID = None
       self.satoshiVersions = ['','']  # [curr, avail]
       self.armoryVersions = [getVersionString(BTCARMORY_VERSION), '']
-      self.NetworkingFactory = None
       self.tempModulesDirName = None
       self.internetStatus = None
 
@@ -214,12 +208,21 @@ class ArmoryMainWindow(QMainWindow):
       self.connect(self, SIGNAL('execTrigger'), self.execTrigger)
       self.connect(self, SIGNAL('checkForNegImports'), self.checkForNegImports)
 
-      #generic signal to run pass any method as the arg
-      self.connect(self, SIGNAL('method_signal') , self.method_signal)
+      '''
+      With Qt, all GUI operations need to happen in the main thread. If 
+      the GUI operation is triggered from another thread, it needs to 
+      emit a Qt signal, so that Qt can schedule the operation in the main
+      thread. QtExecuteSignal is a utility class that handles the signaling
+      and delaying/threading of execution
+      '''
+      self.signalExecution = QtExecuteSignal(self)
 
       #push model BDM notify signal
-      self.connect(self, SIGNAL('cppNotify'), self.handleCppNotification)
-      TheBDM.registerCppNotification(self.cppNotifySignal)
+      def cppNotifySignal(action, arglist):
+         self.signalExecution.executeMethod(\
+            self.handleCppNotification, action, arglist)
+         
+      TheBDM.registerCppNotification(cppNotifySignal)
 
       # We want to determine whether the user just upgraded to a new version
       self.firstLoadNewVersion = False
@@ -694,16 +697,15 @@ class ArmoryMainWindow(QMainWindow):
 
       self.setDashboardDetails()
 
-      from twisted.internet import reactor
-      reactor.callLater(0.1,  self.execIntroDialog)
-      reactor.callLater(1, self.Heartbeat)
+      self.execIntroDialog()
+      #reactor.callLater(1, self.Heartbeat)
 
       if self.getSettingOrSetDefault('MinimizeOnOpen', False) and not CLI_ARGS:
          LOGINFO('MinimizeOnOpen is True')
-         reactor.callLater(0, self.minimizeArmory)
+         self.minimizeArmory()
 
       if CLI_ARGS:
-         reactor.callLater(1, self.uriLinkClicked, CLI_ARGS[0])
+         self.signalExecution.callLater(1, self.uriLinkClicked, CLI_ARGS[0])
 
       if OS_MACOSX:
          self.macNotifHdlr = ArmoryMac.MacNotificationHandler()
@@ -1770,8 +1772,7 @@ class ArmoryMainWindow(QMainWindow):
       settingSkipCheck = self.getSettingOrSetDefault('SkipOnlineCheck', False)
       useTor = self.getSettingOrSetDefault('UseTorSettings', False)
       # Check general internet connection
-      self.internetStatus = isInternetAvailable(forceOnline =
-             CLI_OPTIONS.forceOnline or settingSkipCheck or useTor)
+      self.internetStatus = INTERNET_STATUS.DidNotCheck
 
    ############################################################################
    def startArmoryDBIfNecessary(self):
@@ -1842,8 +1843,8 @@ class ArmoryMainWindow(QMainWindow):
 
    ############################################################################
    def notifyBitcoindIsReady(self):
-      self.emit(SIGNAL('method_signal'),
-                self.completeBlockchainProcessingInitialization)
+      self.signalExecution.executeMethod(\
+         self.completeBlockchainProcessingInitialization)
 
    ############################################################################
    def setSatoshiPaths(self):
@@ -1895,15 +1896,10 @@ class ArmoryMainWindow(QMainWindow):
          except Cpp.NoArmoryDBExcept:
             self.switchNetworkMode(NETWORKMODE.Offline)
 
-    #############################################################################
+   #############################################################################
    def switchNetworkMode(self, newMode):
       LOGINFO('Setting netmode: %s', newMode)
       self.netMode=newMode
-      if newMode in (NETWORKMODE.Offline, NETWORKMODE.Disconnected):
-         self.NetworkingFactory = FakeClientFactory()
-      elif newMode==NETWORKMODE.Full:
-         #self.NetworkingFactory = self.getSingletonConnectedNetworkingFactory()
-         self.NetworkingFactory = FakeClientFactory()
       return
 
    #############################################################################
@@ -5047,7 +5043,6 @@ class ArmoryMainWindow(QMainWindow):
       run every second, or whatever is specified in the nextBeatSec
       argument.
       """
-      from twisted.internet import reactor
 
       # Special heartbeat functions are for special windows that may need
       # to update every, say, every 0.1s
@@ -5410,9 +5405,8 @@ class ArmoryMainWindow(QMainWindow):
          # Don't want a strange error here interrupt shutdown
          LOGEXCEPT('Strange error during shutdown')
 
-      from twisted.internet import reactor
       LOGINFO('Attempting to close the main window!')
-      reactor.stop()
+      self.signalExecution.executeMethod(QAPP.quit)
 
    #############################################################################
    def execTrigger(self, toSpawn):
@@ -5624,10 +5618,6 @@ class ArmoryMainWindow(QMainWindow):
          self.dlgCptWlt.exec_()
 
    #############################################################################
-   def cppNotifySignal(self, action, arg):
-      self.emit(SIGNAL('cppNotify'), action, arg)
-
-   #############################################################################
    def loadNewPage(self):
       pageInt = int(self.PageLineEdit.text())
 
@@ -5657,10 +5647,6 @@ class ArmoryMainWindow(QMainWindow):
          # Code supporting Growl (OSX 10.7) is buggy, and no one seems to care.
          # Just jump straight to 10.8.
          self.macNotifHdlr.showNotification(dispTitle, dispText)
-
-   #############################################################################
-   def method_signal(self, method):
-      method()
 
    #############################################################################
    def bdv(self):
@@ -5930,14 +5916,5 @@ if 1:
    form.show()
 
    SPLASH.finish(form)
-
-   from twisted.internet import reactor
-   def endProgram():
-      if reactor.threadpool is not None:
-         reactor.threadpool.stop()
-      QAPP.quit()
-
-   reactor.addSystemEventTrigger('before', 'shutdown', endProgram)
    QAPP.setQuitOnLastWindowClosed(True)
-   reactor.runReturn()
    os._exit(QAPP.exec_())

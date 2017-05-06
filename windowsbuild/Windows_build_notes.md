@@ -15,10 +15,6 @@ To just build the _CppBlockUtils.pyd so you can run ArmoryQt.py, you can omit py
 
 [Python psutil - 2.1.3](https://pypi.python.org/pypi?:action=display&name=psutil#downloads)
 
-[Python Twisted 14.0.2](http://twistedmatrix.com/Releases/Twisted/14.0/Twisted-14.0.2.win-amd64-py2.7.msi)
-
-[Zope Interface 4.1.1](https://pypi.python.org/packages/2.7/z/zope.interface/zope.interface-4.1.1.win-amd64-py2.7.exe#md5=c3e22b49f84adaf169ec0d52eded4c8d)
-
 [Python-Qt4 4.11.2](http://sourceforge.net/projects/pyqt/files/PyQt4/PyQt-4.11.2/PyQt4-4.11.2-gpl-Py2.7-Qt4.8.6-x64.exe)
 
 [py2exe [Only Farhod's modified version supports Unicode]](http://sourceforge.net/projects/py2exe/files/py2exe/)

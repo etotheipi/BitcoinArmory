@@ -48,7 +48,6 @@ import psutil
 
 from CppBlockUtils import KdfRomix, CryptoAES, ConfigFile_fleshOutArgs
 from qrcodenative import QRCode, QRErrorCorrectLevel
-from twisted.internet.protocol import Protocol, ClientFactory
 
 try:
    if os.path.exists('update_version.py') and os.path.exists('.git'):
@@ -965,13 +964,11 @@ if CLI_OPTIONS.logDisable:
 
 
 
-def logexcept_override(type, value, tback):
-   import traceback
-   import logging
-   strList = traceback.format_exception(type,value,tback)
+def logexcept_override(_type, value, tback):
+   strList = traceback.format_exception(_type,value,tback)
    logging.error(''.join([s for s in strList]))
    # then call the default handler
-   sys.__excepthook__(type, value, tback)
+   sys.__excepthook__(_type, value, tback)
 
 sys.excepthook = logexcept_override
 
@@ -3759,34 +3756,3 @@ def touchFile(fname):
       os.fsync(f.fileno())
       f.close()
 
-############################################
-class ArmoryInstanceListener(Protocol):
-   def connectionMade(self):
-      LOGINFO('Another Armory instance just tried to open.')
-      self.factory.func_conn_made()
-
-   def dataReceived(self, data):
-      LOGINFO('Received data from alternate Armory instance')
-      self.factory.func_recv_data(data)
-      self.transport.loseConnection()
-
-############################################
-class ArmoryListenerFactory(ClientFactory):
-   protocol = ArmoryInstanceListener
-   def __init__(self, fn_conn_made, fn_recv_data):
-      self.func_conn_made = fn_conn_made
-      self.func_recv_data = fn_recv_data
-
-# Check general internet connection
-# Do not Check when ForceOnline is true
-def isInternetAvailable(forceOnline = False):
-   internetStatus = INTERNET_STATUS.DidNotCheck
-   return internetStatus
-
-
-# Returns true if Online Mode is possible
-def onlineModeIsPossible(btcdir=BTC_HOME_DIR):
-   return isInternetAvailable(forceOnline=CLI_OPTIONS.forceOnline) != \
-                INTERNET_STATUS.Unavailable and \
-      (CLI_OPTIONS.offline or satoshiIsAvailable()) and \
-      os.path.exists(os.path.join(btcdir, 'blocks'))

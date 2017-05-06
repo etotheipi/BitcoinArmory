@@ -1140,7 +1140,6 @@ class DlgLockboxManager(ArmoryDialog):
          clipb = QApplication.clipboard()
          clipb.clear()
          clipb.setText(scrAddr_to_addrStr(lbox.p2shScrAddr))
-         from twisted.internet import reactor
          reactor.callLater(1, lambda: self.btnCopyClip.setText('Copy Address'))
 
       def funcReqPayment():  

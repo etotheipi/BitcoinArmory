@@ -1311,8 +1311,7 @@ class DlgWalletDetails(ArmoryDialog):
       chkDNAA = not self.main.getWltSetting(wlt.uniqueIDB58, 'DNAA_RemindBackup')
       chkDont = not self.main.getSettingOrSetDefault('DNAA_AllBackupWarn', False)
       if chkLoad and chkType and chkDNAA and chkDont:
-         from twisted.internet import reactor
-         reactor.callLater(1, remindBackup)
+         self.callLater(1, remindBackup)
          lbtnBackups.setText(self.tr('<font color="%1"><b>Backup This Wallet</b></font>').arg(htmlColor('TextWarn')))
 
    #############################################################################
@@ -2196,9 +2195,6 @@ class DlgKeypoolSettings(ArmoryDialog):
          self.addressesWereGenerated = True
          self.main.forceNeedRescan = False
 
-      # We use callLater so that we can let the screen redraw with "Calculating..."
-      #from twisted.internet import reactor
-      #reactor.callLater(0.1, doit)
       doit()
 
 
@@ -6565,12 +6561,7 @@ class DlgPrintBackup(ArmoryDialog):
       def scrollTop():
          vbar = self.view.verticalScrollBar()
          vbar.setValue(vbar.minimum())
-      from twisted.internet import reactor
-      reactor.callLater(0.01, scrollTop)
-
-      # if len(self.bin
-         # reactor.callLater(0.5, warnImportedKeys)
-
+      self.callLater(0.01, scrollTop)
 
    def redrawBackup(self):
       cmbPage = 1
@@ -7286,8 +7277,7 @@ class DlgExecLongProcess(ArmoryDialog):
          self.func()
          self.accept()
 
-      from twisted.internet import reactor
-      reactor.callLater(0.1, execAndClose)
+      self.callLater(0.1, execAndClose)
       QDialog.exec_(self)
 
 
@@ -9551,8 +9541,7 @@ class DlgRequestPayment(ArmoryDialog):
       self.setLayout(dlgLayout)
       self.setWindowTitle(self.tr('Create Payment Request Link'))
 
-      from twisted.internet import reactor
-      reactor.callLater(1, self.periodicUpdate)
+      self.callLater(1, self.periodicUpdate)
 
       hexgeom = str(self.main.settings.get('PayReqestGeometry'))
       if len(hexgeom) > 0:
@@ -9694,9 +9683,8 @@ class DlgRequestPayment(ArmoryDialog):
 
    def periodicUpdate(self, nsec=1):
       if not self.closed:
-         from twisted.internet import reactor
          self.updateQRCode()
-         reactor.callLater(nsec, self.periodicUpdate)
+         self.callLater(nsec, self.periodicUpdate)
 
    def updateQRCode(self, e=None):
       if not self.prevURI == self.rawURI:
@@ -10162,8 +10150,7 @@ class DlgExpWOWltData(ArmoryDialog):
       # TODO:  Dear god this is terrible, but for my life I cannot figure
       #        out how to move the vbar, because you can't do it until
       #        the dialog is drawn which doesn't happen til after __init__.
-      from twisted.internet import reactor
-      reactor.callLater(0.05, self.resizeEvent)
+      self.callLater(0.05, self.resizeEvent)
 
       self.setWindowTitle(titleStr)
 
@@ -10264,8 +10251,7 @@ class DlgWODataPrintBackup(ArmoryDialog):
       def scrollTop():
          vbar = self.view.verticalScrollBar()
          vbar.setValue(vbar.minimum())
-      from twisted.internet import reactor
-      reactor.callLater(0.01, scrollTop)
+      self.callLater(0.01, scrollTop)
 
 
    # Class called to redraw the print "canvas" when the data changes.
