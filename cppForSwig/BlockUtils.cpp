@@ -1202,9 +1202,8 @@ shared_future<bool> BlockDataManager::registerAddressBatch(
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager::enableZeroConf(bool clearMempool)
 {
-   SCOPED_TIMER("enableZeroConf");
-   LOGINFO << "Enabling zero-conf tracking ";
-   zcEnabled_ = true;
+   if (zeroConfCont_ == nullptr)
+      throw runtime_error("null zc object");
 
    auto zcFilter = [this](void)->shared_ptr<set<ScrAddrFilter::AddrSyncState>>
    { 
@@ -1215,10 +1214,19 @@ void BlockDataManager::enableZeroConf(bool clearMempool)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+bool BlockDataManager::isZcEnabled(void) const
+{
+   if (zeroConfCont_ == nullptr)
+      return false;
+
+   return zeroConfCont_->isEnabled();
+}
+
+////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager::disableZeroConf(void)
 {
-   SCOPED_TIMER("disableZeroConf");
-   zcEnabled_ = false;
+   if (zeroConfCont_ == nullptr)
+      return;
 
    zeroConfCont_->shutdown();
 }

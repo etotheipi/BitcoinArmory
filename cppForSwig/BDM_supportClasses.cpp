@@ -1838,6 +1838,8 @@ void ZeroConfContainer::init(
    function<shared_ptr<set<ScrAddrFilter::AddrSyncState>>(void)> getAddrFilter,
    bool clearMempool)
 {
+   LOGINFO << "Enabling zero-conf tracking";
+
    getMainAddressSet_ = getAddrFilter;
    loadZeroConfMempool(clearMempool);
 
@@ -1859,11 +1861,16 @@ void ZeroConfContainer::init(
    {
       parserThreads_.push_back(thread(txthread));
    }
+
+   zcEnabled_.store(true, memory_order_relaxed);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 void ZeroConfContainer::processInvTxVec(vector<InvEntry> invVec, bool extend)
 {
+   if (!isEnabled())
+      return;
+
    for (unsigned i = 0; i < invVec.size(); i++)
    {
       auto& entry = invVec[i];
@@ -2091,6 +2098,7 @@ void ZeroConfContainer::broadcastZC(const BinaryData& rawzc,
 ///////////////////////////////////////////////////////////////////////////////
 void ZeroConfContainer::shutdown()
 {
+   zcEnabled_.store(false, memory_order_relaxed);
    newZcStack_.completed();
 
    //shutdow invtx processing threads by pushing inventries of 

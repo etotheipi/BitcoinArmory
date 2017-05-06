@@ -433,6 +433,7 @@ private:
    mutex parserMutex_;
 
    Stack<thread> parserThreads_;
+   atomic<bool> zcEnabled_;
 
 private:
    BulkFilterData ZCisMineBulkFilter(const Tx & tx,
@@ -458,6 +459,8 @@ public:
       topId_(0), db_(db), 
       networkNode_(node)
    {
+      zcEnabled_.store(false, memory_order_relaxed);
+
       //register ZC callback
       auto processInvTx = [this](vector<InvEntry> entryVec)->void
       {
@@ -502,6 +505,8 @@ public:
 
    void broadcastZC(const BinaryData& rawzc, 
       const string& bdvId, uint32_t timeout_sec = 5);
+
+   bool isEnabled(void) const { return zcEnabled_.load(memory_order_relaxed); }
 };
 
 //////

@@ -116,8 +116,6 @@ private:
 
    class BDM_ScrAddrFilter;
    shared_ptr<BDM_ScrAddrFilter>    scrAddrData_;
-   bool     zcEnabled_;
-
    shared_ptr<Blockchain> blockchain_ = nullptr;
 
    BDM_state BDMstate_ = BDM_offline;
@@ -209,7 +207,7 @@ public:
 
    void enableZeroConf(bool cleanMempool = false);
    void disableZeroConf(void);
-   bool isZcEnabled() const { return zcEnabled_; }
+   bool isZcEnabled(void) const;
    shared_ptr<ZeroConfContainer> zeroConfCont(void) const
    {
       return zeroConfCont_;
