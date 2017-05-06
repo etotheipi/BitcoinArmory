@@ -1781,6 +1781,12 @@ class ArmoryMainWindow(QMainWindow):
          return False
       try:
          if TheBDM.bdv().hasRemoteDB() == False:
+            #delete cookie file if there is one
+            cookiePath = os.path.join(ARMORY_HOME_DIR, ".cookie_") 
+            try:
+               os.remove(cookiePath)
+            except:
+               pass
    
             if ARMORYDB_DEFAULT_PORT != ARMORYDB_PORT:
                return False
@@ -1792,15 +1798,15 @@ class ArmoryMainWindow(QMainWindow):
             #a local db process which is missing. Let's spawn it.
             self.setSatoshiPaths()
             TheSDM.spawnDB(ARMORY_HOME_DIR, TheBDM.armoryDBDir)
-            #TheBDM.setSpawnId(spawnId)
+   
+            #wait for cookie file creation
+            while not os.path.exists(cookiePath):
+               time.sleep(0.1)
    
             #test if db has started
             if TheBDM.bdv().hasRemoteDB() == False:
-               #wait 1 second
-               time.sleep(1)
-               if TheBDM.bdv().hasRemoteDB == False:
-                  LOGERROR("Failed to spawn ArmoryDB")
-                  return False
+               LOGERROR("Failed to spawn ArmoryDB")
+               return False
          else:
             LOGWARN("DB is already running")
    

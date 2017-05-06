@@ -100,6 +100,7 @@ struct BlockDataManagerConfig
 
    void processArgs(const map<string, string>&, bool);
    void parseArgs(int argc, char* argv[]);
+   void createCookie(void) const;
    void printHelp(void);
    static string portToString(unsigned);
 

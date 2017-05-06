@@ -32,16 +32,26 @@ int main(int argc, char* argv[])
    
    if (!bdmConfig.checkChain_)
    {
+      //start listening
       server.checkSocket();
       server.init();
    }
 
+   //start db init
    bdmThread.start(bdmConfig.initMode_);
+
+   //create cookie file if applicable
+   bdmConfig.createCookie();
    
    if (!bdmConfig.checkChain_)
+   {
+      //process incoming connections
       server.enterLoop();
+   }
    else
+   {
       bdmThread.join();
+   }
 
    //stop all threads and clean up
    server.shutdown();

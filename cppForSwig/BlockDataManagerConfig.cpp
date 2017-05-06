@@ -330,15 +330,6 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
       testPath(dbDir_, 6);
 
       testPath(blkFileLocation_, 2);
-
-      //cookie file
-      if (!useCookie_)
-         return;
-
-      auto cookiePath = dataDir_;
-      appendPath(cookiePath, ".cookie_");
-      fstream fs(cookiePath, ios_base::out | ios_base::trunc);
-      fs << cookie_;
    }
    catch (...)
    {
@@ -567,6 +558,19 @@ vector<string> BlockDataManagerConfig::keyValToArgv(
    }
 
    return argv;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataManagerConfig::createCookie() const
+{
+   //cookie file
+   if (!useCookie_)
+      return;
+
+   auto cookiePath = dataDir_;
+   appendPath(cookiePath, ".cookie_");
+   fstream fs(cookiePath, ios_base::out | ios_base::trunc);
+   fs << cookie_;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
