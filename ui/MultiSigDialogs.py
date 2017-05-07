@@ -1757,7 +1757,8 @@ class DlgLockboxManager(ArmoryDialog):
       prefillMap = {'lockbox': lbID, 
                     'message': self.tr('Funding %1-of-%2').arg(lb.M, lb.N) }
       
-      DlgSendBitcoins(None, self, self.main, prefillMap).exec_()
+      DlgSendBitcoins(None, self, self.main, \
+         wltIDList=prefillMap, spendFromLockboxID=lbID).exec_()
       self.updateButtonDisable()
 
    #############################################################################
