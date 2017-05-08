@@ -174,6 +174,7 @@ class ArmoryMainWindow(QMainWindow):
       self.broadcasting = {}
       
       self.nodeStatus = None
+      self.numHeartBeat = 0
 
       # Error and exit on both regtest and testnet
       if USE_TESTNET and USE_REGTEST:
@@ -3675,24 +3676,6 @@ class ArmoryMainWindow(QMainWindow):
    def setupDashboard(self):
       LOGDEBUG('setupDashboard')
       self.lblBusy = QLabel('')
-      if OS_WINDOWS:
-         # Unfortunately, QMovie objects don't work in Windows with py2exe
-         # had to create my own little "Busy" icon and hook it up to the
-         # heartbeat
-         self.lblBusy.setPixmap(QPixmap(':/loadicon_0.png'))
-         self.numHeartBeat = 0
-         def loadBarUpdate():
-            if self.lblBusy.isVisible():
-               self.numHeartBeat += 1
-               self.lblBusy.setPixmap(QPixmap(':/loadicon_%d.png' % \
-                                                (self.numHeartBeat%6)))
-         self.extraHeartbeatAlways.append(loadBarUpdate) # TODO - Remove this. Put the method in the handle CPP Notification event handler
-      else:
-         self.qmov = QMovie(':/busy.gif')
-         self.lblBusy.setMovie( self.qmov )
-         self.qmov.start()
-
-
       self.btnModeSwitch = QPushButton('')
       self.connect(self.btnModeSwitch, SIGNAL('clicked()'), \
                                        self.executeModeSwitch)
@@ -4672,6 +4655,11 @@ class ArmoryMainWindow(QMainWindow):
       # to the top. Not setting the value seems to fix it. DR - 2014/02/12
       if not OS_MACOSX:
          vbar.setValue(vbar.minimum())
+
+      if self.lblBusy.isVisible():
+         self.numHeartBeat += 1
+         self.lblBusy.setPixmap(QPixmap(':/loadicon_%d.png' % \
+                                             (self.numHeartBeat%6)))
 
    #############################################################################
    def createToolTipWidget(self, tiptext, iconSz=2):
