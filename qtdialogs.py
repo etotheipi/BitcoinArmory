@@ -5993,8 +5993,15 @@ class DlgDisplayTxIn(ArmoryDialog):
          for op in opStrings:
             dispLines.append('      %s' % op)
 
-
-      edtBrowse.setHtml(('<br>'.join(dispLines)).replace(' ', '&nbsp;'))
+      u_string = u""
+      for dline in dispLines:
+         if isinstance(dline, QString):
+            line_to_str = unicode(dline.toUtf8())
+         else:
+            line_to_str = unicode(dline)
+         u_string = u_string + u"<br>" + line_to_str.replace(u' ', u'&nbsp;')
+         
+      edtBrowse.setHtml(u_string)
       btnDone = QPushButton(self.tr("Ok"))
       self.connect(btnDone, SIGNAL('clicked()'), self.accept)
 
