@@ -88,6 +88,12 @@ AC_SUBST([CLANG])
 AM_CONDITIONAL([CRYPTOPP_HAVE_CLANG], [test x$CLANG = xyes])
 AM_CONDITIONAL([CRYPTOPP_HAVE_GCC], [test $CXX == g++])
 
+if test $CXX == g++; then
+AM_CONDITIONAL([GAS210_OR_LATER], [test $(as -v 2>&1 | egrep -c "GNU assembler version (2\.[1-9][0-9]|[3-9])")])
+AM_CONDITIONAL([GAS217_OR_LATER], [test $(as -v 2>&1 | egrep -c "GNU assembler version (2\.1[7-9]|2\.[2-9]|[3-9])")])
+AM_CONDITIONAL([GAS219_OR_LATER], [test $(as -v 2>&1 | egrep -c "GNU assembler version (2\.19|2\.[2-9]|[3-9])")])
+fi
+
 AM_CONDITIONAL([UNAME_LINUX], [test $(uname) == Linux])
 
 AM_CONDITIONAL([BUILD_DARWIN], [test x$BUILD_OS = xdarwin])
