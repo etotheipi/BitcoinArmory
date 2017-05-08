@@ -2044,7 +2044,7 @@ def showRecvCoinsWarningIfNecessary(wlt, parent, main):
    dnaaPropName = 'Wallet_%s_%s' % (wlt.uniqueIDB58, 'DNAA_RecvOther')
    dnaaThisWallet = main.getSettingOrSetDefault(dnaaPropName, False)
    if notMyWallet and not dnaaThisWallet:
-      result = MsgBoxWithDNAA(parent, main, parent.Warning, parent.tr('This is not your wallet!'), parent.tr(
+      result = MsgBoxWithDNAA(parent, main, MSGBOX.Warning, parent.tr('This is not your wallet!'), parent.tr(
             'You are getting an address for a wallet that '
             'does not appear to belong to you.  Any money sent to this '
             'address will not appear in your total balance, and cannot '
@@ -2058,7 +2058,7 @@ def showRecvCoinsWarningIfNecessary(wlt, parent, main):
       return result[0]
 
    if offlineWallet and not dnaaThisWallet:
-      result = MsgBoxWithDNAA(parent, main, parent.Warning, parent.tr('This is not your wallet!'), parent.tr(
+      result = MsgBoxWithDNAA(parent, main, MSGBOX.Warning, parent.tr('This is not your wallet!'), parent.tr(
             'You are getting an address for a wallet that '
             'you have specified belongs to you, but you cannot actually '
             'spend the funds from this computer.  This is usually the case when '
@@ -6061,8 +6061,15 @@ class DlgDisplayTxOut(ArmoryDialog):
       for op in opStrings:
          dispLines.append('      %s' % op)
 
-
-      edtBrowse.setHtml(('<br>'.join(dispLines)).replace(' ', '&nbsp;'))
+      u_string = u""
+      for dline in dispLines:
+         if isinstance(dline, QString):
+            line_to_str = unicode(dline.toUtf8())
+         else:
+            line_to_str = unicode(dline)
+         u_string = u_string + u"<br>" + line_to_str.replace(u' ', u'&nbsp;')
+         
+      edtBrowse.setHtml(u_string)
       btnDone = QPushButton(self.tr("Ok"))
       self.connect(btnDone, SIGNAL('clicked()'), self.accept)
 
