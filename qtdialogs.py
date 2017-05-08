@@ -1567,7 +1567,7 @@ class DlgWalletDetails(ArmoryDialog):
 
       self.accept()
       DlgSendBitcoins(self.wlt, self, self.main, onlyOfflineWallets=False).exec_()
-      self.wltAddrModel.reset()
+      self.wltAddrTreeModel.reset()
 
 
 
