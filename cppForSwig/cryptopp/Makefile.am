@@ -20,22 +20,16 @@ else
 if ! GAS217_OR_LATER
 AM_CXXFLAGS += -DCRYPTOPP_DISABLE_SSSE3
 else
-if ! GAS219_OR_LATER 
-AM_CXXFLAGS += -DCRYPTOPP_DISABLE_AESNI
-else
 AM_CXXFLAGS += -march=native -mtune=generic $(X86_FEATURE_CFLAGS)
 
 if HAVE_AES
-AM_CXXFLAGS += -maes
-else
-AM_CXXFLAGS += -DCRYPTOPP_DISABLE_AESNI
+AM_CXXFLAGS += -maes -DCRYPTOPP_ENABLE_AESNI
 endif
 
 if HAVE_PCLMUL
 AM_CXXFLAGS += -mpclmul
 endif
 
-endif
 endif
 endif
 
