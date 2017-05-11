@@ -1614,7 +1614,7 @@ class ArmoryMainWindow(QMainWindow):
       if wlt.watchingOnly and copyType.lower() != 'pkcc':
          fn = 'armory_%s_%s_WatchOnly.wallet' % (wlt.uniqueIDB58, suffix)
       savePath = unicode(self.getFileSave(defaultFilename=fn,
-                ffilter=[self.tr('Root Pubkey Text Files (*.rootpubkey)')]))
+                ffilter=['Root Pubkey Text Files (*.rootpubkey)']))
       if not len(savePath)>0:
          return False
 

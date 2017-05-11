@@ -590,7 +590,7 @@ class CardDeckFrame(ArmoryFrame):
       button.setDisabled(True)
       bits = int(math.log(
          math.factorial(52) / math.factorial(52-self.cardCount),2))
-      self.currentNum.setText(self.tr("Entropy: %1 bits") % bits)
+      self.currentNum.setText(self.tr("Entropy: %1 bits").arg(bits))
 
    def getEntropy(self):
       cards = filter(lambda x: x != '', str(self.currentDeck.text()).split(' '))
