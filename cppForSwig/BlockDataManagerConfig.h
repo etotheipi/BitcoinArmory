@@ -59,6 +59,8 @@ struct BlockDataManagerConfig
    string fcgiPort_;
    string rpcPort_;
 
+   bool customFcgiPort_ = false;
+
 
    unsigned ramUsage_ = 4;
    unsigned threadCount_ = thread::hardware_concurrency();
@@ -113,6 +115,11 @@ struct BlockDataManagerConfig
    static pair<string, string> getKeyValFromLine(const string&, char delim);
    static string stripQuotes(const string& input);
    static vector<string> keyValToArgv(const map<string, string>&);
+   
+   static bool testConnection(const string& ip, const string& port);
+   static string hasLocalDB(const string& datadir, const string& port);
+   static string getPortFromCookie(const string& datadir);
+   static string getCookie(const string& datadir);
 };
 
 ////

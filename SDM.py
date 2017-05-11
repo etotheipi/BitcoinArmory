@@ -364,10 +364,9 @@ class SatoshiDaemonManager(object):
          pargs.append('--regtest');
 
       blocksdir = os.path.join(self.satoshiHome, 'blocks')
-      if not os.path.exists(blocksdir):
-         raise self.BadPath, "Invalid blockdata path"
-
-      pargs.append('--satoshi-datadir="' + blocksdir + '"')
+      if os.path.exists(blocksdir):
+         pargs.append('--satoshi-datadir="' + blocksdir + '"')
+         
       pargs.append('--datadir="' + dataDir + '"')
       pargs.append('--dbdir="' + dbDir + '"')
 

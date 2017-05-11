@@ -144,6 +144,7 @@ class BlockDataManager(object):
 
       #register callbacks
       self.armoryDBDir = ""
+      self.bdv_ = None
 
       # Flags
       self.aboutToRescan = False
@@ -169,23 +170,23 @@ class BlockDataManager(object):
       self.progressNumeric=0
             
       self.remoteDB = False
-      self.instantiateBDV()
-      
+      if ARMORYDB_IP != ARMORYDB_DEFAULT_IP:
+         self.remoteDB = True
+               
       self.exception = ""
-      
       self.cookie = None
    
    #############################################################################  
-   def instantiateBDV(self):
+   def instantiateBDV(self, port):
       if self.bdmState == BDM_OFFLINE:
          return
       
       socketType = Cpp.SocketFcgi
-      if ARMORYDB_IP != ARMORYDB_DEFAULT_IP or ARMORYDB_PORT != ARMORYDB_DEFAULT_PORT:
+      if self.remoteDB:
          socketType = Cpp.SocketHttp 
-         self.remoteDB = True
 
-      self.bdv_ = Cpp.BlockDataViewer_getNewBDV(ARMORYDB_IP, ARMORYDB_PORT, socketType)   
+      self.bdv_ = Cpp.BlockDataViewer_getNewBDV(\
+                     ARMORYDB_IP, port, socketType)   
 
    #############################################################################
    def registerBDV(self):   
@@ -324,11 +325,7 @@ class BlockDataManager(object):
    #############################################################################
    def getCookie(self):
       if self.cookie == None:
-         
-         #get cookie from file
-         cookiePath = os.path.join(self.datadir, ".cookie_")
-         cookieFile = open(cookiePath, "r")
-         self.cookie = cookieFile.read()
+         self.cookie = Cpp.BlockDataManagerConfig_getCookie(str(self.datadir))
       return self.cookie
 
    #############################################################################

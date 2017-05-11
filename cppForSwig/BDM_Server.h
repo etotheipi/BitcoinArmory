@@ -245,6 +245,7 @@ public:
       clients_(bdmT, getShutdownCallback()),
       ip_("127.0.0.1"), port_(port)
    {
+      LOGINFO << "Listening on port " << port;
       liveThreads_.store(0, memory_order_relaxed);
    }
 

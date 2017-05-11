@@ -13,6 +13,12 @@ int main(int argc, char* argv[])
 {
    ScrAddrFilter::init();
 
+#ifdef _WIN32
+   WSADATA wsaData;
+   WORD wVersion = MAKEWORD(2, 0);
+   WSAStartup(wVersion, &wsaData);
+#endif
+
    BlockDataManagerConfig bdmConfig;
    bdmConfig.parseArgs(argc, argv);
    

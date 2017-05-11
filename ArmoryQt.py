@@ -1745,7 +1745,6 @@ class ArmoryMainWindow(QMainWindow):
          self.uriLinkClicked(uriLink)
 
    #############################################################################
-
    def acquireProcessMutex(self):
       LOGINFO('acquiring process mutex...')
       
@@ -1769,10 +1768,6 @@ class ArmoryMainWindow(QMainWindow):
       else:
          LOGWARN('*** Listening port is disabled.  URI-handling will not work')
 
-
-      settingSkipCheck = self.getSettingOrSetDefault('SkipOnlineCheck', False)
-      useTor = self.getSettingOrSetDefault('UseTorSettings', False)
-      # Check general internet connection
       self.internetStatus = INTERNET_STATUS.DidNotCheck
 
    ############################################################################
@@ -1781,33 +1776,38 @@ class ArmoryMainWindow(QMainWindow):
          LOGWARN("Offline instance, not startig the DB")
          return False
       try:
-         if TheBDM.bdv().hasRemoteDB() == False:
-            #delete cookie file if there is one
+         if TheBDM.hasRemoteDB() == False:
+            #check there is no local db
+            localDBPort = Cpp.BlockDataManagerConfig_hasLocalDB(\
+               str(ARMORY_HOME_DIR), armoryengine.ArmoryUtils.ARMORYDB_PORT)
+            if len(localDBPort) > 0:
+               armoryengine.ArmoryUtils.ARMORYDB_PORT = localDBPort
+               return True
+            
+            #look for cookie file and delete it
             cookiePath = os.path.join(ARMORY_HOME_DIR, ".cookie_") 
-            try:
+            if os.path.exists(cookiePath):            
                os.remove(cookiePath)
-            except:
-               pass
-   
-            if ARMORYDB_DEFAULT_PORT != ARMORYDB_PORT:
-               return False
-   
-            if ARMORYDB_DEFAULT_IP != ARMORYDB_IP:
-               return False
-   
-            #If we got this far we are using default settings and expecting
-            #a local db process which is missing. Let's spawn it.
+
+            #If we got this far, we need to spawn a local db
             self.setSatoshiPaths()
-            TheSDM.spawnDB(ARMORY_HOME_DIR, TheBDM.armoryDBDir)
+            TheSDM.spawnDB(str(ARMORY_HOME_DIR), TheBDM.armoryDBDir)
    
             #wait for cookie file creation
             while not os.path.exists(cookiePath):
                time.sleep(0.1)
+               
+            #get port from cookie
+            armoryengine.ArmoryUtils.ARMORYDB_PORT = \
+               Cpp.BlockDataManagerConfig_getPortFromCookie(str(ARMORY_HOME_DIR))
    
             #test if db has started
-            if TheBDM.bdv().hasRemoteDB() == False:
+            if Cpp.BlockDataManagerConfig_testConnection(\
+               ARMORYDB_IP, armoryengine.ArmoryUtils.ARMORYDB_PORT) == False:
                LOGERROR("Failed to spawn ArmoryDB")
                return False
+            
+            LOGINFO("Connecting on port %s" % armoryengine.ArmoryUtils.ARMORYDB_PORT)
          else:
             LOGWARN("DB is already running")
    
@@ -1872,8 +1872,10 @@ class ArmoryMainWindow(QMainWindow):
          CLI_OPTIONS.satoshiHome==DEFAULT:
          # Setting override BTC_HOME_DIR only if it wasn't explicitly
          # set as the command line.
-         self.satoshiHomePath = self.settings.get('SatoshiDatadir')
-         LOGINFO('Setting satoshi datadir = %s' % self.satoshiHomePath)
+         manageSatoshi = self.settings.get('ManageSatoshi')
+         if manageSatoshi == True:
+            self.satoshiHomePath = self.settings.get('SatoshiDatadir')
+            LOGINFO('Setting satoshi datadir = %s' % self.satoshiHomePath)
 
       TheBDM.setSatoshiDir(self.satoshiHomePath)
       TheSDM.setSatoshiDir(self.satoshiHomePath)
@@ -5697,6 +5699,7 @@ class ArmoryMainWindow(QMainWindow):
       else:
          self.switchNetworkMode(NETWORKMODE.Full)
 
+      TheBDM.instantiateBDV(armoryengine.ArmoryUtils.ARMORYDB_PORT)
       self.setupBDV()
       self.setupLedgerViews()
 

@@ -12,6 +12,7 @@
 #include "DbHeader.h"
 #include "EncryptionUtils.h"
 #include "JSON_codec.h"
+#include "SocketObject.h"
 
 #ifndef _WIN32
 #include "sys/stat.h"
@@ -98,10 +99,12 @@ void BlockDataManagerConfig::selectNetwork(const string &netname)
       genesisTxHash_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
       magicBytes_ = READHEX(MAINNET_MAGIC_BYTES);
       btcPort_ = portToString(NODE_PORT_MAINNET);
-      fcgiPort_ = portToString(FCGI_PORT_MAINNET);
       rpcPort_ = portToString(RPC_PORT_MAINNET);
       pubkeyHashPrefix_ = SCRIPT_PREFIX_HASH160;
       scriptHashPrefix_ = SCRIPT_PREFIX_P2SH;
+      
+      if (!customFcgiPort_)
+         fcgiPort_ = portToString(FCGI_PORT_MAINNET);
    }
    else if (netname == "Test")
    {
@@ -109,12 +112,14 @@ void BlockDataManagerConfig::selectNetwork(const string &netname)
       genesisTxHash_ = READHEX(TESTNET_GENESIS_TX_HASH_HEX);
       magicBytes_ = READHEX(TESTNET_MAGIC_BYTES);
       btcPort_ = portToString(NODE_PORT_TESTNET);
-      fcgiPort_ = portToString(FCGI_PORT_TESTNET);
       rpcPort_ = portToString(RPC_PORT_TESTNET);
       pubkeyHashPrefix_ = SCRIPT_PREFIX_HASH160_TESTNET;
       scriptHashPrefix_ = SCRIPT_PREFIX_P2SH_TESTNET;
 
       testnet_ = true;
+      
+      if (!customFcgiPort_)
+         fcgiPort_ = portToString(FCGI_PORT_TESTNET);
    }
    else if (netname == "Regtest")
    {
@@ -122,12 +127,14 @@ void BlockDataManagerConfig::selectNetwork(const string &netname)
       genesisTxHash_ = READHEX(REGTEST_GENESIS_TX_HASH_HEX);
       magicBytes_ = READHEX(REGTEST_MAGIC_BYTES);
       btcPort_ = portToString(NODE_PORT_REGTEST);
-      fcgiPort_ = portToString(FCGI_PORT_REGTEST);
       rpcPort_ = portToString(RPC_PORT_TESTNET);
       pubkeyHashPrefix_ = SCRIPT_PREFIX_HASH160_TESTNET;
       scriptHashPrefix_ = SCRIPT_PREFIX_P2SH_TESTNET;
 
       regtest_ = true;
+      
+      if (!customFcgiPort_)
+         fcgiPort_ = portToString(FCGI_PORT_REGTEST);
    }
 }
 
@@ -330,6 +337,26 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
       testPath(dbDir_, 6);
 
       testPath(blkFileLocation_, 2);
+
+      //fcgi port
+      if (useCookie_ && !customFcgiPort_)
+      {
+         //no custom fcgi port was provided and the db was spawned with a 
+         //cookie file, fcgi port will be randomized
+         srand(time(0));
+         while (1)
+         {
+            auto port = rand() % 15000 + 49150;
+            stringstream portss;
+            portss << port;
+
+            if (!testConnection("127.0.0.1", portss.str()))
+            {
+               fcgiPort_ = portss.str();
+               break;
+            }
+         }
+      }
    }
    catch (...)
    {
@@ -341,14 +368,44 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
 void BlockDataManagerConfig::processArgs(const map<string, string>& args, 
    bool onlyDetectNetwork)
 {
-   //network type
-   auto iter = args.find("testnet");
+   //port
+   auto iter = args.find("fcgi-port");
    if (iter != args.end())
-      selectNetwork("Test");
+   {
+      fcgiPort_ = stripQuotes(iter->second);
+      int portInt = 0;
+      stringstream portSS(fcgiPort_);
+      portSS >> portInt;
 
-   iter = args.find("regtest");
+      if (portInt < 1 || portInt > 65535)
+      {
+         cout << "Invalid fcgi port, falling back to default" << endl;
+         fcgiPort_ = "";
+      }
+      else
+      {
+         customFcgiPort_ = true;
+      }
+   }
+
+   //network type
+   iter = args.find("testnet");
    if (iter != args.end())
-      selectNetwork("Regtest");
+   {
+      selectNetwork("Test");
+   }
+   else
+   {
+      iter = args.find("regtest");
+      if (iter != args.end())
+      {
+         selectNetwork("Regtest");
+      }
+      else
+      {
+         selectNetwork("Main");
+      }
+   }
 
    if (onlyDetectNetwork)
       return;
@@ -570,7 +627,64 @@ void BlockDataManagerConfig::createCookie() const
    auto cookiePath = dataDir_;
    appendPath(cookiePath, ".cookie_");
    fstream fs(cookiePath, ios_base::out | ios_base::trunc);
-   fs << cookie_;
+   fs << cookie_ << endl;
+   fs << fcgiPort_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool BlockDataManagerConfig::testConnection(
+   const string& ip, const string& port)
+{
+   BinarySocket testSock(ip, port);
+   return testSock.testConnection();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+string BlockDataManagerConfig::hasLocalDB(
+   const string& datadir, const string& port)
+{
+   //check db on provided port
+   if (testConnection("127.0.0.1", port))
+      return port;
+
+   //check db on default port
+   if (testConnection("127.0.0.1", portToString(FCGI_PORT_MAINNET)))
+      return portToString(FCGI_PORT_MAINNET);
+
+   //check for cookie file
+   auto&& cookie_port = getPortFromCookie(datadir);
+   if (cookie_port.size() == 0)
+      return string();
+
+   if (testConnection("127.0.0.1", cookie_port))
+      return cookie_port;
+
+   return string();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+string BlockDataManagerConfig::getPortFromCookie(const string& datadir)
+{
+   //check for cookie file
+   string cookie_path = datadir;
+   appendPath(cookie_path, ".cookie_");
+   auto&& lines = getLines(cookie_path);
+   if (lines.size() != 2)
+      return string();
+
+   return lines[1];
+}
+
+////////////////////////////////////////////////////////////////////////////////
+string BlockDataManagerConfig::getCookie(const string& datadir)
+{
+   string cookie_path = datadir;
+   appendPath(cookie_path, ".cookie_");
+   auto&& lines = getLines(cookie_path);
+   if (lines.size() != 2)
+      return string();
+
+   return lines[0];
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -666,7 +780,6 @@ vector<BinaryData> ConfigFile::fleshOutArgs(
 
    return fleshedOutArgs;
 }
-
 
 ////////////////////////////////////////////////////////////////////////////////
 //
