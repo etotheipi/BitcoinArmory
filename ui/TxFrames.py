@@ -1339,10 +1339,13 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.shuffleEntries = False
       
       #change
-      changeAddr = prefill['change']
-      self.chkDefaultChangeAddr.setChecked(True)
-      self.radioSpecify.setChecked(True)
-      self.edtChangeAddr.setText(changeAddr)
+      try:
+         changeAddr = prefill['change']
+         self.chkDefaultChangeAddr.setChecked(True)
+         self.radioSpecify.setChecked(True)
+         self.edtChangeAddr.setText(changeAddr)
+      except:
+         pass
       
       #fee
          

@@ -192,11 +192,11 @@ void TransactionBatch::unserialize_recipients(
       if (!ss.good())
       {
          string valStr_ss(move(valueStr));
-         ss.str(valStr_ss); 
+         stringstream ss2(valStr_ss); 
         
-         getline(ss, valueStr, ';');
+         getline(ss2, valueStr, ';');
 
-         if (!ss.good())
+         if (!ss2.good())
             throw TransactionBatchException(
                "Invalid entry termination", i);
       }
@@ -250,11 +250,11 @@ void TransactionBatch::unserialize_spenders(
       if (!ss.good())
       {
          string idstr_ss(move(idStr));
-         ss.str(idstr_ss);
+         stringstream ss2(idstr_ss);
 
-         getline(ss, idStr, ';');
+         getline(ss2, idStr, ';');
 
-         if (!ss.good())
+         if (!ss2.good())
             throw TransactionBatchException(
                "Invalid entry termination", i);
       }
@@ -343,7 +343,6 @@ void TransactionBatch::unserialize_fee(
    }
    else if (feeTypeStr == "fee_rate")
    {
-      float feeBTC;
       stringstream ssFeeRate(feeValStr);
       ssFeeRate >> fee_rate_;
    }
