@@ -899,7 +899,7 @@ if CLI_OPTIONS.logDisable:
    DEFAULT_FILE_LOGTHRESH     += 100
 
 
-DateFormat = '%Y-%m-%d %H:%M'
+DateFormat = '%Y-%m-%d %H:%M:%S'
 logging.getLogger('').setLevel(logging.DEBUG)
 fileFormatter  = logging.Formatter('%(asctime)s (%(levelname)s) -- %(message)s', \
                                      datefmt=DateFormat)

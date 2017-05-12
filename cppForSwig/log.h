@@ -91,7 +91,6 @@
 using namespace std;
 
 inline string NowTime();
-inline unsigned long long int NowTimeInt();
 
 typedef enum 
 {
@@ -154,7 +153,7 @@ public:
       fname_ = logfile;
       truncateFile(fname_, maxSz);
       fout_.open(OS_TranslatePath(fname_.c_str()), ios::app); 
-      fout_ << "\n\nLog file opened at " << NowTimeInt() << ": " << fname_.c_str() << endl;
+      fout_ << "\n\nLog file opened at " << NowTime() << ": " << fname_.c_str() << endl;
    }
 
    
@@ -342,7 +341,7 @@ public:
    { 
       LogStream & lg = Log::GetInstance().Get(logLevel_);
       lg << "-" << Log::ToString(logLevel_);
-      lg << "- " << NowTimeInt() << ": ";
+      lg << "- " << NowTime() << ": ";
       return lg;
    }
 
@@ -395,13 +394,6 @@ inline string NowTime()
     return result;
 }
 
-inline unsigned long long int NowTimeInt(void)
-{
-   time_t t;
-   time(&t);
-   return (unsigned long long int)t;
-}
-
 #else
 
 #include <sys/time.h>
@@ -418,13 +410,6 @@ inline string NowTime()
     char result[100] = {0};
     sprintf(result, "%s", buffer);
     return result;
-}
-
-inline unsigned long long int NowTimeInt(void)
-{
-   time_t t;
-   time(&t);
-   return (unsigned long long int)t;
 }
 
 #endif //WIN32
