@@ -26,6 +26,11 @@ AC_ARG_ENABLE([debug],
               [compile with debug symbols @<:@default=no@:>@]),
               [want_debug="$enableval"], [want_debug=no])
 
+#build gui arg
+AC_ARG_WITH([gui],
+              AC_HELP_STRING([--without-gui],
+              [do not build GUI @<:@default=no@:>@]),
+              [with_gui="$withval"], [with_gui=yes])
 
 
 if test "x$want_debug" = "xyes" -a $ac_cv_c_compiler_gnu != no; then
@@ -37,6 +42,8 @@ else
   CXXFLAGS="$CXXFLAGS -O2"
 fi
 
+AM_CONDITIONAL([HAVE_GUI], [test "x$with_gui" = "xyes"])
+   
 AC_PROG_CC
 AC_PROG_CXX
 AM_CONDITIONAL([HAVE_GCC], [test $CXX = g++])
@@ -52,6 +59,7 @@ m4_include([m4/ax_cxx_compile_stdcxx.m4])
 #check for c++11
 AX_CXX_COMPILE_STDCXX([11], [noext], [mandatory], [nodefault])
 
+if test "x$with_gui" = "xyes"; then
 #check for  swig
 if test "x$cross_compiling" != "xyes"; then
 	AX_SWIG_PYTHON([no])
@@ -68,6 +76,7 @@ AC_MSG_RESULT([AX_SWIG_PYTHON_CPPFLAGS: $AX_SWIG_PYTHON_CPPFLAGS])
 AC_CHECK_PROG([HAVE_PYRCC4], [pyrcc4], [yes], [no])
 AS_IF([test $HAVE_PYRCC4 == yes], [],
 	[AC_MSG_ERROR([missing pyrcc4 in path, make sure pyqt4-dev-tools are installed])]) 
+fi
 
 AC_SUBST([CXX_STANDARD], $CXX_STANDARD)
 
@@ -104,9 +113,11 @@ case $host in
   *linux*)
     BUILD_OS=linux
 
-    # Check existence of Qt packages.
-    if ! pkg-config --exists 'QtCore >= 4.8 QtCore <= 5 QtGui >= 4.8 QtGui <= 5'; then
-    	AC_MSG_ERROR([missing QtCore library, make sure libqtcore4 and libqt4-dev are installed])
+    if test "x$with_gui" = "xyes"; then
+       # Check existence of Qt packages.
+       if ! pkg-config --exists 'QtCore >= 4.8 QtCore <= 5 QtGui >= 4.8 QtGui <= 5'; then
+       	   AC_MSG_ERROR([missing QtCore library, make sure libqtcore4 and libqt4-dev are installed])
+       fi
     fi
     ;;
 esac
@@ -161,3 +172,4 @@ echo "  LDFLAGS       = $LDFLAGS"
 echo "  LD            = $LD"
 echo "  with tests    = $want_tests"
 echo "  debug symbols = $want_debug"
+echo "  with GUI      = $with_gui"

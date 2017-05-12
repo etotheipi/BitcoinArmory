@@ -52,10 +52,10 @@ CPPBLOCKUTILS_SOURCE_FILES = UniversalTimer.cpp BinaryData.cpp \
         CoinSelection.cpp ReentrantLock.cpp JSON_codec.cpp \
 	TransactionBatch.cpp
 
-noinst_PROGRAMS = ArmoryDB
-lib_LTLIBRARIES = libCppBlockUtils.la
 
 #ArmoryDB
+noinst_PROGRAMS = ArmoryDB
+
 ArmoryDB_SOURCES = $(INCLUDE_FILES) \
 		   $(DB_SOURCE_FILES)
 
@@ -72,6 +72,9 @@ ArmoryDB_LDADD = -Llmdb -llmdb \
 ArmoryDB_LDFLAGS = -static $(LDFLAGS)
 
 #libCppBlockUtils
+if HAVE_GUI
+lib_LTLIBRARIES = libCppBlockUtils.la
+
 libCppBlockUtils_la_SOURCES = $(INCLUDE_FILES) \
 				$(CPPBLOCKUTILS_SOURCE_FILES) \
 				CppBlockUtils_wrap.cxx
@@ -101,3 +104,4 @@ clean-local:
 	rm -f CppBlockUtils.py
 	rm -f CppBlockUtils_wrap.cxx
 	rm -f CppBlockUtils_wrap.h
+endif
