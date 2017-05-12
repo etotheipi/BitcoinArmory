@@ -1,5 +1,5 @@
 AC_PREREQ(2.60)
-AC_INIT([BitcoinArmory], [0.95.99], [moothecowlord@gmail.com])
+AC_INIT([BitcoinArmory], [0.96.1], [moothecowlord@gmail.com])
 
 AM_INIT_AUTOMAKE([1.10 subdir-objects foreign -Wall -Werror])
 
@@ -14,11 +14,19 @@ AC_CANONICAL_HOST
 AS_IF([test "$CFLAGS" = "-g -O2"] ,[AC_SUBST(CFLAGS, [ ])])
 AS_IF([test "$CXXFLAGS" = "-g -O2"] ,[AC_SUBST(CXXFLAGS, [ ])])
 
-#debug flag
+#build tests arg
+AC_ARG_ENABLE([tests],
+	      AC_HELP_STRING([--enable-tests],
+	      [build with test suites @<:@default=no@:>@]),
+	      [want_tests="$enableval"], [want_tests=no])
+
+#build debug arg
 AC_ARG_ENABLE([debug],
               AC_HELP_STRING([--enable-debug],
               [compile with debug symbols @<:@default=no@:>@]),
               [want_debug="$enableval"], [want_debug=no])
+
+
 
 if test "x$want_debug" = "xyes" -a $ac_cv_c_compiler_gnu != no; then
   CFLAGS="$CFLAGS -O0 -g"
@@ -132,11 +140,14 @@ export LDFLAGS
 AM_CONDITIONAL([HAVE_CLANG], [test x$CLANG = xyes])
 AM_CONDITIONAL([BUILD_DARWIN], [test x$BUILD_OS = xdarwin])
 
-AC_CONFIG_HEADERS([config.h])
-AC_CONFIG_FILES(Makefile 
-		cppForSwig/Makefile 
-		cppForSwig/lmdb/Makefile
-		cppForSwig/gtest/Makefile)
+AC_CONFIG_FILES(Makefile
+		cppForSwig/Makefile
+		cppForSwig/lmdb/Makefile)
+
+AM_CONDITIONAL([BUILD_TESTS], [test "x$want_tests" = "xyes"])
+if test "x$want_tests" = "xyes"; then
+AC_CONFIG_FILES(cppForSwig/gtest/Makefile)
+fi
 
 AC_OUTPUT
 
@@ -148,3 +159,5 @@ echo "  CXX           = $CXX"
 echo "  CXXFLAGS      = $CXXFLAGS"
 echo "  LDFLAGS       = $LDFLAGS"
 echo "  LD            = $LD"
+echo "  with tests    = $want_tests"
+echo "  debug symbols = $want_debug"
