@@ -576,7 +576,7 @@ class ArmoryMainWindow(QMainWindow):
 
       def openBlindBroad():
          if not TheSDM.satoshiIsAvailable():
-            QMessageBox.warning(self, tr("Not Online"), self.tr(
+            QMessageBox.warning(self, self.tr("Not Online"), self.tr(
                'Bitcoin Core is not available, so Armory will not be able '
                'to broadcast any transactions for you.'), QMessageBox.Ok)
             return
@@ -4958,7 +4958,7 @@ class ArmoryMainWindow(QMainWindow):
 
          else:
             QMessageBox.critical(self, self.tr('BlockDataManager Warning'), \
-                              tr(args[0]), \
+                              args[0], \
                               QMessageBox.Ok)
          #this is a critical error reporting channel, should kill the app right
          #after
