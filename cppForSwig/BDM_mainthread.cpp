@@ -216,6 +216,7 @@ try
 
    auto updateChainLambda = [bdm, this]()->bool
    {
+      this_thread::sleep_for(chrono::seconds(5));
       auto reorgState = bdm->readBlkFileUpdate();
       if (reorgState.hasNewTop)
       {

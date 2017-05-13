@@ -59,7 +59,7 @@ public:
       if (lock.try_lock())
       {
          ++count_;
-         if (count_ >= 2)
+         if (count_ >= 5)
             return false;
       }
 

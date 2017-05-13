@@ -1040,7 +1040,7 @@ void Clients::maintenanceThread(void) const
       try
       {
          notifPtr = move(bdmT_->bdm()->notificationStack_.pop_front(
-            chrono::seconds(120)));
+            chrono::seconds(60)));
          if (notifPtr == nullptr)
             continue;
          timedout = false;
@@ -1731,6 +1731,8 @@ Arguments SocketCallback::respond(const string& command)
    }
    catch (StopBlockingLoop&)
    {
+      count_ = 5;
+
       //return terminate packet
       Callback::OrderStruct terminateOrder;
       BinaryDataObject bdo("terminate");
@@ -1770,6 +1772,8 @@ Arguments SocketCallback::respond(const string& command)
 
          case OrderTerminate:
          {
+            count_ = 5;
+
             Arguments terminateArg;
             BinaryDataObject bdo("terminate");
             terminateArg.push_back(move(bdo));
