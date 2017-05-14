@@ -232,6 +232,12 @@ int WalletContainer::convertToImportIndex(int index)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+int WalletContainer::convertFromImportIndex(int index)
+{
+   return AssetWallet::convertFromImportIndex(index);
+}
+
+////////////////////////////////////////////////////////////////////////////////
 void WalletContainer::removeAddressBulk(const vector<BinaryData>& addrVec)
 {
    //delete from AssetWallet

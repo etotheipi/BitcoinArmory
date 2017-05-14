@@ -394,6 +394,7 @@ public:
 
    bool setImport(int importID, const SecureBinaryData& pubkey);
    int convertToImportIndex(int);
+   int convertFromImportIndex(int);
    void removeAddressBulk(const vector<BinaryData>&);
 };
 

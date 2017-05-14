@@ -907,6 +907,7 @@ public:
    //static
    static shared_ptr<AssetWallet> loadMainWalletFromFile(const string& path);
    static int convertToImportIndex(int importID);
+   static int convertFromImportIndex(int importID);
 };
 
 ////

@@ -3261,8 +3261,13 @@ class PyBtcWallet(object):
    
    ###############################################################################
    def getAddrByIndex(self, index):
-      addr160 = self.chainIndexMap[index]
-      return self.addrMap[addr160]
+      if index > -2:
+         addr160 = self.chainIndexMap[index]
+         return self.addrMap[addr160]
+      else:
+         importIndex = self.cppWallet.convertFromImportIndex(index)
+         addr160 = self.linearAddr160List[importIndex]
+         return self.addrMap[addr160]
    
    ###############################################################################
    def getImportCppAddrList(self):
