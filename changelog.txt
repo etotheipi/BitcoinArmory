@@ -1,4 +1,29 @@
-v0.96
+v0.96.1
+
+== Added ==
+   - Split unit tests building from default autotools setup. To build tests, use:
+      ./configure --enable-tests.
+   - You can now disable GUI in the autotools build system. Use: 
+      ./configure --without-gui
+   - When spawned with a cookie file, the DB now randomizes its listen port to (49150 + [0-15000]) and reports it in the cookie file.
+   - Added --fcgi-port command line argument to the DB.
+
+== Fixed ==
+   - ZC parsing will no long occur while the BDM is initializing
+   - Wait on cookie file creation before connection to auto managed DB
+   - Fixed registration/callback premature garbage collection
+   - Translation patch issues
+   - Fixed "Fund from wallet" lockbox GUI
+   - Fixed TxIn/Out pretty printing
+   - Tied init phase spinning icon rotation to progress notifications. The icon will not spin when no progress data is received, correctly 
+     indicating the DB is hanging.   
+   - Fixed cryptopp build against older CPUs (no AES or PCLMUL archs)
+   - Fixed RBF bumping with no change
+
+== Removed ==
+   - Python-twisted dependency. This should remove the underlying openSSL dependency as well.
+
+v0.96, released April 30th 2017
 
 == Added ==
    - 2 new script types have been introduced on top of legacy P2PKH:
@@ -124,7 +149,7 @@ v0.96
      color coding
    - Fixed interfacing between DB running on a Linux server and clients running on Windows.
 
-v0.95.1
+v0.95.1, released November 2nd 2016
 
 == Added ==
    - Pass client datadir to auto spawned DB
