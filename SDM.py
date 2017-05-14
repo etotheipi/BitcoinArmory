@@ -387,9 +387,9 @@ class SatoshiDaemonManager(object):
 
       kargs = {}
       if OS_WINDOWS:
-         #import win32process
+         import win32process
          kargs['shell'] = True
-         #kargs['creationflags'] = win32process.CREATE_NO_WINDOW
+         kargs['creationflags'] = win32process.CREATE_NO_WINDOW
 
       argStr = " ".join(astr for astr in pargs)
       LOGWARN('Spawning DB with command:' + argStr)
