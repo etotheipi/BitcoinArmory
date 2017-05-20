@@ -8329,34 +8329,6 @@ class DlgSettings(ArmoryDialog):
       frmMgmt.setLayout(layoutMgmt)
 
       self.clickChkManage()
-      # bitcoind-management settings
-      ##########################################################################
-
-      # We check for internet connection on each startup.
-      self.chkSkipOnlineCheck = QCheckBox(self.tr(
-         'Skip online check on startup (assume internet is available, do '
-         'not check)'))
-      skipOnlineChk = self.main.getSettingOrSetDefault('SkipOnlineCheck', False)
-      self.chkSkipOnlineCheck.setChecked(skipOnlineChk)
-
-      ##########################################################################
-      #  Privacy Settings
-      # privacyStats = self.main.getSettingOrSetDefault('SkipStatsReport', False)
-      privacyTor   = self.main.getSettingOrSetDefault('UseTorSettings', False)
-      lblPrivacyTitle = QRichLabel(self.tr("<b>Privacy Settings</b>"))
-      lblPrivTorDescr = QRichLabel(self.tr(
-         'If you are going to use Armory and Bitcoin Core with a proxy (such '
-         'as Tor), you should disable all Armory communications that might operate '
-         'outside the proxy.'))
-
-      self.chkPrivacyTor = QCheckBox(self.tr('Enable settings for proxies/Tor'))
-
-      # self.connect(self.chkPrivacyTor, SIGNAL('toggled(bool)'))
-      #             self.chkPrivacyStats.setDisabled)
-
-      #self.chkPrivacyStats.setChecked(privacyStats)
-      self.chkPrivacyTor.setChecked(privacyTor)
-      #  Privacy Settings
       ##########################################################################
 
 
@@ -8381,27 +8353,6 @@ class DlgSettings(ArmoryDialog):
             'links, but this does not work on all operating systems.'), QMessageBox.Ok)
 
       self.connect(btnDefaultURI, SIGNAL(CLICKED), clickRegURI)
-
-      txFee = self.main.getSettingOrSetDefault('Default_Fee', MIN_TX_FEE)
-      lblDefaultFee = QRichLabel(self.tr(
-         '<b>Default fee to include with transactions:</b><br>'))
-      lblDefaultDescr = QRichLabel(self.tr(
-         'Fees go to users that contribute computing power to keep the '
-         'Bitcoin network secure.  It also increases the priority of your '
-         'transactions so they confirm faster (%1 BTC is standard).').arg(coin2strNZS(MIN_TX_FEE)))
-
-      ttipDefaultFee = self.main.createToolTipWidget(self.tr(
-         'NOTE: Some transactions will require a certain fee '
-         'regardless of your settings -- in such cases '
-         'you will be prompted to include the correct '
-         'value or cancel the transaction'))
-
-      self.edtDefaultFee = QLineEdit()
-      self.edtDefaultFee.setText(coin2str(txFee, maxZeros=1).strip())
-      lblDefaultFee.setMinimumWidth(400)
-
-      self.connect(self.edtDefaultFee, SIGNAL('returnPressed()'), self.accept)
-
 
       ###############################################################
       # Minimize on Close
@@ -8560,19 +8511,6 @@ class DlgSettings(ArmoryDialog):
 
       i += 1
       frmLayout.addWidget(frmMgmt, i, 0, 1, 3)
-      i += 1
-      frmLayout.addWidget(self.chkSkipOnlineCheck, i, 0, 1, 3)
-
-      i += 1
-      frmLayout.addWidget(HLINE(), i, 0, 1, 3)
-
-      i += 1
-      frmLayout.addWidget(lblPrivacyTitle, i, 0, 1, 3)
-
-      i += 1
-      frmLayout.addWidget(lblPrivTorDescr, i, 0, 1, 3)
-      i += 1
-      frmLayout.addWidget(self.chkPrivacyTor, i, 0, 1, 3)
 
       i += 1
       frmLayout.addWidget(HLINE(), i, 0, 1, 3)
