@@ -27,15 +27,8 @@ pipVer        = '9.0.1'
 pipSubdir     = '11/b6/abcb525026a4be042b486df43905d6893fb04f05aac21c32c638e939e447'
 psutilVer     = '5.1.3'
 psutilSubdir  = '78/0a/aa90434c6337dd50d182a81fe4ae4822c953e166a163d1bf5f06abb1ac0b'
-zopeVer       = '4.3.3'
-zopeSubdir    = '44/af/cea1e18bc0d3be0e0824762d3236f0e61088eeed75287e7b854d65ec9916'
-pyasn1Ver     = '0.2.2'
-pyasn1Subdir  = '57/f7/c18a86169bb9995a69195177b23e736776b347fd92592da0c3cac9f1a724'
-siVer         = '16.0.0'
-siSubdir      = 'f3/2a/7c04e7ab74f9f2be026745a9ffa81fd9d56139fa6f5f4b4c8a8c07b2bfba'
 incVer        = '16.10.1'
 incSubdir     = 'da/b0/32233c9e84b0d44b39015fba8fec03e88053723c1b455925081dc6ccd9e7'
-twistedVer    = '16.6.0'
 libpngVer     = '1.6.28'
 qtVer         = '4.8.7'  # NB: ArmoryMac.pro must also be kept up to date!!!
                          # Possibly "sipFlags" below too.
@@ -145,12 +138,7 @@ def main():
       install_qt()
       compile_sip()
       compile_pyqt()
-      compile_zope()
-      compile_incremental()
-      compile_twisted()
       compile_psutil()
-      compile_pyasn1()
-      compile_service_identity()
       make_resources()
 
    compile_armory()
@@ -359,30 +347,10 @@ distfiles.append( [ "psutil", \
                     "https://pypi.python.org/packages/%s/psutil-%s.tar.gz" % (psutilSubdir, psutilVer), \
                     "6c48c1ac06fb4d2796dc0157a95d85689466a60f" ] )
 
-distfiles.append( [ 'Twisted', \
-                    "Twisted-%s.tar.bz2" % twistedVer, \
-                    "https://files.pythonhosted.org/packages/source/T/Twisted/Twisted-%s.tar.bz2" % twistedVer, \
-                    "57ea06c54e59c314f904870946c4a3586d7b86ea" ] )
-
 distfiles.append( [ 'libpng', \
                     "libpng-%s.tar.xz" % libpngVer, \
                     "https://sourceforge.net/projects/libpng/files/libpng16/%s/libpng-%s.tar.xz" % (libpngVer, libpngVer), \
                     "ff4dceadb15e2c929ad26283118d56f66f4a6cff" ] )
-
-distfiles.append( [ 'service_identity', \
-                    "service_identity-%s.tar.gz" % siVer, \
-                    "https://pypi.python.org/packages/%s/service_identity-%s.tar.gz" % (siSubdir, siVer), \
-                    "42617f5abbd917c663aea58c4628b82e80d245ce" ] )
-
-distfiles.append( [ 'pyasn1', \
-                    "pyasn1-%s.tar.gz" % pyasn1Ver, \
-                    "https://pypi.python.org/packages/%s/pyasn1-%s.tar.gz" % (pyasn1Subdir, pyasn1Ver), \
-                    "ada7ee490ffcc06c6247b28c2b4d12411ebdfdfd" ] )
-
-distfiles.append( [ 'incremental', \
-                    "incremental-%s.tar.gz" % incVer, \
-                    "https://pypi.python.org/packages/%s/incremental-%s.tar.gz" % (incSubdir, incVer), \
-                    "7ec58968fd367d20856488a8991f3a586c7a8695" ] )
 
 # When we upgrade to Qt5....
 #distfiles.append( [ "Qt", \
@@ -399,11 +367,6 @@ distfiles.append( [ "sip", \
                     "sip-%s.tar.gz" % sipVer, \
                     "https://sourceforge.net/projects/pyqt/files/sip/sip-%s/sip-%s.tar.gz" % (sipVer, sipVer), \
                     'ac654bacb07dac8e86c138a9f30bf6a04e26845b' ] )
-
-distfiles.append( [ "zope", \
-                    "zope.interface-%s.tar.gz" % zopeVer, \
-                    "https://pypi.python.org/packages/%s/zope.interface-%s.tar.gz" % (zopeSubdir, zopeVer), \
-                    '66bd8e4af0f16468914fefc90ba9cca23e66cd9d' ] )
 
 # When we upgrade to Qt5....
 #distfiles.append( [ "pyqt", \
@@ -623,28 +586,6 @@ def compile_pyqt():
    os.environ['PATH'] = '%s:%s' % (pyrccPath, os.environ['PATH'])
 
 ########################################################
-def compile_twisted():
-   logprint('Installing python-twisted')
-
-   if glob.glob(PYSITEPKGS + '/Twisted*'):
-      logprint('Twisted already installed')
-   else:
-      command = "python -s setup.py --no-user-cfg install --force --verbose"
-      twpath = unpack(tarfilesToDL['Twisted'])
-      execAndWait(command, cwd=twpath)
-
-########################################################
-def compile_zope():
-   logprint('Installing python-zope')
-
-   if glob.glob(PYSITEPKGS + '/zope*'):
-      logprint('zope already installed')
-   else:
-      command = "python -s setup.py --no-user-cfg install --force --verbose"
-      twpath = unpack(tarfilesToDL['zope'])
-      execAndWait(command, cwd=twpath)
-
-########################################################
 def compile_psutil():
    logprint('Installing psutil')
 
@@ -654,39 +595,6 @@ def compile_psutil():
       command = 'python -s setup.py --no-user-cfg install --force --verbose'
       psPath = unpack(tarfilesToDL['psutil'])
       execAndWait(command, cwd=psPath)
-
-########################################################
-def compile_service_identity():
-   logprint('Installing service_identity')
-
-   if glob.glob(PYSITEPKGS + '/service_identity*'):
-      logprint('service_identity already installed')
-   else:
-      command = 'python -s setup.py --no-user-cfg install --force --verbose'
-      siPath = unpack(tarfilesToDL['service_identity'])
-      execAndWait(command, cwd=siPath)
-
-########################################################
-def compile_pyasn1():
-   logprint('Installing pyasn1')
-
-   if glob.glob(PYSITEPKGS + '/pyasn1*'):
-      logprint('pyasn1 already installed')
-   else:
-      command = 'python -s setup.py --no-user-cfg install --force --verbose'
-      pyasn1Path = unpack(tarfilesToDL['pyasn1'])
-      execAndWait(command, cwd=pyasn1Path)
-
-########################################################
-def compile_incremental():
-   logprint('Installing incremental')
-
-   if glob.glob(PYSITEPKGS + '/incremental*'):
-      logprint('incremental already installed')
-   else:
-      command = 'python -s setup.py --no-user-cfg install --force --verbose'
-      incrementalPath = unpack(tarfilesToDL['incremental'])
-      execAndWait(command, cwd=incrementalPath)
 
 ########################################################
 def compile_armory():
