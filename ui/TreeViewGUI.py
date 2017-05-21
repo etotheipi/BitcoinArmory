@@ -11,7 +11,8 @@ from PyQt4.QtGui import *
 
 from CppBlockUtils import AddressType_P2SH_P2PK, \
    AddressType_P2SH_P2WPKH, AddressType_P2PKH
-from armoryengine.ArmoryUtils import coin2str, hash160_to_addrStr
+from armoryengine.ArmoryUtils import coin2str, hash160_to_addrStr,\
+   addrStr_to_hash160
 from armoryengine.BDM import TheBDM
 from armoryengine.Transaction import PyTx, getFeeForTx
 
@@ -82,6 +83,8 @@ class CoinControlUtxoItem():
       self.state = Qt.Checked
       if utxo.isChecked() == False:
          self.state = Qt.Unchecked
+         
+      self.comment = self.parent.getCommentFromWallet(self.utxo.getTxHash())
       
    def rowCount(self):
       return 0
@@ -96,7 +99,7 @@ class CoinControlUtxoItem():
       return self.utxo.getValue()
 
    def getComment(self):
-      return ""
+      return self.comment
    
    def checked(self):
       return self.state
@@ -104,8 +107,10 @@ class CoinControlUtxoItem():
    def setCheckState(self, val):
       self.checkDown(val)
       
-      if self.parent is not None:
+      try:
          self.parent.checkUp()
+      except:
+         pass
       
    def checkDown(self, val):
       self.state = val
@@ -238,14 +243,18 @@ class TreeNode(object):
       self.checkStatus = self.computeState()
       
       #checkUp on parent
-      if self.parent is not None:
+      try:
          self.parent.checkUp()
+      except:
+         pass
    
    def setCheckState(self, val):
       self.checkDown(val)
          
-      if self.parent is not None:
+      try:
          self.parent.checkUp()
+      except:
+         pass
          
    def computeState(self):
       if not self.hasEntries():
@@ -278,6 +287,8 @@ class CoinControlAddressItem(TreeNode):
       self.balance = 0
       for utxo in utxoList:
          self.balance += utxo.getValue()
+         
+      self.comment = self.parent.getCommentFromWallet(name)
       
    def rowCount(self):
       return len(self.utxoList);
@@ -296,13 +307,16 @@ class CoinControlAddressItem(TreeNode):
       return self.balance
    
    def getComment(self):
-      return ""
+      return self.comment
    
    def getCount(self):
       txout_count = len(self.utxoList)
       if txout_count == 1:
          return None
       return txout_count
+   
+   def getCommentFromWallet(self, val):
+      return self.parent.getCommentFromWallet(val)
          
          
 ################################################################################
@@ -380,6 +394,9 @@ class CoinControlTreeNode(TreeNode):
       
       self.populate()
       return len(self.entries)
+   
+   def getCommentFromWallet(self, val):
+      return self.parent.getCommentFromWallet(val)
 
 
 ################################################################################
@@ -625,10 +642,10 @@ class TreeStructure_CoinControl():
          addrDict[scrAddr].append(cpfp)           
                 
       #create root node
-      self.root = CoinControlTreeNode(None, "root", True, None)
+      self.root = CoinControlTreeNode(self, "root", True, None)
       
       def createUtxoNode(name):
-         nodeMain = CoinControlTreeNode(None, name, True, None)
+         nodeMain = CoinControlTreeNode(self, name, True, None)
          
          def ccFilterP2PKH():
             return self.treeData['UTXO']['p2pkh']
@@ -669,6 +686,14 @@ class TreeStructure_CoinControl():
       self.root.appendEntry(nodeCPFP)
       nodeCPFP.setCheckState(Qt.Unchecked)
       self.root.checkStatus = self.root.computeState()
+      
+   def getCommentFromWallet(self, val):
+      if len(val) != 32:
+         try:
+            prefix, val = addrStr_to_hash160(val)
+         except: 
+            pass
+      return self.wallet.getComment(val)
       
 ################################################################################
 class TreeStructure_RBF():
