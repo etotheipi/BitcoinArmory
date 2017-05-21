@@ -997,10 +997,7 @@ class WalletAddrDispModel(QAbstractTableModel):
          if col==COL.Address: 
             return QVariant( addrB58 )
          if col==COL.Comment: 
-            if addr160 in self.wlt.commentsMap:
-               return QVariant( self.wlt.commentsMap[addr160] )
-            else:
-               return QVariant('')
+            return QVariant(self.wlt.getComment(addr160[1:]))
          if col==COL.NumTx: 
             if not TheBDM.getState()==BDM_BLOCKCHAIN_READY:
                return QVariant('n/a')

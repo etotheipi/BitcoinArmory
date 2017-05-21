@@ -1225,7 +1225,7 @@ int AssetWallet::getAssetIndexForAddr(const BinaryData& scrAddr)
 
       auto iter6 = hashMaps_.hashNestedP2WSH_.find(scriptHash);
       if (iter6 != hashMaps_.hashNestedP2WSH_.end())
-         return iter3->second;
+         return iter6->second;
 
       return INT32_MAX;
    };
@@ -1250,11 +1250,7 @@ int AssetWallet::getAssetIndexForAddr(const BinaryData& scrAddr)
    }
 
    auto&& scriptHash = BtcUtils::base58toScriptAddr(scrAddr);
-   if (scriptHash.getSize() < 4)
-      throw WalletException("invalid scrAddr");
-
-   auto hashRef = scrAddr.getSliceRef(0, scriptHash.getSize() - 4);
-   return getIndexForAddr(hashRef);
+   return getIndexForAddr(scriptHash);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
