@@ -127,7 +127,12 @@ string HttpSocket::writeAndRead(const string& msg, SOCKET sockfd)
          sockfd = openSocket(false);
 
       if (sockfd == SOCK_MAX)
+      {
+         delete[] packet;
+         packet = nullptr;
+
          throw SocketError("failed to connect socket");
+      }
 
       packetPtr.clear();
 
@@ -208,6 +213,8 @@ string HttpSocket::writeAndRead(const string& msg, SOCKET sockfd)
 
    closeSocket(sockfd);
    auto&& retmsg = getBody(move(packetPtr.httpData));
+   if(packet != nullptr)
+      delete[] packet;
 
    return retmsg;
 }

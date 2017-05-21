@@ -545,6 +545,7 @@ void BlockDataManagerConfig::expandPath(string& path)
       throw runtime_error("failed to resolve home path");
 
    string userPath(wexp.we_wordv[0]);
+   wordfree(&wexp);
 #endif
 
    appendPath(userPath, path.substr(1));
