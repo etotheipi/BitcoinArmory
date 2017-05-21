@@ -20,7 +20,7 @@
 # macx-clang-libc++ option like Qt. (macx-g++ is all it can muster for now.)
 # NB: The "version" values must be updated alongside build-app.py!!!
 QTVER = 4.8.7
-SIPVER = 4.19
+SIPVER = 4.19.2
 PYVER = 2.7.13
 QT_UNPACK_BASE = ../workspace/unpackandbuild/qt-everywhere-opensource-src-$${QTVER}
 SIP_UNPACK_BASE = ../workspace/unpackandbuild/sip-$${SIPVER}

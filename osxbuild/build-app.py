@@ -21,18 +21,16 @@ from tempfile import mkstemp
 minOSXVer     = '10.7'
 pythonVer     = '2.7.13' # NB: ArmoryMac.pro must also be kept up to date!!!
 pyMajorVer    = '2.7'
-setToolVer    = '33.1.1' # 34.1.1 has a circular dependency w/ pyparsing. Downgrade.
-setToolSubdir = 'dc/8c/7c9869454bdc53e72fb87ace63eac39336879eef6f2bf96e946edbf03e90'
+setToolVer    = '35.0.2'
+setToolSubdir = '88/13/7d560b75334a8e4b4903f537b7e5a1ad9f1a2f1216e2587aaaf91b38c991'
 pipVer        = '9.0.1'
 pipSubdir     = '11/b6/abcb525026a4be042b486df43905d6893fb04f05aac21c32c638e939e447'
-psutilVer     = '5.1.3'
-psutilSubdir  = '78/0a/aa90434c6337dd50d182a81fe4ae4822c953e166a163d1bf5f06abb1ac0b'
-incVer        = '16.10.1'
-incSubdir     = 'da/b0/32233c9e84b0d44b39015fba8fec03e88053723c1b455925081dc6ccd9e7'
-libpngVer     = '1.6.28'
+psutilVer     = '5.2.2'
+psutilSubdir  = '57/93/47a2e3befaf194ccc3d05ffbcba2cdcdd22a231100ef7e4cf63f085c900b'
+libpngVer     = '1.6.29'
 qtVer         = '4.8.7'  # NB: ArmoryMac.pro must also be kept up to date!!!
                          # Possibly "sipFlags" below too.
-sipVer        = '4.19'   # NB: ArmoryMac.pro must also be kept up to date!!!
+sipVer        = '4.19.2' # NB: ArmoryMac.pro must also be kept up to date!!!
 pyQtVer       = '4.12'   # NB: When I'm upgraded, SIP usually has to be upgraded too.
 
 LOGFILE       = 'build-app.log.txt'
@@ -335,7 +333,7 @@ distfiles.append( [ 'Python', \
 distfiles.append( [ 'setuptools', \
                     "setuptools-%s.zip" % setToolVer, \
                     "https://pypi.python.org/packages/%s/setuptools-%s.zip" % (setToolSubdir, setToolVer), \
-                    "baaa2d1e4a76f968df14cb2defd9044244f25b3f" ] )
+                    "ee184d62ef18ee5cfdf911b74d8540a01066c26a" ] )
 
 distfiles.append( [ 'Pip', \
                     "pip-%s.tar.gz" % pipVer, \
@@ -350,7 +348,7 @@ distfiles.append( [ "psutil", \
 distfiles.append( [ 'libpng', \
                     "libpng-%s.tar.xz" % libpngVer, \
                     "https://sourceforge.net/projects/libpng/files/libpng16/%s/libpng-%s.tar.xz" % (libpngVer, libpngVer), \
-                    "ff4dceadb15e2c929ad26283118d56f66f4a6cff" ] )
+                    "7dbe6a5088b938545fc0857c507d4e0cf5d9023e" ] )
 
 # When we upgrade to Qt5....
 #distfiles.append( [ "Qt", \
@@ -366,7 +364,7 @@ distfiles.append( [ "Qt", \
 distfiles.append( [ "sip", \
                     "sip-%s.tar.gz" % sipVer, \
                     "https://sourceforge.net/projects/pyqt/files/sip/sip-%s/sip-%s.tar.gz" % (sipVer, sipVer), \
-                    'ac654bacb07dac8e86c138a9f30bf6a04e26845b' ] )
+                    '2ae8c5aceec870f7b775a77b6e6036e8dbbf052b' ] )
 
 # When we upgrade to Qt5....
 #distfiles.append( [ "pyqt", \
