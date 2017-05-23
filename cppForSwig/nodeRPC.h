@@ -51,6 +51,7 @@ public:
    bool updateChainStatus(void);
    const NodeChainState& getChainStatus(void) const;   
    void waitOnChainSync(function<void(void)>);
+   string broadcastTx(const BinaryData&) const;
 };
 
 #endif

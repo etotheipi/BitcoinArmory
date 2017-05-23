@@ -3110,6 +3110,9 @@ class ArmoryMainWindow(QMainWindow):
       except:
          return
       
+      if errorMsg.startswith("tx broadcast timed out"):
+         errorMsg = TheBDM.bdv().broadcastThroughRPC(pytx.serialize())
+
       LOGERROR('Transaction was not accepted by the Satoshi client')
       LOGERROR('Raw transaction:')
       LOGRAWDATA(pytx.serialize(), logging.ERROR)

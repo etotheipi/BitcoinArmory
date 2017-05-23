@@ -373,6 +373,7 @@ namespace SwigClient
          const vector<string>& wldIDs, const string& orderingStr);
 
       uint64_t getValueForTxOut(const BinaryData& txHash, unsigned inputId);
+      string broadcastThroughRPC(const BinaryData& rawTx);
    };
 
    ///////////////////////////////////////////////////////////////////////////////

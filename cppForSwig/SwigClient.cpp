@@ -410,6 +410,28 @@ uint64_t BlockDataViewer::getValueForTxOut(
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+string BlockDataViewer::broadcastThroughRPC(const BinaryData& rawTx)
+{
+   Command cmd;
+   cmd.method_ = "broadcastThroughRPC";
+   cmd.ids_.push_back(bdvID_);
+
+   BinaryDataObject bdo(rawTx);
+
+   cmd.args_.push_back(move(bdo));
+   cmd.serialize();
+
+   auto&& result = sock_->writeAndRead(cmd.command_);
+   Arguments args(result);
+
+   auto result_bdo = args.get<BinaryDataObject>();
+   auto& result_bd = result_bdo.get();
+   string result_str(result_bd.getCharPtr(), result_bd.getSize());
+
+   return result_str;
+}
+
+///////////////////////////////////////////////////////////////////////////////
 //
 // LedgerDelegate
 //

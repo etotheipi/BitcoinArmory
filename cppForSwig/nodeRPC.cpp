@@ -338,6 +338,43 @@ void NodeRPC::waitOnChainSync(function<void(void)> callbck)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+string NodeRPC::broadcastTx(const BinaryData& rawTx) const
+{
+   ReentrantLock lock(this);
+
+   JSON_object json_obj;
+   json_obj.add_pair("method", "sendrawtransaction");
+
+   auto json_array = make_shared<JSON_array>();
+   json_array->add_value(rawTx.toHexStr());
+
+   json_obj.add_pair("params", json_array);
+
+   auto&& response = socket_->writeAndRead(JSON_encode(json_obj));
+   auto&& response_obj = JSON_decode(response);
+
+   string return_str;
+   if (!response_obj.isResponseValid(json_obj.id_))
+   {
+      auto error_field = response_obj.getValForKey("error");
+      auto error_obj = dynamic_pointer_cast<JSON_object>(error_field);
+      if (error_obj == nullptr)
+         throw JSON_Exception("invalid response");
+
+      auto message_field = error_obj->getValForKey("message");
+      auto message_val = dynamic_pointer_cast<JSON_string>(message_field);
+
+      return_str = message_val->val_;
+   }
+   else
+   {
+      return_str = string("success");
+   }
+
+   return return_str;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 const NodeChainState& NodeRPC::getChainStatus(void) const
 {
    ReentrantLock lock(this);

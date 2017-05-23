@@ -816,6 +816,25 @@ void BDV_Server_Object::buildMethodMap()
    };
 
    methodMap_["getValueForTxOut"] = getValueForTxOut;
+
+   //broadcastThroughRPC
+   auto broadcastThroughRPC = [this]
+      (const vector<string>& ids, Arguments& args)->Arguments
+   {
+      auto&& rawTx = args.get<BinaryDataObject>();
+      auto& rawTxBd = rawTx.get();
+
+      auto&& response =
+         this->bdmPtr_->nodeRPC_->broadcastTx(rawTxBd);
+      BinaryData response_bdr(response);
+
+      Arguments retarg;
+      retarg.push_back(move(BinaryDataObject(move(response_bdr))));
+      return move(retarg);
+   };
+
+   methodMap_["broadcastThroughRPC"] = broadcastThroughRPC;
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////
