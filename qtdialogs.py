@@ -3025,7 +3025,7 @@ class DlgConfirmBulkImport(ArmoryDialog):
          walletDescr = self.tr('wallet, <b>%1</b> (%2)').arg(wltID, wlt.labelName)
       lblDescr = QRichLabel(self.tr(
          'You are about to import <b>%1</b> addresses into %2.<br><br> '
-         'The following is a list of addresses to be imported:').arg(len(addrList), walletDescr))
+         'The following is a list of addresses to be imported:').arg(len(addrList)).arg(walletDescr))
 
       fnt = GETFONT('Fixed', 10)
       w, h = tightSizeNChar(fnt, 100)
