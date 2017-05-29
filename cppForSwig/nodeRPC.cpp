@@ -346,7 +346,8 @@ string NodeRPC::broadcastTx(const BinaryData& rawTx) const
    json_obj.add_pair("method", "sendrawtransaction");
 
    auto json_array = make_shared<JSON_array>();
-   json_array->add_value(rawTx.toHexStr());
+   string rawTxHex = rawTx.toHexStr();
+   json_array->add_value(rawTxHex);
 
    json_obj.add_pair("params", json_array);
 
