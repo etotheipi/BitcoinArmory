@@ -216,7 +216,7 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
    bool fullHints)
 {
    //preload and prefetch
-   BlockDataLoader bdl(blockFiles_.folderPath(), true, true, false);
+   BlockDataLoader bdl(blockFiles_.folderPath(), true, true, true);
 
    unsigned threadcount = min(bdmConfig_.threadCount_,
       blockFiles_.fileCount() - topBlockOffset_.fileID_);
