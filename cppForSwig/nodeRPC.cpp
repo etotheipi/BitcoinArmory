@@ -77,10 +77,10 @@ RpcStatus NodeRPC::testConnection()
    JSON_object json_obj;
    json_obj.add_pair("method", "getblockcount");
 
-   string response;
    try
    {
-      response = socket_->writeAndRead(JSON_encode(json_obj));
+      auto&& serializedPacket = JSON_encode(json_obj);
+      auto&& response = socket_->writeAndRead(serializedPacket);
       auto&& response_obj = JSON_decode(response);
 
       if (response_obj.isResponseValid(json_obj.id_))

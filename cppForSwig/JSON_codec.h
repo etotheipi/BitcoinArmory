@@ -121,13 +121,14 @@ private:
    static int id_counter_;
 
 public:
+   map<JSON_string, shared_ptr<JSON_value>> keyval_pairs_;
+
+public:
    const int id_;
 
    JSON_object(void) :
       id_(id_counter_++)
    {}
-
-   map<JSON_string, shared_ptr<JSON_value>> keyval_pairs_;
 
    bool add_pair(const string& key, const string& val)
    {
