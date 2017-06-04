@@ -8851,22 +8851,10 @@ class DlgSettings(ArmoryDialog):
             self.main.settings.delete('SatoshiDatadir')
 
       self.main.writeSetting('ManageSatoshi', self.chkManageSatoshi.isChecked())
-      self.main.writeSetting('SkipOnlineCheck', self.chkSkipOnlineCheck.isChecked())
 
       # Reset the DNAA flag as needed
       askuriDNAA = self.chkAskURIAtStartup.isChecked()
       self.main.writeSetting('DNAA_DefaultApp', not askuriDNAA)
-
-
-      try:
-         defaultFee = str2coin(str(self.edtDefaultFee.text()).replace(' ', ''))
-         self.main.writeSetting('Default_Fee', defaultFee)
-      except:
-         QMessageBox.warning(self, self.tr('Invalid Amount'),self.tr(
-            'The default fee specified could not be understood.  Please '
-            'specify in BTC with no more than 8 decimal places.'), \
-            QMessageBox.Ok)
-         return
 
       if not self.main.setPreferredDateFormat(str(self.edtDateFormat.text())):
          return
