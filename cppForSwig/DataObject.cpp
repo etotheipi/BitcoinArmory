@@ -285,7 +285,7 @@ const string& Arguments::serialize()
       arg->serialize(bw);
 
    auto& bdser = bw.getData();
-   argStr_ = bdser.toHexStr();
+   argStr_ = move(bdser.toHexStr());
 
    return argStr_;
 }
@@ -304,15 +304,31 @@ void Arguments::setRawData()
 ///////////////////////////////////////////////////////////////////////////////
 void Command::deserialize()
 {
+   //sanity check
+   if (command_.size() < 8)
+      throw runtime_error("command is too short");
+
+   //split checksum from packet
+   auto&& checksum = command_.substr(0, 8);
+   auto&& packet = command_.substr(8);
+
+   //verify checksum
+   auto&& hash = BtcUtils::getHash256(packet);
+   if (hash.getSliceRef(0, 4).toHexStr() != checksum)
+   {
+      LOGERR << "command checksum failure";
+      throw runtime_error("command checksum failure");
+   }
+
    //find dot delimiter
    string ids;
-   size_t pos = command_.find('.');
+   size_t pos = packet.find('.');
    if (pos == string::npos)
-      ids = command_;
+      ids = packet;
    else
    {
-      ids = command_.substr(0, pos);
-      args_ = move(Arguments(command_.substr(pos + 1)));
+      ids = packet.substr(0, pos);
+      args_ = move(Arguments(packet.substr(pos + 1)));
    }
 
    //tokensize by &
@@ -342,10 +358,6 @@ void Command::deserialize()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-//
-// Callback
-//
-///////////////////////////////////////////////////////////////////////////////
 void Command::serialize()
 {
    if (method_.size() == 0)
@@ -363,9 +375,19 @@ void Command::serialize()
    ss << ".";
    ss << args_.serialize();
 
-   command_ = move(ss.str());
+   //hash the packet
+   auto&& packet = ss.str();
+   auto&& hash = BtcUtils::getHash256(packet);
+   
+   //prepend first 4 bytes of hash as checksum
+   command_ = hash.getSliceRef(0, 4).toHexStr();
+   command_.append(packet);
 }
 
+///////////////////////////////////////////////////////////////////////////////
+//
+// Callback
+//
 ///////////////////////////////////////////////////////////////////////////////
 void Callback::callback(Arguments&& cmd, OrderType type)
 {
