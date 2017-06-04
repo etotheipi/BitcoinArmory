@@ -826,6 +826,12 @@ void BDV_Server_Object::buildMethodMap()
 
       auto&& response =
          this->bdmPtr_->nodeRPC_->broadcastTx(rawTxBd);
+
+      if (response == "success")
+      {
+         this->bdmPtr_->zeroConfCont_->pushZcToParser(rawTxBd);
+      }
+
       BinaryData response_bdr(response);
 
       Arguments retarg;

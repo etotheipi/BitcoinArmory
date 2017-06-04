@@ -507,6 +507,7 @@ public:
       const string& bdvId, uint32_t timeout_sec = 5);
 
    bool isEnabled(void) const { return zcEnabled_.load(memory_order_relaxed); }
+   void pushZcToParser(const BinaryData& rawTx);
 };
 
 //////

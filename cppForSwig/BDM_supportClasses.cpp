@@ -1957,6 +1957,20 @@ bool ZeroConfContainer::processInvTxThread(InvEntry entry)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+void ZeroConfContainer::pushZcToParser(const BinaryData& rawTx)
+{
+   pair<BinaryData, Tx> zcpair;
+   zcpair.first = getNewZCkey();
+   zcpair.second.unserialize(rawTx.getPtr(), rawTx.getSize());
+   zcpair.second.setTxTime(time(0));
+
+   ZcActionStruct actionstruct;
+   actionstruct.zcMap_.insert(move(zcpair));
+   actionstruct.action_ = Zc_NewTx;
+   newZcStack_.push_back(move(actionstruct));
+}
+
+///////////////////////////////////////////////////////////////////////////////
 void ZeroConfContainer::insertBDVcallback(string id, BDV_Callbacks callback)
 {
    bdvCallbacks_.insert(move(make_pair(move(id), move(callback))));
@@ -2027,6 +2041,7 @@ void ZeroConfContainer::broadcastZC(const BinaryData& rawzc,
 
    //send inv packet
    networkNode_->sendMessage(move(payload_inv));
+   LOGINFO << "sent inv packet";
 
    //wait on getData future
    bool sent = false;
@@ -2040,10 +2055,14 @@ void ZeroConfContainer::broadcastZC(const BinaryData& rawzc,
       if (getDataFutStatus != future_status::ready)
       {
          gds->setStatus(false);
+         LOGERR << "tx broadcast timed out (send)";
          gds->setMessage("tx broadcast timed out (send)");
       }
       else
+      {
+         LOGINFO << "got getData packet";
          sent = true;
+      }
    }
 
    networkNode_->getDataPayloadMap_.erase(txHash);
@@ -2071,6 +2090,7 @@ void ZeroConfContainer::broadcastZC(const BinaryData& rawzc,
    if (grabtxthread.joinable())
       grabtxthread.detach();
 
+   LOGINFO << "grabbing tx from node";
 
    if (timeout_sec == 0)
    {
@@ -2082,6 +2102,7 @@ void ZeroConfContainer::broadcastZC(const BinaryData& rawzc,
       if (status != future_status::ready)
       {
          gds->setStatus(false);
+         LOGERR << "tx broadcast timed out (get)";
          gds->setMessage("tx broadcast timed out (get)");
       }
    }
@@ -2092,6 +2113,10 @@ void ZeroConfContainer::broadcastZC(const BinaryData& rawzc,
    {
       auto&& errorMsg = gds->getMessage();
       bdv_cb.zcErrorCallback_(errorMsg, txHashStr);
+   }
+   else
+   {
+      LOGINFO << "tx broadcast successfully";
    }
 }
 
