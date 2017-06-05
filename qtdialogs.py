@@ -41,9 +41,9 @@ BACKUP_TYPE_135A = '1.35a'
 BACKUP_TYPE_135C = '1.35c'
 BACKUP_TYPE_0_TEXT = 'Version 0  (from script, 9 lines)'
 BACKUP_TYPE_135a_TEXT = 'Version 1.35a (5 lines Unencrypted)'
-BACKUP_TYPE_135a_SP_TEXT = 'Version 1.35a (5 lines + SecurePrint™)'
+BACKUP_TYPE_135a_SP_TEXT = u'Version 1.35a (5 lines + SecurePrint\u200b\u2122)'
 BACKUP_TYPE_135c_TEXT = 'Version 1.35c (3 lines Unencrypted)'
-BACKUP_TYPE_135c_SP_TEXT = 'Version 1.35c (3 lines + SecurePrint™)'
+BACKUP_TYPE_135c_SP_TEXT = u'Version 1.35c (3 lines + SecurePrint\u200b\u2122)'
 MAX_QR_SIZE = 198
 MAX_SATOSHIS = 2100000000000000
 
@@ -6776,7 +6776,7 @@ class DlgPrintBackup(ArmoryDialog):
                                                    'Fragment:'])
          baseID = self.fragData['FragIDStr']
          fragNum = printData + 1
-         fragID = self.tr('<b>%1-<font color="%2">#%2</font></b>').arg(baseID, htmlColor('TextBlue'), fragNum)
+         fragID = '<b>%s-<font color="%s">#%d</font></b>' % (baseID, htmlColor('TextBlue'), fragNum)
          self.scene.moveCursor(15, 0)
          suf = 'c' if self.noNeedChaincode else 'a'
          colRect, rowHgt = self.scene.drawColumn(['1.35' + suf, self.wlt.uniqueIDB58, \
@@ -6792,8 +6792,8 @@ class DlgPrintBackup(ArmoryDialog):
             'Any subset of <font color="%1"><b>%2</b></font> fragments with this '
             'ID (<font color="%3"><b>%4</b></font>) are sufficient to recover all the '
             'coins contained in this wallet.  To optimize the physical security of '
-            'your wallet, please store the fragments in different locations.').arg(htmlColor('TextBlue'), self.fragData['M'], \
-                                       htmlColor('TextBlue'), self.fragData['FragIDStr'])
+            'your wallet, please store the fragments in different locations.').arg(htmlColor('TextBlue'), \
+                           str(self.fragData['M']), htmlColor('TextBlue'), self.fragData['FragIDStr'])
       else:
          container = 'this wallet' if printType == 'SingleSheetFirstPage' else 'these addresses'
          warnMsg = self.tr(
@@ -6837,7 +6837,7 @@ class DlgPrintBackup(ArmoryDialog):
          fragNum = printData + 1
          descrMsg = self.tr(
             'The following is fragment <font color="%1"><b>#%2</b></font> for this '
-            'wallet.').arg(htmlColor('TextBlue'), printData + 1)
+            'wallet.').arg(htmlColor('TextBlue'), str(printData + 1))
 
 
       self.scene.drawText(descrMsg, GETFONT('var', 8), wrapWidth=wrap)
@@ -10583,7 +10583,7 @@ class DlgFragBackup(ArmoryDialog):
       fragData['FragPixmap'] = self.fragPixmapFn
       fragData['Range'] = zindex
       fragData['Secure'] = self.chkSecurePrint.isChecked()
-      dlg = DlgPrintBackup(self, self.main, self.wlt, self.tr('Fragments'), \
+      dlg = DlgPrintBackup(self, self.main, self.wlt, 'Fragments', \
                               self.secureMtrx, self.secureMtrxCrypt, fragData, \
                               self.secureRoot, self.secureChain)
       dlg.exec_()
@@ -10598,7 +10598,7 @@ class DlgFragBackup(ArmoryDialog):
             'backups, which can also be applied to fragments saved to file. '
             u'Doing so will require you store the SecurePrint\u200b\u2122 '
             'code with the backup, but it will prevent unencrypted key data from '
-            'touching any disks.  <br><br> Do you want to encrpt the fragment '
+            'touching any disks.  <br><br> Do you want to encrypt the fragment '
             u'file with the same SecurePrint\u200b\u2122 code?'), \
             QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
 
@@ -10618,8 +10618,8 @@ class DlgFragBackup(ArmoryDialog):
       sec = 'secure.' if doMask else ''
       defaultFn = 'wallet_%s_%s_num%d_need%d.%sfrag' % (wid, pref, fnum, M, sec)
       #print 'FragFN:', defaultFn
-      savepath = self.main.getFileSave(self.tr('Save Fragment'), \
-                                       [self.tr('Wallet Fragments (*.frag)')], \
+      savepath = self.main.getFileSave('Save Fragment', \
+                                       ['Wallet Fragments (*.frag)'], \
                                        defaultFn)
 
       if len(toUnicode(savepath)) == 0:
@@ -11648,8 +11648,8 @@ class DlgRestoreFragged(ArmoryDialog):
    #############################################################################
    def dataLoad(self, fnum):
       LOGINFO('Loading data for entry, %d', fnum)
-      toLoad = unicode(self.main.getFileLoad(self.tr('Load Fragment File'), \
-                                    [self.tr('Wallet Fragments (*.frag)')]))
+      toLoad = unicode(self.main.getFileLoad('Load Fragment File', \
+                                    ['Wallet Fragments (*.frag)']))
 
       if len(toLoad) == 0:
          return
@@ -11911,11 +11911,11 @@ class DlgRestoreFragged(ArmoryDialog):
             return
 
       reply = QMessageBox.question(self, self.tr('Verify Wallet ID'), self.tr(
-         'The data you entered corresponds to a wallet with a wallet '
-         'ID:<blockquote><b>{}</b></blockquote>Does this ID '
+         'The data you entered corresponds to a wallet with the '
+         'ID:<blockquote><b>{%1}</b></blockquote>Does this ID '
          'match the "Wallet Unique ID" printed on your paper backup? '
          'If not, click "No" and reenter key and chain-code data '
-         'again.').format(newWltID), QMessageBox.Yes | QMessageBox.No)
+         'again.').arg(newWltID), QMessageBox.Yes | QMessageBox.No)
       if reply == QMessageBox.No:
          return
 
@@ -12159,9 +12159,9 @@ class DlgEnterOneFrag(ArmoryDialog):
 
       self.version0Button = QRadioButton(self.tr( BACKUP_TYPE_0_TEXT), self)
       self.version135aButton = QRadioButton(self.tr( BACKUP_TYPE_135a_TEXT), self)
-      self.version135aSPButton = QRadioButton(self.tr( BACKUP_TYPE_135a_SP_TEXT), self)
+      self.version135aSPButton = QRadioButton(self.trUtf8( BACKUP_TYPE_135a_SP_TEXT), self)
       self.version135cButton = QRadioButton(self.tr( BACKUP_TYPE_135c_TEXT), self)
-      self.version135cSPButton = QRadioButton(self.tr( BACKUP_TYPE_135c_SP_TEXT), self)
+      self.version135cSPButton = QRadioButton(self.trUtf8( BACKUP_TYPE_135c_SP_TEXT), self)
       self.backupTypeButtonGroup = QButtonGroup(self)
       self.backupTypeButtonGroup.addButton(self.version0Button)
       self.backupTypeButtonGroup.addButton(self.version135aButton)
@@ -12368,7 +12368,7 @@ class DlgEnterOneFrag(ArmoryDialog):
 
       reply = QMessageBox.question(self, self.tr('Verify Fragment ID'), self.tr(
          'The data you entered is for fragment: '
-         '<br><br> <font color="%1 size=3><b>%2</b></font>  <br><br> '
+         '<br><br> <font color="%1" size=3><b>%2</b></font>  <br><br> '
          'Does this ID match the "Fragment:" field displayed on your backup? '
          'If not, click "No" and re-enter the fragment data.').arg(htmlColor('TextBlue'), fid), QMessageBox.Yes | QMessageBox.No)
 
