@@ -516,8 +516,12 @@ void BinarySocket::writeAndRead(
 
          if (readAmt == 0)
          {
-            if (verbose_)
-               LOGINFO << "POLLIN recv return 0";
+            if (!callback(readdata))
+            {
+               if (verbose_)
+                  LOGINFO << "POLLIN recv return 0";
+            }
+
             break;
          }
 
