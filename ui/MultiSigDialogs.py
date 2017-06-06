@@ -895,7 +895,7 @@ class DlgLockboxManager(ArmoryDialog):
                                 #'If multiple people will be funding '
                                 #'this lockbox and not all of them are fully '
                                 #'trusted, click the "Simul" checkbox on the '
-                                #'left to see the simulfunding options.'),
+                                #'left to see the Simulfunding options.'),
                #'select':  self.tr('Select a lockbox to fund<br>'),
                #'offline': self.tr('Must be online to fund<br>')},
                # Added <br> to the labels to force to be two lines... this
@@ -909,7 +909,7 @@ class DlgLockboxManager(ArmoryDialog):
                'organiz': True,
                'lbltxt':  '',
                'tiptxt':  self.tr('Collect promissory notes from all funders '
-                                'of a simulfunding transaction.  Use this to '
+                                'of a Simulfunding transaction.  Use this to '
                                 'merge them into a single transaction that '
                                 'the funders can review and sign.'),
                'select':  None,
@@ -922,7 +922,7 @@ class DlgLockboxManager(ArmoryDialog):
                'lbltxt':  self.tr('Make a funding commitment to a lockbox'),
                'tiptxt':  self.tr('A "promissory note" provides blockchain '
                                 'information about how your wallet will '
-                                'contribute funds to a simulfunding transaction. '
+                                'contribute funds to a Simulfunding transaction. '
                                 'A promissory note does <b>not</b> '
                                 'move any money in your wallet.  The organizer '
                                 'will create a single transaction that includes '
@@ -935,12 +935,12 @@ class DlgLockboxManager(ArmoryDialog):
                'button':  self.tr('Review and Sign'),
                'callbk':  self.doReview,
                'organiz': False,
-               'lbltxt':  self.tr('Multi-sig spend or simulfunding'),
+               'lbltxt':  self.tr('Multi-sig spend or Simulfunding'),
                'tiptxt':  self.tr('Review and sign any lockbox-related '
                                 'transaction that requires multiple '
                                 'signatures.  This includes spending '
                                 'transactions from a regular lockbox, '
-                                'as well as completing a simulfunding '
+                                'as well as completing a Simulfunding '
                                 'transaction.'),
                'select':  None,
                'offline': None},
@@ -971,20 +971,20 @@ class DlgLockboxManager(ArmoryDialog):
 
 
       # We will have two pages on the stack.  The first one is for regular
-      # funding with all the simulfunding options missing.  The second one
+      # funding with all the Simulfunding options missing.  The second one
       # is re-arranged (but mostly the same widgets) but with the additional
-      # simulfunding widgets
+      # Simulfunding widgets
       self.stkDashboard = QStackedWidget()
 
-      simultxt = 'SimulFund'
+      simultxt = 'Simulfund'
       self.chkSimulfundA = QCheckBox(simultxt)
       self.chkSimulfundB = QCheckBox(simultxt)
 
       ttipSimulTxt = self.tr(
          'If this lockbox will be funded by multiple parties and not all '
-         'parties are fully trusted, use "simulfunding" to ensure that funds '
+         'parties are fully trusted, use "Simulfunding" to ensure that funds '
          'are committed at the same time.  Check the "Simul" box to show '
-         'simulfunding options in the table.')
+         'Simulfunding options in the table.')
       ttipSimulA = self.main.createToolTipWidget(ttipSimulTxt)
       ttipSimulB = self.main.createToolTipWidget(ttipSimulTxt)
          
@@ -1237,7 +1237,7 @@ class DlgLockboxManager(ArmoryDialog):
       self.stkDashboard.addWidget(frmSingle)
 
 
-      # Second frame is for simulfunding
+      # Second frame is for Simulfunding
       frmMulti = QFrame()
       frmMultiLayout = QGridLayout()
 
@@ -1688,7 +1688,7 @@ class DlgLockboxManager(ArmoryDialog):
       title = self.tr("Import Signature Collector")
       descr = self.tr(
          'Import a <i>Signature Collector</i> block to review and '
-         'sign the lockbox-spend or simulfunding transaction.  This text block '
+         'sign the lockbox-spend or Simulfunding transaction.  This text block '
          'is produced by the organizer and will contain '
          '"=====TXSIGCOLLECT" on the first line.   Or you can import it from '
          'a file, which is saved by default with a '
@@ -1744,7 +1744,7 @@ class DlgLockboxManager(ArmoryDialog):
          '<li>This lockbox is being used for personal savings</li>'
          '</ul>'
          'If the above does not apply to you, please press "Cancel" and '
-         'select the "SimulFund" checkbox on the lockbox dashboard.'
+         'select the "Simulfund" checkbox on the lockbox dashboard.'
          ).arg( htmlColor('TextWarn')),
          QMessageBox.Ok | QMessageBox.Cancel)
 
@@ -1779,7 +1779,7 @@ class DlgLockboxManager(ArmoryDialog):
          title = self.tr("Import Signature Collector")
          descr = self.tr(
             'Import a <i>Signature Collector</i> text block to review and '
-            'sign the simulfunding transaction.  This text block is produced '
+            'sign the Simulfunding transaction.  This text block is produced '
             'by the party that collected and merged all the promissory notes. '
             'Files containing signature-collecting data usually end with '
             '<i>*.sigcollect.tx</i>.')
@@ -1986,7 +1986,7 @@ class DlgSimulfundSelect(ArmoryDialog):
       lblDescr = QRichLabel(self.tr(
          'To have multiple parties simultaneously fund a lockbox, each party '
          'will need to create a "promissory note," and any other party will '
-         'collect all of them to create a single simulfunding transaction. '
+         'collect all of them to create a single Simulfunding transaction. '
          'This transaction will be signed by all parties after reviewing that '
          'it meets their expectations.  This process guarantees that either '
          'all parties commit funds simultaneously, or no one does.  The '
@@ -2000,7 +2000,7 @@ class DlgSimulfundSelect(ArmoryDialog):
          'and load all of them at once.  Sign for your contribution and '
          'send the result to all the other parties. '
          '<br><br>'
-         'You are currently handling a simulfunding operation for lockbox: '
+         'You are currently handling a Simulfunding operation for lockbox: '
          '<br>%1.').arg(dispStr))
          
 
@@ -2010,15 +2010,15 @@ class DlgSimulfundSelect(ArmoryDialog):
       btnCancel  = QPushButton(self.tr("Cancel"))
 
       if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
-         lblCreate = QRichLabel(self.tr('Create a commitment to a simulfunding transaction'))
+         lblCreate = QRichLabel(self.tr('Create a commitment to a Simulfunding transaction'))
       else:
          btnCreate.setEnabled(False)
          lblCreate = QRichLabel(self.tr('Note creation is not available when offline.'))
 
-      lblCollect = QRichLabel(self.tr('Collect multiple promissory notes into a single simulfunding transaction'))
+      lblCollect = QRichLabel(self.tr('Collect multiple promissory notes into a single Simulfunding transaction'))
 
       lblReview = QRichLabel(self.tr(
-         'Review and sign a simulfunding transaction (after all promissory '
+         'Review and sign a Simulfunding transaction (after all promissory '
          'notes have been collected)'))
 
       self.connect(btnCreate,  SIGNAL('clicked()'), self.doCreate)
@@ -3116,7 +3116,7 @@ class DlgCreatePromNote(ArmoryDialog):
          'Use this form to create a '
          '"promissory note" which can be combined with notes from other '
          'parties to fund an address or lockbox simultaneously '
-         '(<i>"simulfunding"</i>).  This funding '
+         '(<i>"Simulfunding"</i>).  This funding '
          'transaction will not be valid until all promissory notes are '
          'merged into a single transaction, then all funding parties '
          'will review and sign it.'
@@ -3126,9 +3126,9 @@ class DlgCreatePromNote(ArmoryDialog):
          'to the destination address or lockbox in the normal way.'))
 
       lblNoteSrc = QRichLabel(self.tr(
-         '<b>NOTE:</b> At the moment, simulfunding is restricted to using '
+         '<b>NOTE:</b> At the moment, Simulfunding is restricted to using '
          'single-signature wallets/addresses for funding. More '
-         'complex simulfunding transactions will be possible in a future '
+         'complex Simulfunding transactions will be possible in a future '
          'version of Armory.'))
 
       if len(self.main.walletIDList)>0:
@@ -3294,13 +3294,13 @@ class DlgCreatePromNote(ArmoryDialog):
             'or after restarting Armory'), QMessageBox.Ok)
          return False
 
-      # TODO:  Expand this to allow simulfunding from lockbox(es)
+      # TODO:  Expand this to allow Simulfunding from lockbox(es)
       wlt   = self.main.walletMap.get(self.spendFromWltID, None)
       lbox  = self.main.getLockboxByID(self.spendFromWltID)
       if lbox is not None:
          LOGERROR('Simulfunding from lockbox not currently implemented')
          QMessageBox.critical(self, self.tr('Lockbox Selected'), self.tr(
-            'Currently, Armory does not implement simulfunding with lockbox '
+            'Currently, Armory does not implement Simulfunding with lockbox '
             'inputs.  Please choose a regular wallet as your input'),
             QMessageBox.Ok)
          return False
@@ -3394,7 +3394,7 @@ class DlgCreatePromNote(ArmoryDialog):
       dtxoTarget = DecoratedTxOut(targetScript, valueAmt)
 
       # Create the change DTXO
-      # TODO:  Expand this to allow simulfunding from lockbox(es)
+      # TODO:  Expand this to allow Simulfunding from lockbox(es)
       #pprintUnspentTxOutList(utxoSelect)
       changeAmt = sumTxOutList(utxoSelect) - (valueAmt + feeAmt)
       dtxoChange = None
@@ -3441,7 +3441,7 @@ class DlgCreatePromNote(ArmoryDialog):
          title = self.tr("Export Promissory Note")
          descr = self.tr(
             'The text below includes all the data needed to represent your '
-            'contribution to a simulfunding transaction.  Your money cannot move '
+            'contribution to a Simulfunding transaction.  Your money cannot move '
             'because you have not signed anything, yet.  Once all promissory '
             'notes are collected, you will be able to review the entire funding '
             'transaction before signing.')
@@ -3490,7 +3490,7 @@ class DlgMergePromNotes(ArmoryDialog):
          
       lblDescr = QRichLabel(self.tr(
          'Collect promissory notes from two or more parties '
-         'to combine them into a single <i>simulfunding</i> transaction.  Once '
+         'to combine them into a single <i>Simulfunding</i> transaction.  Once '
          'all notes are collected you will be able to '
          'send it to each contributing party for review and signing.'))
 
@@ -3618,7 +3618,7 @@ class DlgMergePromNotes(ArmoryDialog):
    def importNote(self):
       title = self.tr('Import Promissory Note')
       descr = self.tr(
-         'Import a promissory note to add to this simulfunding transaction') 
+         'Import a promissory note to add to this Simulfunding transaction') 
       ftypes = ['Promissory Notes (*.promnote)']
       dlgImport = DlgImportAsciiBlock(self, self.main, 
                         title, descr, ftypes, MultiSigPromissoryNote)
@@ -3750,7 +3750,7 @@ class DlgMergePromNotes(ArmoryDialog):
 
       if len(self.promNotes)==0:
          QMessageBox.warning(self, self.tr('Nothing Loaded'), self.tr(
-            'No promissory notes were loaded.  Cannot create simulfunding '
+            'No promissory notes were loaded.  Cannot create Simulfunding '
             'transaction.'), QMessageBox.Ok)
          return 
 
@@ -3759,11 +3759,11 @@ class DlgMergePromNotes(ArmoryDialog):
             'Only one promissory note was entered, so there '
             'is nothing to merge.'
             '<br><br>'
-            'The simulfunding interface is intended to merge promissory notes '
+            'The Simulfunding interface is intended to merge promissory notes '
             'from multiple parties to ensure simultaneous funding '
             'for escrow.  If only person is funding, they '
             'can simply send money to the address or lockbox like they would '
-            'any other transaction, without going through the simulfunding '
+            'any other transaction, without going through the Simulfunding '
             'interface. '
             '<br><br>'
             'Click "Ok" to continue to the multi-signing interface, but there '
@@ -3803,10 +3803,10 @@ class DlgMergePromNotes(ArmoryDialog):
 
       title = self.tr('Export Simulfunding Transaction')
       descr = self.tr(
-         'The text block below contains the simulfunding transaction to be '
+         'The text block below contains the Simulfunding transaction to be '
          'signed by all parties funding this lockbox.  Copy the text block '
          'into an email to all parties contributing funds.  Each party can '
-         'review the final simulfunding transaction, add their signature(s), '
+         'review the final Simulfunding transaction, add their signature(s), '
          'then send back to you to finalize it.'
          '<br><br>'
          'When you click "Done", you will be taken to a window that you can '

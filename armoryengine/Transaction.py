@@ -1756,7 +1756,7 @@ class DecoratedTxOut(AsciiSerializable):
    yet, so we simply assume it will be None, or that it has a .serialize()
    and .unserialize() method so this class doesn't have to care
 
-   ContribID and ContribLabel are optional fields that help in simulfunding
+   ContribID and ContribLabel are optional fields that help in Simulfunding
    situations, where there may be tons of inputs and outputs (change) that 
    would otherwise appear unrelated.  We need a way to associate them so we 
    can display intelligent stuff to the user.

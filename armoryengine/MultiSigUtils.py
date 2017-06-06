@@ -819,7 +819,7 @@ class MultiSigPromissoryNote(AsciiSerializable):
    EMAILSUBJ = 'Armory Promissory Note for Simulfunding - %s'
    EMAILBODY = """
                The chunk of text below describes how this wallet will 
-               contribute to a simulfunding transaction.  In the lockbox
+               contribute to a Simulfunding transaction.  In the lockbox
                manager, go to "Merge Promissory Notes" and then click on 
                "Import Promissory Note."  Copy and paste the block of text 
                into the import box, including the first and last lines.  
