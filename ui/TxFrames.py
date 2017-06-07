@@ -120,6 +120,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.unsignedCheckbox = QCheckBox(self.tr('Create Unsigned'))
       
       self.RBFcheckbox = QCheckBox(self.tr('enable RBF'))
+      self.RBFcheckbox.setChecked(True)
       self.ttipRBF = self.main.createToolTipWidget(\
          self.tr('RBF flagged inputs allow to respend the underlying outpoint for a '
                  'higher fee as long as the original spending transaction remains '
@@ -642,7 +643,7 @@ class SendBitcoinsFrame(ArmoryFrame):
             reply = QMessageBox.warning(self, self.tr('Excessive Fee'), self.tr(
                'Your transaction comes with a fee rate of <b>%1 satoshis per byte</b>. '
                '</br></br> '
-               'This is much higher than the median fee rate of <b>%2 satoshi/Byte</b>. '
+               'This is at least an order of magnitude higher than the minimum suggested fee rate of <b>%2 satoshi/Byte</b>. '
                '<br><br>'
                'Are you <i>absolutely sure</i> that you want to send with this '
                'fee? If you do not want to proceed with this fee rate, click "No".').arg(\
@@ -651,11 +652,11 @@ class SendBitcoinsFrame(ArmoryFrame):
             if not reply==QMessageBox.Yes:
                return False
             
-         elif fee_byte < MIN_FEE_BYTE / 10:
+         elif fee_byte < MIN_FEE_BYTE:
             reply = QMessageBox.warning(self, self.tr('Insufficient Fee'), self.tr(
                'Your transaction comes with a fee rate of <b>%1 satoshi/Byte</b>. '
                '</br><br> '
-               'This is much lower than the median fee rate of <b>%2 satoshi/Byte</b>. '
+               'This is lower than the suggested minimum fee rate of <b>%2 satoshi/Byte</b>. '
                '<br><br>'
                'Are you <i>absolutely sure</i> that you want to send with this '
                'fee? If you do not want to proceed with this fee rate, click "No".').arg(\
