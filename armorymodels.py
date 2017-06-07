@@ -185,6 +185,8 @@ class LedgerDispModelSimple(QAbstractTableModel):
       self.getPageLedger = None
       self.convertLedger = None
       
+      self.ledgerDelegate = None
+      
    def rowCount(self, index=QModelIndex()):
       return len(self.ledger)
 

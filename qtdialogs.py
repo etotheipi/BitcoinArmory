@@ -3251,9 +3251,12 @@ class DlgAddressInfo(ArmoryDialog):
 
       # ## Set up the address ledger
       self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self.main)
-      self.ledgerModel.setLedgerDelegate(\
-         TheBDM.bdv().getLedgerDelegateForScrAddr(self.wlt.uniqueIDB58, \
-                                                  self.cppAddr.getAddrHash()))
+      try:
+         self.ledgerModel.setLedgerDelegate(\
+            TheBDM.bdv().getLedgerDelegateForScrAddr(self.wlt.uniqueIDB58, \
+                                                     self.cppAddr.getAddrHash()))
+      except:
+         pass
 
       def ledgerToTableScrAddr(ledger):
          return self.main.convertLedgerToTable(ledger, \
