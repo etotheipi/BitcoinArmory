@@ -129,13 +129,20 @@ UtxoSelection CoinSelection::getUtxoSelection(
 
    for (auto& selection : selections)
    {
-      auto score = 
-         SelectionScoring::computeScore(selection, payStruct, topHeight_);
-
-      if (score > topScore || selectPtr == nullptr)
+      try
       {
-         topScore = score;
-         selectPtr = &selection;
+         auto score =
+            SelectionScoring::computeScore(selection, payStruct, topHeight_);
+
+         if (score > topScore || selectPtr == nullptr)
+         {
+            topScore = score;
+            selectPtr = &selection;
+         }
+      }
+      catch (exception&)
+      { 
+         continue;
       }
    }
 
