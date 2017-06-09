@@ -3110,8 +3110,25 @@ class ArmoryMainWindow(QMainWindow):
       except:
          return
       
+      LOGINFO("Failed to broadcast Tx through P2P")
+      isTimeoutError = False
+      
       if errorMsg.startswith("tx broadcast timed out"):
-         errorMsg = TheBDM.bdv().broadcastThroughRPC(pytx.serialize())
+         isTimeoutError = True
+         try:
+            errorMsg = TheBDM.bdv().broadcastThroughRPC(pytx.serialize())
+            if errorMsg == "success":
+               QMessageBox.warning(self, self.tr('Transaction Broadcast'), self.tr(
+                  'Your Transaction failed to broadcast through the P2P layer but '
+                  'successfully broadcasted through the RPC. This can be a symptom '
+                  'of bad node connectivity to the Bitcoin network, or that your '
+                  'node is overwhelmed by network traffic. If you consistently get '
+                  'this warning, report to the developers for assistance with node '
+                  'maintenance.'), 
+                  QMessageBox.Ok)
+               return
+         except:
+            LOGERROR("Node RPC is disabled")
 
       LOGERROR('Transaction was not accepted by the Satoshi client')
       LOGERROR('Raw transaction:')
@@ -3124,31 +3141,41 @@ class ArmoryMainWindow(QMainWindow):
       supportURL       = 'https://github.com/goatpig/BitcoinArmory/issues'
       blkexplURL       = BLOCKEXPLORE_URL_TX % searchstr
       blkexplURL_short = BLOCKEXPLORE_URL_TX % searchstr[:20]
-
-      QMessageBox.warning(self, self.tr('Transaction Not Accepted'), self.tr(
-         'The transaction that you just executed failed with '
-         'the following error message: <br><br> '
-         '<b>%1</b>'
-         '<br><br>'
-         '<br><br>On time out errors, the transaction may have actually succeeded '
-         'and this message is displayed prematurely.  To confirm whether the '
-         'the transaction actually succeeded, you can try this direct link '
-         'to %2: '
-         '<br><br>'
-         '<a href="%3">%4...</a>'
-         '<br><br>'
-         'If you do not see the '
-         'transaction on that webpage within one minute, it failed and you '
-         'should attempt to re-send it. '
-         'If it <i>does</i> show up, then you do not need to do anything '
-         'else -- it will show up in Armory as soon as it receives one '
-         'confirmation. '
-         '<br><br>If the transaction did fail, it is likely because the fee '
-         'is too low. Try again with a higher fee. '
-         'If the problem persists, go to "<i>File</i>" -> '
-         '"<i>Export Log File</i>" and then attach it to a support '
-         'ticket at <a href="%5">%5</a>').arg(errorMsg, BLOCKEXPLORE_NAME, blkexplURL, \
-         blkexplURL_short, supportURL), QMessageBox.Ok)
+      
+      if not isTimeoutError:
+         QMessageBox.warning(self, self.tr('Transaction Not Accepted'), self.tr(
+            'The transaction that you just executed failed with '
+            'the following error message: <br><br> '
+            '<b>%1</b>'
+            '<br><br>'
+            '<br><br>On time out errors, the transaction may have actually succeeded '
+            'and this message is displayed prematurely.  To confirm whether the '
+            'the transaction actually succeeded, you can try this direct link '
+            'to %2: '
+            '<br><br>'
+            '<a href="%3">%4...</a>'
+            '<br><br>'
+            'If you do not see the '
+            'transaction on that webpage within one minute, it failed and you '
+            'should attempt to re-send it. '
+            'If it <i>does</i> show up, then you do not need to do anything '
+            'else -- it will show up in Armory as soon as it receives one '
+            'confirmation. '
+            '<br><br>If the transaction did fail, it is likely because the fee '
+            'is too low. Try again with a higher fee. '
+            'If the problem persists, go to "<i>File</i>" -> '
+            '"<i>Export Log File</i>" and then attach it to a support '
+            'ticket at <a href="%5">%5</a>').arg(errorMsg, BLOCKEXPLORE_NAME, blkexplURL, \
+            blkexplURL_short, supportURL), QMessageBox.Ok)
+      else:
+         LOGERROR('Broadcast error: %s' % errorMsg)
+         QMessageBox.warning(self, self.tr('Transaction Not Accepted'), self.tr(
+            'The transaction that you just attempted to broadcast has timed out. '
+            '<br><br>'
+            'The RPC interface of your node is disabled, therefor Armory cannot '
+            'use it to gather more information about the timeout. It is ' 
+            'recommended that you enable the RPC and try again.'
+            ), QMessageBox.Ok)      
 
 
 
