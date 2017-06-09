@@ -170,26 +170,6 @@ public:
    
    const map<BinaryData, uint32_t>& getAddrTxnCountsFromDB(void)
    {
-      auto wallet_aet = wallet_->getDefaultAddressType();
-      uint8_t wltAddrPrefix;
-      
-      switch (wallet_aet)
-      {
-      case AddressEntryType_P2PKH:
-         wltAddrPrefix = BlockDataManagerConfig::getPubkeyHashPrefix();
-         break;
-
-      case AddressEntryType_Nested_Multisig:
-      case AddressEntryType_Nested_P2WSH:
-      case AddressEntryType_Nested_P2WPKH:
-      case AddressEntryType_Nested_P2PK:
-         wltAddrPrefix = BlockDataManagerConfig::getScriptHashPrefix();
-         break;
-
-      default:
-         throw WalletException("unsupported address entry type");
-      }
-
       bool updateWallet = false;
 
       auto&& countmap = swigWallet_->getAddrTxnCountsFromDB();
@@ -202,19 +182,13 @@ public:
          //save count
          countMap_[count.first] = count.second;
 
-         //figure out address type
-         auto prefix = count.first.getPtr();
-
-         if (*prefix == wltAddrPrefix)
-            continue;
-
-         //not the default prefix, let's fetch the asset
+         //fetch the asset in wallet
          auto assetIndex = wallet_->getAssetIndexForAddr(count.first);
          auto asset = wallet_->getAssetForIndex(assetIndex);
 
-
          auto hashType = asset->getAddressTypeForHash(
             count.first.getSliceRef(1, count.first.getSize() - 1));
+
          updateWallet = asset->setAddressEntryType(hashType);
       }
 
