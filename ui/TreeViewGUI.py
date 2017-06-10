@@ -882,6 +882,14 @@ class AddressTreeModel(ArmoryTreeModel):
             if section==COL_BALANCE:  return QVariant(self.tr('Balance'))
 
       return QVariant() 
+   
+   def refresh(self):
+      #this method repopulates the underlying tree view map, only use
+      #when that data changes
+      self.treeStruct = TreeStructure_AddressDisplay(self.wlt, self)
+      self.root = NodeItem(0, None, self.treeStruct.root)     
+      
+      
   
 ################################################################################ 
 class CoinControlTreeModel(ArmoryTreeModel):

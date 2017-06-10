@@ -1315,7 +1315,7 @@ shared_ptr<AddressEntry> AssetWallet_Single::getAddressEntryForAsset(
       throw WalletException("unsupported address entry type");
    }
 
-   if (ae_type == default_aet_ || ae_type == prev_aet)
+   if (ae_type == prev_aet)
       assetPtr->doNotCommit();
    else
       writeAssetEntry(assetPtr);

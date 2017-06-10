@@ -1540,8 +1540,8 @@ class DlgWalletDetails(ArmoryDialog):
       if showRecvCoinsWarningIfNecessary(self.wlt, self, self.main):
          loading = LoadingDisp(self, self.main)
          loading.show()
-         if DlgNewAddressDisp(self.wlt, self, self.main, loading).exec_():
-            self.wltAddrView.reset()
+         DlgNewAddressDisp(self.wlt, self, self.main, loading).exec_()
+         self.resetTreeView()
 
 
    def execSendBtc(self):
@@ -1567,9 +1567,11 @@ class DlgWalletDetails(ArmoryDialog):
 
       self.accept()
       DlgSendBitcoins(self.wlt, self, self.main, onlyOfflineWallets=False).exec_()
-      self.wltAddrTreeModel.reset()
+      self.resetTreeView()
 
-
+   def resetTreeView(self):
+      self.wltAddrTreeModel.refresh()
+      self.wltAddrView.reset()
 
    def changeKdf(self):
       """
@@ -2229,16 +2231,14 @@ class DlgNewAddressDisp(ArmoryDialog):
       self.addr = wlt.getNextUnusedAddress()
       if loading is not None:
          loading.setValue(80)
-      cppaddr = self.wlt.cppWallet.getAddrObjByIndex(self.addr.chainIndex)
-      self.addrStr = cppaddr.getScrAddr()
 
+      self.addrStr = ""
       wlttype = determineWalletType(self.wlt, self.main)[0]
       notMyWallet = (wlttype == WLTTYPES.WatchOnly)
 
       lblDescr = QLabel(self.tr('The following address can be used to receive bitcoins:'))
       self.edtNewAddr = QLineEdit()
       self.edtNewAddr.setReadOnly(True)
-      self.edtNewAddr.setText(self.addrStr)
       self.edtNewAddr.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       btnClipboard = QPushButton(self.tr('Copy to Clipboard'))
       # lbtnClipboard.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
@@ -2326,7 +2326,7 @@ class DlgNewAddressDisp(ArmoryDialog):
 
       buttonBox = QDialogButtonBox()
       self.btnDone = QPushButton(self.tr("Done"))
-      self.connect(self.btnDone, SIGNAL(CLICKED), self.acceptNewAddr)
+      self.connect(self.btnDone, SIGNAL(CLICKED), self.accept)
       buttonBox.addButton(self.btnDone, QDialogButtonBox.AcceptRole)
 
       frmWlt = QFrame()
@@ -2349,6 +2349,7 @@ class DlgNewAddressDisp(ArmoryDialog):
 
 
       def setAddressType(typeStr):
+         self.addrType = typeStr
          if typeStr == 'P2PKH':
             self.addrStr = self.wlt.getP2PKHAddrForIndex(self.addr.chainIndex)
          elif typeStr == 'P2SH-P2WPKH':
@@ -2364,9 +2365,10 @@ class DlgNewAddressDisp(ArmoryDialog):
       #addr type selection frame
       from ui.AddressTypeSelectDialog import AddressLabelFrame
       self.addrTypeFrame = AddressLabelFrame(main, setAddressType)
-      addrType = self.main.getSettingOrSetDefault('Default_ReceiveType', DEFAULT_RECEIVE_TYPE)
-      self.addrTypeFrame.setType(addrType)
-      setAddressType(addrType)
+      self.addrType = \
+         self.main.getSettingOrSetDefault('Default_ReceiveType', DEFAULT_RECEIVE_TYPE)
+      self.addrTypeFrame.setType(self.addrType)
+      setAddressType(self.addrType)
 
       layout = QGridLayout()
       layout.addWidget(frmNewAddr, 0, 0, 1, 1)
@@ -2392,15 +2394,14 @@ class DlgNewAddressDisp(ArmoryDialog):
       comm = str(self.edtComm.toPlainText())
       if len(comm) > 0:
          self.wlt.setComment(self.addr.getAddr160(), comm)
-      self.accept()
+      
+   def accept(self):
+      self.acceptNewAddr()
+      super(DlgNewAddressDisp, self).accept()
 
-   def rejectNewAddr(self):
-      # self.wlt.rewindHighestIndex(1)
-      try:
-         self.parent.reject()
-      except AttributeError:
-         pass
-      self.reject()
+   def reject(self):
+      self.acceptNewAddr()
+      super(DlgNewAddressDisp, self).reject()
 
    def setClipboard(self):
       clipb = QApplication.clipboard()
