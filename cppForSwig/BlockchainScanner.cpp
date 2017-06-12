@@ -657,6 +657,23 @@ void BlockchainScanner::writeBlockData(
          calc.fractionCompleted(), calc.remainingSeconds(),
          progVal);
 
+      set<unsigned> allUsedFiles;
+      for (auto& blockbatch : batchLinkPtr->batchVec_)
+      {
+         for (auto& filepair : blockbatch->fileMaps_)
+         {
+            allUsedFiles.insert(filepair.first);
+         }
+      }
+
+      //drop all files but the top one
+      vector<unsigned> fileIdsToDrop;
+      fileIdsToDrop.insert(
+         fileIdsToDrop.end(), allUsedFiles.begin(), allUsedFiles.end());
+      fileIdsToDrop.pop_back();
+
+      blockDataLoader_.dropFiles(fileIdsToDrop);
+
       batchLinkPtr = batchLinkPtr->next_;
    }
 }

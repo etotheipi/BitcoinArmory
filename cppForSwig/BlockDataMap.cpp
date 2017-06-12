@@ -316,6 +316,20 @@ void BlockDataLoader::reset()
 }
 
 /////////////////////////////////////////////////////////////////////////////
+void BlockDataLoader::dropFiles(const vector<unsigned>& idVec)
+{
+   if (idVec.size())
+      return;
+
+   unique_lock<mutex> lock(mu_);
+
+   for (auto id : idVec)
+   {
+      fileMaps_.erase(id);
+   }
+}
+
+/////////////////////////////////////////////////////////////////////////////
 BlockDataFileMap::BlockDataFileMap(const string& filename, bool preload)
 {
    //relaxed memory order for loads and stores, we only care about 

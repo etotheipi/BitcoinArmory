@@ -445,6 +445,7 @@ public:
 
    BlockFileMapPointer get(const string& filename);
    BlockFileMapPointer get(uint32_t fileid, bool prefetch);
+   void dropFiles(const vector<unsigned>&);
 
    void reset(void);
 };
