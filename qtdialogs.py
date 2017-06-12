@@ -5483,7 +5483,7 @@ class DlgDispTxInfo(ArmoryDialog):
 
       if not self.data[FIELDS.TxSize] == None:
          txsize = unicode(self.data[FIELDS.TxSize])
-         txsize_str = self.tr("%1 Bytes").arg(txsize)
+         txsize_str = self.tr("%1 bytes").arg(txsize)
          lbls.append([])
          lbls[-1].append(self.main.createToolTipWidget(
             self.tr('Size of the transaction in bytes')))

@@ -70,7 +70,7 @@ class CoinControlUtxoItem():
       self.parent = parent
       
       if utxo.getTxHeight() == 2**32 - 1:
-         self.name = QObject().tr("ZC id: %1 | TxOut: %2").arg(\
+         self.name = QObject().tr("ZC ID: %1 | TxOut: %2").arg(\
             unicode(utxo.getTxIndex()), \
             unicode(utxo.getTxOutIndex()))      
       else:
