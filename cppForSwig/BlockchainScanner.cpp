@@ -551,11 +551,26 @@ void BlockchainScanner::writeBlockData(
       thread writeHintsThreadId = 
          thread(writeHintsLambda, batchLinkPtr->batchVec_);
 
+      //drop all files but the top one
+      set<unsigned> allUsedFiles;
+      for (auto& blockbatch : batchLinkPtr->batchVec_)
+      {
+         for (auto& filepair : blockbatch->fileMaps_)
+         {
+            allUsedFiles.insert(filepair.first);
+         }
+      }
+
+      vector<unsigned> fileIdsToDrop;
+      fileIdsToDrop.insert(
+         fileIdsToDrop.end(), allUsedFiles.begin(), allUsedFiles.end());
+      fileIdsToDrop.pop_back();
+
+      //serialize data
       auto& topheader = 
          blockchain_->getHeaderByHash(batchLinkPtr->topScannedBlockHash_);
       auto topHeight = topheader.getBlockHeight();
       
-      //serialize data
       map<BinaryData, BinaryWriter> serializedSubSSH;
       map<BinaryData, BinaryWriter> serializedStxo;
 
@@ -656,21 +671,6 @@ void BlockchainScanner::writeBlockData(
          progress_(BDMPhase_Rescan,
          calc.fractionCompleted(), calc.remainingSeconds(),
          progVal);
-
-      set<unsigned> allUsedFiles;
-      for (auto& blockbatch : batchLinkPtr->batchVec_)
-      {
-         for (auto& filepair : blockbatch->fileMaps_)
-         {
-            allUsedFiles.insert(filepair.first);
-         }
-      }
-
-      //drop all files but the top one
-      vector<unsigned> fileIdsToDrop;
-      fileIdsToDrop.insert(
-         fileIdsToDrop.end(), allUsedFiles.begin(), allUsedFiles.end());
-      fileIdsToDrop.pop_back();
 
       blockDataLoader_.dropFiles(fileIdsToDrop);
 
