@@ -412,6 +412,8 @@ private:
 
    function<void(void)> gcLambda_;
 
+   unsigned peak_ = 0;
+
 private:   
 
    BlockDataLoader(const BlockDataLoader&) = delete; //no copies

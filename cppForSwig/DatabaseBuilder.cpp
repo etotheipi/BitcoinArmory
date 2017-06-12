@@ -528,6 +528,7 @@ BinaryData DatabaseBuilder::scanHistory(int32_t startHeight,
       progress_, reportprogress);
    
    bcs.scan(startHeight);
+   bcs.resetFileMaps();
    bcs.updateSSH(false);
    bcs.resolveTxHashes();
 

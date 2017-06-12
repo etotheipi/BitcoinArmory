@@ -174,6 +174,7 @@ public:
    void undo(Blockchain::ReorganizationState& reorgState);
    void updateSSH(bool);
    void resolveTxHashes();
+   void resetFileMaps(void) { blockDataLoader_.reset(); }
 
    const BinaryData& getTopScannedBlockHash(void) const
    {

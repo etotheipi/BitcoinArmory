@@ -988,6 +988,7 @@ void BlockchainScanner::updateSSH(bool force)
          }
          catch (exception&)
          {
+            LOGERR << "failed to grab tx by key";
             continue;
          }
 

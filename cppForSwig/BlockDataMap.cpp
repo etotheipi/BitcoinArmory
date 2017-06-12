@@ -253,6 +253,9 @@ BlockFileMapPointer BlockDataLoader::get(uint32_t fileid, bool prefetch)
          fileMaps_[fileid] = fMap;
       }
       else fMap = mapIter->second;
+
+      if (fileMaps_.size() > peak_)
+         peak_ = fileMaps_.size();
    }
 
    return BlockFileMapPointer(fMap, gcLambda_);
@@ -303,6 +306,12 @@ shared_future<shared_ptr<BlockDataFileMap>>
 void BlockDataLoader::reset()
 {
    unique_lock<mutex> lock(mu_);
+   LOGINFO << "gc count: " << fileMaps_.size();
+   LOGINFO << "peak: " << peak_;
+   for (auto& file : fileMaps_)
+   {
+      LOGINFO << "   file id: " << file.first;
+   }
    fileMaps_.clear();
 }
 
