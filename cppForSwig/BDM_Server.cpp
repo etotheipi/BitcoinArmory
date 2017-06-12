@@ -74,7 +74,8 @@ void BDV_Server_Object::buildMethodMap()
                le.getValue(), le.getBlockNum(), le.getTxHash(),
                le.getIndex(), le.getTxTime(), le.isCoinbase(),
                le.isSentToSelf(), le.isChangeBack(), 
-               le.isOptInRBF(), le.isChainedZC(), le.usesWitness());
+               le.isOptInRBF(), le.isChainedZC(), le.usesWitness(),
+               le.getScrAddrList());
             lev.push_back(move(led));
          }
 
@@ -143,10 +144,11 @@ void BDV_Server_Object::buildMethodMap()
                      auto& le = lePair.second;
 
                      LedgerEntryData led(le.getWalletID(),
-                     le.getValue(), le.getBlockNum(), le.getTxHash(),
-                     le.getIndex(), le.getTxTime(), le.isCoinbase(),
-                     le.isSentToSelf(), le.isChangeBack(), 
-                     le.isOptInRBF(), le.isChainedZC(), le.usesWitness());
+                        le.getValue(), le.getBlockNum(), le.getTxHash(),
+                        le.getIndex(), le.getTxTime(), le.isCoinbase(),
+                        le.isSentToSelf(), le.isChangeBack(),
+                        le.isOptInRBF(), le.isChainedZC(), le.usesWitness(),
+                        le.getScrAddrList());
 
                      LedgerEntryVector lev;
                      lev.push_back(move(led));
@@ -783,8 +785,9 @@ void BDV_Server_Object::buildMethodMap()
             LedgerEntryData led(le.getWalletID(),
                le.getValue(), le.getBlockNum(), le.getTxHash(),
                le.getIndex(), le.getTxTime(), le.isCoinbase(),
-               le.isSentToSelf(), le.isChangeBack(), 
-               le.isOptInRBF(), le.isChainedZC(), le.usesWitness());
+               le.isSentToSelf(), le.isChangeBack(),
+               le.isOptInRBF(), le.isChainedZC(), le.usesWitness(),
+               le.getScrAddrList());
             lev.push_back(move(led));
          }
       }
@@ -1565,7 +1568,8 @@ void BDV_Server_Object::maintenanceThread(void)
                   le.getValue(), le.getBlockNum(), move(le.getTxHash()),
                   le.getIndex(), le.getTxTime(), le.isCoinbase(),
                   le.isSentToSelf(), le.isChangeBack(), 
-                  le.isOptInRBF(), le.isChainedZC(), le.usesWitness());
+                  le.isOptInRBF(), le.isChainedZC(), le.usesWitness(),
+                  le.getScrAddrList());
 
                lev.push_back(move(led));
             }

@@ -23,20 +23,24 @@ private:
    bool             isChainedZC_ = false;
    bool             isWitness_ = false;
 
-   set<BinaryData> scrAddrSet_;
+   vector<BinaryData> scrAddrVec_;
 
 public:
 
    LedgerEntryData(void) {}
    LedgerEntryData(string ID, int64_t value, uint32_t block,
       const BinaryData& txHash, uint32_t index, uint32_t txtime,
-      bool iscoinbase, bool isSTS, bool ischangeback, 
-      bool isRBF, bool isChained, bool isWitness) :
+      bool iscoinbase, bool isSTS, bool ischangeback,
+      bool isRBF, bool isChained, bool isWitness,
+      const set<BinaryData>& bdSet) :
       ID_(ID), value_(value), blockNum_(block), txHash_(txHash),
       index_(index), txTime_(txtime), isCoinbase_(iscoinbase),
-      isSentToSelf_(isSTS), isChangeBack_(ischangeback), 
+      isSentToSelf_(isSTS), isChangeBack_(ischangeback),
       optInRBF_(isRBF), isChainedZC_(isChained), isWitness_(isWitness)
-   {}
+   {
+      scrAddrVec_.insert(scrAddrVec_.begin(),
+         bdSet.begin(), bdSet.end());
+   }
 
    string              getID(void) const { return ID_; }
    string              getWalletID(void) const { return ID_; }
@@ -51,7 +55,7 @@ public:
    bool                isOptInRBF(void) const   { return optInRBF_;  }
    bool                isChainedZC(void) const   { return isChainedZC_; }
 
-   const set<BinaryData>& getScrAddrList(void) const { return scrAddrSet_; }
+   vector<BinaryData> getScrAddrList(void) const { return scrAddrVec_; }
 };
 
 #endif

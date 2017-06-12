@@ -61,6 +61,13 @@ void LedgerEntryVector::serialize(BinaryWriter& bw) const
       bp.putBit(le.isWitness_);
 
       bw.put_BitPacker(bp);
+
+      bw.put_var_int(le.scrAddrVec_.size());
+      for (auto& scrAddr : le.scrAddrVec_)
+      {
+         bw.put_var_int(scrAddr.getSize());
+         bw.put_BinaryData(scrAddr);
+      }
    }
 }
 
@@ -105,9 +112,18 @@ LedgerEntryVector LedgerEntryVector::deserialize(BinaryRefReader& brr)
       auto chained = bit.getBit();
       auto witness = bit.getBit();
 
+      set<BinaryData> scrAddrSet;
+      auto count = brr.get_var_int();
+      for (unsigned y = 0; y < count; y++)
+      {
+         auto len = brr.get_var_int();
+         auto&& scrAddr = brr.get_BinaryData(len);
+         scrAddrSet.insert(move(scrAddr));
+      }
+
       LedgerEntryData led(leid, *value,
          blockNum, txHash, txindex, txTime,
-         coinbase, sts, change, rbf, chained, witness);
+         coinbase, sts, change, rbf, chained, witness, scrAddrSet);
 
       lev.push_back(move(led));
    }
