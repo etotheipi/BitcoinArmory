@@ -2704,6 +2704,13 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
 
    def populateLedgerComboBox(self):
+      try:
+         comboIdx = self.comboWltSelect.currentIndex()
+         if comboIdx < 0:
+            raise
+      except:
+         comboIdx = self.getSettingOrSetDefault('LastFilterState', 0)
+   
       self.comboWltSelect.clear()
       self.comboWltSelect.addItem( self.tr('My Wallets'        ))
       self.comboWltSelect.addItem( self.tr('Offline Wallets'   ))
@@ -2714,7 +2721,6 @@ class ArmoryMainWindow(QMainWindow):
          self.comboWltSelect.addItem( self.walletMap[wltID].labelName )
       self.comboWltSelect.insertSeparator(5)
       self.comboWltSelect.insertSeparator(5)
-      comboIdx = self.getSettingOrSetDefault('LastFilterState', 0)
       self.comboWltSelect.setCurrentIndex(comboIdx)
 
    #############################################################################
