@@ -196,9 +196,7 @@ class ArmoryMainWindow(QMainWindow):
       self.tempModulesDirName = None
       self.internetStatus = None
 
-      # We only need a single connection to bitcoind since it's a
-      # reconnecting connection, so we keep it around.
-      self.SingletonConnectedNetworkingFactory = None
+      self.lockboxLedgModel = None
 
       #delayed URI parsing dict
       self.delayedURIData = {}

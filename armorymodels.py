@@ -752,7 +752,8 @@ class ArmoryTableView(QTableView):
    def setModel(self, model):
       QTableView.setModel(self, model)
       self.ledgerModel = model
-      self.BlockAndDateSelector.ledgerDelegate = self.ledgerModel.ledgerDelegate
+      if model is not None:
+         self.BlockAndDateSelector.ledgerDelegate = self.ledgerModel.ledgerDelegate
       
    def scrollBarRangeChanged(self, rangeMin, rangeMax):
       pos = int(self.vBarRatio * rangeMax) 

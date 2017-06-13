@@ -206,7 +206,8 @@ def initialColResize(tblViewObj, sizeList):
    totalWidth = tblViewObj.width()
    fixedCols, pctCols = [],[]
 
-   nCols = tblViewObj.model().columnCount()
+   if tblViewObj.model() is None:
+      return
    
    for col,colVal in enumerate(sizeList):
       if colVal > 1:
@@ -660,6 +661,9 @@ def restoreTableView(qtbl, hexBytes):
 
 
 def saveTableView(qtbl):
+   if qtbl.model() is None:
+      return
+   
    nCol = qtbl.model().columnCount()
    sz = [None]*nCol
    for i in range(nCol):

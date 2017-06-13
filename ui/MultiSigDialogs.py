@@ -697,14 +697,9 @@ class DlgLockboxManager(ArmoryDialog):
       frmDone = makeHorizFrame(['Stretch', btnDone])
       self.connect(btnDone, SIGNAL('clicked()'), self.accept)
 
-
-      #maxKeys = max([lb.N for lb in self.main.allLockboxes])
       for i in range(LOCKBOXCOLS.Key0, LOCKBOXCOLS.Key4+1):
          self.lboxView.hideColumn(i)
       self.lboxView.hideColumn(LOCKBOXCOLS.UnixTime)
-
-      #self.ledgerProxy = LedgerDispSortProxy(self)
-      #self.ledgerProxy.setSourceModel(self.main.lockboxLedgModel)
 
       self.frmLedgUpDown = QFrame()
       self.ledgerView  = ArmoryTableView(self.parent, self.main, self.frmLedgUpDown)

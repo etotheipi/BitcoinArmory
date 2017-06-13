@@ -50,12 +50,16 @@ class LockboxDisplayModel(QAbstractTableModel):
       row,col = index.row(), index.column()
       lbox = self.boxList[row]
       lbID = lbox.uniqueIDB58
-      lwlt = self.main.cppLockboxWltMap[lbID]
-
-      nTx, bal = 0, 0
-      if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
-         nTx = lwlt.getWltTotalTxnCount()
-         bal = lwlt.getFullBalance()
+      try:
+         lwlt = self.main.cppLockboxWltMap[lbID]
+      
+         nTx, bal = 0, 0
+         if TheBDM.getState()==BDM_BLOCKCHAIN_READY:
+            nTx = lwlt.getWltTotalTxnCount()
+            bal = lwlt.getFullBalance()
+      except:
+         nTx = "N/A"
+         bal = "N/A"
 
       if role==Qt.DisplayRole:
          if col==LOCKBOXCOLS.ID: 
