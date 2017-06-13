@@ -4831,20 +4831,32 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################      
    def updateStatusBarText(self):
       if self.nodeStatus.status_ == Cpp.NodeStatus_Online:
-         self.lblArmoryStatus.setText(self.tr('<font color=%1>Connected (%2 blocks)</font> ').arg(
-            htmlColor('TextGreen'), str(TheBDM.getTopBlockHeight())))
          
+         haveRPC = (self.nodeStatus.rpcStatus_ == RpcStatus_Online)
          
+         if haveRPC:           
+            self.lblArmoryStatus.setText(\
+               self.tr('<font color=%1>Connected (%2 blocks)</font> ').arg(
+                  htmlColor('TextGreen'), str(TheBDM.getTopBlockHeight())))
+         else:
+            self.lblArmoryStatus.setText(\
+               self.tr('<font color=%1><b>Connected (%2 blocks)</b></font> ').arg(
+                  htmlColor('TextPurple'), str(TheBDM.getTopBlockHeight())))            
+                  
          def getToolTipTextOnline():
+            tt = QString()
+            if not haveRPC:
+               tt = self.tr('RPC disabled!<br><br>')
             blkRecvAgo  = RightNow() - self.blkReceived
-            tt = self.tr('Last block received %1 ago').arg(secondsToHumanTime(blkRecvAgo))
+            tt = tt + self.tr('Last block received %1 ago').arg(secondsToHumanTime(blkRecvAgo))
             return tt
          
          self.lblArmoryStatus.setToolTipLambda(getToolTipTextOnline)
          
       elif self.nodeStatus.status_ == Cpp.NodeStatus_Offline:
-         self.lblArmoryStatus.setText(self.tr('<font color=%1>Node offline (%2 blocks)</font> ').arg(
-            htmlColor('TextRed')).arg(TheBDM.getTopBlockHeight()))    
+         self.lblArmoryStatus.setText(\
+               self.tr('<font color=%1><b>Node offline (%2 blocks)</b></font> ').arg(\
+                  htmlColor('TextRed')).arg(TheBDM.getTopBlockHeight()))    
          
          def getToolTipTextOffline():
             blkRecvAgo  = RightNow() - self.blkReceived

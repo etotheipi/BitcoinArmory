@@ -143,7 +143,8 @@ else:
 
 Colors.ToolTipQ         = Colors.LBtnNormalFG
 
-
+Colors.TextPurple = QColor()
+Colors.TextPurple.setRgb(102, 0, 204, 255)
 
 ################################################################################
 def htmlColor(name):
