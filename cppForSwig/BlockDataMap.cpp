@@ -303,15 +303,18 @@ shared_future<shared_ptr<BlockDataFileMap>>
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataLoader::reset()
+void BlockDataLoader::reset(bool verbose)
 {
    unique_lock<mutex> lock(mu_);
-   LOGINFO << "gc count: " << fileMaps_.size();
-   LOGINFO << "peak: " << peak_;
-   for (auto& file : fileMaps_)
+   
+   if (verbose)
    {
-      LOGINFO << "   file id: " << file.first;
+      LOGINFO << "gc count: " << fileMaps_.size();
+      LOGINFO << "peak: " << peak_;
+      for (auto& file : fileMaps_)
+         LOGINFO << "   file id: " << file.first;
    }
+
    fileMaps_.clear();
 }
 
