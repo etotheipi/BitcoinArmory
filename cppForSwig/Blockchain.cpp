@@ -239,7 +239,10 @@ const BlockHeader& Blockchain::getHeaderPtrForTxRef(const TxRef &txr) const
 BlockHeader* Blockchain::organizeChain(bool forceRebuild, bool verbose)
 {
    if (verbose)
-      LOGDEBUG << "Organizing chain " << (forceRebuild ? "w/ rebuild" : "");
+   {
+      TIMER_START("orgChain");
+      LOGINFO << "Organizing chain " << (forceRebuild ? "w/ rebuild" : "");
+   }
 
    
    // If rebuild, we zero out any original organization data and do a 
@@ -348,8 +351,13 @@ BlockHeader* Blockchain::organizeChain(bool forceRebuild, bool verbose)
       return thisHeaderPtr;
    }
 
-   // Let the caller know that there was no reorg
-   //LOGDEBUG << "Done organizing chain";
+   if (verbose)
+   {
+      TIMER_STOP("orgChain");
+      auto duration = TIMER_READ_SEC("orgChain");
+      LOGINFO << "Organized chain in " << duration << "s";
+   }
+
    return 0;
 }
 

@@ -46,11 +46,30 @@ void DatabaseBuilder::init()
    blockchain_->forceOrganize();
    blockchain_->setDuplicateIDinRAM(db_);
 
+   try
+   {
+      //rewind the top block offset to catch on missed blocks for db init
+      auto& topBlock = blockchain_->top();
+      auto rewindHeight = topBlock.getBlockHeight();
+      if (rewindHeight > 100)
+         rewindHeight -= 100;
+      else
+         rewindHeight = 1;
+
+      auto& rewindBlock = blockchain_->getHeaderByHeight(rewindHeight);
+      topBlockOffset_.fileID_ = rewindBlock.getBlockFileNum();
+      topBlockOffset_.offset_ = rewindBlock.getOffset();
+
+      LOGINFO << "Rewinding 100 blocks";
+   }
+   catch (exception&)
+   {}
+
    //update db
    TIMER_START("updateblocksindb");
    LOGINFO << "updating HEADERS db";
    auto reorgState = updateBlocksInDB(
-      progress_, bdmConfig_.reportProgress_, true, false);
+      progress_, bdmConfig_.reportProgress_, false);
    TIMER_STOP("updateblocksindb");
    double updatetime = TIMER_READ_SEC("updateblocksindb");
    LOGINFO << "updated HEADERS db in " << updatetime << "s";
@@ -212,30 +231,13 @@ BlockOffset DatabaseBuilder::loadBlockHeadersFromDB(
 
 /////////////////////////////////////////////////////////////////////////////
 Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
-   const ProgressCallback &progress, bool verbose, bool initialLoad,
-   bool fullHints)
+   const ProgressCallback &progress, bool verbose, bool fullHints)
 {
    //preload and prefetch
    BlockDataLoader bdl(blockFiles_.folderPath(), true, true, true);
 
    unsigned threadcount = min(bdmConfig_.threadCount_,
       blockFiles_.fileCount() - topBlockOffset_.fileID_);
-
-   if (initialLoad)
-   {
-      //rewind 30MB for good measure
-      unsigned rewind = 30 * 1024 * 1024;
-      if (topBlockOffset_.offset_ > rewind)
-         topBlockOffset_.offset_ -= rewind;
-      else
-         topBlockOffset_.offset_ = 0;
-
-      if (topBlockOffset_.offset_ == 0)
-      {
-         if (topBlockOffset_.fileID_ > 0)
-            topBlockOffset_.fileID_--;
-      }
-   }
 
    mutex progressMutex;
    unsigned baseID = topBlockOffset_.fileID_;
@@ -351,6 +353,7 @@ bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl,
       catch (BlockDeserializingException &e)
       {
          LOGERR << "block deser except: " <<  e.what();
+         LOGERR << "block fileID: " << fileID;
          return false;
       }
       catch (exception &e)
@@ -545,7 +548,7 @@ Blockchain::ReorganizationState DatabaseBuilder::update(void)
    blockFiles_.detectAllBlockFiles();
 
    //update db
-   auto&& reorgState = updateBlocksInDB(progress_, false, false, false);
+   auto&& reorgState = updateBlocksInDB(progress_, false, false);
 
    if (!reorgState.hasNewTop)
       return reorgState;
@@ -714,8 +717,7 @@ map<BinaryData, BlockHeader> DatabaseBuilder::assessBlkFile(
       return true;
    };
 
-   parseBlockFile(ptr, blockfilemappointer.size(),
-      0, tallyBlocks);
+   parseBlockFile(ptr, blockfilemappointer.size(), 0, tallyBlocks);
 
    //done parsing, add the headers to the blockchain object
    //convert BlockData vector to BlockHeader map first
@@ -751,7 +753,7 @@ void DatabaseBuilder::verifyChain()
    //update db
    LOGINFO << "updating HEADERS db";
    auto reorgState = updateBlocksInDB(
-      progress_, bdmConfig_.reportProgress_, true, true);
+      progress_, bdmConfig_.reportProgress_, true);
    LOGINFO << "updated HEADERS db";
 
    //verify transactions
