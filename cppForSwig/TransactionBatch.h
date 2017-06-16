@@ -129,6 +129,7 @@ using namespace std;
 #include <vector>
 #include <map>
 #include <stdint.h>
+#include <functional>
 
 #include "BinaryData.h"
 #include "log.h"
