@@ -1884,6 +1884,9 @@ void ZeroConfContainer::processInvTxVec(vector<InvEntry> invVec, bool extend)
          if (!extend)
             continue;
 
+         if (parserThreads_.count() > maxZcThreadCount_)
+            continue;
+
          //zc parser thread queue is depleted, let's add a thread and try again
          auto txthread = [this](void)->void
          {

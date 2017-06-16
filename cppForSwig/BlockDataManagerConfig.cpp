@@ -197,6 +197,9 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
    builds and scans. Defaults to maximum available CPU threads. Can't be
    lower than 1. Can be changed in between processes
 
+   --zcthread-count: defines the maximum number on threads the zc parser can
+   create for processing incoming transcations from the network node
+
    --db-type: sets the db type:
    DB_BARE: tracks wallet history only. Smallest DB.
    DB_FULL: tracks wallet history and resolves all relevant tx hashes.
@@ -210,6 +213,10 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
 
    --cookie: create a cookie file holding a random authentication key to allow
    local clients to make use of elevated commands, like shutdown.
+
+   --fcgi-port: sets the DB listening port.
+
+   --clear-mempool: delete all zero confirmation transactions from the DB.
 
    ***/
 
@@ -492,6 +499,22 @@ void BlockDataManagerConfig::processArgs(const map<string, string>& args,
 
       if (val > 0)
          ramUsage_ = val;
+   }
+
+   iter = args.find("zcthread-count");
+   if (iter != args.end())
+   {
+      int val = 0;
+      try
+      {
+         val = stoi(iter->second);
+      }
+      catch (...)
+      {
+      }
+
+      if (val > 0)
+         zcThreadCount_ = val;
    }
 
    //cookie

@@ -27,6 +27,8 @@
 #include <wordexp.h>
 #endif
 
+#define DEFAULT_ZCTHREAD_COUNT 100
+
 ////////////////////////////////////////////////////////////////////////////////
 struct BlockDataManagerConfig
 {
@@ -64,6 +66,7 @@ struct BlockDataManagerConfig
 
    unsigned ramUsage_ = 4;
    unsigned threadCount_ = thread::hardware_concurrency();
+   unsigned zcThreadCount_ = DEFAULT_ZCTHREAD_COUNT;
 
    exception_ptr exceptionPtr_ = nullptr;
 

@@ -892,7 +892,8 @@ BlockDataManager::BlockDataManager(
 
       nodeRPC_ = make_shared<NodeRPC>(config_);
 
-      zeroConfCont_ = make_shared<ZeroConfContainer>(iface_, networkNode_);
+      zeroConfCont_ = make_shared<ZeroConfContainer>(
+         iface_, networkNode_, config_.zcThreadCount_);
       scrAddrData_ = make_shared<BDM_ScrAddrFilter>(this);
    }
    catch (...)

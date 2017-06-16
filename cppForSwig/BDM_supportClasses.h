@@ -434,6 +434,7 @@ private:
 
    Stack<thread> parserThreads_;
    atomic<bool> zcEnabled_;
+   const unsigned maxZcThreadCount_;
 
 private:
    BulkFilterData ZCisMineBulkFilter(const Tx & tx,
@@ -455,9 +456,8 @@ public:
 
 public:
    ZeroConfContainer(LMDBBlockDatabase* db, 
-      shared_ptr<BitcoinP2P> node) :
-      topId_(0), db_(db), 
-      networkNode_(node)
+      shared_ptr<BitcoinP2P> node, unsigned maxZcThread) :
+      topId_(0), db_(db), maxZcThreadCount_(maxZcThread), networkNode_(node)
    {
       zcEnabled_.store(false, memory_order_relaxed);
 
