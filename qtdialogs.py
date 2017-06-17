@@ -5003,7 +5003,12 @@ class DlgShowKeyList(ArmoryDialog):
       extraLbl = ''
 
       for addr in self.addrCopies:
-         cppAddrObj = self.wlt.cppWallet.getAddrObjByIndex(addr.chainIndex)
+         try:
+            cppAddrObj = self.wlt.cppWallet.getAddrObjByIndex(addr.chainIndex)
+         except:
+            addrIndex = self.wlt.cppWallet.getAssetIndexForAddr(addr.getAddr160())
+            cppAddrObj = self.wlt.cppWallet.getAddrObjByIndex(addrIndex)
+            
          # Address pool
          if self.chkWithAddrPool.isChecked():
             if addr.chainIndex > topChain:
