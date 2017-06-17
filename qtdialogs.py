@@ -3585,9 +3585,9 @@ class DlgIntroMessage(ArmoryDialog):
       lblSlogan.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
       lblDescr = QRichLabel(self.tr(
-         '<b>You are about to use the most secure and feature-rich Bitcoin client'
-         'software available!</b>  But please remember, this software'
-         'is still <i>Beta</i> - Armory developers will not be held responsible'
+         '<b>You are about to use the most secure and feature-rich Bitcoin client '
+         'software available!</b>  But please remember, this software '
+         'is still <i>Beta</i> - Armory developers will not be held responsible '
          'for loss of bitcoins resulting from the use of this software!'
          '<br><br>'))
       lblDescr.setOpenExternalLinks(True)
