@@ -24,7 +24,10 @@ int main(int argc, char* argv[])
    
    cout << "logging in " << bdmConfig.logFilePath_ << endl;
    STARTLOGGING(bdmConfig.logFilePath_, LogLvlDebug);
-   LOGENABLESTDOUT();
+   if (!bdmConfig.useCookie_)
+      LOGENABLESTDOUT();
+   else
+      LOGDISABLESTDOUT();
 
    LOGINFO << "Running on " << bdmConfig.threadCount_ << " threads";
    LOGINFO << "Ram usage level: " << bdmConfig.ramUsage_;
