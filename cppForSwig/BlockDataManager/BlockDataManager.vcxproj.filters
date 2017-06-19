@@ -144,6 +144,9 @@
     <ClCompile Include="..\fcgi\libfcgi\os_win32.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\log.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="fcgi\include\fcgiapp.h">

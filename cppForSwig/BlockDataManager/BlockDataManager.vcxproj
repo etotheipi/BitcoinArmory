@@ -165,6 +165,7 @@
     <ClCompile Include="..\leveldb_windows_port\win32_posix\mman.cpp" />
     <ClCompile Include="..\leveldb_windows_port\win32_posix\Win_TranslatePath.cpp" />
     <ClCompile Include="..\lmdb_wrapper.cpp" />
+    <ClCompile Include="..\log.cpp" />
     <ClCompile Include="..\main.cpp" />
     <ClCompile Include="..\nodeRPC.cpp" />
     <ClCompile Include="..\Progress.cpp" />

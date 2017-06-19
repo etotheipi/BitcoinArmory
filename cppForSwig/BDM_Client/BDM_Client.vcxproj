@@ -203,6 +203,7 @@
     <ClCompile Include="..\JSON_codec.cpp" />
     <ClCompile Include="..\leveldb_windows_port\win32_posix\dirent_win32.cpp" />
     <ClCompile Include="..\leveldb_windows_port\win32_posix\mman.cpp" />
+    <ClCompile Include="..\log.cpp" />
     <ClCompile Include="..\ReentrantLock.cpp" />
     <ClCompile Include="..\Script.cpp" />
     <ClCompile Include="..\Signer.cpp" />

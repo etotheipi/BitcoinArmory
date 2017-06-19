@@ -125,26 +125,9 @@ public:
 ////////////////////////////////////////////////////////////////////////////////
 class DualStream : public LogStream
 {
-protected:
-   mutex mu_;
-   unique_ptr<unique_lock<mutex>> thisLock_ = nullptr;
-
 public:
-   DualStream(void) : noStdout_(false) {
-      thisLock_ = make_unique<unique_lock<mutex>>(mu_);
-   }
-
-   ~DualStream(void)
-   {
-      thisLock_.reset();
-      thisLock_ = nullptr;
-   }
-
-   void unlock(void)
-   {
-      thisLock_.reset();
-      thisLock_ = nullptr;
-   }
+   DualStream(void) : noStdout_(false) 
+   {}
 
    void enableStdOut(bool newbool) { noStdout_ = !newbool; }
 
@@ -269,7 +252,6 @@ public:
          if (filename != nullptr)
          {
             theOneLog->ds_.setLogFile(string(filename));
-            theOneLog->ds_.unlock();
             theOneLog->isInitialized_ = true;
          }
       }
@@ -334,8 +316,15 @@ private:
 // instead I create this little wrapper that does it for me.
 class LoggerObj
 {
+private:
+   static mutex mu_;
+   unique_ptr<unique_lock<mutex>> lockPtr_ = nullptr;
+
 public:
-   LoggerObj(LogLevel lvl) : logLevel_(lvl) {}
+   LoggerObj(LogLevel lvl) : logLevel_(lvl) 
+   {
+      lockPtr_ = move(make_unique<unique_lock<mutex>>(mu_));
+   }
 
    LogStream & getLogStream(void) 
    { 
@@ -349,6 +338,7 @@ public:
    { 
       Log::GetInstance().Get(logLevel_) << "\n";
       Log::GetInstance().FlushStreams();
+      lockPtr_.reset();
    }
 
 private:
