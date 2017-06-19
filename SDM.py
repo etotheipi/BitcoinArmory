@@ -363,8 +363,16 @@ class SatoshiDaemonManager(object):
       if USE_REGTEST:
          pargs.append('--regtest');
 
-      blocksdir = os.path.join(self.satoshiHome, 'blocks')
+      haveSatoshiDir = False
+      blocksdir = self.satoshiHome
       if os.path.exists(blocksdir):
+         haveSatoshiDir = True
+      else:
+         blocksdir = os.path.join(self.satoshiHome, 'blocks')
+         if os.path.exists(blocksdir):
+            haveSatoshiDir = True
+      
+      if haveSatoshiDir:      
          pargs.append('--satoshi-datadir="' + blocksdir + '"')
          
       pargs.append('--datadir="' + dataDir + '"')
