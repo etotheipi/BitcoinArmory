@@ -33,7 +33,11 @@ int main(int argc, char* argv[])
       throw runtime_error("failed to initialize FCGI engine");
 
 
+   //init db
    BlockDataManagerThread bdmThread(bdmConfig);
+   bdmThread.start(bdmConfig.initMode_);
+
+   //init listen loop
    FCGI_Server server(&bdmThread, bdmConfig.fcgiPort_);
    
    if (!bdmConfig.checkChain_)
@@ -43,8 +47,6 @@ int main(int argc, char* argv[])
       server.init();
    }
 
-   //start db init
-   bdmThread.start(bdmConfig.initMode_);
 
    //create cookie file if applicable
    bdmConfig.createCookie();
