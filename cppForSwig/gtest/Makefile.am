@@ -34,7 +34,7 @@ SOURCE_FILES = ../UniversalTimer.cpp ../BinaryData.cpp ../lmdb_wrapper.cpp \
 	../Transactions.cpp ../nodeRPC.cpp ../JSON_codec.cpp \
 	../StringSockets.cpp ../ReentrantLock.cpp \
 	../WalletManager.cpp ../Wallets.cpp ../Script.cpp ../Signer.cpp ../SwigClient.cpp \
-	../CoinSelection.cpp \
+	../CoinSelection.cpp ../log.cpp \
 	gtest-all.cc
 
 AM_CXXFLAGS += -I../lmdb \
