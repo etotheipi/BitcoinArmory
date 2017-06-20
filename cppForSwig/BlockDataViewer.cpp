@@ -364,8 +364,10 @@ void BlockDataViewer::scanScrAddrVector(
    shared_ptr<ScrAddrFilter> saf(saf_->copy());
 
    //register scrAddr with it
+   vector<pair<BinaryData, unsigned>> saVec;
    for (auto& scrAddrPair : scrAddrMap)
-      saf->regScrAddrForScan(scrAddrPair.first, startBlock);
+      saVec.push_back(make_pair(scrAddrPair.first, startBlock));
+   saf->regScrAddrVecForScan(saVec);
 
    //scan addresses
    saf->applyBlockRangeToDB(startBlock, endBlock, vector<string>());
@@ -443,10 +445,10 @@ StoredHeader BlockDataViewer::getBlockFromDB(
 ////////////////////////////////////////////////////////////////////////////////
 bool BlockDataViewer::scrAddressIsRegistered(const BinaryData& scrAddr) const
 {
-   auto scrAddrSet = saf_->getScrAddrSet();
-   auto saIter = scrAddrSet->find(scrAddr);
+   auto scrAddrMap = saf_->getScrAddrMap();
+   auto saIter = scrAddrMap->find(scrAddr);
 
-   if (saIter == scrAddrSet->end())
+   if (saIter == scrAddrMap->end())
       return false;
 
    return true;
@@ -464,14 +466,14 @@ vector<UnspentTxOut> BlockDataViewer::getUnspentTxoutsForAddr160List(
 {
    ScrAddrFilter* saf = bdmPtr_->getScrAddrFilter().get();
 
-   auto scrAddrSet = saf_->getScrAddrSet();
+   auto scrAddrMap = saf_->getScrAddrMap();
 
    if (bdmPtr_->config().armoryDbType_ != ARMORY_DB_SUPER)
    {
       for (const auto& scrAddr : scrAddrVec)
       {
-         auto saIter = scrAddrSet->find(scrAddr);
-         if (saIter == scrAddrSet->end())
+         auto saIter = scrAddrMap->find(scrAddr);
+         if (saIter == scrAddrMap->end())
             throw std::range_error("Don't have this scrAddr tracked");
       }
    }

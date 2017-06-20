@@ -399,11 +399,13 @@ template<typename T, typename U> class TransactionalMap
 private:
    mutable mutex mu_;
    shared_ptr<map<T, U>> map_;
+   atomic<size_t> count_;
 
 public:
 
    TransactionalMap(void)
    {
+      count_.store(0, memory_order_relaxed);
       map_ = make_shared<map<T, U>>();
    }
 
@@ -416,6 +418,7 @@ public:
 
       newMap->insert(move(mv));
       map_ = newMap;
+      count_.store(map_->size(), memory_order_relaxed);
    }
 
    void insert(const pair<T, U>& obj)
@@ -427,19 +430,22 @@ public:
 
       newMap->insert(obj);
       map_ = newMap;
+      count_.store(map_->size(), memory_order_relaxed);
    }
 
    void update(map<T, U> updatemap)
    {
+      if (updatemap.size() == 0)
+         return;
+
       auto newMap = make_shared<map<T, U>>();
 
       unique_lock<mutex> lock(mu_);
-      *newMap = *map_;
-
-      for (auto& updatepair : updatemap)
-         (*newMap)[updatepair.first] = move(updatepair.second);
+      *newMap = updatemap;
+      newMap->insert(map_->begin(), map_->end());
 
       map_ = newMap;
+      count_.store(map_->size(), memory_order_relaxed);
    }
 
    void erase(const T& id)
@@ -455,6 +461,7 @@ public:
 
       newMap->erase(id);
       map_ = newMap;
+      count_.store(map_->size(), memory_order_relaxed);
    }
 
    void erase(const vector<T>& idVec)
@@ -476,6 +483,8 @@ public:
 
       if (erased)
          map_ = newMap;
+
+      count_.store(map_->size(), memory_order_relaxed);
    }
 
    shared_ptr<map<T, U>> pop_all(void)
@@ -485,6 +494,7 @@ public:
       
       auto retMap = map_;
       map_ = newMap;
+      count_.store(map_->size(), memory_order_relaxed);
 
       return retMap;
    }
@@ -501,6 +511,12 @@ public:
       unique_lock<mutex> lock(mu_);
 
       map_ = newMap;
+      count_.store(map_->size(), memory_order_relaxed);
+   }
+
+   size_t size(void) const
+   {
+      return count_.load(memory_order_relaxed);
    }
 };
 
@@ -511,11 +527,13 @@ template<typename T> class TransactionalSet
 private:
    mutable mutex mu_;
    shared_ptr<set<T>> set_;
+   atomic<size_t> count_;
 
 public:
 
    TransactionalSet(void)
    {
+      count_.store(0, memory_order_relaxed);
       set_ = make_shared<set<T>>();
    }
 
@@ -528,6 +546,7 @@ public:
 
       newSet->insert(move(mv));
       set_ = newSet;
+      count_.store(set_->size(), memory_order_relaxed);
    }
 
    void insert(const T& obj)
@@ -539,10 +558,14 @@ public:
 
       newSet->insert(obj);
       set_ = newSet;
+      count_.store(set_->size(), memory_order_relaxed);
    }
 
    void insert(const set<T>& dataSet)
    {
+      if (dataSet.size() == 0)
+         return;
+
       auto newSet = make_shared<set<T>>();
 
       unique_lock<mutex> lock(mu_);
@@ -550,7 +573,7 @@ public:
 
       newSet->insert(dataSet.begin(), dataSet.end());
       set_ = newSet;
-
+      count_.store(set_->size(), memory_order_relaxed);
    }
 
    void erase(const T& id)
@@ -566,6 +589,7 @@ public:
 
       newSet->erase(id);
       set_ = newSet;
+      count_.store(set_->size(), memory_order_relaxed);
    }
 
    void erase(const vector<T>& idVec)
@@ -587,6 +611,7 @@ public:
 
       if (erased)
          set_ = newSet;
+      count_.store(set_->size(), memory_order_relaxed);
    }
 
    shared_ptr<set<T>> pop_all(void)
@@ -596,6 +621,7 @@ public:
 
       auto retSet = set_;
       set_ = newSet;
+      count_.store(set_->size(), memory_order_relaxed);
 
       return retSet;
    }
@@ -612,12 +638,12 @@ public:
       unique_lock<mutex> lock(mu_);
 
       set_ = newSet;
+      count_.store(set_->size(), memory_order_relaxed);
    }
 
    size_t size(void) const
    {
-      unique_lock<mutex> lock(mu_);
-      return set_->size();
+      return count_.load(memory_order_relaxed);
    }
 };
 

@@ -1206,12 +1206,7 @@ void BlockDataManager::enableZeroConf(bool clearMempool)
    if (zeroConfCont_ == nullptr)
       throw runtime_error("null zc object");
 
-   auto zcFilter = [this](void)->shared_ptr<set<ScrAddrFilter::AddrSyncState>>
-   { 
-      return scrAddrData_->getScrAddrSet();
-   };
-
-   zeroConfCont_->init(zcFilter, clearMempool);
+   zeroConfCont_->init(scrAddrData_, clearMempool);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

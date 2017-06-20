@@ -79,7 +79,7 @@ void DatabaseBuilder::init()
    scrAddrFilter_->getAllScrAddrInDB();
 
    //don't scan without any registered addresses
-   if (scrAddrFilter_->getScrAddrSet()->size() == 0)
+   if (scrAddrFilter_->getScrAddrMap()->size() == 0)
       return;
 
    bool reset = false;

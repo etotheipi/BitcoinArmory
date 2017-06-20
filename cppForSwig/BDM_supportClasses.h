@@ -88,6 +88,7 @@ class ScrAddrFilter
    ***/
 
    friend class BlockDataViewer;
+   friend class ZeroConfContainer;
 
 public:
    struct WalletInfo
@@ -138,21 +139,20 @@ public:
       }
    };
 
-   struct AddrSyncState
+   struct AddrAndHash
    {
    private:
       mutable BinaryData addrHash_;
 
    public:
       const BinaryData scrAddr_;
-      int32_t syncHeight_ = -1;
 
    public:
-      AddrSyncState(const BinaryData& addr) :
+      AddrAndHash(const BinaryData& addr) :
          scrAddr_(addr)
       {}
 
-      AddrSyncState(const BinaryDataRef& addrref) :
+      AddrAndHash(const BinaryDataRef& addrref) :
          scrAddr_(addrref)
       {}
 
@@ -164,7 +164,7 @@ public:
          return addrHash_;
       }
 
-      bool operator<(const AddrSyncState& rhs) const
+      bool operator<(const AddrAndHash& rhs) const
       {
          return this->scrAddr_ < rhs.scrAddr_;
       }
@@ -185,8 +185,7 @@ private:
    static atomic<unsigned> keyCounter_;
    static atomic<bool> run_;
 
-   //TODO: avoid std::set, results in too many implicit copies on searches
-   shared_ptr<set<AddrSyncState>>   scrAddrSet_;
+   shared_ptr<TransactionalMap<AddrAndHash, int>>   scrAddrMap_;
 
    LMDBBlockDatabase *const       lmdb_;
 
@@ -204,18 +203,13 @@ private:
    set<shared_ptr<WalletInfo>> scanningAddresses_;
 
 private:
-
-   void setScrAddrLastScanned(const BinaryData& scrAddr, int32_t blkHgt)
-   {
-      auto scrAddrIter = scrAddrSet_->find(scrAddr);
-      if (scrAddrIter != scrAddrSet_->end())
-      {
-         auto& sa = (AddrSyncState&)*scrAddrIter;
-         sa.syncHeight_ = blkHgt;
-      }
-   }
-
    static void cleanUpPreviousChildren(LMDBBlockDatabase* lmdb);
+
+   shared_ptr<TransactionalMap<AddrAndHash, int>>
+      getScrAddrTransactionalMap(void) const
+   {
+      return scrAddrMap_;
+   }
 
 protected:
    function<void(const vector<string>& wltIDs, double prog, unsigned time)>
@@ -239,7 +233,7 @@ public:
       if (uniqueKey_ == 0) 
          cleanUpPreviousChildren(lmdb);
 
-      scrAddrSet_ = make_shared<set<AddrSyncState>>();
+      scrAddrMap_ = make_shared<TransactionalMap<AddrAndHash, int>>();
       scanThreadProgressCallback_ = 
          [](const vector<string>&, double, unsigned)->void {};
    }
@@ -247,20 +241,22 @@ public:
    ScrAddrFilter(const ScrAddrFilter& sca) //copy constructor
       : lmdb_(sca.lmdb_), armoryDbType_(sca.armoryDbType_),
       uniqueKey_(getUniqueKey()) //even copies' keys are unique
-   {}
+   {
+      scrAddrMap_ = make_shared<TransactionalMap<AddrAndHash, int>>();
+   }
    
    virtual ~ScrAddrFilter() { }
    
    LMDBBlockDatabase* lmdb() { return lmdb_; }
 
-   const shared_ptr<set<AddrSyncState>>& getScrAddrSet(void) const
+   const shared_ptr<map<AddrAndHash, int>>& getScrAddrMap(void) const
    { 
       if (!run_.load(memory_order_relaxed))
       {
          LOGERR << "ScrAddrFilter flagged for termination";
          throw runtime_error("ScrAddrFilter flagged for termination");
       }
-      return scrAddrSet_; 
+      return scrAddrMap_->get(); 
    }
 
    map<TxOutScriptRef, int> getOutScrRefMap(void)
@@ -268,21 +264,23 @@ public:
       getScrAddrCurrentSyncState();
       map<TxOutScriptRef, int> outset;
 
-      auto scrAddrSet = scrAddrSet_;
+      auto scrAddrMap = scrAddrMap_->get();
 
-      for (auto& scrAddr : *scrAddrSet_)
+      for (auto& scrAddr : *scrAddrMap)
       {
          TxOutScriptRef scrRef;
-         scrRef.setRef(scrAddr.scrAddr_);
+         scrRef.setRef(scrAddr.first.scrAddr_);
 
-         outset.insert(move(make_pair(scrRef, scrAddr.syncHeight_)));
+         outset.insert(move(make_pair(scrRef, scrAddr.second)));
       }
 
       return outset;
    }
 
    size_t numScrAddr(void) const
-   { return scrAddrSet_->size(); }
+   {
+      return scrAddrMap_->size();
+   }
 
    int32_t scanFrom(void) const;
    bool registerAddresses(const set<BinaryData>&, string, bool,
@@ -293,24 +291,21 @@ public:
    void clear(void);
 
    void getScrAddrCurrentSyncState();
-   void getScrAddrCurrentSyncState(BinaryData const & scrAddr);
+   int getScrAddrCurrentSyncState(BinaryData const & scrAddr);
 
    void setSSHLastScanned(uint32_t height);
 
-   void regScrAddrForScan(const BinaryData& scrAddr, uint32_t scanFrom)
+   void regScrAddrVecForScan(
+      const vector<pair<BinaryData, unsigned>>& addrVec)
    { 
-      auto addrIter = scrAddrSet_->find(scrAddr);
-      if (addrIter == scrAddrSet_->end())
+      map<AddrAndHash, int> saMap;
+      for (auto& addrpair : addrVec)
       {
-         AddrSyncState acs(scrAddr);
-         acs.syncHeight_ = scanFrom;
-
-         scrAddrSet_->insert(move(acs));
-         return;
+         AddrAndHash aah(addrpair.first);
+         saMap.insert(move(make_pair(move(aah), addrpair.second)));
       }
 
-      auto& acsRef = (AddrSyncState&)*addrIter;
-      acsRef.syncHeight_ = scanFrom;
+      scrAddrMap_->update(saMap);
    }
 
    static void scanFilterInNewThread(shared_ptr<ScrAddrFilter> sca);
@@ -429,12 +424,13 @@ private:
    Stack<promise<InvEntry>> newInvTxStack_;
    
    TransactionalMap<string, BDV_Callbacks> bdvCallbacks_;
-   function<shared_ptr<set<ScrAddrFilter::AddrSyncState>>(void)> getMainAddressSet_;
    mutex parserMutex_;
 
    Stack<thread> parserThreads_;
    atomic<bool> zcEnabled_;
    const unsigned maxZcThreadCount_;
+
+   shared_ptr<TransactionalMap<ScrAddrFilter::AddrAndHash, int>> scrAddrMap_;
 
 private:
    BulkFilterData ZCisMineBulkFilter(const Tx & tx,
@@ -496,8 +492,7 @@ public:
 
    void processInvTxVec(vector<InvEntry>, bool extend = true);
 
-   void init(function<shared_ptr<set<ScrAddrFilter::AddrSyncState>>(void)>,
-      bool clearMempool);
+   void init(shared_ptr<ScrAddrFilter>, bool clearMempool);
    void shutdown();
 
    void insertBDVcallback(string, BDV_Callbacks);
