@@ -249,7 +249,7 @@ public:
    
    LMDBBlockDatabase* lmdb() { return lmdb_; }
 
-   const shared_ptr<map<AddrAndHash, int>>& getScrAddrMap(void) const
+   shared_ptr<map<AddrAndHash, int>> getScrAddrMap(void) const
    { 
       if (!run_.load(memory_order_relaxed))
       {
