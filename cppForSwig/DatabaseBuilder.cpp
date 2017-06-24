@@ -537,7 +537,7 @@ BinaryData DatabaseBuilder::scanHistory(int32_t startHeight,
    bcs.updateSSH(false);
 
    unsigned count = 0;
-   while (bcs.resolveTxHashes())
+   while (!bcs.resolveTxHashes())
    {
       ++count;
       verifyTxFilters();
