@@ -116,7 +116,6 @@ private:
    map<uint32_t, BlockHeader*> headersById_;
    BlockHeader *topBlockPtr_;
    BlockHeader *genesisBlockBlockPtr_;
-   map<uint32_t, uint32_t> fileNumToKey_;
    Blockchain(const Blockchain&); // not defined
 
    atomic<unsigned int> topID_;

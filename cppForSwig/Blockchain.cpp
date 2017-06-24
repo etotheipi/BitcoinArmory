@@ -58,8 +58,10 @@ BlockHeader& Blockchain::addBlock(
    }
    
    BlockHeader& bh = headerMap_[blockhash] = block;
-   headersById_[block.getThisID()] = &bh;
-   fileNumToKey_[bh.getBlockFileNum()] = bh.getThisID();
+   auto insertIter = headersById_.insert(make_pair(block.getThisID(), &bh));
+   if (insertIter.second == false)
+      LOGWARN << "block id duplicate: " << block.getThisID();
+
    return bh;
 }
 
@@ -514,7 +516,6 @@ set<uint32_t> Blockchain::addBlocksInBulk(
 
       auto& newheader = iter.first->second;
       headersById_[newheader.getThisID()] = &newheader;
-      fileNumToKey_[newheader.getBlockFileNum()] = newheader.getThisID();
       newlyParsedBlocks_.push_back(&newheader);
       returnSet.insert(newheader.getThisID());
    }
@@ -534,7 +535,6 @@ void Blockchain::forceAddBlocksInBulk(
       header = headerPair.second;
 
       headersById_[header.getThisID()] = &header;
-      fileNumToKey_[header.getBlockFileNum()] = header.getThisID();
       newlyParsedBlocks_.push_back(&header);
    }
 }
