@@ -1103,10 +1103,16 @@ void DatabaseBuilder::verifyTransactions()
 /////////////////////////////////////////////////////////////////////////////
 void DatabaseBuilder::verifyTxFilters()
 {
+   if (bdmConfig_.armoryDbType_ != ARMORY_DB_FULL)
+      return;
+
    LOGINFO << "verifying txfilters integrity";
 
    atomic<unsigned> fileCounter;
    fileCounter.store(0, memory_order_relaxed);
+
+   mutex resultMutex;
+   set<unsigned> damagedFilters;
 
    auto checkThr = [&](void)->void
    {
@@ -1140,9 +1146,19 @@ void DatabaseBuilder::verifyTxFilters()
          }
          catch (runtime_error&)
          {
-            mismatchedFilters.insert(fileNum);
             if (fileNum < blockFiles_.fileCount())
+            {
+               mismatchedFilters.insert(fileNum);
                LOGWARN << "couldnt get filter pool for file: " << fileNum;
+               continue;
+            }
+
+            if (mismatchedFilters.size() > 0)
+            {
+               unique_lock<mutex>(resultMutex);
+               damagedFilters.insert(
+                  mismatchedFilters.begin(), mismatchedFilters.end());
+            }
             return;
          }
       }
@@ -1157,5 +1173,132 @@ void DatabaseBuilder::verifyTxFilters()
       if (thr.joinable())
          thr.join();
    
-   LOGINFO << "done checking txfilters";
+   if (damagedFilters.size() == 0)
+   {
+      LOGINFO << "done checking txfilters";
+      return;
+   }
+
+   LOGWARN << damagedFilters.size() << " damaged filters, repairing";
+   repairTxFilters(damagedFilters);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void DatabaseBuilder::repairTxFilters(const set<unsigned>& badFilters)
+{   
+   //no preload nor prefetch
+   BlockDataLoader bdl(blockFiles_.folderPath(), false, false, true);
+
+   vector<unsigned> idVec;
+   idVec.insert(idVec.end(), badFilters.begin(), badFilters.end());
+   atomic<unsigned> counter;
+   counter.store(0, memory_order_relaxed);
+
+   auto fixFilterThr = [&](void)->void
+   {
+      while (counter.load(memory_order_relaxed) < badFilters.size())
+      {
+         auto counterID = counter.fetch_add(1, memory_order_relaxed);
+         auto fileID = *(idVec.cbegin() + counterID);
+         auto&& blockfilemapptr = bdl.get(fileID, false);
+
+         this->reprocessTxFilter(blockfilemapptr, fileID);
+      }
+   };
+
+   vector<thread> thrs;
+   for (unsigned i = 1; i < bdmConfig_.threadCount_; i++)
+      thrs.push_back(thread(fixFilterThr));
+   fixFilterThr();
+
+   for (auto& thr : thrs)
+      if (thr.joinable())
+         thr.join();
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void DatabaseBuilder::reprocessTxFilter(
+   BlockFileMapPointer& blockfilemappointer, unsigned fileID)
+{
+   auto ptr = blockfilemappointer.get()->getPtr();
+
+   //ptr is null if we're out of block files
+   if (ptr == nullptr)
+      return;
+
+   map<uint32_t, BlockData> bdMap;
+
+   auto getID = [&](void)->uint32_t
+   {
+      return UINT32_MAX;
+   };
+
+   auto tallyBlocks =
+      [&](const uint8_t* data, size_t size, size_t offset)->bool
+   {
+      //deser full block, check merkle
+      BlockData bd;
+      BinaryRefReader brr(data, size);
+
+      try
+      {
+         bd.deserialize(data, size, nullptr,
+            getID, true, false);
+      }
+      catch (BlockDeserializingException &e)
+      {
+         LOGERR << "block deser except: " << e.what();
+         LOGERR << "block fileID: " << fileID;
+         return false;
+      }
+      catch (exception &e)
+      {
+         LOGERR << "exception: " << e.what();
+         return false;
+      }
+      catch (...)
+      {
+         //deser failed, ignore this block
+         LOGERR << "unknown exception";
+         return false;
+      }
+
+      //block is valid, add to container
+      bd.setFileID(fileID);
+      bd.setOffset(offset);
+
+      try
+      {
+         auto& header = blockchain_->getHeaderByHash(bd.getHash());
+         bd.setUniqueID(header.getThisID());
+      }
+      catch (...)
+      {
+         LOGERR << "no header in db matches this hash!";
+         return false;
+      }
+
+      bdMap.insert(move(make_pair(bd.uniqueID(), move(bd))));
+      return true;
+   };
+
+   parseBlockFile(ptr, blockfilemappointer.size(),
+      0, tallyBlocks);
+
+
+   //delete existing txfilter
+   LMDBEnv::Transaction tx;
+   db_->beginDBTransaction(&tx, TXFILTERS, LMDB::ReadWrite);
+   auto&& dbkey = DBUtils::getFilterPoolKey(fileID);
+   db_->deleteValue(TXFILTERS, dbkey);
+
+   //tally all block filters
+   set<TxFilter<TxFilterType>> allFilters;
+   for (auto& bd_pair : bdMap)
+      allFilters.insert(bd_pair.second.getTxFilter());
+
+   TxFilterPool<TxFilterType> pool(allFilters);
+
+   //commit to db
+   db_->putFilterPoolForFileNum(fileID, pool);
 }

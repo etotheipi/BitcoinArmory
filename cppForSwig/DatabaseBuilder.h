@@ -58,6 +58,9 @@ private:
 
    void verifyTransactions(void);
    void commitAllTxHints(const map<uint32_t, BlockData>& bdMap);
+   
+   void repairTxFilters(const set<unsigned>&);
+   void reprocessTxFilter(BlockFileMapPointer&, unsigned);
 
 public:
    DatabaseBuilder(BlockFiles&, BlockDataManager&,
