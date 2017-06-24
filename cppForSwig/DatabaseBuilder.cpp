@@ -535,7 +535,19 @@ BinaryData DatabaseBuilder::scanHistory(int32_t startHeight,
    bcs.scan(startHeight);
    bcs.resetFileMaps(reportprogress);
    bcs.updateSSH(false);
-   bcs.resolveTxHashes();
+
+   unsigned count = 0;
+   while (bcs.resolveTxHashes())
+   {
+      ++count;
+      verifyTxFilters();
+
+      if (count > 5)
+      {
+         LOGERR << "failed to fix filters after 5 attempts";
+         break;
+      }
+   }
 
    scrAddrFilter_->lastScannedHash_ = bcs.getTopScannedBlockHash();
    return bcs.getTopScannedBlockHash();

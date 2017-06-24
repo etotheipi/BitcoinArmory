@@ -1439,6 +1439,9 @@ void BlockchainScanner::processFilterHitsThread(
 
             for (auto& txid : txids)
             {
+               if (txid >= txns.size())
+                  continue;
+
                auto& txn = txns[txid];
                auto& txnHash = txn->getHash();
 
@@ -1528,7 +1531,7 @@ void BlockchainScanner::processFilterHitsThread(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockchainScanner::resolveTxHashes()
+bool BlockchainScanner::resolveTxHashes()
 {
    /***
    the missing hashes entry will always be empty if the db is not set
@@ -1549,11 +1552,11 @@ void BlockchainScanner::resolveTxHashes()
    {
       //no missing hashes entry, return
       TIMER_STOP("resolveHashes");
-      return;
+      return true;
    }
    
    if (missingHashes.size() == 0)
-      return;
+      return true;
 
    set<BinaryData> resolvedHashes;
    auto originalMissingSet = missingHashes;
@@ -1630,7 +1633,10 @@ void BlockchainScanner::resolveTxHashes()
    }
 
    if (missingIDs > 0)
+   {
       LOGINFO << missingIDs << " missing block IDs";
+      return false;
+   }
 
    LOGINFO << heights.size() << " blocks hit by tx filters";
 
@@ -1767,4 +1773,9 @@ void BlockchainScanner::resolveTxHashes()
    TIMER_STOP("resolveHashes");
    auto timeElapsed = TIMER_READ_SEC("resolveHashes");
    LOGINFO << "Resolved missing hashes in " << timeElapsed << "s";
+
+   if (missingHashes.size() > 0)
+      return false;
+
+   return true;
 }
