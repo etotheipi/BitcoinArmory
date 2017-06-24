@@ -1218,7 +1218,9 @@ void DatabaseBuilder::repairTxFilters(const set<unsigned>& badFilters)
    BlockDataLoader bdl(blockFiles_.folderPath(), false, false, true);
 
    vector<unsigned> idVec;
-   idVec.insert(idVec.end(), badFilters.begin(), badFilters.end());
+   for (auto& id : badFilters)
+      idVec.push_back(id);
+
    atomic<unsigned> counter;
    counter.store(0, memory_order_relaxed);
 
