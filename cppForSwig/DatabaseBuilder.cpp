@@ -1127,7 +1127,7 @@ void DatabaseBuilder::verifyTxFilters()
       {
          unsigned mismatchCount = 0;
          unsigned fileNum = fileCounter.fetch_add(1, memory_order_relaxed);
-         auto& file_id_iter = file_id_map.find(fileNum);
+         auto file_id_iter = file_id_map.find(fileNum);
          if (file_id_iter == file_id_map.end())
          {
             if (fileNum < blockFiles_.fileCount())
