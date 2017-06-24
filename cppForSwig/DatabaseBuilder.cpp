@@ -335,7 +335,7 @@ bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl,
 
    map<uint32_t, BlockData> bdMap;
 
-   auto getID = [&](void)->uint32_t
+   auto getID = [&](const BinaryData&)->uint32_t
    {
       return blockchain_->getNewUniqueID();
    };
@@ -678,7 +678,7 @@ map<BinaryData, BlockHeader> DatabaseBuilder::assessBlkFile(
       BlockData bd;
       BinaryRefReader brr(data, size);
 
-      auto getID = [this](void)->uint32_t
+      auto getID = [this](const BinaryData&)->uint32_t
       { return blockchain_->getNewUniqueID(); };
 
       try
@@ -931,7 +931,7 @@ void DatabaseBuilder::verifyTransactions()
                auto blockFileNum = bhPtr->getBlockFileNum();
                auto& fileMap = getFileMap(blockFileNum);
 
-               auto getID = [bhPtr](void)->unsigned int
+               auto getID = [bhPtr](const BinaryData&)->unsigned int
                {
                   return bhPtr->getThisID();
                };
@@ -994,7 +994,7 @@ void DatabaseBuilder::verifyTransactions()
 
          auto& fileMap = getFileMap(blockheader->getBlockFileNum());
 
-         auto getID = [blockheader](void)->unsigned int
+         auto getID = [blockheader](const BinaryData&)->unsigned int
          {
             return blockheader->getThisID();
          };
@@ -1228,9 +1228,18 @@ void DatabaseBuilder::reprocessTxFilter(
 
    map<uint32_t, BlockData> bdMap;
 
-   auto getID = [&](void)->uint32_t
+   auto getID = [&](const BinaryData& heahder_hash)->uint32_t
    {
-      return UINT32_MAX;
+      try
+      {
+         auto& header = blockchain_->getHeaderByHash(heahder_hash);
+        return header.getThisID();
+      }
+      catch (...)
+      {
+         LOGERR << "no header in db matches this hash!";
+         return UINT32_MAX;
+      }
    };
 
    auto tallyBlocks =
@@ -1266,17 +1275,6 @@ void DatabaseBuilder::reprocessTxFilter(
       //block is valid, add to container
       bd.setFileID(fileID);
       bd.setOffset(offset);
-
-      try
-      {
-         auto& header = blockchain_->getHeaderByHash(bd.getHash());
-         bd.setUniqueID(header.getThisID());
-      }
-      catch (...)
-      {
-         LOGERR << "no header in db matches this hash!";
-         return false;
-      }
 
       bdMap.insert(move(make_pair(bd.uniqueID(), move(bd))));
       return true;

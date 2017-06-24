@@ -1680,7 +1680,8 @@ Tx LMDBBlockDatabase::getFullTxCopy(uint16_t txIndex, BlockHeader* bhPtr) const
 
    auto dataPtr = fileMapPtr->getPtr();
 
-   auto getID = [bhPtr]()->uint32_t {return bhPtr->getThisID(); };
+   auto getID = [bhPtr]
+      (const BinaryData&)->uint32_t {return bhPtr->getThisID(); };
 
    BlockData block;
    block.deserialize(dataPtr + bhPtr->getOffset(),

@@ -253,7 +253,7 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch,
          auto filemap = mapIter->second.get();
 
          //find block and deserialize it
-         auto getID = [blockheader](void)->unsigned int
+         auto getID = [blockheader](const BinaryData&)->unsigned int
          {
             return blockheader->getThisID();
          };
@@ -1131,7 +1131,8 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
 
       auto& filemap = fileIter->second;
 
-      auto getID = [blockPtr]()->uint32_t {return blockPtr->getThisID(); };
+      auto getID = [blockPtr]
+         (const BinaryData&)->uint32_t {return blockPtr->getThisID(); };
 
       BlockData bdata;
       bdata.deserialize(filemap.get()->getPtr() + blockPtr->getOffset(),
@@ -1406,7 +1407,7 @@ void BlockchainScanner::processFilterHitsThread(
 
          auto& filterSet = blockkey.second;
 
-         auto getID = [headerPtr](void)->unsigned int
+         auto getID = [headerPtr](const BinaryData&)->unsigned int
          { return headerPtr->getThisID(); };
 
          //search the block

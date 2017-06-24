@@ -221,7 +221,7 @@ public:
 
    void deserialize(const uint8_t* data, size_t size,
       const BlockHeader*, 
-      function<unsigned int(void)> getID, bool checkMerkle,
+      function<unsigned int(const BinaryData&)> getID, bool checkMerkle,
       bool keepHashes);
 
    bool isInitialized(void) const
@@ -253,7 +253,6 @@ public:
    TxFilter<TxFilterType> computeTxFilter(const vector<BinaryData>&) const;
    const TxFilter<TxFilterType>& getTxFilter(void) const { return txFilter_; }
    uint32_t uniqueID(void) const { return uniqueID_; }
-   void setUniqueID(unsigned id) { uniqueID_ = id; }
 };
 
 /////////////////////////////////////////////////////////////////////////////

@@ -12,7 +12,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 void BlockData::deserialize(const uint8_t* data, size_t size,
    const BlockHeader* blockHeader,
-   function<unsigned int(void)> getID, bool checkMerkle, bool keepHashes)
+   function<unsigned int(const BinaryData&)> getID, 
+   bool checkMerkle, bool keepHashes)
 {
    headerPtr_ = blockHeader;
 
@@ -82,7 +83,7 @@ void BlockData::deserialize(const uint8_t* data, size_t size,
       throw BlockDeserializingException("invalid merkle root");
    }
 
-   uniqueID_ = getID();
+   uniqueID_ = getID(bh.getThisHash());
 
    txFilter_ = move(computeTxFilter(allhashes));
 }
