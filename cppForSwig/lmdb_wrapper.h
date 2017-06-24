@@ -273,6 +273,33 @@ public:
       return returnMap;
    }
 
+   vector<TxFilter<T>> getFilterPoolPtr(void)
+   {
+      if (poolPtr_ == nullptr)
+         throw runtime_error("missing pool ptr");
+
+      vector<TxFilter<T>> filters;
+
+      //get count
+      auto size = (uint32_t*)poolPtr_;
+      uint32_t* filterSize;
+      size_t pos = 4;
+
+      for (uint32_t i = 0; i < *size; i++)
+      {
+         if (pos >= len_)
+            throw runtime_error("overflow while reading pool ptr");
+
+         //iterate through entries
+         filterSize = (uint32_t*)(poolPtr_ + pos);
+
+         TxFilter<T> filterPtr(poolPtr_ + pos);
+         filters.push_back(filterPtr);
+      }
+
+      return filters;
+   }
+
    void serialize(BinaryWriter& bw) const
    {
       bw.put_uint32_t(len_); //item count

@@ -74,6 +74,8 @@ void DatabaseBuilder::init()
    double updatetime = TIMER_READ_SEC("updateblocksindb");
    LOGINFO << "updated HEADERS db in " << updatetime << "s";
 
+   verifyTxFilters();
+
    //blockchain object now has the longest chain, update address history
    //retrieve all tracked addresses from DB
    scrAddrFilter_->getAllScrAddrInDB();
@@ -1096,4 +1098,53 @@ void DatabaseBuilder::verifyTransactions()
       throw runtime_error("checkChain failed with unknown errors");
 
    LOGINFO << "Done checking chain";
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void DatabaseBuilder::verifyTxFilters()
+{
+   LOGINFO << "verifying txfilters integrity";
+
+   atomic<unsigned> fileCounter;
+   fileCounter.store(0, memory_order_relaxed);
+
+   auto checkThr = [&](void)->void
+   {
+      LMDBEnv::Transaction tx;
+      db_->beginDBTransaction(&tx, TXFILTERS, LMDB::ReadOnly);
+
+      while (1)
+      {
+         unsigned fileNum = fileCounter.fetch_add(1, memory_order_relaxed);
+         try
+         {
+            auto&& pool = db_->getFilterPoolRefForFileNum<TxFilterType>(fileNum);
+            auto&& filters = pool.getFilterPoolPtr();
+
+            for (auto& filter : filters)
+            {
+               //check filter blockid is for this block file
+               auto& header = blockchain_->getHeaderById(filter.getBlockKey());
+               if (header.getBlockFileNum() != fileNum)
+                  LOGERR << "filter file num mismatch";
+            }
+         }
+         catch (runtime_error&)
+         {
+            LOGWARN << "couldnt get filter pool for file: " << fileNum;
+            return;
+         }
+      }
+   };
+
+   vector<thread> thrs;
+   for (unsigned i = 1; i < bdmConfig_.threadCount_; i++)
+      thrs.push_back(thread(checkThr));
+   checkThr();
+
+   for (auto& thr : thrs)
+      if (thr.joinable())
+         thr.join();
+   
+   LOGINFO << "done checking txfilters";
 }

@@ -68,4 +68,6 @@ public:
 
    void verifyChain(void);
    unsigned getCheckedTxCount(void) const { return checkedTransactions_; }
+
+   void verifyTxFilters(void);
 };
