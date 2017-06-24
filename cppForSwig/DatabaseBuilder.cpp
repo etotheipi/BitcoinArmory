@@ -1201,6 +1201,19 @@ void DatabaseBuilder::verifyTxFilters()
 /////////////////////////////////////////////////////////////////////////////
 void DatabaseBuilder::repairTxFilters(const set<unsigned>& badFilters)
 {   
+   {
+      LOGINFO << "clearing damaged filters";
+
+      LMDBEnv::Transaction tx;
+      db_->beginDBTransaction(&tx, TXFILTERS, LMDB::ReadWrite);
+
+      for (auto& filter : badFilters)
+      {
+         auto&& dbkey = DBUtils::getFilterPoolKey(filter);
+         db_->deleteValue(TXFILTERS, dbkey);
+      }
+   }
+
    //no preload nor prefetch
    BlockDataLoader bdl(blockFiles_.folderPath(), false, false, true);
 
@@ -1299,19 +1312,23 @@ void DatabaseBuilder::reprocessTxFilter(
       0, tallyBlocks);
 
 
-   //delete existing txfilter
-   LMDBEnv::Transaction tx;
-   db_->beginDBTransaction(&tx, TXFILTERS, LMDB::ReadWrite);
-   auto&& dbkey = DBUtils::getFilterPoolKey(fileID);
-   db_->deleteValue(TXFILTERS, dbkey);
+   {
+      //delete existing txfilter
+      LMDBEnv::Transaction tx;
+      db_->beginDBTransaction(&tx, TXFILTERS, LMDB::ReadWrite);
+      auto&& dbkey = DBUtils::getFilterPoolKey(fileID);
+      db_->deleteValue(TXFILTERS, dbkey);
 
-   //tally all block filters
-   set<TxFilter<TxFilterType>> allFilters;
-   for (auto& bd_pair : bdMap)
-      allFilters.insert(bd_pair.second.getTxFilter());
+      //tally all block filters
+      set<TxFilter<TxFilterType>> allFilters;
+      for (auto& bd_pair : bdMap)
+         allFilters.insert(bd_pair.second.getTxFilter());
 
-   TxFilterPool<TxFilterType> pool(allFilters);
+      TxFilterPool<TxFilterType> pool(allFilters);
 
-   //commit to db
-   db_->putFilterPoolForFileNum(fileID, pool);
+      //commit to db
+      db_->putFilterPoolForFileNum(fileID, pool);
+   }
+
+   LOGINFO << "fixed txfilter for file #" << fileID;
 }
