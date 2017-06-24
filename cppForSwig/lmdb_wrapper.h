@@ -196,7 +196,7 @@ public:
    {}
 
    TxFilterPool(set<TxFilter<T>> pool) :
-      pool_(move(pool)), len_(pool.size())
+      pool_(move(pool)), len_(pool_.size())
    {}
 
    TxFilterPool(const TxFilterPool<T>& filter) :
@@ -295,6 +295,8 @@ public:
 
          TxFilter<T> filterPtr(poolPtr_ + pos);
          filters.push_back(filterPtr);
+
+         pos += *filterSize;
       }
 
       return filters;
@@ -723,8 +725,13 @@ public:
       auto val = getValueNoCopy(TXFILTERS, key);
 
       TxFilterPool<T> pool;
-      if (val.getSize() > 0)
+      try
+      {
          pool.deserialize((uint8_t*)val.getPtr(), val.getSize());
+      }
+      catch (exception&)
+      { }
+
       return pool;
    }
 

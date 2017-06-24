@@ -97,6 +97,8 @@ public:
 
    unsigned int getNewUniqueID(void) { return topID_.fetch_add(1, memory_order_relaxed); }
 
+   map<unsigned, set<unsigned>> mapIDsPerBlockFile(void) const;
+
 private:
    BlockHeader* organizeChain(bool forceRebuild=false, bool verbose=false);
    /////////////////////////////////////////////////////////////////////////////
@@ -120,7 +122,7 @@ private:
 
    atomic<unsigned int> topID_;
 
-   mutex mu_;
+   mutable mutex mu_;
 };
 
 #endif

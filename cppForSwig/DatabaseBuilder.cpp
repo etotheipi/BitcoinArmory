@@ -1114,6 +1114,8 @@ void DatabaseBuilder::verifyTxFilters()
    mutex resultMutex;
    set<unsigned> damagedFilters;
 
+   auto&& file_id_map = blockchain_->mapIDsPerBlockFile();
+
    auto checkThr = [&](void)->void
    {
       LMDBEnv::Transaction tx;
@@ -1125,31 +1127,13 @@ void DatabaseBuilder::verifyTxFilters()
       {
          unsigned mismatchCount = 0;
          unsigned fileNum = fileCounter.fetch_add(1, memory_order_relaxed);
-         try
-         {
-            auto&& pool = db_->getFilterPoolRefForFileNum<TxFilterType>(fileNum);
-            auto&& filters = pool.getFilterPoolPtr();
-
-            for (auto& filter : filters)
-            {
-               //check filter blockid is for this block file
-               auto& header = blockchain_->getHeaderById(filter.getBlockKey());
-               if (header.getBlockFileNum() != fileNum)
-                  ++mismatchCount;
-            }
-
-            if (mismatchCount > 0)
-            {
-               mismatchedFilters.insert(fileNum);
-               LOGWARN << mismatchCount << " mismatches in txfilter for file #" << fileNum;
-            }
-         }
-         catch (runtime_error&)
+         auto& file_id_iter = file_id_map.find(fileNum);
+         if (file_id_iter == file_id_map.end())
          {
             if (fileNum < blockFiles_.fileCount())
             {
-               mismatchedFilters.insert(fileNum);
-               LOGWARN << "couldnt get filter pool for file: " << fileNum;
+               LOGINFO << "no recorded block headers in file #" << fileNum;
+               LOGINFO << "skipping";
                continue;
             }
 
@@ -1159,7 +1143,38 @@ void DatabaseBuilder::verifyTxFilters()
                damagedFilters.insert(
                   mismatchedFilters.begin(), mismatchedFilters.end());
             }
+
             return;
+         }
+
+         auto& idset = file_id_iter->second;
+
+         try
+         {
+            auto&& pool = db_->getFilterPoolRefForFileNum<TxFilterType>(fileNum);
+            auto&& filters = pool.getFilterPoolPtr();
+
+            auto match_count = 0;
+            for (auto& filter : filters)
+            {
+               //check filter blockid is for this block file
+               auto id_iter = idset.find(filter.getBlockKey());
+               if (id_iter != idset.end())
+                  ++match_count;
+            }
+
+            mismatchCount = idset.size() - match_count;
+
+            if (mismatchCount > 0)
+            {
+               mismatchedFilters.insert(fileNum);
+               LOGWARN << mismatchCount << " mismatches in txfilter for file #" << fileNum;
+            }
+         }
+         catch (runtime_error&)
+         {
+            mismatchedFilters.insert(fileNum);
+            LOGWARN << "couldnt get filter pool for file: " << fileNum;
          }
       }
    };

@@ -538,3 +538,19 @@ void Blockchain::forceAddBlocksInBulk(
       newlyParsedBlocks_.push_back(&header);
    }
 }
+
+/////////////////////////////////////////////////////////////////////////////
+map<unsigned, set<unsigned>> Blockchain::mapIDsPerBlockFile(void) const
+{
+   unique_lock<mutex> lock(mu_);
+
+   map<unsigned, set<unsigned>> resultMap;
+
+   for (auto& header : headersById_)
+   {
+      auto& result_set = resultMap[header.second->blkFileNum_];
+      result_set.insert(header.second->uniqueID_);
+   }
+
+   return resultMap;
+}
