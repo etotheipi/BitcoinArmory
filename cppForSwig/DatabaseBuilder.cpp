@@ -1113,6 +1113,8 @@ void DatabaseBuilder::verifyTxFilters()
       LMDBEnv::Transaction tx;
       db_->beginDBTransaction(&tx, TXFILTERS, LMDB::ReadOnly);
 
+      map<unsigned, set<unsigned>> mismatches;
+
       while (1)
       {
          unsigned fileNum = fileCounter.fetch_add(1, memory_order_relaxed);
@@ -1126,12 +1128,27 @@ void DatabaseBuilder::verifyTxFilters()
                //check filter blockid is for this block file
                auto& header = blockchain_->getHeaderById(filter.getBlockKey());
                if (header.getBlockFileNum() != fileNum)
-                  LOGERR << "filter file num mismatch";
+               {
+                  auto& mismatchSet = mismatches[header.getBlockFileNum()];
+                  mismatchSet.insert(filter.getBlockKey());
+               }
+            }
+
+            if (mismatches.size() > 0)
+            {
+               LOGWARN << "filter for file #" << fileNum << 
+                  " mismatches to " << mismatches.size() << " files";
+               for (auto& mm_set : mismatches)
+               {
+                  LOGERR << " === " << mm_set.second.size() << 
+                     " blocks to file #" << mm_set.first;
+               }
             }
          }
          catch (runtime_error&)
          {
-            LOGWARN << "couldnt get filter pool for file: " << fileNum;
+            if (fileNum < blockFiles_.fileCount())
+               LOGWARN << "couldnt get filter pool for file: " << fileNum;
             return;
          }
       }
