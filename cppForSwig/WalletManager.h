@@ -235,6 +235,9 @@ public:
 
    vector<AddressBookEntry> createAddressBook(void) const
    {
+      if (swigWallet_ == nullptr)
+         return vector<AddressBookEntry>();
+
       return swigWallet_->createAddressBook();
    }
 
