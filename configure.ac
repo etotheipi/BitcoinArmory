@@ -81,6 +81,11 @@ AS_IF([test $HAVE_LRELEASE == yes], [],
 	[AC_MSG_ERROR([missing lrelease in path, make sure qt4-linguist-tools is installed])]) 
 fi
 
+AC_CHECK_PROG([HAVE_SWIG], [swig], [yes], [no])
+AS_IF([test $HAVE_SWIG == yes], [],
+	[AC_MSG_ERROR([missing swig!])]) 
+fi
+
 AC_SUBST([CXX_STANDARD], $CXX_STANDARD)
 
 dnl Determine build OS and do other OS-specific things.
