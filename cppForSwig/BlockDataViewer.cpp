@@ -220,38 +220,30 @@ bool BlockDataViewer::registerAddresses(const vector<BinaryData>& saVec,
    return false;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-void BlockDataViewer::registerAddressBatch(
-   const map < BinaryData, vector<BinaryData>>& wltNAddrMap, 
-   bool areNew)
+///////////////////////////////////////////////////////////////////////////////
+void BlockDataViewer::registerArbitraryAddressVec(
+   const vector<BinaryData>& saVec,
+   const string& walletID)
 {
-   //if called from python, feed it a dict such as:
-   //{wltID1:[addrList1], wltID2:[addrList2]}
+   auto callback = [this, walletID](bool refresh)->void
+   {
+      if (!refresh)
+         return;
 
-   auto& group = groups_[group_wallet];
+      flagRefresh(BDV_refreshAndRescan, walletID);
+   };
+
+   shared_ptr<ScrAddrFilter::WalletInfo> wltInfo =
+      make_shared<ScrAddrFilter::WalletInfo>();
+   wltInfo->callback_ = callback;
+   wltInfo->ID_ = walletID;
+
+   for (auto& sa : saVec)
+      wltInfo->scrAddrSet_.insert(sa);
 
    vector<shared_ptr<ScrAddrFilter::WalletInfo>> wltInfoVec;
-   for (auto& wltpair : wltNAddrMap)
-   {
-      auto wlt = group.getWalletByID(wltpair.first);
-      if (wlt == nullptr)
-         continue;
-
-      auto callback = [wlt](bool refresh)->void
-      { wlt->needsRefresh(refresh); };
-
-      shared_ptr<ScrAddrFilter::WalletInfo> wltInfo = 
-         make_shared<ScrAddrFilter::WalletInfo>();
-      wltInfo->callback_ = callback;
-      wltInfo->ID_ = string(wltpair.first.getCharPtr());
-
-      for (auto& sa : wltpair.second)
-         wltInfo->scrAddrSet_.insert(sa);
-
-      wltInfoVec.push_back(move(wltInfo));
-   }
-
-   saf_->registerAddressBatch(move(wltInfoVec), areNew);
+   wltInfoVec.push_back(move(wltInfo));
+   saf_->registerAddressBatch(move(wltInfoVec), false);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

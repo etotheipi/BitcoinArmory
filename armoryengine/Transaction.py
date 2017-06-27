@@ -2990,15 +2990,15 @@ def getUnspentTxOutsForAddr160List(addr160List):
 
       for addr in addr160List:
          if isinstance(addr, PyBtcAddress):
-            scrAddrList.append(Hash160ToScrAddr(addr.getAddr160()))
+            scrAddrList.append(ADDRBYTE + addr.getAddr160())
          else:
             # Have to Skip ROOT
             if addr!='ROOT':
-               scrAddrList.append(Hash160ToScrAddr(addr))
+               scrAddrList.append(ADDRBYTE + addr)
       
 
       from CoinSelection import PyUnspentTxOut
-      utxoList = TheBDM.bdv().getUnspentTxoutsForAddr160List(scrAddrList, IGNOREZC)
+      utxoList = TheBDM.bdv().getUtxosForAddrVec(scrAddrList)
       pyUtxoList = []
       for utxo in utxoList:
          pyUtxoList.append(PyUnspentTxOut().createFromCppUtxo(utxo))

@@ -3127,20 +3127,14 @@ class PyBtcWallet(object):
    def sweepAddressList(self, addrList, main):
       self.actionsToTakeAfterScan.append([self.sweepAfterRescan, [addrList, main]])    
       
-      addrBulk = []
+      addrVec = []
       for addr in addrList:
-         addrBulk.append(Hash160ToScrAddr(addr.getAddr160()))  
-      self.cppWallet.addAddressBulk(addrBulk, False)
-
-   ###############################################################################
-   @CheckWalletRegistration
-   def finishSweepScan(self, addrList):
-      #done with the sweep scan, unregister the swept addresses
-      addrBulk = []
-      for addr in addrList:
-         addrBulk.append(Hash160ToScrAddr(addr.getAddr160()))  
-      self.cppWallet.removeAddressBulk(addrBulk)
+         addrVec.append(ADDRBYTE + addr.getAddr160())
       
+      _id = Cpp.SecureBinaryData().GenerateRandom(8).toHexStr()
+      main.oneTimeScanAction[_id] = self.doAfterScan()
+      TheBDM.bdv().registerAddrList(_id, addrList)
+            
    ###############################################################################
    @CheckWalletRegistration
    def disableWalletUI(self):

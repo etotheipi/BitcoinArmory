@@ -192,7 +192,7 @@ private:
    const unsigned uniqueKey_;
 
    //
-   ScrAddrFilter*                 parent_;
+   ScrAddrFilter*                 parent_ = nullptr;
    ScrAddrSideScanData            scrAddrDataForSideScan_;
    
    //false: dont scan
@@ -268,6 +268,9 @@ public:
 
       for (auto& scrAddr : *scrAddrMap)
       {
+         if (scrAddr.first.scrAddr_.getSize() == 0)
+            continue;
+
          TxOutScriptRef scrRef;
          scrRef.setRef(scrAddr.first.scrAddr_);
 

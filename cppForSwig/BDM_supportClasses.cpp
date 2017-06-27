@@ -350,7 +350,7 @@ bool ScrAddrFilter::registerAddressBatch(
 
          if (wltInfo->scrAddrSet_.size() == 0)
          {
-            wltInfo->callback_(false);
+            wltInfo->callback_(true);
 
             //clean up from scanning addresses container            
             eraseLambda_(wltInfo);
@@ -2022,7 +2022,7 @@ void ZeroConfContainer::eraseBDVcallback(string id)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void ZeroConfContainer::broadcastZC(const BinaryData& rawzc, 
+void ZeroConfContainer::broadcastZC(const BinaryData& rawzc,
    const string& bdvId, uint32_t timeout_sec)
 {
    BDV_Callbacks bdv_cb;
@@ -2040,6 +2040,14 @@ void ZeroConfContainer::broadcastZC(const BinaryData& rawzc,
    //get tx hash
    auto&& txHash = zcTx.getThisHash();
    auto&& txHashStr = txHash.toHexStr();
+   
+   if (!networkNode_->connected())
+   {
+      string errorMsg("node is offline, cannot broadcast");
+      LOGWARN << errorMsg;
+      bdv_cb.zcErrorCallback_(errorMsg, txHashStr);
+      return;
+   }
 
    //create inv payload
    InvEntry entry;

@@ -287,6 +287,8 @@ class ArmoryMainWindow(QMainWindow):
       self.extraNewBlockFunctions = []
       self.extraShutdownFunctions = []
       self.extraGoOnlineFunctions = []
+      
+      self.oneTimeScanAction = {}
 
       self.walletDialogDict = {}
 
@@ -2919,8 +2921,10 @@ class ArmoryMainWindow(QMainWindow):
          for aobj in sweepFromAddrObjList:
             if a160 == aobj.getAddr160():
                pubKey = aobj.binPublicKey65.toBinStr()
+               pubKeyMap = {}
+               pubKeyMap[ADDRBYTE + a160] = pubKey
                txoIdx = utxo.getTxOutIndex()
-               inputSide.append(UnsignedTxInput(rawTx, txoIdx, None, pubKey))
+               inputSide.append(UnsignedTxInput(rawTx, txoIdx, None, pubKeyMap))
                break
 
       minFee = calcMinSuggestedFees(utxoList, outValue, 0, 1)
@@ -3024,7 +3028,7 @@ class ArmoryMainWindow(QMainWindow):
       #######################################################################
       # The createSweepTx method will return instantly because the blockchain
       # has already been rescanned, as described above
-      targScript = scrAddr_to_script(SCRADDR_P2PKH_BYTE + sweepAfterScanTarget)
+      targScript = scrAddr_to_script(ADDRBYTE + sweepAfterScanTarget)
       finishedTx, outVal, fee = self.createSweepAddrTx(sweepList, targScript)
 
       gt1 = len(sweepList)>1
@@ -3055,15 +3059,12 @@ class ArmoryMainWindow(QMainWindow):
       if gt1:
          dispIn  = self.tr('multiple addresses')
       else:
-         assetIndex = wlt.cppWallet.getAssetIndexForAddr(sweepList[0].getAddr160())
-         cppAddrObj = wlt.cppWallet.getImportAddrObjByIndex(assetIndex)
-         dispIn  = self.tr('address <b>%1</b>').arg(cppAddrObj.getScrAddr())
+         addrStr = hash160_to_addrStr(sweepList[0].getAddr160())
+         dispIn  = self.tr('address <b>%1</b>').arg(addrStr)
 
       dispOut = self.tr('wallet <b>"%1"</b> (%2) ').arg(wlt.labelName, wlt.uniqueIDB58)
       if DlgVerifySweep(dispIn, dispOut, outVal, fee).exec_():
          self.broadcastTransaction(finishedTx, dryRun=False)
-
-      wlt.finishSweepScan(sweepList)
 
    #############################################################################
    def notifyNewZeroConf(self, leVec):
@@ -4944,6 +4945,12 @@ class ArmoryMainWindow(QMainWindow):
                   self.walletModel.reset()
                   wlt.doAfterScan()
                   self.changeWltFilter()
+                  
+               if wltID in self.oneTimeScanAction:
+                  postScanAction = self.oneTimeScanAction[wltID]
+                  del self.oneTimeScanAction[wltID]
+                  if callable(postScanAction):
+                     postScanAction()
 
                elif wltID in self.lockboxIDMap:
                   lbID = self.lockboxIDMap[wltID]

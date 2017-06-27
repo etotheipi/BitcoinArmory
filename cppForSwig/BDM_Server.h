@@ -123,6 +123,7 @@ private:
       vector<BinaryData> const& scrAddrVec, string IDstr, bool wltIsNew);
    bool registerLockbox(
       vector<BinaryData> const& scrAddrVec, string IDstr, bool wltIsNew);
+   void registerAddrVec(const string&, vector<BinaryData> const& scrAddrVec);
 
    void pushNotification(unique_ptr<BDV_Notification> notifPtr)
    {

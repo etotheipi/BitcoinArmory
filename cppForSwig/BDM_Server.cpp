@@ -214,6 +214,29 @@ void BDV_Server_Object::buildMethodMap()
 
    methodMap_["registerLockbox"] = registerLockbox;
 
+   //registerAddrList
+   auto registerAddrList = [this]
+      (const vector<string>& ids, Arguments& args)->Arguments
+   {
+      if (ids.size() != 1)
+         throw runtime_error("unexpected id count");
+
+      auto&& id_bdo = args.get<BinaryDataObject>();
+      auto& id_bd = id_bdo.get();
+      string id_str(id_bd.toCharPtr(), id_bd.getSize());
+
+      auto&& scrAddrVec = args.get<BinaryDataVector>();
+
+      this->registerAddrVec(id_str, scrAddrVec.get());
+      auto retVal = IntType(1);
+
+      Arguments retarg;
+      retarg.push_back(move(retVal));
+      return retarg;
+   };
+
+   methodMap_["registerAddrList"] = registerAddrList;
+
    //getLedgerDelegateForWallets
    auto getLedgerDelegateForWallets = [this]
       (const vector<string>& ids, Arguments& args)->Arguments
@@ -742,7 +765,6 @@ void BDV_Server_Object::buildMethodMap()
    auto estimateFee = [this]
       (const vector<string>& ids, Arguments& args)->Arguments
    {
-
       auto blocksToConfirm = args.get<IntType>().getVal();
       auto feeByte = 
          this->bdmPtr_->nodeRPC_->getFeeByte(blocksToConfirm);
@@ -844,6 +866,33 @@ void BDV_Server_Object::buildMethodMap()
 
    methodMap_["broadcastThroughRPC"] = broadcastThroughRPC;
 
+   //getUTXOsForAddrList
+   auto getUTXOsForAddrList = [this]
+      (const vector<string>& ids, Arguments& args)->Arguments
+   {
+      auto&& addrBdVec = args.get<BinaryDataVector>();
+      auto& addrVec = addrBdVec.get();
+
+      auto&& utxoVec = this->getUnspentTxoutsForAddr160List(addrVec, false);
+
+      Arguments retarg;
+      auto count = IntType(utxoVec.size());
+      retarg.push_back(move(count));
+
+      for (auto& utxo : utxoVec)
+      {
+         UTXO entry(utxo.value_, utxo.txHeight_, utxo.txIndex_, utxo.txOutIndex_,
+            move(utxo.txHash_), move(utxo.script_));
+
+         auto&& bdser = entry.serialize();
+         BinaryDataObject bdo(move(bdser));
+         retarg.push_back(move(bdo));
+      }
+
+      return retarg;
+   };
+
+   methodMap_["getUTXOsForAddrList"] = getUTXOsForAddrList;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1659,7 +1708,6 @@ bool BDV_Server_Object::registerWallet(
    if (isReadyFuture_.wait_for(chrono::seconds(0)) != future_status::ready)
    {
       //only run this code if the bdv maintenance thread hasn't started yet
-
       unique_lock<mutex> lock(registerWalletMutex_);
 
       //save data
@@ -1676,6 +1724,31 @@ bool BDV_Server_Object::registerWallet(
    //register wallet with BDV
    auto bdvPtr = (BlockDataViewer*)this;
    return bdvPtr->registerWallet(scrAddrVec, IDstr, wltIsNew) != nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void BDV_Server_Object::registerAddrVec(
+   const string& idStr,
+   vector<BinaryData> const& scrAddrVec)
+{
+   if (isReadyFuture_.wait_for(chrono::seconds(0)) != future_status::ready)
+   {
+      //only run this code if the bdv maintenance thread hasn't started yet
+      unique_lock<mutex> lock(registerWalletMutex_);
+
+      //save data
+      auto& wltregstruct = wltRegMap_[idStr];
+
+      wltregstruct.scrAddrVec = scrAddrVec;
+      wltregstruct.IDstr = idStr;
+      wltregstruct.isNew = false;
+      wltregstruct.type_ = TypeWallet;
+
+      return;
+   }
+
+   //register wallet with BDV
+   registerArbitraryAddressVec(scrAddrVec, idStr);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

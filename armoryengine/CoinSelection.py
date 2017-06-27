@@ -850,27 +850,12 @@ def calcMinSuggestedFees(selectCoinsResult, targetOutVal, preSelectedFee,
    if numBytes == -1:
       return -1
    
-   numKb = int(numBytes / 1000)
-
-   suggestedFee = (1+numKb)*estimateFee()
-   if numKb>10:
-      return suggestedFee
-   # Compute raw priority of tx
-   prioritySum = 0
-   # pprintUnspentTxOutList(selectCoinsResult)
-   for utxo in selectCoinsResult:
-      prioritySum += utxo.getValue() * utxo.getNumConfirm()
-   prioritySum = prioritySum / numBytes
-
-   # Do not assume free if estimatePriority is -1
-   estimatedPriority = estimatePriority()
-   if estimatedPriority > -1 and prioritySum >= estimatedPriority and numBytes < 10000:
-      return 0
-
+   try:
+      suggestedFee = numBytes*estimateFee(2)
+   except:
+      suggestedFee = numBytes*MIN_RELAY_TX_FEE
+      
    return suggestedFee
-
-
-
 
 ################################################################################
 def approxTxInSizeForTxOut(utxoScript, lboxList=None):

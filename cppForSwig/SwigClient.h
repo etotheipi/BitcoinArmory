@@ -374,6 +374,10 @@ namespace SwigClient
 
       uint64_t getValueForTxOut(const BinaryData& txHash, unsigned inputId);
       string broadcastThroughRPC(const BinaryData& rawTx);
+
+      vector<UTXO> getUtxosForAddrVec(const vector<BinaryData>&);
+
+      void registerAddrList(const BinaryData&, const vector<BinaryData>&);
    };
 
    ///////////////////////////////////////////////////////////////////////////////

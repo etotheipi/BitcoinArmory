@@ -432,6 +432,61 @@ string BlockDataViewer::broadcastThroughRPC(const BinaryData& rawTx)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+void BlockDataViewer::registerAddrList(
+   const BinaryData& id,
+   const vector<BinaryData>& addrVec)
+{
+   Command cmd;
+
+   cmd.method_ = "registerAddrList";
+   cmd.ids_.push_back(bdvID_);
+
+   BinaryDataObject bdo(id);
+   BinaryDataVector bdVec;
+   for (auto addr : addrVec)
+      bdVec.push_back(move(addr));
+
+   cmd.args_.push_back(move(bdo));
+   cmd.args_.push_back(move(bdVec));
+   cmd.serialize();
+
+   auto&& result = sock_->writeAndRead(cmd.command_);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+vector<UTXO> BlockDataViewer::getUtxosForAddrVec(
+   const vector<BinaryData>& addrVec)
+{
+   Command cmd;
+
+   cmd.method_ = "getUTXOsForAddrList";
+   cmd.ids_.push_back(bdvID_);
+
+   BinaryDataVector bdVec;
+   for (auto addr : addrVec)
+      bdVec.push_back(move(addr));
+
+   cmd.args_.push_back(move(bdVec));
+   cmd.serialize();
+
+   auto&& result = sock_->writeAndRead(cmd.command_);
+   Arguments arg(move(result));
+   auto count = arg.get<IntType>().getVal();
+
+   vector<UTXO> utxovec;
+   for (unsigned i = 0; i < count; i++)
+   {
+      auto&& bdo = arg.get<BinaryDataObject>();
+      UTXO utxo;
+      utxo.unserialize(bdo.get());
+
+      utxovec.push_back(move(utxo));
+   }
+
+   return utxovec;
+}
+
+///////////////////////////////////////////////////////////////////////////////
 //
 // LedgerDelegate
 //

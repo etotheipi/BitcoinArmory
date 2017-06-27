@@ -396,7 +396,10 @@ class CoinControlTreeNode(TreeNode):
       return len(self.entries)
    
    def getCommentFromWallet(self, val):
-      return self.parent.getCommentFromWallet(val)
+      try:
+         return self.parent.getCommentFromWallet(val)
+      except:
+         return ""
 
 
 ################################################################################

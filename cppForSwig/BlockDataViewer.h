@@ -83,10 +83,8 @@ public:
 
    bool registerAddresses(const vector<BinaryData>& saVec, 
                            const string& walletID, bool areNew);
-
-   void registerAddressBatch(
-      const map <BinaryData, vector<BinaryData> >& wltNAddrMap,
-      bool areNew);
+   void registerArbitraryAddressVec(const vector<BinaryData>& saVec,
+      const string& walletID);
 
    const shared_ptr<map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>>>
       getFullZeroConfTxIOMap() const
