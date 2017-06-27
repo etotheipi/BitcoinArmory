@@ -1061,7 +1061,17 @@ class PyBtcWallet(object):
          
       if self.cppWallet != None:      
          needsRegistered = \
-            self.cppWallet.extendAddressChainTo(self.lastComputedChainIndex)   
+            self.cppWallet.extendAddressChainTo(self.lastComputedChainIndex)  
+         
+         #grab cpp addr as default addr type
+         addrType = armoryengine.ArmoryUtils.DEFAULT_ADDR_TYPE
+         
+         if addrType == 'P2PKH':
+            self.getP2PKHAddrForIndex(newAddr.chainIndex)
+         elif addrType == 'P2SH-P2WPKH':
+            self.getNestedSWAddrForIndex(newAddr.chainIndex)
+         elif addrType == 'P2SH-P2PK':
+            self.getNestedP2PKAddrForIndex(newAddr.chainIndex)
          
          if doRegister and self.isRegistered() and needsRegistered:
                self.cppWallet.registerWithBDV(isActuallyNew)
@@ -3226,6 +3236,8 @@ class PyBtcWallet(object):
       keepInUse = filterUse != "Unused"
       keepChange = filterUse == "Change"
       
+      typeCount = 0
+      
       for addrIndex in self.chainIndexMap:
          
          if addrIndex < 0:
@@ -3235,7 +3247,8 @@ class PyBtcWallet(object):
          if filterType != self.cppWallet.getAddrTypeForIndex(addrIndex):
             continue
          
-         addrObj = self.cppWallet.getAddrObjByIndex(addrIndex)         
+         addrObj = self.cppWallet.getAddrObjByIndex(addrIndex)
+         typeCount = typeCount + 1         
          
          #filter by usage
          inUse = addrObj.getTxioCount() != 0

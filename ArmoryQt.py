@@ -248,6 +248,9 @@ class ArmoryMainWindow(QMainWindow):
       eulaAgreed = self.getSettingOrSetDefault('Agreed_to_EULA', False)
       if not eulaAgreed:
          DlgEULA(self,self).exec_()
+         
+      armoryengine.ArmoryUtils.DEFAULT_ADDR_TYPE = \
+         self.getSettingOrSetDefault('Default_ReceiveType', 'P2PKH')
 
 
       if not self.abortLoad:

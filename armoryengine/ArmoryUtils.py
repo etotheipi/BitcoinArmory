@@ -618,6 +618,9 @@ CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_SPENDMULTI]  = 'Spend Multisig'
 CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_SPENDP2SH]   = 'Spend P2SH'
 CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_NONSTANDARD] = 'Non-Standard'
 
+#default address type
+DEFAULT_ADDR_TYPE = 'P2PKH'
+
 ################################################################################
 if not CLI_OPTIONS.satoshiPort == DEFAULT:
    try:

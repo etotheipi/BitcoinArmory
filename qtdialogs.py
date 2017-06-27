@@ -8901,6 +8901,7 @@ class DlgSettings(ArmoryDialog):
 
       #addr type
       self.main.writeSetting('Default_ReceiveType', self.addrType)
+      armoryengine.ArmoryUtils.DEFAULT_ADDR_TYPE = self.addrType
 
       try:
          self.main.createCombinedLedger()
