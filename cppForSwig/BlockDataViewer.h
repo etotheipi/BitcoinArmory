@@ -218,7 +218,7 @@ public:
 protected:
    atomic<bool> rescanZC_;
 
-   BlockDataManager* bdmPtr_;
+   BlockDataManager* bdmPtr_ = nullptr;
    LMDBBlockDatabase*        db_;
    shared_ptr<Blockchain>    bc_;
    ScrAddrFilter*            saf_;
@@ -312,7 +312,7 @@ private:
    HistoryPager hist_;
    HistoryOrdering order_ = order_descending;
 
-   BlockDataViewer* bdvPtr_;
+   BlockDataViewer* bdvPtr_ = nullptr;
    ScrAddrFilter*   saf_;
 
    //the global ledger may be modified concurently by the maintenance thread

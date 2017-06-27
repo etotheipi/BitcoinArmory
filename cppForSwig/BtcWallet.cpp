@@ -937,7 +937,7 @@ void BtcWallet::needsRefresh(bool refresh)
    //merge addresses in
 
    //notify BDV
-   if (refresh)
+   if (refresh && isRegistered_)
       bdvPtr_->flagRefresh(BDV_refreshAndRescan, walletID_); 
 
    //call custom callback
