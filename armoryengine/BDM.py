@@ -112,7 +112,7 @@ class PySide_CallBack(Cpp.PythonCallback):
          else:
             progInfo = [walletVec, prog]
             for cppNotificationListener in TheBDM.getListenerList():
-               cppNotificationListener('progress', progInfo)
+               cppNotificationListener(SCAN_ACTION, progInfo)
                
       except:
          LOGEXCEPT('Error in running progress callback')
@@ -186,7 +186,7 @@ class BlockDataManager(object):
          socketType = Cpp.SocketHttp 
 
       self.bdv_ = Cpp.BlockDataViewer_getNewBDV(\
-                     ARMORYDB_IP, port, socketType)   
+                     str(ARMORYDB_IP), str(port), socketType)   
 
    #############################################################################
    def registerBDV(self):   

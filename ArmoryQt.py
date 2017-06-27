@@ -4973,30 +4973,6 @@ class ArmoryMainWindow(QMainWindow):
 
          self.createCombinedLedger(reset)
 
-      elif action == 'progress':        
-         #Received progress data for a wallet side scan
-         wltIDList = args[0]
-         prog = args[1]
-
-         hasWallet = False
-         hasLockbox = False
-         for wltID in wltIDList:
-            self.walletSideScanProgress[wltID] = prog*100
-
-            if wltID in self.walletMap:
-               hasWallet = True
-            else:
-               hasLockbox = True
-
-
-         if hasWallet:
-            self.walletModel.reset()
-
-         if hasLockbox:
-            self.lockboxLedgModel.reset()
-            if self.lbDialogModel != None:
-               self.lbDialogModel.reset()
-
       elif action == WARNING_ACTION:
          #something went wrong on the C++ side, create a message box to report
          #it to the user
@@ -5022,12 +4998,13 @@ class ArmoryMainWindow(QMainWindow):
 
       elif action == SCAN_ACTION:
          wltIDList = args[0]
+         prog = args[1]
 
          hasWallet = False
          hasLockbox = False
 
          for wltID in wltIDList:
-            self.walletSideScanProgress[wltID] = 0
+            self.walletSideScanProgress[wltID] = prog*100
             if len(wltID) > 0:
                if wltID in self.walletMap:
                   wlt = self.walletMap[wltID]
