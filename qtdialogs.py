@@ -8238,9 +8238,11 @@ class DlgHelpAbout(ArmoryDialog):
       imgLogo.setPixmap(QPixmap(':/armory_logo_h56.png'))
       imgLogo.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
-      lblHead = QRichLabel(self.tr('Armory Bitcoin Wallet : Version %1-beta-%2').arg(getVersionString(BTCARMORY_VERSION), BTCARMORY_BUILD), doWrap=False)
-      #lblWebpage = QRichLabel('<a href="https://www.bitcoinarmory.com">https://www.bitcoinarmory.com</a>')
-      #lblWebpage.setOpenExternalLinks(True)
+      if BTCARMORY_BUILD != None:
+         lblHead = QRichLabel(self.tr('Armory Bitcoin Wallet : Version %1-beta-%2').arg(getVersionString(BTCARMORY_VERSION), BTCARMORY_BUILD), doWrap=False)
+      else:
+         lblHead = QRichLabel(self.tr('Armory Bitcoin Wallet : Version %1-beta').arg(getVersionString(BTCARMORY_VERSION)), doWrap=False)
+
       lblOldCopyright = QRichLabel(self.tr( u'Copyright &copy; 2011-2015 Armory Technologies, Inc.'))
       lblCopyright = QRichLabel(self.tr( u'Copyright &copy; 2016 Goatpig'))
       lblOldLicense = QRichLabel(self.tr( u'Licensed to Armory Technologies, Inc. under the '
@@ -8253,7 +8255,6 @@ class DlgHelpAbout(ArmoryDialog):
       lblLicense.setOpenExternalLinks(True)
 
       lblHead.setAlignment(Qt.AlignHCenter)
-      #lblWebpage.setAlignment(Qt.AlignHCenter)
       lblCopyright.setAlignment(Qt.AlignHCenter)
       lblOldCopyright.setAlignment(Qt.AlignHCenter)
       lblLicense.setAlignment(Qt.AlignHCenter)
