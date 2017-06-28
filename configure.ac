@@ -61,6 +61,11 @@ AX_CXX_COMPILE_STDCXX([11], [noext], [mandatory], [nodefault])
 
 if test "x$with_gui" = "xyes"; then
 #check for  swig
+
+AC_CHECK_PROG([HAVE_SWIG], [swig], [yes], [no])
+AS_IF([test $HAVE_SWIG == yes], [],
+	[AC_MSG_ERROR([missing swig!])]) 
+
 if test "x$cross_compiling" != "xyes"; then
 	AX_SWIG_PYTHON([no])
 	AS_IF([test -z $AX_SWIG_PYTHON_CPPFLAGS], 
@@ -79,11 +84,7 @@ AS_IF([test $HAVE_PYRCC4 == yes], [],
 AC_CHECK_PROG([HAVE_LRELEASE], [lrelease], [yes], [no])
 AS_IF([test $HAVE_LRELEASE == yes], [],
 	[AC_MSG_ERROR([missing lrelease in path, make sure qt4-linguist-tools is installed])]) 
-fi
 
-AC_CHECK_PROG([HAVE_SWIG], [swig], [yes], [no])
-AS_IF([test $HAVE_SWIG == yes], [],
-	[AC_MSG_ERROR([missing swig!])]) 
 fi
 
 AC_SUBST([CXX_STANDARD], $CXX_STANDARD)
