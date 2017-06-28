@@ -103,6 +103,8 @@ void BinarySocket::writeToSocket(SOCKET sockfd, void* data, size_t size)
    pfd.fd = sockfd;
    pfd.events = POLLOUT;
 
+   size_t total_send = 0;
+
    while (1)
    {
 #ifdef _WIN32
@@ -145,11 +147,14 @@ void BinarySocket::writeToSocket(SOCKET sockfd, void* data, size_t size)
       {
          if (!haveWritten)
          {
-            auto bytessent = send(sockfd, (char*)data, size, 0);
-            if (bytessent != size)
+            auto bytessent = send(
+               sockfd, (char*)data + total_send, size - total_send, 0);
+            if (bytessent == 0)
                throw SocketError("failed to send data");
 
-            haveWritten = true;
+            total_send += bytessent;
+            if (total_send >= size)
+               haveWritten = true;
          }
          else
          {
@@ -392,6 +397,8 @@ void BinarySocket::writeAndRead(
    pfd.fd = sockfd;
    pfd.events = POLLOUT;
 
+   size_t total_send = 0;
+
    while (1)
    {
 #ifdef _WIN32
@@ -445,13 +452,17 @@ void BinarySocket::writeAndRead(
       {
          if (!haveWritten)
          {
-            auto bytessent = send(sockfd, (char*)data, len, 0);
-            if (bytessent != len)
+            auto bytessent = send(
+               sockfd, (char*)data + total_send, len - total_send, 0);
+            if (bytessent == 0)
                throw SocketError("failed to send data");
 
-            haveWritten = true;
-
-            pfd.events = POLLIN;
+            total_send += bytessent;
+            if (total_send >= len)
+            {
+               haveWritten = true;
+               pfd.events = POLLIN;
+            }
          }
       }
 

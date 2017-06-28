@@ -205,8 +205,9 @@ string HttpSocket::writeAndRead(const string& msg, SOCKET sockfd)
          LOGERR << "HttpSocket::writeAndRead HttpError: " << e.what();
          continue;
       }
-      catch (SocketError&)
+      catch (exception &e)
       {
+         LOGERR << e.what();
          continue;
       }
    }
@@ -349,9 +350,13 @@ string FcgiSocket::writeAndRead(const string& msg, SOCKET sockfd)
       {
          LOGERR << "FcgiSocket::writeAndRead FcgiError: " << e.what();
       }
-      catch (future_error& e)
+      catch (future_error &e)
       {
-         cout << e.what();
+         LOGERR << e.what();
+      }
+      catch (exception &e)
+      {
+         LOGERR << e.what();
       }
 
       closeSocket(sockfd);
