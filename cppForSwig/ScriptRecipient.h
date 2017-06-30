@@ -63,6 +63,9 @@ public:
 
    //locals
    uint64_t getValue(void) const { return value_; }
+
+   //static
+   static shared_ptr<ScriptRecipient> deserialize(const BinaryDataRef& dataPtr);
 };
 
 ////////////////////////////////////////////////////////////////////////////////

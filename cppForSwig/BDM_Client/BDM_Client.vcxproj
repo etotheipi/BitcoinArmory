@@ -178,6 +178,7 @@
     <ClInclude Include="..\LedgerEntry.h" />
     <ClInclude Include="..\LedgerEntryData.h" />
     <ClInclude Include="..\ReentrantLock.h" />
+    <ClInclude Include="..\Script.h" />
     <ClInclude Include="..\ScriptRecipient.h" />
     <ClInclude Include="..\SocketObject.h" />
     <ClInclude Include="..\StringSockets.h" />

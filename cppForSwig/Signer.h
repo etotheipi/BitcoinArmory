@@ -18,12 +18,27 @@
 
 using namespace std;
 
+enum SpenderStatus
+{
+   SpenderStatus_Unkonwn,
+   SpenderStatus_Partial,
+   SpenderStatus_Resolved
+};
+
+#define SERIALIZED_SCRIPT_PREFIX 0x01
+#define WITNESS_SCRIPT_PREFIX    0x02
+
+#define LEGACY_STACK_PARTIAL    0x03
+#define WITNESS_STACK_PARTIAL   0x04
+
 ////////////////////////////////////////////////////////////////////////////////
 class ScriptSpender
 {
 private:
+   SpenderStatus legacyStatus_ = SpenderStatus_Unkonwn;
+   SpenderStatus segwitStatus_ = SpenderStatus_Unkonwn;
+
    bool isP2SH_ = false;
-   bool isSegWit_ = false;
 
    bool isCSV_ = false;
    bool isCLTV_ = false;
@@ -41,21 +56,25 @@ private:
    BinaryData serializedScript_;
    mutable BinaryData serializedInput_;
    BinaryData witnessData_;
-   bool resolved_ = false;
+
+   map<unsigned, shared_ptr<StackItem>> partialStack_;
+   map<unsigned, shared_ptr<StackItem>> partialWitnessStack_;
 
 private:
    static BinaryData serializeScript(
       const vector<shared_ptr<StackItem>>& stack);
-
    static BinaryData serializeWitnessData(
-      const vector<shared_ptr<StackItem>>& stack);
+      const vector<shared_ptr<StackItem>>& stack, unsigned& itemCount);
+
+   void updateStack(map<unsigned, shared_ptr<StackItem>>&,
+      const vector<shared_ptr<StackItem>>&);
 
 public:
    ScriptSpender(const UTXO& utxo, shared_ptr<ResolverFeed> feed) :
       utxo_(utxo), resolverFeed_(feed)
    {}
 
-   bool isSegWit(void) const { return isSegWit_; }
+   bool isSegWit(void) const { return segwitStatus_ != SpenderStatus_Unkonwn; }
 
    //set
    void setSigHashType(SIGHASH_TYPE sht) { sigHashType_ = sht; }
@@ -84,7 +103,7 @@ public:
       if (isP2SH_)
          flags |= SCRIPT_VERIFY_P2SH;
 
-      if (isSegWit_)
+      if (isSegWit())
          flags |= SCRIPT_VERIFY_SEGWIT | SCRIPT_VERIFY_P2SH_SHA256;
 
       if (isCSV_)
@@ -111,6 +130,31 @@ public:
 
       return hashbyte;
    }
+
+   void updatePartialStack(const vector<shared_ptr<StackItem>>& stack)
+   {
+      if (legacyStatus_ == SpenderStatus_Resolved)
+         return;
+
+      updateStack(partialStack_, stack);
+      legacyStatus_ = SpenderStatus_Partial;
+   }
+
+   void updatePartialWitnessStack(const vector<shared_ptr<StackItem>>& stack)
+   {
+      if (segwitStatus_ == SpenderStatus_Resolved)
+         return;
+
+      updateStack(partialWitnessStack_, stack);
+      segwitStatus_ = SpenderStatus_Partial;
+   }
+   
+   void evaluatePartialStacks(void);
+   bool resolved(void) const;
+
+   BinaryData serializeState(void) const;
+   static shared_ptr<ScriptSpender> deserializeState(
+      const BinaryDataRef&, shared_ptr<ResolverFeed>);
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -172,6 +216,10 @@ public:
    uint64_t getOutpointValue(unsigned) const;
    unsigned getTxInSequence(unsigned) const;
    const BinaryData& getSigForInputIndex(unsigned) const;
+
+   BinaryData serializeState(void) const;
+   void deserializeState(const BinaryData&, shared_ptr<ResolverFeed>);
+   bool isValid(void) const;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

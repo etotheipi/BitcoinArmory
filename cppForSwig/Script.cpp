@@ -20,6 +20,213 @@ ResolvedStack::~ResolvedStack()
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
+//// StackItem
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+bool StackItem_PushData::isSame(const StackItem* obj) const
+{
+   auto obj_cast = dynamic_cast<const StackItem_PushData*>(obj);
+   if (obj_cast == nullptr)
+      return false;
+ 
+   return data_ == obj_cast->data_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool StackItem_Sig::isSame(const StackItem* obj) const
+{
+   auto obj_cast = dynamic_cast<const StackItem_Sig*>(obj);
+   if (obj_cast == nullptr)
+      return false;
+
+   return data_ == obj_cast->data_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool StackItem_MultiSig::isSame(const StackItem* obj) const
+{
+   auto obj_cast = dynamic_cast<const StackItem_MultiSig*>(obj);
+   if (obj_cast == nullptr)
+      return false;
+
+   return m_ == obj_cast->m_ &&
+      sigs_ == obj_cast->sigs_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool StackItem_OpCode::isSame(const StackItem* obj) const
+{
+   auto obj_cast = dynamic_cast<const StackItem_OpCode*>(obj);
+   if (obj_cast == nullptr)
+      return false;
+
+   return opcode_ == obj_cast->opcode_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool StackItem_SerializedScript::isSame(const StackItem* obj) const
+{
+   auto obj_cast = dynamic_cast<const StackItem_SerializedScript*>(obj);
+   if (obj_cast == nullptr)
+      return false;
+
+   return data_ == obj_cast->data_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void StackItem_MultiSig::merge(const StackItem* obj)
+{
+   auto obj_cast = dynamic_cast<const StackItem_MultiSig*>(obj);
+   if (obj_cast == nullptr)
+      throw ScriptException("unexpected StackItem type");
+
+   if (m_ != obj_cast->m_)
+      throw ScriptException("m mismatch");
+
+   sigs_.insert(obj_cast->sigs_.begin(), obj_cast->sigs_.end());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData StackItem_PushData::serialize(void) const
+{
+   BinaryWriter bw;
+   bw.put_uint32_t(id_);
+   bw.put_uint8_t(STACKITEM_PUSHDATA_PREFIX);
+   bw.put_var_int(data_.getSize());
+   bw.put_BinaryData(data_);
+
+   return bw.getData();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData StackItem_Sig::serialize(void) const
+{
+   BinaryWriter bw;
+   bw.put_uint32_t(id_);
+   bw.put_uint8_t(STACKITEM_SIG_PREFIX);
+   bw.put_var_int(data_.getSize());
+   bw.put_BinaryData(data_);
+
+   return bw.getData();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData StackItem_MultiSig::serialize(void) const
+{
+   BinaryWriter bw;
+   bw.put_uint32_t(id_);
+   bw.put_uint8_t(STACKITEM_MULTISIG_PREFIX);
+   bw.put_uint16_t(m_);
+   bw.put_var_int(sigs_.size());
+   
+   for (auto& sig_pair : sigs_)
+   {
+      bw.put_uint16_t(sig_pair.first);
+      bw.put_var_int(sig_pair.second.getSize());
+      bw.put_BinaryData(sig_pair.second);
+   }
+
+   return bw.getData();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData StackItem_OpCode::serialize(void) const
+{
+   BinaryWriter bw;
+   bw.put_uint32_t(id_);
+   bw.put_uint8_t(STACKITEM_OPCODE_PREFIX);
+   bw.put_uint8_t(opcode_);
+
+   return bw.getData();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData StackItem_SerializedScript::serialize(void) const
+{
+   BinaryWriter bw;
+   bw.put_uint32_t(id_);
+   bw.put_uint8_t(STACKITEM_SERSCRIPT_PREFIX);
+   bw.put_var_int(data_.getSize());
+   bw.put_BinaryData(data_);
+
+   return bw.getData();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+shared_ptr<StackItem> StackItem::deserialize(const BinaryDataRef& dataRef)
+{
+   shared_ptr<StackItem> itemPtr;
+
+   BinaryRefReader brr(dataRef);
+
+   auto id = brr.get_uint32_t();
+   auto prefix = brr.get_uint8_t();
+
+   switch (prefix)
+   {
+   case STACKITEM_PUSHDATA_PREFIX:
+   {
+      auto len = brr.get_var_int();
+      auto&& data = brr.get_BinaryData(len);
+
+      itemPtr = make_shared<StackItem_PushData>(id, data);
+      break;
+   }
+
+   case STACKITEM_SIG_PREFIX:
+   {
+      auto len = brr.get_var_int();
+      SecureBinaryData data(brr.get_BinaryData(len));
+
+      itemPtr = make_shared<StackItem_Sig>(id, data);
+      break;
+   }
+
+   case STACKITEM_MULTISIG_PREFIX:
+   {
+      auto m = brr.get_uint16_t();
+      auto item_ms = make_shared<StackItem_MultiSig>(id, m);
+
+      auto count = brr.get_var_int();
+      for (unsigned i = 0; i < count; i++)
+      {
+         auto pos = brr.get_uint16_t();
+         auto len = brr.get_var_int();
+         SecureBinaryData data(brr.get_BinaryData(len));
+
+         item_ms->setSig(pos, data);
+      }
+
+      itemPtr = item_ms;
+      break;
+   }
+
+   case STACKITEM_OPCODE_PREFIX:
+   {
+      auto opcode = brr.get_uint8_t();
+
+      itemPtr = make_shared<StackItem_OpCode>(id, opcode);
+      break;
+   }
+
+   case STACKITEM_SERSCRIPT_PREFIX:
+   {
+      auto len = brr.get_var_int();
+      auto&& data = brr.get_BinaryData(len);
+
+      itemPtr = make_shared<StackItem_SerializedScript>(id, data);
+      break;
+   }
+
+   default:
+      throw runtime_error("unexpected stack item prefix");
+   }
+
+   return itemPtr;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 //// ScriptParser
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -391,7 +598,7 @@ void StackInterpreter::processOpCode(const OpCode& oc)
       //save the script if this output is a possible p2sh
       if (flags_ & SCRIPT_VERIFY_P2SH_SHA256)
          if (opcount_ == 1 && onlyPushDataInInput_)
-            p2shScript_ = stack_.back();
+            p2shScript_ = stack_back();
 
       op_sha256();
       break;
@@ -402,7 +609,7 @@ void StackInterpreter::processOpCode(const OpCode& oc)
       //save the script if this output is a possible p2sh
       if (flags_ & SCRIPT_VERIFY_P2SH)
          if (opcount_ == 1 && onlyPushDataInInput_)
-            p2shScript_ = stack_.back();
+            p2shScript_ = stack_back();
 
       op_hash160();
       break;
@@ -1084,7 +1291,7 @@ void StackResolver::resolveStack()
 
          if (isP2SH_)
          {
-            //if this the output is flagged as p2sh, this value is the script
+            //if this output is flagged as p2sh, this value is the script
             //process that script and set the resolved stack
             StackResolver resolver(fromFeed->value_, feed_, proxy_);
             resolver.setFlags(flags_);
@@ -1114,13 +1321,15 @@ void StackResolver::resolveStack()
             stackItem->resolvedValue_);
 
          unsigned sigCount = 0;
+         unsigned keyCount = 0;
          auto pubkeyIter = msObj->pubkeyVec_.rbegin();
          while (pubkeyIter != msObj->pubkeyVec_.rend())
          {
             try
             {
+               auto thisKeyId = keyCount++;
                auto&& sig = proxy_->sign(script_, *pubkeyIter++, isSW_);
-               msObj->sig_.push_back(move(sig));
+               msObj->sig_.insert(make_pair(keyCount, move(sig)));
                ++sigCount;
                if (sigCount >= msObj->m_)
                   break;
@@ -1216,6 +1425,11 @@ shared_ptr<ResolvedStack> StackResolver::getResolvedStack()
    processScript(brr);
    resolveStack();
 
+   bool isValid = true;
+   unsigned count = 0;
+   if (resolvedStack_ != nullptr)
+      count = resolvedStack_->stackSize();
+
    vector<shared_ptr<StackItem>> resolvedStack;
 
    for (auto& stackItem : stack_)
@@ -1231,7 +1445,8 @@ shared_ptr<ResolvedStack> StackResolver::getResolvedStack()
             stackItem->resolvedValue_);
 
          resolvedStack.push_back(
-            make_shared<StackItem_PushData>(move(val->value_)));
+            make_shared<StackItem_PushData>(
+               count++, move(val->value_)));
          break;
       }
 
@@ -1241,7 +1456,8 @@ shared_ptr<ResolvedStack> StackResolver::getResolvedStack()
             stackItem->resolvedValue_);
 
          resolvedStack.push_back(
-            make_shared<StackItem_PushData>(move(val->value_)));
+            make_shared<StackItem_PushData>(
+               count++, move(val->value_)));
          break;
       }
 
@@ -1251,7 +1467,8 @@ shared_ptr<ResolvedStack> StackResolver::getResolvedStack()
             stackItem->resolvedValue_);
 
          resolvedStack.push_back(
-            make_shared<StackItem_PushData>(move(val->value_)));
+            make_shared<StackItem_PushData>(
+               count++, move(val->value_)));
          break;
       }
 
@@ -1261,7 +1478,8 @@ shared_ptr<ResolvedStack> StackResolver::getResolvedStack()
             stackItem->resolvedValue_);
 
          resolvedStack.push_back(
-            make_shared<StackItem_Sig>(move(val->sig_)));
+            make_shared<StackItem_Sig>(
+               count++, move(val->sig_)));
          break;
       }
 
@@ -1270,22 +1488,20 @@ shared_ptr<ResolvedStack> StackResolver::getResolvedStack()
          auto msObj = dynamic_pointer_cast<StackValue_Multisig>(
             stackItem->resolvedValue_);
 
-         if (msObj->sig_.size() >= msObj->m_)
-         {
-            //push lead 0 to cover for OP_CMS bug
-            resolvedStack.push_back(
-               make_shared<StackItem_OpCode>(0));
+         //push lead 0 to cover for OP_CMS bug
+         resolvedStack.push_back(
+            make_shared<StackItem_OpCode>(count++, 0));
 
-            //sigs
-            for (auto& sig : msObj->sig_)
-               resolvedStack.push_back(
-                  make_shared<StackItem_Sig>(move(sig)));
-         }
-         else
-         {
-            //partial sig count
-            throw runtime_error("partial sig count no supported yet");
-         }
+         auto stackitem_ms = make_shared<StackItem_MultiSig>(
+            count++, msObj->m_);
+
+         //sigs
+         for (auto& sig : msObj->sig_)
+            stackitem_ms->setSig(sig.first, sig.second);
+         resolvedStack.push_back(stackitem_ms);
+
+         if (msObj->sig_.size() < msObj->m_)
+            isValid = false;
 
          break;
       }
@@ -1303,7 +1519,7 @@ shared_ptr<ResolvedStack> StackResolver::getResolvedStack()
       throw runtime_error("unexpected resolved stack ptr type");
 
    resolvedStackPtr->setStack(move(resolvedStack));
-   resolvedStackPtr->isValid_ = true;
+   resolvedStackPtr->isValid_ = isValid;
    resolvedStackPtr->flagP2SH(isP2SH_);
 
    return resolvedStack_;

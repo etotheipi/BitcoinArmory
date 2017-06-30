@@ -16,6 +16,12 @@
 #define SCRIPT_VERIFY_SEGWIT              0x00000010
 #define P2SH_TIMESTAMP                    1333238400
 
+#define STACKITEM_OPCODE_PREFIX           0x10
+#define STACKITEM_PUSHDATA_PREFIX         0x11
+#define STACKITEM_SERSCRIPT_PREFIX        0x12
+#define STACKITEM_SIG_PREFIX              0x13
+#define STACKITEM_MULTISIG_PREFIX         0x14
+
 #include "BinaryData.h"
 #include "EncryptionUtils.h"
 #include "BtcUtils.h"
@@ -295,7 +301,7 @@ private:
 
    void op_dup(void)
    {
-      stack_.push_back(stack_.back());
+      stack_.push_back(stack_back());
    }
 
    void op_nip(void)
@@ -365,6 +371,9 @@ private:
 
    void op_fromaltstack(void)
    {
+      if (altstack_.size() == 0)
+         throw ScriptException("tried to pop an empty altstack");
+
       auto& a = altstack_.back();
       stack_.push_back(a);
       altstack_.pop_back();
@@ -372,7 +381,7 @@ private:
 
    void op_ifdup(void)
    {
-      auto& data = stack_.back();
+      auto& data = stack_back();
       if (notZero(data))
          stack_.push_back(data);
    }
@@ -472,7 +481,7 @@ private:
 
    void op_size(void)
    {
-      auto& data = stack_.back();
+      auto& data = stack_back();
       stack_.push_back(move(intToRawBinary(data.getSize())));
    }
 
@@ -775,6 +784,14 @@ public:
       return data;
    }
 
+   const BinaryData& stack_back(void) const
+   {
+      if (stack_.size() == 0)
+         throw ScriptException("tried to peak an empty stack");
+
+      return stack_.back();
+   }
+
    void checkState(void);
    void processSW(BinaryDataRef outputScript);
    void setSegWitSigHashDataObject(shared_ptr<SigHashDataSegWit> shdo)
@@ -866,7 +883,7 @@ struct StackValue_Sig : public StackValue
 struct StackValue_Multisig : public StackValue
 {
    const vector<BinaryDataRef> pubkeyVec_;
-   vector<SecureBinaryData> sig_;
+   map<unsigned, SecureBinaryData> sig_;
    const unsigned m_;
 
    StackValue_Multisig(vector<BinaryDataRef> pubkeyVec, unsigned m) :
@@ -931,19 +948,31 @@ enum StackItemType
    StackItemType_PushData,
    StackItemType_OpCode,
    StackItemType_Sig,
+   StackItemType_MultiSig,
    StackItemType_SerializedScript
 };
 
 ////////////////////////////////////////////////////////////////////////////////
 struct StackItem
 {
+protected:
+   const unsigned id_;
+
+public:
    const StackItemType type_;
 
-   StackItem(StackItemType type) :
-      type_(type)
+   StackItem(StackItemType type, unsigned id) :
+      type_(type), id_(id)
    {}
 
    virtual ~StackItem(void) = 0;
+   virtual bool isSame(const StackItem* obj) const = 0;
+   unsigned getId(void) const { return id_; }
+
+   virtual bool isValid(void) const { return true; }
+   virtual BinaryData serialize(void) const = 0;
+
+   static shared_ptr<StackItem> deserialize(const BinaryDataRef&);
 };
 
 ////
@@ -951,9 +980,12 @@ struct StackItem_PushData : public StackItem
 {
    const BinaryData data_;
 
-   StackItem_PushData(BinaryData&& data) :
-      StackItem(StackItemType_PushData), data_(move(data))
+   StackItem_PushData(unsigned id, BinaryData& data) :
+      StackItem(StackItemType_PushData, id), data_(move(data))
    {}
+
+   bool isSame(const StackItem* obj) const;
+   BinaryData serialize(void) const;
 };
 
 ////
@@ -961,9 +993,35 @@ struct StackItem_Sig : public StackItem
 {
    const SecureBinaryData data_;
 
-   StackItem_Sig(SecureBinaryData&& data) :
-      StackItem(StackItemType_Sig), data_(move(data))
+   StackItem_Sig(unsigned id, SecureBinaryData& data) :
+      StackItem(StackItemType_Sig, id), data_(move(data))
    {}
+
+   bool isSame(const StackItem* obj) const;
+   BinaryData serialize(void) const;
+};
+
+////
+struct StackItem_MultiSig : public StackItem
+{
+   map<unsigned, SecureBinaryData> sigs_;
+   const unsigned m_;
+
+   StackItem_MultiSig(unsigned id, unsigned m) :
+      StackItem(StackItemType_MultiSig, id), m_(m)
+   {}
+
+   void setSig(unsigned id, SecureBinaryData& sig)
+   {
+      auto sigpair = make_pair(id, move(sig));
+      sigs_.insert(move(sigpair));
+   }
+
+   bool isSame(const StackItem* obj) const;
+   void merge(const StackItem* obj);
+
+   bool isValid(void) const { return sigs_.size() == m_; }
+   BinaryData serialize(void) const;
 };
 
 ////
@@ -971,9 +1029,13 @@ struct StackItem_OpCode : public StackItem
 {
    const uint8_t opcode_;
 
-   StackItem_OpCode(uint8_t opcode) :
-      StackItem(StackItemType_OpCode), opcode_(opcode)
+   StackItem_OpCode(unsigned id, uint8_t opcode) :
+      StackItem(StackItemType_OpCode, id), 
+      opcode_(opcode)
    {}
+
+   bool isSame(const StackItem* obj) const;
+   BinaryData serialize(void) const;
 };
 
 ////
@@ -981,9 +1043,13 @@ struct StackItem_SerializedScript : public StackItem
 {
    const BinaryData data_;
 
-   StackItem_SerializedScript(BinaryData&& data) :
-      StackItem(StackItemType_SerializedScript), data_(move(data))
+   StackItem_SerializedScript(unsigned id, BinaryData& data) :
+      StackItem(StackItemType_SerializedScript, id), 
+      data_(move(data))
    {}
+
+   bool isSame(const StackItem* obj) const;
+   BinaryData serialize(void) const;
 };
 
 class SignerProxy;
@@ -1003,6 +1069,8 @@ public:
    bool isValid(void) const { return isValid_; }
    bool isP2SH(void) const { return isP2SH_; }
    void flagP2SH(bool flag) { isP2SH_ = flag; }
+
+   virtual size_t stackSize(void) const = 0;
 };
 
 ////
@@ -1023,6 +1091,7 @@ public:
    }
 
    BinaryData serializeStack(void) const;
+   size_t stackSize(void) const { return stack_.size(); }
 };
 
 ////
@@ -1051,7 +1120,7 @@ public:
    { return witnessStack_; }
 
    BinaryData serializeWitnessStack(void) const;
-
+   size_t stackSize(void) const { return witnessStack_.size(); }
 };
 
 ////////////////////////////////////////////////////////////////////////////////
