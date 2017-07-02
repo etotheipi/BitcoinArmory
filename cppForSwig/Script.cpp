@@ -169,7 +169,7 @@ shared_ptr<StackItem> StackItem::deserialize(const BinaryDataRef& dataRef)
       auto len = brr.get_var_int();
       auto&& data = brr.get_BinaryData(len);
 
-      itemPtr = make_shared<StackItem_PushData>(id, data);
+      itemPtr = make_shared<StackItem_PushData>(id, move(data));
       break;
    }
 
@@ -178,7 +178,7 @@ shared_ptr<StackItem> StackItem::deserialize(const BinaryDataRef& dataRef)
       auto len = brr.get_var_int();
       SecureBinaryData data(brr.get_BinaryData(len));
 
-      itemPtr = make_shared<StackItem_Sig>(id, data);
+      itemPtr = make_shared<StackItem_Sig>(id, move(data));
       break;
    }
 
@@ -214,7 +214,7 @@ shared_ptr<StackItem> StackItem::deserialize(const BinaryDataRef& dataRef)
       auto len = brr.get_var_int();
       auto&& data = brr.get_BinaryData(len);
 
-      itemPtr = make_shared<StackItem_SerializedScript>(id, data);
+      itemPtr = make_shared<StackItem_SerializedScript>(id, move(data));
       break;
    }
 

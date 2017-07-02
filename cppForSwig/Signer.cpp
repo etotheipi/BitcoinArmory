@@ -449,7 +449,7 @@ BinaryData ScriptSpender::serializeState() const
    bw.put_uint8_t(sigHashType_);
    bw.put_uint32_t(sequence_);
 
-   auto& ser_utxo = utxo_.serialize();
+   auto&& ser_utxo = utxo_.serialize();
    bw.put_var_int(ser_utxo.getSize());
    bw.put_BinaryData(ser_utxo);
 

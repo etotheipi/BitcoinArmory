@@ -842,7 +842,7 @@ struct StackValue_Static : public StackValue
    BinaryData value_;
 
    StackValue_Static(BinaryData val) :
-      StackValue(StackValueType_Static), value_(val)
+      StackValue(StackValueType_Static), value_(move(val))
    {}
 };
 
@@ -980,7 +980,7 @@ struct StackItem_PushData : public StackItem
 {
    const BinaryData data_;
 
-   StackItem_PushData(unsigned id, BinaryData& data) :
+   StackItem_PushData(unsigned id, BinaryData&& data) :
       StackItem(StackItemType_PushData, id), data_(move(data))
    {}
 
@@ -993,7 +993,7 @@ struct StackItem_Sig : public StackItem
 {
    const SecureBinaryData data_;
 
-   StackItem_Sig(unsigned id, SecureBinaryData& data) :
+   StackItem_Sig(unsigned id, SecureBinaryData&& data) :
       StackItem(StackItemType_Sig, id), data_(move(data))
    {}
 
@@ -1043,7 +1043,7 @@ struct StackItem_SerializedScript : public StackItem
 {
    const BinaryData data_;
 
-   StackItem_SerializedScript(unsigned id, BinaryData& data) :
+   StackItem_SerializedScript(unsigned id, BinaryData&& data) :
       StackItem(StackItemType_SerializedScript, id), 
       data_(move(data))
    {}

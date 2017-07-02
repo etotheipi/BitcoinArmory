@@ -7235,7 +7235,7 @@ TEST_F(TransactionsTest, Wallet_SpendTest_MultipleSigners_2of3)
    }
    catch (...)
    {
-      EXPECT_TRUE(FALSE);
+      EXPECT_TRUE(false);
    }
 
    auto&& tx1 = signer3.serialize();
