@@ -6,37 +6,38 @@ Compiling in Linux has proven to be quite easy. There are only a few dependencie
 
 ## Verifying Source Code Authenticity
 
-The latest stable version of Armory is always be tagged in the git repository by its version number.
+The latest stable version of Armory is always be tagged in the git repository by its version number, and signed with the [Armory signing key (4922589A)](http://keyserver.ubuntu.com/pks/lookup?search=goatpig). For releases 0.93.3 and earlier, the [old Armory signing key (98832223)](http://keyserver.ubuntu.com/pks/lookup?search=Alan+Reiner) was used.
 
-Versions up to 0.93.3 are signed with the Alan Reiner's Armory signing key ([98832223](https://pgp.mit.edu/pks/lookup?op=vindex&search=0x4AB16AEA98832223)).
-Versions 0.94 and later are signed with goatpig's key (4922589A)
+Here’s how you download the Armory signing key directly into your keyring from the Ubuntu keyserver, and then verify the signature using `git tag -v`:
 
-Here’s how to import the Armory signing key into your keyring from the Ubuntu keyserver and verify the signature using `git tag -v`:
+~~~ bash
+$ gpg --recv-keys --keyserver keyserver.ubuntu.com 4922589A
+gpg: requesting key 4922589A from hkp server keyserver.ubuntu.com
+gpg: key 4922589A: public key "goatpig (Offline signing key for Armory releases) <moothecowlord@gmail.com>" imported
+$ git tag -v v0.96
+object a3d01aa72293f82c3ef3f1d29f93c83ad70099f4
+type commit
+tag v0.96
+tagger goatpig <moothecowlord@gmail.com> 1493581585 +0200
 
-```
-$ gpg --recv-keys --keyserver keyserver.ubuntu.com 98832223
-gpg: requesting key 98832223 from hkp server keyserver.ubuntu.com
-gpg: key 98832223: public key "Alan C. Reiner (Armory Signing Key) <alan.reiner@gmail.com>"
+v0.96
+gpg: Signature made Sun 30 Apr 2017 03:46:25 PM EDT using RSA key ID 4922589A
+gpg: Good signature from "goatpig (Offline signing key for Armory releases) <moothecowlord@gmail.com>"
+~~~
 
-$ git tag -v v0.93.3
-tag v0.93.3
-tagger Armory Technologies, Inc <contact@bitcoinarmory.com> 1424537423 -0500
-gpg: Signature made Sat 21 Feb 2015 11:50:23 AM EST using RSA key ID 98832223
-gpg: Good signature from "Alan C. Reiner (Offline Signing Key) <alan@bitcoinarmory.com>"
-```
 
-The above example is specifically for checking the tag for version 0.93.3. You can replace it with the latest version number posted on our website. To view all tags from Armory’s Github page, click on the button that says `branch: master` and then select the “tags” tab. All major releases are accompanied by a signed tag.
+The above example is specifically for checking the tag for version "v0.96", which may not be the latest version by the time you are reading these instructions.  You can replace it with the latest version number posted on our website. All releases can be viewed on the [github releases page](https://github.com/goatpig/BitcoinArmory/releases). All major releases are accompanied by a signed tag.
 
 ## Building in Linux
 
-To checkout and build a specific version, simply use `git checkout tag` before the `make` command in the build instructions below. For instance, to build version 0.93.3, you would simply do:
+To checkout and build a specific version, simply use `git checkout tag` before the `make` command in the build instructions below. For instance, to build version 0.96, you would simply use:
 
-```
-$ git checkout v0.93.3
-Note: checking out 'v0.93.3'
+~~~ bash
+$ git checkout v0.96
+Note: checking out 'v0.96'.
 ...
-HEAD is now at e59e10d... Add comment explaining why the padding was removed
-```
+HEAD is now at a3d01aa... bump version
+~~~
 
 ### Ubuntu Build Instructions
 
@@ -44,23 +45,35 @@ In Ubuntu, you are required to install some packages before attempting to build 
 
     $ sudo apt-get install git-core build-essential pyqt4-dev-tools swig libqtcore4 libqt4-dev python-qt4 python-dev python-twisted python-psutil
 
-Now, you need to clone Armory's git repository:
+Now, you need to clone Armory's git repository and initialize the submodules:
 
-    $ git clone https://github.com/goatpig/BitcoinArmory.git
-    $ cd BitcoinArmory
+~~~bash
+$ git clone https://github.com/goatpig/BitcoinArmory.git
+$ cd BitcoinArmory
+$ git submodule init
+$ git submodule update
+~~~
 
 At this point, you may want to check the authenticity of the source code, as stated above. You can do that by typing the following (replacing `0.93.1` with the latest Armory version):
 
-    $ git checkout v0.93.1
-    $ git tag -v v0.93.1
+~~~bash
+$ git checkout v0.96
+$ git tag -v v0.96
+~~~
 
 Finally, we make the application. This may take a while, depending on your computer:
 
-    $ make
+~~~bash
+$ ./autogen.sh
+$ ./configure
+$ make
+~~~
 
 You're all set! To launch Armory, type in a terminal in the BitcoinArmory directory:
 
-    $ python ArmoryQt.py
+~~~bash
+$ python ArmoryQt.py
+~~~
 
 You can also run `sudo make install` after building, which will install Armory system-wide. This will allow you to launch it from the Applications –> Internet menu.
 
@@ -72,13 +85,17 @@ You can get Armory from the Arch User Repository.
 First, visit [this AUR page](https://aur.archlinux.org/packages/armory-git/) and click 'Download snapshot' on the right hand side.  
 Save the archive, then open a terminal and type (omitting the dollar sign):
 
-    $ tar -xvf armory-git.tar.gz
-    $ cd armory-git
+~~~bash
+$ tar -xvf armory-git.tar.gz
+$ cd armory-git
+~~~
 
 Now, open the individual files using a text editor and verify that they don't do anything malicious.
 
 Finally, make and install Armory:
 
-    $ makepkg -sri
+~~~bash
+$ makepkg -sri
+~~~
 
 You're all set! You can find Armory in your "Applications" menu. You can also launch it by typing `armory` in a terminal.
