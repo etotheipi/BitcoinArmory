@@ -1329,7 +1329,7 @@ int64_t BitcoinP2P::getTimeStamp() const
 
 ////////////////////////////////////////////////////////////////////////////////
 shared_ptr<Payload> BitcoinP2P::getTx(
-   const InvEntry& entry, uint32_t timeout)
+   const InvEntry& entry, uint32_t timeout_ms)
 {
    //blocks until data is received or timeout expires
    if (entry.invtype_ != Inv_Msg_Tx && entry.invtype_ != Inv_Msg_Witness_Tx)
@@ -1371,10 +1371,7 @@ shared_ptr<Payload> BitcoinP2P::getTx(
    shared_ptr<Payload> payloadPtr = nullptr;
    auto fut = gdsPtr->getFuture();
 
-   //timeout is in sec, let's make it ms
-   auto timeoutMS = timeout * 1000;
-   unsigned timeIncrement = 200; //poll node every 200ms
-   chrono::milliseconds chronoIncrement(timeIncrement);
+   unsigned timeIncrement = 100; //polling interval
    unsigned timeTally = 0;
 
    while (1)
@@ -1384,6 +1381,11 @@ shared_ptr<Payload> BitcoinP2P::getTx(
       sendMessage(move(payload));
 
       //wait on promise
+      auto increment = timeIncrement;
+      if (increment + timeTally > timeout_ms)
+         increment = timeout_ms - timeTally;
+      chrono::milliseconds chronoIncrement(increment);
+
       auto&& status = fut.wait_for(chronoIncrement);
       if (status == future_status::ready)
       {
@@ -1392,9 +1394,11 @@ shared_ptr<Payload> BitcoinP2P::getTx(
       }
 
       timeTally += timeIncrement;
-      if (timeout > 0)
+      timeIncrement *= 2;
+
+      if (timeout_ms > 0)
       {
-         if (timeTally > timeoutMS)
+         if (timeTally >= timeout_ms)
          {
             gdsPtr->setStatus(false);
             break;

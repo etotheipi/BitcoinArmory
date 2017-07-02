@@ -1953,7 +1953,7 @@ void ZeroConfContainer::processInvTxThread(void)
          auto&& entry = newtxfuture.get();
          
          //thread exit condition: prcessInvTxThread returns false
-         if (!processInvTxThread(move(entry)))
+         if (!processInvTxThread(move(entry), TXGETDATA_TIMEOUT_MS))
             return;
       }
       catch (BitcoinP2P_Exception&)
@@ -1969,12 +1969,12 @@ void ZeroConfContainer::processInvTxThread(void)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-bool ZeroConfContainer::processInvTxThread(InvEntry entry)
+bool ZeroConfContainer::processInvTxThread(InvEntry entry, unsigned timeout_ms)
 {
    if (entry.invtype_ == Inv_Terminate)
       return false;
 
-   auto payload = networkNode_->getTx(entry);
+   auto payload = networkNode_->getTx(entry, timeout_ms);
 
    auto payloadtx = dynamic_pointer_cast<Payload_Tx>(payload);
    if (payloadtx == nullptr)
@@ -2023,7 +2023,7 @@ void ZeroConfContainer::eraseBDVcallback(string id)
 
 ///////////////////////////////////////////////////////////////////////////////
 void ZeroConfContainer::broadcastZC(const BinaryData& rawzc,
-   const string& bdvId, uint32_t timeout_sec)
+   const string& bdvId, uint32_t timeout_ms)
 {
    BDV_Callbacks bdv_cb;
    {
@@ -2092,13 +2092,13 @@ void ZeroConfContainer::broadcastZC(const BinaryData& rawzc,
 
    //wait on getData future
    bool sent = false;
-   if (timeout_sec == 0)
+   if (timeout_ms == 0)
    {
       getDataFut.wait();
    }
    else
    {
-      auto getDataFutStatus = getDataFut.wait_for(chrono::seconds(timeout_sec));
+      auto getDataFutStatus = getDataFut.wait_for(chrono::milliseconds(timeout_ms));
       if (getDataFutStatus != future_status::ready)
       {
          gds->setStatus(false);
@@ -2128,9 +2128,9 @@ void ZeroConfContainer::broadcastZC(const BinaryData& rawzc,
    if(PEER_USES_WITNESS)
       entry.invtype_ = Inv_Msg_Witness_Tx;
 
-   auto grabtxlambda = [this](InvEntry inventry)->void
+   auto grabtxlambda = [this, timeout_ms](InvEntry inventry)->void
    {
-      processInvTxThread(move(inventry));
+      processInvTxThread(move(inventry), timeout_ms);
    };
 
    thread grabtxthread(grabtxlambda, move(entry));
@@ -2139,13 +2139,13 @@ void ZeroConfContainer::broadcastZC(const BinaryData& rawzc,
 
    LOGINFO << "grabbing tx from node";
 
-   if (timeout_sec == 0)
+   if (timeout_ms == 0)
    {
       watchTxFuture.wait();
    }
    else
    {
-      auto status = watchTxFuture.wait_for(chrono::seconds(timeout_sec));
+      auto status = watchTxFuture.wait_for(chrono::milliseconds(timeout_ms));
       if (status != future_status::ready)
       {
          gds->setStatus(false);

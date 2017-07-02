@@ -574,7 +574,7 @@ public:
    virtual void shutdown(void);
    void sendMessage(Payload&&);
 
-   shared_ptr<Payload> getTx(const InvEntry&, uint32_t timeout = 5);
+   shared_ptr<Payload> getTx(const InvEntry&, uint32_t timeout);
 
    void registerInvBlockLambda(function<void(const vector<InvEntry>)> func)
    {

@@ -26,6 +26,7 @@
 #include "BtcWallet.h"
 
 #define GETZC_THREADCOUNT 5
+#define TXGETDATA_TIMEOUT_MS 10000
 
 enum ZcAction
 {
@@ -446,7 +447,7 @@ private:
    set<BinaryData> purge(void);
 
    void processInvTxThread(void);
-   bool processInvTxThread(InvEntry);
+   bool processInvTxThread(InvEntry, unsigned timeout_ms);
 
 public:
    //stacks new zc Tx objects from node
@@ -502,7 +503,7 @@ public:
    void eraseBDVcallback(string);
 
    void broadcastZC(const BinaryData& rawzc, 
-      const string& bdvId, uint32_t timeout_sec = 5);
+      const string& bdvId, uint32_t timeout_ms);
 
    bool isEnabled(void) const { return zcEnabled_.load(memory_order_relaxed); }
    void pushZcToParser(const BinaryData& rawTx);
