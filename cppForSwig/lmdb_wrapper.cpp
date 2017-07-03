@@ -530,7 +530,7 @@ BinaryData LMDBBlockDatabase::getTopBlockHash(DB_SELECT db)
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData LMDBBlockDatabase::getTopBlockHash() const
 {
-   return blockchainPtr_->top().getThisHash();
+   return blockchainPtr_->top()->getThisHash();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1162,7 +1162,7 @@ bool LMDBBlockDatabase::getFullUTXOMapForSSH(
 //       that would get us since we are reading all the headers and doing
 //       a fresh organize/sort anyway.
 void LMDBBlockDatabase::readAllHeaders(
-   const function<void(const BlockHeader&, uint32_t, uint8_t)> &callback
+   const function<void(shared_ptr<BlockHeader>, uint32_t, uint8_t)> &callback
 )
 {
    LMDBEnv::Transaction tx;
@@ -1176,8 +1176,6 @@ void LMDBBlockDatabase::readAllHeaders(
       return;
    }
    
-   StoredHeader sbh;
-   BlockHeader  regHead;
    do
    {
       ldbIter.resetReaders();
@@ -1189,22 +1187,26 @@ void LMDBBlockDatabase::readAllHeaders(
          continue;
       }
 
+      StoredHeader sbh;
       ldbIter.getKeyReader().get_BinaryData(sbh.thisHash_, 32);
 
       sbh.unserializeDBValue(HEADERS, ldbIter.getValueRef());
-      regHead.unserialize(sbh.dataCopy_);
-      regHead.setBlockSize(sbh.numBytes_);
-      regHead.setNumTx(sbh.numTx_);
 
-      regHead.setBlockFileNum(sbh.fileID_);
-      regHead.setBlockFileOffset(sbh.offset_);
-      regHead.setUniqueID(sbh.uniqueID_);
+      auto regHead = make_shared<BlockHeader>();
 
-      if (sbh.thisHash_ != regHead.getThisHash())
+      regHead->unserialize(sbh.dataCopy_);
+      regHead->setBlockSize(sbh.numBytes_);
+      regHead->setNumTx(sbh.numTx_);
+
+      regHead->setBlockFileNum(sbh.fileID_);
+      regHead->setBlockFileOffset(sbh.offset_);
+      regHead->setUniqueID(sbh.uniqueID_);
+
+      if (sbh.thisHash_ != regHead->getThisHash())
       {
          LOGWARN << "Corruption detected: block header hash " <<
             sbh.thisHash_.copySwapEndian().toHexStr() << " does not match "
-            << regHead.getThisHash().copySwapEndian().toHexStr();
+            << regHead->getThisHash().copySwapEndian().toHexStr();
       }
       callback(regHead, sbh.blockHeight_, sbh.duplicateID_);
 
@@ -1634,9 +1636,9 @@ Tx LMDBBlockDatabase::getFullTxCopy(BinaryData ldbKey6B) const
       throw runtime_error("invalid key length");
    }
    
-   auto& header = blockchainPtr_->getHeaderByHeight(height);
+   auto header = blockchainPtr_->getHeaderByHeight(height);
 
-   return getFullTxCopy(txid, &header);
+   return getFullTxCopy(txid, header);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1661,7 +1663,8 @@ Tx LMDBBlockDatabase::getFullTxCopy(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-Tx LMDBBlockDatabase::getFullTxCopy(uint16_t txIndex, BlockHeader* bhPtr) const
+Tx LMDBBlockDatabase::getFullTxCopy(
+   uint16_t txIndex, shared_ptr<BlockHeader> bhPtr) const
 {
    if (bhPtr == nullptr)
       throw runtime_error("null bhPtr");
@@ -1880,19 +1883,19 @@ bool LMDBBlockDatabase::getStoredHeader(
       if (blkFolder_.size() == 0)
          throw runtime_error("invalid blkFolder");
 
-      auto& bh = blockchainPtr_->getHeaderByHeight(height);
-      if (bh.getDuplicateID() != dupId)
+      auto bh = blockchainPtr_->getHeaderByHeight(height);
+      if (bh->getDuplicateID() != dupId)
          throw runtime_error("invalid dupId");
 
       //open block file
       BlockDataLoader bdl(blkFolder_, false, false, false);
 
-      auto&& bfmp = bdl.get(bh.getBlockFileNum(), false);
+      auto&& bfmp = bdl.get(bh->getBlockFileNum(), false);
       auto fileMapPtr = bfmp.get();
 
       auto dataPtr = fileMapPtr->getPtr();
 
-      BinaryRefReader brr(dataPtr + bh.getOffset(), bh.getBlockSize());
+      BinaryRefReader brr(dataPtr + bh->getOffset(), bh->getBlockSize());
 
       if (withTx)
          sbh.unserializeFullBlock(brr, false, false);

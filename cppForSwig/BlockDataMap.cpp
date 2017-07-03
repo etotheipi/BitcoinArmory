@@ -11,7 +11,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockData::deserialize(const uint8_t* data, size_t size,
-   const BlockHeader* blockHeader,
+   const shared_ptr<BlockHeader> blockHeader,
    function<unsigned int(const BinaryData&)> getID, 
    bool checkMerkle, bool keepHashes)
 {
@@ -99,12 +99,13 @@ BlockData::computeTxFilter(const vector<BinaryData>& allHashes) const
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BlockHeader BlockData::createBlockHeader(void) const
+shared_ptr<BlockHeader> BlockData::createBlockHeader(void) const
 {
    if (headerPtr_ != nullptr)
-      return *headerPtr_;
+      return headerPtr_;
 
-   BlockHeader bh;
+   auto bhPtr = make_shared<BlockHeader>();
+   auto& bh = *bhPtr;
 
    bh.dataCopy_ = move(BinaryData(data_, HEADER_SIZE));
 
@@ -126,7 +127,7 @@ BlockHeader BlockData::createBlockHeader(void) const
    bh.thisHash_ = blockHash_;
    bh.uniqueID_ = uniqueID_;
 
-   return bh;
+   return bhPtr;
 }
 
 /////////////////////////////////////////////////////////////////////////////

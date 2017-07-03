@@ -550,7 +550,7 @@ void ScrAddrFilter::mergeSideScanPile()
    vector<string> walletIDs;
 
    auto bcptr = blockchain();
-   uint32_t startHeight = bcptr->top().getBlockHeight();
+   uint32_t startHeight = bcptr->top()->getBlockHeight();
    for (auto& scanData : scanDataVec)
    {
       auto& topHash = scanData.lastScannedBlkHash_;
@@ -559,8 +559,8 @@ void ScrAddrFilter::mergeSideScanPile()
 
       try
       {
-         auto& header = bcptr->getHeaderByHash(topHash);
-         auto&& headerHeight = header.getBlockHeight();
+         auto header = bcptr->getHeaderByHash(topHash);
+         auto headerHeight = header->getBlockHeight();
          if (startHeight > headerHeight)
             startHeight = headerHeight;
 
@@ -585,7 +585,7 @@ void ScrAddrFilter::mergeSideScanPile()
    //scan it all to sync all subssh and ssh to the same height
    applyBlockRangeToDB(
       startHeight, 
-      bcptr->top().getBlockHeight(),
+      bcptr->top()->getBlockHeight(),
       walletIDs);
    updateAddressMerkleInDB();
 
@@ -848,19 +848,19 @@ set<BinaryData> ZeroConfContainer::purge()
    auto bcPtr = db_->blockchain();
    try
    {
-      const BlockHeader* lastKnownHeader =
-         &bcPtr->getHeaderByHash(lastParsedBlockHash_);
+      auto lastKnownHeader =
+         bcPtr->getHeaderByHash(lastParsedBlockHash_);
 
       while (!lastKnownHeader->isMainBranch())
       {
          //trace back to the branch point
          auto&& bhash = lastKnownHeader->getPrevHash();
-         lastKnownHeader = &bcPtr->getHeaderByHash(bhash);
+         lastKnownHeader = bcPtr->getHeaderByHash(bhash);
       }
 
       //get the next header
       auto height = lastKnownHeader->getBlockHeight() + 1;
-      lastKnownHeader = &bcPtr->getHeaderByHeight(height);
+      lastKnownHeader = bcPtr->getHeaderByHeight(height);
 
       while (lastKnownHeader != nullptr)
       {
@@ -877,7 +877,7 @@ set<BinaryData> ZeroConfContainer::purge()
 
          //next block
          auto& bhash = lastKnownHeader->getNextHash();
-         lastKnownHeader = &bcPtr->getHeaderByHash(bhash);
+         lastKnownHeader = bcPtr->getHeaderByHash(bhash);
       }
    }
    catch (...)

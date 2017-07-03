@@ -194,7 +194,7 @@ public:
                             ScrAddrFilter& scrAddrData,
                             bool updateSDBI = true);
 
-   uint32_t getTopBlockHeight() const {return blockchain_->top().getBlockHeight();}
+   uint32_t getTopBlockHeight() const {return blockchain_->top()->getBlockHeight();}
       
    uint8_t getValidDupIDForHeight(uint32_t blockHgt) const
    { return iface_->getValidDupIDForHeight(blockHgt); }

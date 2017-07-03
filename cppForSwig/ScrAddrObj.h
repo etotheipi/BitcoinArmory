@@ -76,7 +76,7 @@ private:
       bool fetchMoreUTXO(function<bool(const BinaryData&)> spentByZC)
       {
          //return true if more UTXO were found, false otherwise
-         if (topBlock_ < scrAddrObj_->bc_->top().getBlockHeight())
+         if (topBlock_ < scrAddrObj_->bc_->top()->getBlockHeight())
          {
             uint32_t rangeTop;
             uint32_t count = 0;

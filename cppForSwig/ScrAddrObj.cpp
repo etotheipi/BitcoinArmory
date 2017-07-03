@@ -563,7 +563,7 @@ vector<UnspentTxOut> ScrAddrObj::getAllUTXOs(
    db_->beginDBTransaction(&tx, STXO, LMDB::ReadOnly);
 
    vector<UnspentTxOut> utxoList;
-   uint32_t blk = bc_->top().getBlockHeight();
+   uint32_t blk = bc_->top()->getBlockHeight();
 
    for (const auto& txioPair : utxos.utxoList_)
    {

@@ -479,7 +479,7 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    void readAllHeaders(
-      const function<void(const BlockHeader&, uint32_t, uint8_t)> &callback
+      const function<void(shared_ptr<BlockHeader>, uint32_t, uint8_t)> &callback
       );
 
    /////////////////////////////////////////////////////////////////////////////
@@ -656,7 +656,7 @@ public:
    Tx    getFullTxCopy(BinaryData ldbKey6B) const;
    Tx    getFullTxCopy(uint32_t hgt, uint16_t txIndex) const;
    Tx    getFullTxCopy(uint32_t hgt, uint8_t dup, uint16_t txIndex) const;
-   Tx    getFullTxCopy(uint16_t txIndex, BlockHeader* bhPtr) const;
+   Tx    getFullTxCopy(uint16_t txIndex, shared_ptr<BlockHeader> bhPtr) const;
    TxOut getTxOutCopy(BinaryData ldbKey6B, uint16_t txOutIdx) const;
    TxIn  getTxInCopy(BinaryData ldbKey6B, uint16_t txInIdx) const;
 

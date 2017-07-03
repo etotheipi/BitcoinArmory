@@ -80,7 +80,7 @@ void BlockDataViewer::scanWallets(shared_ptr<BDV_Notification> action)
    case BDV_Init:
    {
       startBlock = 0;
-      endBlock = blockchain().top().getBlockHeight();
+      endBlock = blockchain().top()->getBlockHeight();
       refresh = true;
       break;
    }
@@ -91,21 +91,21 @@ void BlockDataViewer::scanWallets(shared_ptr<BDV_Notification> action)
          dynamic_pointer_cast<BDV_Notification_NewBlock>(action);
       auto& reorgState = reorgNotif->reorgState_;
          
-      if (!reorgState.hasNewTop)
+      if (!reorgState.hasNewTop_)
          return;
     
-      if (!reorgState.prevTopStillValid)
+      if (!reorgState.prevTopStillValid_)
       {
          //reorg
          reorg = true;
-         startBlock = reorgState.reorgBranchPoint->getBlockHeight();
+         startBlock = reorgState.reorgBranchPoint_->getBlockHeight();
       }
       else
       {
-         startBlock = reorgState.prevTop->getBlockHeight();
+         startBlock = reorgState.prevTop_->getBlockHeight();
       }
          
-      endBlock = reorgState.newTop->getBlockHeight();
+      endBlock = reorgState.newTop_->getBlockHeight();
 
       //feed current valid zc map to scanwallet as well
       auto&& actionStruct = createZcStruct();
@@ -122,7 +122,7 @@ void BlockDataViewer::scanWallets(shared_ptr<BDV_Notification> action)
       zcMap = move(zcAction->scrAddrZcMap_);
       leMapPtr = &zcAction->leMap_;
 
-      startBlock = endBlock = blockchain().top().getBlockHeight();
+      startBlock = endBlock = blockchain().top()->getBlockHeight();
 
       break;
    }
@@ -334,7 +334,7 @@ LMDBBlockDatabase* BlockDataViewer::getDB(void) const
 ////////////////////////////////////////////////////////////////////////////////
 uint32_t BlockDataViewer::getTopBlockHeight(void) const
 {
-   return bc_->top().getBlockHeight();
+   return bc_->top()->getBlockHeight();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -447,7 +447,8 @@ bool BlockDataViewer::scrAddressIsRegistered(const BinaryData& scrAddr) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-BlockHeader BlockDataViewer::getHeaderByHash(const BinaryData& blockHash) const
+shared_ptr<BlockHeader> BlockDataViewer::getHeaderByHash(
+   const BinaryData& blockHash) const
 {
    return bc_->getHeaderByHash(blockHash);
 }
@@ -551,7 +552,7 @@ uint32_t BlockDataViewer::getBlockTimeByHeight(uint32_t height) const
 {
    auto bh = blockchain().getHeaderByHeight(height);
 
-   return bh.getTimestamp();
+   return bh->getTimestamp();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -626,18 +627,18 @@ uint32_t BlockDataViewer::getClosestBlockHeightForTime(uint32_t timestamp)
    auto& genBlock = blockchain().getGenesisBlock();
    
    //sanity check
-   if (timestamp < genBlock.getTimestamp())
+   if (timestamp < genBlock->getTimestamp())
       return 0;
 
    //get time diff and divide by average time per block (600 sec for Bitcoin)
-   uint32_t diff = timestamp - genBlock.getTimestamp();
+   uint32_t diff = timestamp - genBlock->getTimestamp();
    int32_t blockHint = diff/600;
 
    //look for a block in the hint vicinity with a timestamp lower than ours
    while (blockHint > 0)
    {
       auto& block = blockchain().getHeaderByHeight(blockHint);
-      if (block.getTimestamp() < timestamp)
+      if (block->getTimestamp() < timestamp)
          break;
 
       blockHint -= 1000;
@@ -647,16 +648,16 @@ uint32_t BlockDataViewer::getClosestBlockHeightForTime(uint32_t timestamp)
    if (blockHint < 0)
       return 0;
 
-   for (uint32_t id = blockHint; id < blockchain().top().getBlockHeight() - 1; id++)
+   for (uint32_t id = blockHint; id < blockchain().top()->getBlockHeight() - 1; id++)
    {
       //not looking for a really precise block, 
       //anything within the an hour of the timestamp is enough
       auto& block = blockchain().getHeaderByHeight(id);
-      if (block.getTimestamp() + 3600 > timestamp)
-         return block.getBlockHeight();
+      if (block->getTimestamp() + 3600 > timestamp)
+         return block->getBlockHeight();
    }
 
-   return blockchain().top().getBlockHeight() - 1;
+   return blockchain().top()->getBlockHeight() - 1;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -53,7 +53,7 @@ private:
    void resetSSHdb(void);
 
    bool reparseBlkFiles(unsigned fromID);
-   map<BinaryData, BlockHeader> assessBlkFile(BlockDataLoader& bdl,
+   map<BinaryData, shared_ptr<BlockHeader>> assessBlkFile(BlockDataLoader& bdl,
       unsigned fileID);
 
    void verifyTransactions(void);

@@ -27,17 +27,17 @@ int32_t BlockchainScanner::check_merkle(int32_t scanFrom)
    scrAddrFilter_->updateAddressMerkleInDB();
    auto&& subsshSdbi = scrAddrFilter_->getSubSshSDBI();
 
-   BlockHeader* sdbiblock = nullptr;
+   shared_ptr<BlockHeader> sdbiblock;
 
    //check if we need to scan anything
    try
    {
       sdbiblock =
-         &blockchain_->getHeaderByHash(subsshSdbi.topScannedBlkHash_);
+         blockchain_->getHeaderByHash(subsshSdbi.topScannedBlkHash_);
    }
    catch (...)
    {
-      sdbiblock = &blockchain_->getHeaderByHeight(0);
+      sdbiblock = blockchain_->getHeaderByHeight(0);
    }
 
    if (sdbiblock->isMainBranch())
@@ -46,11 +46,11 @@ int32_t BlockchainScanner::check_merkle(int32_t scanFrom)
       if ((int)sdbiblock->getBlockHeight() > scanFrom)
          scanFrom = sdbiblock->getBlockHeight();
 
-      if (scanFrom > (int)topBlock.getBlockHeight() || 
+      if (scanFrom > (int)topBlock->getBlockHeight() || 
           scrAddrFilter_->getScrAddrMap()->size() == 0)
       {
          LOGINFO << "no history to scan";
-         topScannedBlockHash_ = topBlock.getThisHash();
+         topScannedBlockHash_ = topBlock->getThisHash();
          return INT32_MIN;
       }
    }
@@ -95,32 +95,32 @@ void BlockchainScanner::scan_nocheck(int32_t scanFrom)
    //loop until there are no more blocks available
    try
    {
-      while (startHeight <= topBlock.getBlockHeight())
+      while (startHeight <= topBlock->getBlockHeight())
       {
          //figure out how many blocks to pull for this batch
          //batches try to grab up nBlockFilesPerBatch_ worth of block data
          unsigned targetHeight = 0;
          try
          {
-            BlockHeader* currentHeader =
-               &(blockchain_->getHeaderByHeight(startHeight));
+            shared_ptr<BlockHeader> currentHeader =
+               blockchain_->getHeaderByHeight(startHeight);
             auto currentBlkFileNum = currentHeader->getBlockFileNum();
 
             auto targetBlkFileNum = currentBlkFileNum + nBlockFilesPerBatch_;
             targetHeight = startHeight;
 
             while (currentHeader->getBlockFileNum() < targetBlkFileNum)
-               currentHeader = &(blockchain_->getHeaderByHeight(++targetHeight));
+               currentHeader = blockchain_->getHeaderByHeight(++targetHeight);
          }
          catch (range_error& e)
          {
             //if getHeaderByHeight throws before targetHeight is topBlock's height,
             //something went wrong. Otherwise we just hit the end of the chain.
 
-            if (targetHeight < topBlock.getBlockHeight())
+            if (targetHeight < topBlock->getBlockHeight())
                throw e;
             else
-               targetHeight = topBlock.getBlockHeight();
+               targetHeight = topBlock->getBlockHeight();
          }
 
          endHeight = targetHeight;
@@ -219,7 +219,7 @@ void BlockchainScanner::scan_nocheck(int32_t scanFrom)
       writeThreadID.join();
 
    TIMER_STOP("scan_nocheck");
-   if (topBlock.getBlockHeight() - scanFrom > 100)
+   if (topBlock->getBlockHeight() - scanFrom > 100)
    {
       auto timeSpent = TIMER_READ_SEC("scan_nocheck");
       LOGINFO << "scanned transaction history in " << timeSpent << "s";
@@ -236,8 +236,7 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch,
       try
       {
          //grab block file map
-         BlockHeader* blockheader = nullptr;
-         blockheader = &blockchain_->getHeaderByHeight(height);
+         auto blockheader = blockchain_->getHeaderByHeight(height);
 
          auto filenum = blockheader->getBlockFileNum();
          auto mapIter = batch->fileMaps_.find(filenum);
@@ -312,7 +311,7 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch,
    auto txoutParser = [&](const BlockData& blockdata)->void
    {
       //TODO: flag isMultisig
-      const BlockHeader* header = blockdata.header();
+      const auto header = blockdata.header();
 
       //update processed height
       auto topHeight = header->getBlockHeight();
@@ -389,7 +388,7 @@ void BlockchainScanner::scanBlockData(shared_ptr<BlockDataBatch> batch,
    //txin lambda
    auto txinParser = [&](const BlockData& blockdata)->void
    {
-      const BlockHeader* header = blockdata.header();
+      const auto header = blockdata.header();
       auto& txns = blockdata.getTxns();
 
       for (unsigned i = 0; i < txns.size(); i++)
@@ -506,7 +505,7 @@ void BlockchainScanner::accumulateDataBeforeBatchWrite(
    }
 
    auto& header = blockchain_->getHeaderByHeight(topScannedBlockHeight);
-   topScannedBlockHash_ = header.getThisHash();
+   topScannedBlockHash_ = header->getThisHash();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -516,14 +515,14 @@ void BlockchainScanner::writeBlockData(
    auto getGlobalOffsetForBlock = [&](unsigned height)->size_t
    {
       auto& header = blockchain_->getHeaderByHeight(height);
-      size_t val = header.getBlockFileNum();
+      size_t val = header->getBlockFileNum();
       val *= 128 * 1024 * 1024;
-      val += header.getOffset();
+      val += header->getOffset();
       return val;
    };
 
    ProgressCalculator calc(getGlobalOffsetForBlock(
-      blockchain_->top().getBlockHeight()));
+      blockchain_->top()->getBlockHeight()));
    auto initVal = getGlobalOffsetForBlock(startAt_);
    calc.init(initVal);
    if (reportProgress_)
@@ -569,7 +568,7 @@ void BlockchainScanner::writeBlockData(
       //serialize data
       auto& topheader = 
          blockchain_->getHeaderByHash(batchLinkPtr->topScannedBlockHash_);
-      auto topHeight = topheader.getBlockHeight();
+      auto topHeight = topheader->getBlockHeight();
       
       map<BinaryData, BinaryWriter> serializedSubSSH;
       map<BinaryData, BinaryWriter> serializedStxo;
@@ -809,21 +808,21 @@ void BlockchainScanner::updateSSH(bool force)
    StoredDBInfo sdbi = scrAddrFilter_->getSshSDBI();
 
    {
-      BlockHeader* sdbiblock = nullptr;
+      shared_ptr<BlockHeader> sdbiblock;
 
       try
       {
-         sdbiblock = &blockchain_->getHeaderByHash(sdbi.topScannedBlkHash_);
+         sdbiblock = blockchain_->getHeaderByHash(sdbi.topScannedBlkHash_);
       }
       catch (...)
       {
-         sdbiblock = &blockchain_->getHeaderByHeight(0);
+         sdbiblock = blockchain_->getHeaderByHeight(0);
       }
 
       if (sdbiblock->isMainBranch())
       {
          if (sdbi.topBlkHgt_ != 0 && 
-             sdbi.topBlkHgt_ >= blockchain_->top().getBlockHeight())
+             sdbi.topBlkHgt_ >= blockchain_->top()->getBlockHeight())
          {
             if (!force)
             {
@@ -1031,7 +1030,7 @@ void BlockchainScanner::updateSSH(bool force)
    
    //write ssh data
    auto& topheader = blockchain_->getHeaderByHash(topScannedBlockHash_);
-   auto topheight = topheader.getBlockHeight();
+   auto topheight = topheader->getBlockHeight();
 
    LMDBEnv::Transaction putsshtx;
    db_->beginDBTransaction(&putsshtx, SSH, LMDB::ReadWrite);
@@ -1092,7 +1091,7 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
 {
    //dont undo subssh, these are skipped by dupID when loading history
 
-   BlockHeader* blockPtr = reorgState.prevTop;
+   auto blockPtr = reorgState.prevTop_;
    map<uint32_t, BlockFileMapPointer> fileMaps_;
 
    map<DB_SELECT, set<BinaryData>> keysToDelete;
@@ -1100,13 +1099,13 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
    set<BinaryData> undoSpentness; //TODO: add spentness DB
 
    //TODO: sanity checks on header ptrs from reorgState
-   if (reorgState.prevTop->getBlockHeight() <=
-       reorgState.reorgBranchPoint->getBlockHeight())
+   if (reorgState.prevTop_->getBlockHeight() <=
+       reorgState.reorgBranchPoint_->getBlockHeight())
       throw runtime_error("invalid reorg state");
 
    auto scrAddrMap = scrAddrFilter_->getScrAddrMap();
 
-   while (blockPtr != reorgState.reorgBranchPoint)
+   while (blockPtr != reorgState.reorgBranchPoint_)
    {
       int currentHeight = blockPtr->getBlockHeight();
       auto currentDupId  = blockPtr->getDuplicateID();
@@ -1229,7 +1228,7 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
       }
 
       //set blockPtr to prev block
-      blockPtr = &blockchain_->getHeaderByHash(blockPtr->getPrevHashRef());
+      blockPtr = blockchain_->getHeaderByHash(blockPtr->getPrevHashRef());
    }
 
    //at this point we have a map of updated ssh, as well as a 
@@ -1266,7 +1265,7 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
    }
 
    int branchPointHeight = 
-      reorgState.reorgBranchPoint->getBlockHeight();
+      reorgState.reorgBranchPoint_->getBlockHeight();
 
    //ssh
    {
@@ -1316,7 +1315,7 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
 
       //update SSH sdbi      
       StoredDBInfo sdbi = scrAddrFilter_->getSshSDBI();
-      sdbi.topScannedBlkHash_ = reorgState.reorgBranchPoint->getThisHash();
+      sdbi.topScannedBlkHash_ = reorgState.reorgBranchPoint_->getThisHash();
       sdbi.topBlkHgt_ = branchPointHeight;
       scrAddrFilter_->putSshSDBI(sdbi);
    }
@@ -1393,10 +1392,10 @@ void BlockchainScanner::processFilterHitsThread(
       
       for (auto& blockkey : filterHit)
       {
-         BlockHeader* headerPtr;
+         shared_ptr<BlockHeader> headerPtr;
          try
          {
-            headerPtr = &blockchain_->getHeaderById(blockkey.first);
+            headerPtr = blockchain_->getHeaderById(blockkey.first);
          }
          catch (range_error&)
          {
@@ -1617,9 +1616,9 @@ bool BlockchainScanner::resolveTxHashes()
          {
             try
             {
-               auto& header = 
+               auto header = 
                   blockchain_->getHeaderById(filterHit.first);
-               auto&& height = header.getBlockHeight();
+               auto height = header->getBlockHeight();
          
                heights.insert(height);
                block_result_pair[filterHit.first].insert(&filterHits);

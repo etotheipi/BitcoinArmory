@@ -9330,8 +9330,8 @@ TEST_F(BlockUtilsBare, Load4Blocks_Plus2)
 
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 3);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash3);
-   auto& header = theBDMt_->bdm()->blockchain()->getHeaderByHash(TestChain::blkHash3);
-   EXPECT_TRUE(header.isMainBranch());
+   auto header = theBDMt_->bdm()->blockchain()->getHeaderByHash(TestChain::blkHash3);
+   EXPECT_TRUE(header->isMainBranch());
 
    const ScrAddrObj* scrObj;
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
@@ -9363,7 +9363,7 @@ TEST_F(BlockUtilsBare, Load4Blocks_Plus2)
    
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 5);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash5);
-   EXPECT_TRUE(theBDMt_->bdm()->blockchain()->getHeaderByHash(TestChain::blkHash5).isMainBranch());
+   EXPECT_TRUE(theBDMt_->bdm()->blockchain()->getHeaderByHash(TestChain::blkHash5)->isMainBranch());
 
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
    EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
@@ -9435,7 +9435,7 @@ TEST_F(BlockUtilsBare, Load4Blocks_ReloadBDM_ZC_Plus2)
 
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 3);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash3);
-   EXPECT_TRUE(theBDMt_->bdm()->blockchain()->getHeaderByHash(TestChain::blkHash3).isMainBranch());
+   EXPECT_TRUE(theBDMt_->bdm()->blockchain()->getHeaderByHash(TestChain::blkHash3)->isMainBranch());
 
    const ScrAddrObj* scrObj;
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
@@ -9574,7 +9574,7 @@ TEST_F(BlockUtilsBare, Load4Blocks_ReloadBDM_ZC_Plus2)
 
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 5);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash5);
-   EXPECT_TRUE(theBDMt_->bdm()->blockchain()->getHeaderByHash(TestChain::blkHash5).isMainBranch());
+   EXPECT_TRUE(theBDMt_->bdm()->blockchain()->getHeaderByHash(TestChain::blkHash5)->isMainBranch());
 
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
    EXPECT_EQ(scrObj->getFullBalance(),  50*COIN);
@@ -9650,7 +9650,7 @@ TEST_F(BlockUtilsBare, Load3Blocks_ZC_Plus3_TestLedgers)
 
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 2);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash2);
-   EXPECT_TRUE(theBDMt_->bdm()->blockchain()->getHeaderByHash(TestChain::blkHash2).isMainBranch());
+   EXPECT_TRUE(theBDMt_->bdm()->blockchain()->getHeaderByHash(TestChain::blkHash2)->isMainBranch());
 
    const ScrAddrObj* scrObj;
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
@@ -9757,7 +9757,7 @@ TEST_F(BlockUtilsBare, Load3Blocks_ZC_Plus3_TestLedgers)
 
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 3);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash3);
-   EXPECT_TRUE(theBDMt_->bdm()->blockchain()->getHeaderByHash(TestChain::blkHash3).isMainBranch());
+   EXPECT_TRUE(theBDMt_->bdm()->blockchain()->getHeaderByHash(TestChain::blkHash3)->isMainBranch());
 
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
    EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
@@ -9799,7 +9799,7 @@ TEST_F(BlockUtilsBare, Load3Blocks_ZC_Plus3_TestLedgers)
 
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash4);
-   EXPECT_TRUE(theBDMt_->bdm()->blockchain()->getHeaderByHash(TestChain::blkHash4).isMainBranch());
+   EXPECT_TRUE(theBDMt_->bdm()->blockchain()->getHeaderByHash(TestChain::blkHash4)->isMainBranch());
 
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
    EXPECT_EQ(scrObj->getFullBalance(), 50*COIN);
@@ -9834,7 +9834,7 @@ TEST_F(BlockUtilsBare, Load3Blocks_ZC_Plus3_TestLedgers)
 
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 5);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash5);
-   EXPECT_TRUE(theBDMt_->bdm()->blockchain()->getHeaderByHash(TestChain::blkHash5).isMainBranch());
+   EXPECT_TRUE(theBDMt_->bdm()->blockchain()->getHeaderByHash(TestChain::blkHash5)->isMainBranch());
 
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
    EXPECT_EQ(scrObj->getFullBalance(), 50 * COIN);
@@ -9917,7 +9917,7 @@ TEST_F(BlockUtilsBare, Load3Blocks_ZCchain)
 
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 2);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash2);
-   EXPECT_TRUE(theBDMt_->bdm()->blockchain()->getHeaderByHash(TestChain::blkHash2).isMainBranch());
+   EXPECT_TRUE(theBDMt_->bdm()->blockchain()->getHeaderByHash(TestChain::blkHash2)->isMainBranch());
 
    const ScrAddrObj* scrObj;
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
@@ -10026,7 +10026,7 @@ TEST_F(BlockUtilsBare, Load3Blocks_ZCchain)
 
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 5);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash5);
-   EXPECT_TRUE(theBDMt_->bdm()->blockchain()->getHeaderByHash(TestChain::blkHash5).isMainBranch());
+   EXPECT_TRUE(theBDMt_->bdm()->blockchain()->getHeaderByHash(TestChain::blkHash5)->isMainBranch());
 
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
    EXPECT_EQ(scrObj->getFullBalance(), 50 * COIN);
@@ -10253,7 +10253,7 @@ TEST_F(BlockUtilsBare, Load3Blocks_RBF)
 
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 5);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash5);
-   EXPECT_TRUE(theBDMt_->bdm()->blockchain()->getHeaderByHash(TestChain::blkHash5).isMainBranch());
+   EXPECT_TRUE(theBDMt_->bdm()->blockchain()->getHeaderByHash(TestChain::blkHash5)->isMainBranch());
 
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
    EXPECT_EQ(scrObj->getFullBalance(), 50 * COIN);
@@ -10538,7 +10538,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ReloadBDM_Reorg)
    auto wltLB1 = bdvPtr->getWalletOrLockbox(LB1ID);
    auto wltLB2 = bdvPtr->getWalletOrLockbox(LB2ID);
 
-   EXPECT_EQ(theBDMt_->bdm()->blockchain()->top().getBlockHeight(), 5);
+   EXPECT_EQ(theBDMt_->bdm()->blockchain()->top()->getBlockHeight(), 5);
 
    const ScrAddrObj* scrObj;
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA); //unspent 50
@@ -11103,7 +11103,7 @@ TEST_F(BlockUtilsBare, Load4Blocks_ZC_GetUtxos)
 
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 3);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash3);
-   EXPECT_TRUE(theBDMt_->bdm()->blockchain()->getHeaderByHash(TestChain::blkHash3).isMainBranch());
+   EXPECT_TRUE(theBDMt_->bdm()->blockchain()->getHeaderByHash(TestChain::blkHash3)->isMainBranch());
 
    const ScrAddrObj* scrObj;
    scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);

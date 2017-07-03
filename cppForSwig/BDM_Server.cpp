@@ -692,9 +692,9 @@ void BDV_Server_Object::buildMethodMap()
          throw runtime_error("unexpected id count");
 
       auto height = args.get<IntType>().getVal();
-      auto& header = blockchain().getHeaderByHeight(height);
+      auto header = blockchain().getHeaderByHeight(height);
 
-      BinaryDataObject bdo(header.serialize());
+      BinaryDataObject bdo(header->serialize());
 
       Arguments retarg;
       retarg.push_back(move(bdo));
@@ -1425,7 +1425,7 @@ BDV_Server_Object::BDV_Server_Object(
    {
       if (lbdFut.wait_for(chrono::seconds(0)) == future_status::ready)
       {
-         return bc->top().getBlockHeight();
+         return bc->top()->getBlockHeight();
       }
 
       return UINT32_MAX;
@@ -1532,7 +1532,7 @@ void BDV_Server_Object::init()
    Arguments args;
    BinaryDataObject bdo("BDM_Ready");
    args.push_back(move(bdo));
-   unsigned int topblock = blockchain().top().getBlockHeight();
+   unsigned int topblock = blockchain().top()->getBlockHeight();
    args.push_back(move(IntType(topblock)));
    cb_->callback(move(args));
 
@@ -1572,7 +1572,7 @@ void BDV_Server_Object::maintenanceThread(void)
             auto&& payload =
                dynamic_pointer_cast<BDV_Notification_NewBlock>(notifPtr);
             uint32_t blocknum =
-               payload->reorgState_.newTop->getBlockHeight();
+               payload->reorgState_.newTop_->getBlockHeight();
 
             BinaryDataObject bdo("NewBlock");
             args2.push_back(move(bdo));

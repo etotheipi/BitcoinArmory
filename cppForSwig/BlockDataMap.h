@@ -198,7 +198,7 @@ struct BCTX
 class BlockData
 {
 private:
-   const BlockHeader* headerPtr_ = nullptr;
+   shared_ptr<BlockHeader> headerPtr_;
    const uint8_t* data_ = nullptr;
    size_t size_ = SIZE_MAX;
 
@@ -220,7 +220,7 @@ public:
    {}
 
    void deserialize(const uint8_t* data, size_t size,
-      const BlockHeader*, 
+      const shared_ptr<BlockHeader>, 
       function<unsigned int(const BinaryData&)> getID, bool checkMerkle,
       bool keepHashes);
 
@@ -234,7 +234,7 @@ public:
       return txns_;
    }
 
-   const BlockHeader* header(void) const
+   const shared_ptr<BlockHeader> header(void) const
    {
       return headerPtr_;
    }
@@ -247,7 +247,7 @@ public:
    void setFileID(unsigned fileid) { fileID_ = fileid; }
    void setOffset(size_t offset) { offset_ = offset; }
 
-   BlockHeader createBlockHeader(void) const;
+   shared_ptr<BlockHeader> createBlockHeader(void) const;
    const BinaryData& getHash(void) const { return blockHash_; }
    
    TxFilter<TxFilterType> computeTxFilter(const vector<BinaryData>&) const;

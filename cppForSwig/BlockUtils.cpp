@@ -166,7 +166,7 @@ public:
       Blockchain &bc
    ) 
    {
-      map<HashString, BlockHeader> &allHeaders = bc.allHeaders();
+      auto& allHeaders = bc.allHeaders();
       
       size_t index=0;
       
@@ -193,7 +193,7 @@ public:
       BlockFilePosition foundAtPosition{ 0, 0 };
             
       bool foundTopBlock = false;
-      auto topBlockHash = bc.top().getThisHash();
+      auto topBlockHash = bc.top()->getThisHash();
 
       const auto stopIfBlkHeaderRecognized =
       [&allHeaders, &foundAtPosition, &foundTopBlock, &topBlockHash] (
@@ -215,11 +215,11 @@ public:
          if(bhIter == allHeaders.end())
             throw StopReading();
 
-         if (bhIter->second.getThisHash() == topBlockHash)
+         if (bhIter->second->getThisHash() == topBlockHash)
             foundTopBlock = true;
 
-         bhIter->second.setBlockFileNum(pos.first);
-         bhIter->second.setBlockFileOffset(pos.second);
+         bhIter->second->setBlockFileNum(pos.first);
+         bhIter->second->setBlockFileOffset(pos.second);
       };
       
       uint64_t returnedOffset = UINT64_MAX;
@@ -824,7 +824,7 @@ protected:
    
    virtual uint32_t currentTopBlockHeight() const
    {
-      return bdm_->blockchain()->top().getBlockHeight();
+      return bdm_->blockchain()->top()->getBlockHeight();
    }
    
    virtual void wipeScrAddrsSSH(const vector<BinaryData>& saVec)

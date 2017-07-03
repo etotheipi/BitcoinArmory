@@ -17,6 +17,7 @@
 #include "BlockObj.h"
 #include "lmdb_wrapper.h"
 
+#include <memory>
 #include <deque>
 #include <map>
 
@@ -34,25 +35,25 @@ public:
    
    struct ReorganizationState
    {
-      bool prevTopStillValid=false;
-      bool hasNewTop=false;
-      BlockHeader *prevTop=nullptr;
-      BlockHeader *newTop = nullptr;
-      BlockHeader *reorgBranchPoint=nullptr;
+      bool prevTopStillValid_ = false;
+      bool hasNewTop_ = false;
+      shared_ptr<BlockHeader> prevTop_;
+      shared_ptr<BlockHeader> newTop_;
+      shared_ptr<BlockHeader> reorgBranchPoint_;
    };
    
    /**
     * Adds a block to the chain
     **/
-   BlockHeader& addBlock(const HashString &blockhash, 
-      const BlockHeader &block, bool suppressVerbose);
-   BlockHeader& addBlock(const HashString &blockhash, const BlockHeader &block,
+   void addBlock(const HashString &blockhash, 
+      shared_ptr<BlockHeader>, bool suppressVerbose);
+   void addBlock(const HashString &blockhash, shared_ptr<BlockHeader>,
                          uint32_t height, uint8_t dupId);
-   BlockHeader& addNewBlock(const HashString &blockhash, 
-      const BlockHeader &block, bool suppressVerbose);
+   void addNewBlock(const HashString &blockhash,
+      shared_ptr<BlockHeader>, bool suppressVerbose);
 
-   set<uint32_t> addBlocksInBulk(const map<HashString, BlockHeader>&);
-   void forceAddBlocksInBulk(const map<HashString, BlockHeader>&);
+   set<uint32_t> addBlocksInBulk(const map<HashString, shared_ptr<BlockHeader>>&);
+   void forceAddBlocksInBulk(const map<HashString, shared_ptr<BlockHeader>>&);
 
    ReorganizationState organize(bool verbose);
    ReorganizationState forceOrganize();
@@ -60,19 +61,19 @@ public:
 
    void setDuplicateIDinRAM(LMDBBlockDatabase* iface);
 
-   BlockHeader& top() const;
-   BlockHeader& getGenesisBlock() const;
-   BlockHeader& getHeaderByHeight(unsigned height) const;
-   const BlockHeader& getHeaderByHeightConst(unsigned height) const;
+   shared_ptr<BlockHeader> top() const;
+   shared_ptr<BlockHeader> getGenesisBlock() const;
+   shared_ptr<BlockHeader> getHeaderByHeight(unsigned height);
+   const shared_ptr<BlockHeader> getHeaderByHeight(unsigned height) const;
    bool hasHeaderByHeight(unsigned height) const;
    
-   const BlockHeader& getHeaderByHash(HashString const & blkHash) const;
-   BlockHeader& getHeaderByHash(HashString const & blkHash);
-   BlockHeader& getHeaderById(uint32_t id) const;
+   const shared_ptr<BlockHeader> getHeaderByHash(HashString const & blkHash) const;
+   shared_ptr<BlockHeader> getHeaderByHash(HashString const & blkHash);
+   shared_ptr<BlockHeader> getHeaderById(uint32_t id) const;
 
    bool hasHeaderWithHash(BinaryData const & txHash) const;
-   const BlockHeader& getHeaderPtrForTxRef(const TxRef &txr) const;
-   const BlockHeader& getHeaderPtrForTx(const Tx & txObj) const
+   const shared_ptr<BlockHeader> getHeaderPtrForTxRef(const TxRef &txr) const;
+   const shared_ptr<BlockHeader> getHeaderPtrForTx(const Tx & txObj) const
    {
       if(txObj.getTxRef().isNull())
       {
@@ -82,42 +83,42 @@ public:
       return getHeaderPtrForTxRef(txObj.getTxRef());
    }
    
-   map<HashString, BlockHeader>& allHeaders()
+   map<HashString, shared_ptr<BlockHeader>>& allHeaders()
    {
       return headerMap_;
    }
-   const map<HashString, BlockHeader>& allHeaders() const
+   const map<HashString, shared_ptr<BlockHeader>>& allHeaders() const
    {
       return headerMap_;
    }
 
    void putBareHeaders(LMDBBlockDatabase *db, bool updateDupID=true);
    void putNewBareHeaders(LMDBBlockDatabase *db);
-   const set<BlockHeader*>& getBlockHeightsForFileNum(uint32_t) const;
+   const set<shared_ptr<BlockHeader>>& getBlockHeightsForFileNum(uint32_t) const;
 
    unsigned int getNewUniqueID(void) { return topID_.fetch_add(1, memory_order_relaxed); }
 
    map<unsigned, set<unsigned>> mapIDsPerBlockFile(void) const;
 
 private:
-   BlockHeader* organizeChain(bool forceRebuild=false, bool verbose=false);
+   shared_ptr<BlockHeader> organizeChain(bool forceRebuild = false, bool verbose = false);
    /////////////////////////////////////////////////////////////////////////////
    // Update/organize the headers map (figure out longest chain, mark orphans)
    // Start from a node, trace down to the highest solved block, accumulate
    // difficulties and difficultySum values.  Return the difficultySum of 
    // this block.
-   double traceChainDown(BlockHeader & bhpStart);
+   double traceChainDown(shared_ptr<BlockHeader> bhpStart);
 
 private:
    //TODO: make this whole class thread safe
 
    const HashString genesisHash_;
-   map<HashString, BlockHeader> headerMap_;
-   vector<BlockHeader*> newlyParsedBlocks_;
-   deque<BlockHeader*> headersByHeight_;
-   map<uint32_t, BlockHeader*> headersById_;
-   BlockHeader *topBlockPtr_;
-   BlockHeader *genesisBlockBlockPtr_;
+   map<HashString, shared_ptr<BlockHeader>> headerMap_;
+   vector<shared_ptr<BlockHeader>> newlyParsedBlocks_;
+   deque<shared_ptr<BlockHeader>> headersByHeight_;
+   map<uint32_t, shared_ptr<BlockHeader>> headersById_;
+   shared_ptr<BlockHeader> topBlockPtr_;
+   unsigned topBlockId_ = 0;
    Blockchain(const Blockchain&); // not defined
 
    atomic<unsigned int> topID_;

@@ -111,9 +111,9 @@ public:
    const Blockchain& blockchain() const  { return *bc_; }
    Blockchain& blockchain() { return *bc_; }
    uint32_t getTopBlockHeight(void) const;
-   const BlockHeader& getTopBlockHeader(void) const
+   const shared_ptr<BlockHeader> getTopBlockHeader(void) const
    { return bc_->top(); }
-   BlockHeader getHeaderByHash(const BinaryData& blockHash) const;
+   shared_ptr<BlockHeader> getHeaderByHash(const BinaryData& blockHash) const;
 
    void reset();
 
@@ -136,8 +136,8 @@ public:
    StoredHeader getBlockFromDB(uint32_t height, uint8_t dupID) const;
    bool scrAddressIsRegistered(const BinaryData& scrAddr) const;
    
-   const BlockHeader* getHeaderPtrForTx(Tx& theTx) const
-      { return &bc_->getHeaderPtrForTx(theTx); }
+   const shared_ptr<BlockHeader> getHeaderPtrForTx(Tx& theTx) const
+      { return bc_->getHeaderPtrForTx(theTx); }
 
    vector<UnspentTxOut> 
       getUnspentTxoutsForAddr160List(

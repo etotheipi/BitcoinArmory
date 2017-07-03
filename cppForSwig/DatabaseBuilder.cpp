@@ -50,15 +50,15 @@ void DatabaseBuilder::init()
    {
       //rewind the top block offset to catch on missed blocks for db init
       auto& topBlock = blockchain_->top();
-      auto rewindHeight = topBlock.getBlockHeight();
+      auto rewindHeight = topBlock->getBlockHeight();
       if (rewindHeight > 100)
          rewindHeight -= 100;
       else
          rewindHeight = 1;
 
       auto& rewindBlock = blockchain_->getHeaderByHeight(rewindHeight);
-      topBlockOffset_.fileID_ = rewindBlock.getBlockFileNum();
-      topBlockOffset_.offset_ = rewindBlock.getOffset();
+      topBlockOffset_.fileID_ = rewindBlock->getBlockFileNum();
+      topBlockOffset_.offset_ = rewindBlock->getOffset();
 
       LOGINFO << "Rewinding 100 blocks";
    }
@@ -115,35 +115,35 @@ void DatabaseBuilder::init()
       reset = true;
    }
 
-   if (!reorgState.prevTopStillValid && !reset)
+   if (!reorgState.prevTopStillValid_ && !reset)
    {
       //reorg
       undoHistory(reorgState);
 
       scanFrom = min(
-         scanFrom, (int)reorgState.reorgBranchPoint->getBlockHeight() + 1);
+         scanFrom, (int)reorgState.reorgBranchPoint_->getBlockHeight() + 1);
    }
    
    LOGINFO << "scanning new blocks from #" << scanFrom << " to #" <<
-      blockchain_->top().getBlockHeight();
+      blockchain_->top()->getBlockHeight();
 
    TIMER_START("scanning");
    while (1)
    {
       auto topScannedBlockHash = updateTransactionHistory(scanFrom);
 
-      if (topScannedBlockHash == blockchain_->top().getThisHash())
+      if (topScannedBlockHash == blockchain_->top()->getThisHash())
          break;
 
       //if we got this far the scan failed, diagnose the DB and repair it
 
       LOGWARN << "topScannedBlockHash does match the hash of the current top";
-      LOGWARN << "current top is height #" << blockchain_->top().getBlockHeight();
+      LOGWARN << "current top is height #" << blockchain_->top()->getBlockHeight();
 
       try
       {
          auto& topscannedblock = blockchain_->getHeaderByHash(topScannedBlockHash);
-         LOGWARN << "topScannedBlockHash is height #" << topscannedblock.getBlockHeight();
+         LOGWARN << "topScannedBlockHash is height #" << topscannedblock->getBlockHeight();
       }
       catch (...)
       {
@@ -157,7 +157,7 @@ void DatabaseBuilder::init()
 
       //get fileID for height
       auto& topHeader = blockchain_->getHeaderByHeight(sdbi.topBlkHgt_);
-      int fileID = topHeader.getBlockFileNum();
+      int fileID = topHeader->getBlockFileNum();
       
       //rewind 5 blk files for the good measure
       fileID -= 5;
@@ -205,11 +205,11 @@ BlockOffset DatabaseBuilder::loadBlockHeadersFromDB(
 
    ProgressCalculator calc(howManyBlocks);
 
-   const auto callback = [&](const BlockHeader &h, uint32_t height, uint8_t dup)
+   const auto callback = [&](shared_ptr<BlockHeader> h, uint32_t height, uint8_t dup)
    {
-      blockchain_->addBlock(h.getThisHash(), h, height, dup);
+      blockchain_->addBlock(h->getThisHash(), h, height, dup);
 
-      BlockOffset currblock(h.getBlockFileNum(), h.getOffset());
+      BlockOffset currblock(h->getBlockFileNum(), h->getOffset());
       if (currblock > topBlockOffet)
          topBlockOffet = currblock;
 
@@ -387,11 +387,11 @@ bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl,
 
    //done parsing, add the headers to the blockchain object
    //convert BlockData vector to BlockHeader map first
-   map<HashString, BlockHeader> bhmap;
+   map<HashString, shared_ptr<BlockHeader>> bhmap;
    for (auto& bd : bdMap)
    {
-      auto&& bh = bd.second.createBlockHeader();
-      bhmap.insert(move(make_pair(bh.getThisHash(), move(bh))));
+      auto bh = bd.second.createBlockHeader();
+      bhmap.insert(move(make_pair(bh->getThisHash(), move(bh))));
    }
 
    //add in bulk
@@ -564,24 +564,24 @@ Blockchain::ReorganizationState DatabaseBuilder::update(void)
    //update db
    auto&& reorgState = updateBlocksInDB(progress_, false, false);
 
-   if (!reorgState.hasNewTop)
+   if (!reorgState.hasNewTop_)
       return reorgState;
 
-   uint32_t prevTop = reorgState.prevTop->getBlockHeight();
-   uint32_t startHeight = reorgState.prevTop->getBlockHeight() + 1;
+   uint32_t prevTop = reorgState.prevTop_->getBlockHeight();
+   uint32_t startHeight = reorgState.prevTop_->getBlockHeight() + 1;
 
 
-   if (!reorgState.prevTopStillValid)
+   if (!reorgState.prevTopStillValid_)
    {
       //reorg, undo blocks up to branch point
       undoHistory(reorgState);
 
-      startHeight = reorgState.reorgBranchPoint->getBlockHeight() + 1;
+      startHeight = reorgState.reorgBranchPoint_->getBlockHeight() + 1;
    }
 
    //scan new blocks   
    BinaryData&& topScannedHash = scanHistory(startHeight, false);
-   if (topScannedHash != blockchain_->top().getThisHash())
+   if (topScannedHash != blockchain_->top()->getThisHash())
       throw runtime_error("scan failure during DatabaseBuilder::update");
 
    //TODO: recover from failed scan 
@@ -614,7 +614,7 @@ void DatabaseBuilder::resetHistory()
 bool DatabaseBuilder::reparseBlkFiles(unsigned fromID)
 {
    mutex mu;
-   map<BinaryData, BlockHeader> headerMap;
+   map<BinaryData, shared_ptr<BlockHeader>> headerMap;
 
    BlockDataLoader bdl(blockFiles_.folderPath(), true, false, true);
 
@@ -670,10 +670,10 @@ bool DatabaseBuilder::reparseBlkFiles(unsigned fromID)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-map<BinaryData, BlockHeader> DatabaseBuilder::assessBlkFile(
+map<BinaryData, shared_ptr<BlockHeader>> DatabaseBuilder::assessBlkFile(
    BlockDataLoader& bdl, unsigned fileID)
 {
-   map<BinaryData, BlockHeader> returnMap;
+   map<BinaryData, shared_ptr<BlockHeader>> returnMap;
 
    auto&& blockfilemappointer = bdl.get(fileID, false);
    auto ptr = blockfilemappointer.get()->getPtr();
@@ -735,11 +735,11 @@ map<BinaryData, BlockHeader> DatabaseBuilder::assessBlkFile(
 
    //done parsing, add the headers to the blockchain object
    //convert BlockData vector to BlockHeader map first
-   map<HashString, BlockHeader> bhmap;
+   map<HashString, shared_ptr<BlockHeader>> bhmap;
    for (auto& bd : bdVec)
    {
-      auto&& bh = bd.createBlockHeader();
-      bhmap.insert(make_pair(bh.getThisHash(), move(bh)));
+      auto bh = bd.createBlockHeader();
+      bhmap.insert(make_pair(bh->getThisHash(), bh));
    }
 
    return returnMap;
@@ -924,10 +924,10 @@ void DatabaseBuilder::verifyTransactions()
                   continue;
 
                auto blockID = DBUtils::hgtxToHeight(blockkey);
-               BlockHeader* bhPtr;
+               shared_ptr<BlockHeader> bhPtr;
                try
                {
-                  bhPtr = &blockchain_->getHeaderById(blockID);
+                  bhPtr = blockchain_->getHeaderById(blockID);
                }
                catch (exception&)
                {
@@ -994,15 +994,15 @@ void DatabaseBuilder::verifyTransactions()
       LMDBEnv::Transaction hintdbtx;
       db_->beginDBTransaction(&hintdbtx, TXHINTS, LMDB::ReadOnly);
 
-      while (thisHeight < blockchain_->top().getBlockHeight())
+      while (thisHeight < blockchain_->top()->getBlockHeight())
       {
          //grab blockheight
          thisHeight = stateStruct->blockHeight_.fetch_add(1, memory_order_relaxed);
 
          BlockData bdata;
-         BlockHeader* blockheader;
+         shared_ptr<BlockHeader> blockheader;
 
-         blockheader = &blockchain_->getHeaderByHeight(thisHeight);
+         blockheader = blockchain_->getHeaderByHeight(thisHeight);
 
          auto& fileMap = getFileMap(blockheader->getBlockFileNum());
 
@@ -1275,7 +1275,7 @@ void DatabaseBuilder::reprocessTxFilter(
       try
       {
          auto& header = blockchain_->getHeaderByHash(heahder_hash);
-        return header.getThisID();
+         return header->getThisID();
       }
       catch (...)
       {
