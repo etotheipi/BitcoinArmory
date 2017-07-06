@@ -133,7 +133,8 @@ void BlockchainScanner::scan_nocheck(int32_t scanFrom)
             else
             {
                targetHeight = topBlock->getBlockHeight();
-               targetBlockFileID = topBlock->getBlockFileNum();
+               if (targetBlockFileID < topBlock->getBlockFileNum()) 
+                  targetBlockFileID = topBlock->getBlockFileNum();
             }
          }
 
