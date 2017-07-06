@@ -253,6 +253,7 @@ public:
    TxFilter<TxFilterType> computeTxFilter(const vector<BinaryData>&) const;
    const TxFilter<TxFilterType>& getTxFilter(void) const { return txFilter_; }
    uint32_t uniqueID(void) const { return uniqueID_; }
+   shared_ptr<BlockHeader> getHeaderPtr(void) const { return headerPtr_; }
 };
 
 /////////////////////////////////////////////////////////////////////////////

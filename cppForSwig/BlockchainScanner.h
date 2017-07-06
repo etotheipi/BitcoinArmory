@@ -76,16 +76,40 @@ struct BlockDataBatch
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-struct BatchLink
+struct ParserBatch
 {
-   vector<shared_ptr<BlockDataBatch>> batchVec_;
-   shared_ptr<BatchLink> next_;
+public:
+   map<unsigned, BlockFileMapPointer> fileMaps_;
 
-   mutex readyToWrite_;
-   BinaryData topScannedBlockHash_;
+   atomic<unsigned> blockCounter_;
+   mutex mergeMutex_;
 
-   unsigned start_;
-   unsigned end_;
+   const unsigned start_;
+   const unsigned end_;
+
+   const unsigned startBlockFileID_;
+   const unsigned targetBlockFileID_;
+
+   map<unsigned, shared_ptr<BlockData>> blockMap_;
+   map<BinaryData, map<unsigned, StoredTxOut>> outputMap_;
+   map<BinaryData, map<BinaryData, StoredSubHistory>> sshMap_;
+   vector<StoredTxOut> spentOutputs_;
+
+   const shared_ptr<map<TxOutScriptRef, int>> scriptRefMap_;
+
+public:
+   ParserBatch(unsigned start, unsigned end, 
+      unsigned startID, unsigned endID,
+      shared_ptr<map<TxOutScriptRef, int>> scriptRefMap) :
+      start_(start), end_(end), 
+      startBlockFileID_(startID), targetBlockFileID_(endID),
+      scriptRefMap_(scriptRefMap)
+   {
+      if (end < start)
+         throw runtime_error("end > start");
+
+      blockCounter_.store(start_, memory_order_relaxed);
+   }
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -129,14 +153,13 @@ private:
 
    mutex resolverMutex_;
 
+   BlockingStack<unique_ptr<ParserBatch>> outputQueue_;
+   BlockingStack<unique_ptr<ParserBatch>> inputQueue_;
+   BlockingStack<unique_ptr<ParserBatch>> commitQueue_;
+
 private:
-   void scanBlockData(shared_ptr<BlockDataBatch>,
-      const map<TxOutScriptRef, int>&);
-   
-   void accumulateDataBeforeBatchWrite(vector<shared_ptr<BlockDataBatch>>&);
-   void writeBlockData(shared_ptr<BatchLink>);
-   void processAndCommitTxHints(
-      const vector<shared_ptr<BlockDataBatch>>& batchVec);
+   void writeBlockData(void);
+   void processAndCommitTxHints(ParserBatch*);
    void preloadUtxos(void);
 
    int32_t check_merkle(int32_t startHeight);
@@ -152,6 +175,15 @@ private:
       TransactionalSet<BinaryData>& missingHashes,
       atomic<int>& counter, map<BinaryData, BinaryData>& results,
       function<void(size_t)> prog);
+
+   shared_ptr<BlockData> getBlockData(
+      ParserBatch*, unsigned);
+
+   void processOutputs(void);
+   void processOutputsThread(ParserBatch*);
+
+   void processInputs(void);
+   void processInputsThread(ParserBatch*);
 
 
 public:

@@ -260,10 +260,10 @@ public:
       return scrAddrMap_->get(); 
    }
 
-   map<TxOutScriptRef, int> getOutScrRefMap(void)
+   shared_ptr<map<TxOutScriptRef, int>> getOutScrRefMap(void)
    {
       getScrAddrCurrentSyncState();
-      map<TxOutScriptRef, int> outset;
+      auto outset = make_shared<map<TxOutScriptRef, int>>();
 
       auto scrAddrMap = scrAddrMap_->get();
 
@@ -275,7 +275,7 @@ public:
          TxOutScriptRef scrRef;
          scrRef.setRef(scrAddr.first.scrAddr_);
 
-         outset.insert(move(make_pair(scrRef, scrAddr.second)));
+         outset->insert(move(make_pair(scrRef, scrAddr.second)));
       }
 
       return outset;
