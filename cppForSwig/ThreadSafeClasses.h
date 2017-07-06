@@ -438,10 +438,9 @@ public:
       if (updatemap.size() == 0)
          return;
 
-      auto newMap = make_shared<map<T, U>>();
+      auto newMap = make_shared<map<T, U>>( move(updatemap));
 
       unique_lock<mutex> lock(mu_);
-      *newMap = updatemap;
       newMap->insert(map_->begin(), map_->end());
 
       map_ = newMap;
