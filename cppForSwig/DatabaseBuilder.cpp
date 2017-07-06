@@ -49,14 +49,14 @@ void DatabaseBuilder::init()
    try
    {
       //rewind the top block offset to catch on missed blocks for db init
-      auto& topBlock = blockchain_->top();
+      auto topBlock = blockchain_->top();
       auto rewindHeight = topBlock->getBlockHeight();
       if (rewindHeight > 100)
          rewindHeight -= 100;
       else
          rewindHeight = 1;
 
-      auto& rewindBlock = blockchain_->getHeaderByHeight(rewindHeight);
+      auto rewindBlock = blockchain_->getHeaderByHeight(rewindHeight);
       topBlockOffset_.fileID_ = rewindBlock->getBlockFileNum();
       topBlockOffset_.offset_ = rewindBlock->getOffset();
 
@@ -142,7 +142,7 @@ void DatabaseBuilder::init()
 
       try
       {
-         auto& topscannedblock = blockchain_->getHeaderByHash(topScannedBlockHash);
+         auto topscannedblock = blockchain_->getHeaderByHash(topScannedBlockHash);
          LOGWARN << "topScannedBlockHash is height #" << topscannedblock->getBlockHeight();
       }
       catch (...)
@@ -156,7 +156,7 @@ void DatabaseBuilder::init()
       auto&& sdbi = db_->getStoredDBInfo(SUBSSH, 0);
 
       //get fileID for height
-      auto& topHeader = blockchain_->getHeaderByHeight(sdbi.topBlkHgt_);
+      auto topHeader = blockchain_->getHeaderByHeight(sdbi.topBlkHgt_);
       int fileID = topHeader->getBlockFileNum();
       
       //rewind 5 blk files for the good measure
@@ -1273,7 +1273,7 @@ void DatabaseBuilder::reprocessTxFilter(
    {
       try
       {
-         auto& header = blockchain_->getHeaderByHash(heahder_hash);
+         auto header = blockchain_->getHeaderByHash(heahder_hash);
          return header->getThisID();
       }
       catch (...)

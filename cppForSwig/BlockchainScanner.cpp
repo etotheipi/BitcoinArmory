@@ -22,7 +22,7 @@ void BlockchainScanner::scan(int32_t scanFrom)
 ////////////////////////////////////////////////////////////////////////////////
 int32_t BlockchainScanner::check_merkle(int32_t scanFrom)
 {
-   auto& topBlock = blockchain_->top();
+   auto topBlock = blockchain_->top();
 
    scrAddrFilter_->updateAddressMerkleInDB();
    auto&& subsshSdbi = scrAddrFilter_->getSubSshSDBI();
@@ -64,11 +64,11 @@ void BlockchainScanner::scan_nocheck(int32_t scanFrom)
    TIMER_START("scan_nocheck");
 
    startAt_ = scanFrom;
-   auto& topBlock = blockchain_->top();
+   auto topBlock = blockchain_->top();
 
    preloadUtxos();
 
-   auto&& scrRefMap = scrAddrFilter_->getOutScrRefMap();
+   auto scrRefMap = scrAddrFilter_->getOutScrRefMap();
 
    //lambdas
    auto commitLambda = [this](void)
@@ -599,7 +599,7 @@ void BlockchainScanner::writeBlockData()
 {
    auto getGlobalOffsetForBlock = [&](unsigned height)->size_t
    {
-      auto& header = blockchain_->getHeaderByHeight(height);
+      auto header = blockchain_->getHeaderByHeight(height);
       size_t val = header->getBlockFileNum();
       val *= 128 * 1024 * 1024;
       val += header->getOffset();
@@ -652,7 +652,7 @@ void BlockchainScanner::writeBlockData()
          continue;
 
       //serialize data
-      auto& topheader = batch->blockMap_.rbegin()->second->getHeaderPtr();
+      auto topheader = batch->blockMap_.rbegin()->second->getHeaderPtr();
       if (topheader == nullptr)
       {
          LOGERR << "empty top block header ptr, aborting scan";
@@ -1108,7 +1108,7 @@ void BlockchainScanner::updateSSH(bool force)
    }
    
    //write ssh data
-   auto& topheader = blockchain_->getHeaderByHash(topScannedBlockHash_);
+   auto topheader = blockchain_->getHeaderByHash(topScannedBlockHash_);
    auto topheight = topheader->getBlockHeight();
 
    LMDBEnv::Transaction putsshtx;

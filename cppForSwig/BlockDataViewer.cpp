@@ -624,7 +624,7 @@ LedgerDelegate BlockDataViewer::getLedgerDelegateForScrAddr(
 uint32_t BlockDataViewer::getClosestBlockHeightForTime(uint32_t timestamp)
 {
    //get timestamp of genesis block
-   auto& genBlock = blockchain().getGenesisBlock();
+   auto genBlock = blockchain().getGenesisBlock();
    
    //sanity check
    if (timestamp < genBlock->getTimestamp())
@@ -637,7 +637,7 @@ uint32_t BlockDataViewer::getClosestBlockHeightForTime(uint32_t timestamp)
    //look for a block in the hint vicinity with a timestamp lower than ours
    while (blockHint > 0)
    {
-      auto& block = blockchain().getHeaderByHeight(blockHint);
+      auto block = blockchain().getHeaderByHeight(blockHint);
       if (block->getTimestamp() < timestamp)
          break;
 
@@ -652,7 +652,7 @@ uint32_t BlockDataViewer::getClosestBlockHeightForTime(uint32_t timestamp)
    {
       //not looking for a really precise block, 
       //anything within the an hour of the timestamp is enough
-      auto& block = blockchain().getHeaderByHeight(id);
+      auto block = blockchain().getHeaderByHeight(id);
       if (block->getTimestamp() + 3600 > timestamp)
          return block->getBlockHeight();
    }
