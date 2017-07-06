@@ -336,7 +336,7 @@ shared_ptr<Payload::DeserializedPayloads> Payload::deserialize(
 
             bytesConsumed += localBytesConsumed;
          }
-         catch (PayloadDeserError& excpt)
+         catch (PayloadDeserError&)
          {
             continue;
          }
@@ -1168,12 +1168,13 @@ void BitcoinP2P::processInv(unique_ptr<Payload> payload)
       switch (entryVec.first)
       {
       case Inv_Msg_Witness_Block:
-         processInvBlock(move(entryVec.second));
-         break;
-
       case Inv_Msg_Block:
+      {
+         //1 sec delay to make sure data is written on disk
+         this_thread::sleep_for(chrono::seconds(1));
          processInvBlock(move(entryVec.second));
          break;
+      }
 
       case Inv_Msg_Witness_Tx:
          processInvTx(move(entryVec.second));
