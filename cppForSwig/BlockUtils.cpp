@@ -890,6 +890,7 @@ BlockDataManager::BlockDataManager(
          throw DbErrorMsg("invalid node type in bdmConfig");
       }
 
+      config_.armoryDbType_ = iface_->armoryDbType();
       nodeRPC_ = make_shared<NodeRPC>(config_);
 
       zeroConfCont_ = make_shared<ZeroConfContainer>(

@@ -1676,11 +1676,9 @@ Tx LMDBBlockDatabase::getFullTxCopy(
       throw runtime_error("invalid blkFolder");
 
    //open block file
-   BlockDataLoader bdl(blkFolder_, false, false, false);
+   BlockDataLoader bdl(blkFolder_, false);
 
-   auto&& bfmp = bdl.get(bhPtr->getBlockFileNum(), false);
-   auto fileMapPtr = bfmp.get();
-
+   auto fileMapPtr = bdl.get(bhPtr->getBlockFileNum());
    auto dataPtr = fileMapPtr->getPtr();
 
    auto getID = [bhPtr]
@@ -1888,13 +1886,10 @@ bool LMDBBlockDatabase::getStoredHeader(
          throw runtime_error("invalid dupId");
 
       //open block file
-      BlockDataLoader bdl(blkFolder_, false, false, false);
+      BlockDataLoader bdl(blkFolder_, false);
 
-      auto&& bfmp = bdl.get(bh->getBlockFileNum(), false);
-      auto fileMapPtr = bfmp.get();
-
+      auto fileMapPtr = bdl.get(bh->getBlockFileNum());
       auto dataPtr = fileMapPtr->getPtr();
-
       BinaryRefReader brr(dataPtr + bh->getOffset(), bh->getBlockSize());
 
       if (withTx)
