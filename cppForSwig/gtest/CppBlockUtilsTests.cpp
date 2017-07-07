@@ -9060,6 +9060,11 @@ protected:
       config.genesisTxHash_ = gentx_;
       config.magicBytes_ = magic_;
       config.nodeType_ = Node_UnitTest;
+      
+      unsigned port_int = 50000 + rand() % 10000;
+      stringstream port_ss;
+      port_ss << port_int;
+      config.fcgiPort_ = port_ss.str();
 
       wallet1id = BinaryData("wallet1");
       wallet2id = BinaryData("wallet2");
@@ -11256,7 +11261,7 @@ TEST_F(BlockUtilsBare, FCGIStack)
    auto tID = thread(fcgiLoop);
 
    auto&& bdvObj = SwigClient::BlockDataViewer::getNewBDV(
-      "127.0.0.1", "9001", SocketType::SocketFcgi);
+      "127.0.0.1", config.fcgiPort_, SocketType::SocketFcgi);
    bdvObj.registerWithDB(config.magicBytes_);
 
    vector<BinaryData> scrAddrVec;
@@ -12342,6 +12347,7 @@ GTEST_API_ int main(int argc, char **argv)
       WSAStartup(wVersion, &wsaData);
    #endif
 
+   srand(time(0));
    std::cout << "Running main() from gtest_main.cc\n";
 
    // Setup the log file 
