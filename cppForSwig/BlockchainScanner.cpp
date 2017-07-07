@@ -1711,11 +1711,11 @@ bool BlockchainScanner::resolveTxHashes()
       }
    }
 
-   if (missingIDs > 0)
+   /*if (missingIDs > 0)
    {
       LOGINFO << missingIDs << " missing block IDs";
       return false;
-   }
+   }*/
 
    LOGINFO << heights.size() << " blocks hit by tx filters";
 

@@ -207,7 +207,10 @@ shared_ptr<BlockHeader> Blockchain::getHeaderById(uint32_t id) const
 {
    auto headerIter = headersById_.find(id);
    if (headerIter == headersById_.end())
+   {
+      LOGERR << "cannot find block for id: " << id;
       throw std::range_error("Cannot find block by id");
+   }
 
    return headerIter->second;
 }
