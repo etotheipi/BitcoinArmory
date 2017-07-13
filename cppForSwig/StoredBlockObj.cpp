@@ -1076,48 +1076,78 @@ void StoredTxOut::unserializeDBValue(BinaryRefReader & brr)
    txVersion_   =                  bitunpack.getBits(2);
    spentness_   = (TXOUT_SPENTNESS)bitunpack.getBits(2);
    isCoinbase_  =                  bitunpack.getBit();
+   auto dbType  = (ARMORY_DB_TYPE) bitunpack.getBits(2);
 
    unserialize(brr);
    if(spentness_ == TXOUT_SPENT && brr.getSizeRemaining()>=8)
       spentByTxInKey_ = brr.get_BinaryData(8); 
+
+   if (dbType != ARMORY_DB_SUPER)
+      return;
+
+   brr.get_BinaryData(parentHash_, 32);
+   txOutIndex_ = brr.get_uint16_t();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 void StoredTxOut::serializeDBValue(BinaryWriter & bw, ARMORY_DB_TYPE dbType,
                                    bool forceSaveSpentness) const
 {
-   TXOUT_SPENTNESS writeSpent = spentness_;
-   
-   if(!forceSaveSpentness)
-   { 
-      switch(dbType)
+   serializeDBValue(bw, dbType, forceSaveSpentness,
+      txVersion_, isCoinbase_, spentness_, dataCopy_.getRef(),
+      spentByTxInKey_.getRef(), parentHash_.getRef(), txOutIndex_);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredTxOut::serializeDBValue(
+   BinaryWriter& bw,
+   ARMORY_DB_TYPE dbType, bool forceSaveSpentness,
+   uint16_t txVersion, bool isCoinbase,
+   TXOUT_SPENTNESS spentness,
+   const BinaryDataRef dataRef,
+   const BinaryDataRef spentByTxIn,
+   const BinaryDataRef hash,
+   uint16_t txoutindex)
+{
+   TXOUT_SPENTNESS writeSpent = spentness;
+
+   if (!forceSaveSpentness)
+   {
+      switch (dbType)
       {
          //// If the DB is in lite or partial modes, we don't bother recording
          //   spentness (in fact, if it's spent, this entry probably won't even
          //   be written to the DB).
-         case ARMORY_DB_BARE:                                 break;
-         case ARMORY_DB_FULL:                                 break;
-         case ARMORY_DB_SUPER:                                break;
-         default: 
-            LOGERR << "Invalid DB mode in serializeStoredTxOutValue";
+      case ARMORY_DB_BARE:                                 break;
+      case ARMORY_DB_FULL:                                 break;
+      case ARMORY_DB_SUPER:                                break;
+      default:
+         LOGERR << "Invalid DB mode in serializeStoredTxOutValue";
       }
    }
 
    BitPacker<uint16_t> bitpack;
-   bitpack.putBits((uint16_t)ARMORY_DB_VERSION,  4);
-   bitpack.putBits((uint16_t)txVersion_,         2);
-   bitpack.putBits((uint16_t)writeSpent,         2);
-   bitpack.putBit(           isCoinbase_);
+   bitpack.putBits((uint16_t)ARMORY_DB_VERSION, 4);
+   bitpack.putBits((uint16_t)txVersion, 2);
+   bitpack.putBits((uint16_t)writeSpent, 2);
+   bitpack.putBit(isCoinbase);
+   bitpack.putBits((uint16_t)dbType, 2);
 
    bw.put_BitPacker(bitpack);
-   bw.put_BinaryData(dataCopy_);  // 8-byte value, var_int sz, pkscript
-   
-   if(writeSpent == TXOUT_SPENT)
+   bw.put_BinaryData(dataRef);  // 8-byte value, var_int sz, pkscript
+
+   if (writeSpent == TXOUT_SPENT)
    {
-      if(spentByTxInKey_.getSize()==0)
+      if (spentByTxIn.getSize() == 0)
          LOGERR << "Need to write out spentByTxIn but no spentness data";
-      bw.put_BinaryData(spentByTxInKey_);
+      bw.put_BinaryData(spentByTxIn);
    }
+
+   if (dbType != ARMORY_DB_SUPER)
+      return;
+
+   bw.put_BinaryData(hash);
+   bw.put_uint16_t(txoutindex);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1129,6 +1159,10 @@ BinaryData StoredTxOut::getDBKey(bool withPrefix) const
       txOutIndex_  == UINT16_MAX)
    {
       LOGERR << "Requesting DB key for incomplete STXO";
+      LOGERR << "--- height: " << blockHeight_;
+      LOGERR << "--- dupID: " << duplicateID_;
+      LOGERR << "--- txIndex: " << txIndex_;
+      LOGERR << "--- txOutIndex" << txOutIndex_;
       return BinaryData(0);
    }
 
@@ -1389,20 +1423,23 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
 {
    // Now read the stored data fro this registered address
    BitUnpacker<uint16_t> bitunpack(brr);
-   version_            =                    bitunpack.getBits(4);
-   SCRIPT_UTXO_TYPE txoListType = (SCRIPT_UTXO_TYPE) bitunpack.getBits(2);
-   (void)txoListType;
+   auto dbType = (ARMORY_DB_TYPE)bitunpack.getBits(4);
 
-   scanHeight_ = brr.get_int32_t();
-   tallyHeight_ = brr.get_int32_t();
+   if (dbType != ARMORY_DB_SUPER)
+   {
+      scanHeight_ = brr.get_int32_t();
+      tallyHeight_ = brr.get_int32_t();
+   }
+
    totalTxioCount_ = brr.get_var_int();
+   
+   subHistMap_.clear();
+   subsshSummary_.clear();
 
    // We shouldn't end up with empty ssh's, but should catch it just in case
    if(totalTxioCount_==0)
       return;
    
-   subHistMap_.clear();
-
    try
    {
       totalUnspent_ = brr.get_uint64_t();
@@ -1417,9 +1454,9 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
          subsshSummary_[height] = sum;
       }
    }
-   catch (BlockDeserializingException& e)
+   catch (runtime_error& e)
    {
-      LOGERR << "invalid varint in StoredScriptHistory data";
+      LOGERR << "StoredScriptHistory deser error";
       throw e;
    }
 }
@@ -1435,11 +1472,14 @@ void StoredScriptHistory::serializeDBValue(BinaryWriter & bw,
    bitpack.putBits((uint16_t)SCRIPT_UTXO_VECTOR,      2);
    bw.put_BitPacker(bitpack);
 
-   // 
-   bw.put_int32_t(scanHeight_); 
-   bw.put_int32_t(tallyHeight_);
-
-   bw.put_var_int(totalTxioCount_); 
+   //
+   if (dbType != ARMORY_DB_SUPER)
+   {
+      bw.put_int32_t(scanHeight_);
+      bw.put_int32_t(tallyHeight_);
+   }
+      
+   bw.put_var_int(totalTxioCount_);
    bw.put_uint64_t(totalUnspent_);
 
    //
@@ -1682,6 +1722,19 @@ void StoredScriptHistory::eraseTxio(const TxIOPair& txio)
          totalUnspent_ -= txio.getValue();
       totalTxioCount_--;
    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredScriptHistory::clear()
+{
+   uniqueKey_.clear();
+   version_ = UINT32_MAX;
+   scanHeight_ = tallyHeight_ = -1;
+
+   totalTxioCount_ = totalUnspent_ = 0;
+
+   subsshSummary_.clear();
+   subHistMap_.clear();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

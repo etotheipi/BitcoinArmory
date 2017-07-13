@@ -31,6 +31,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ContainerTests", "Container
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DB1kIterTest", "DB1kIterTest\DB1kIterTest.vcxproj", "{55AB29D6-736C-4A2C-ADA0-188DF89C88BB}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DBtests_Supernode", "DBtests_Supernode\DBtests_Supernode.vcxproj", "{907B6D90-95F1-474A-ABE2-DDAC75812721}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Mixed Platforms = Debug|Mixed Platforms
@@ -171,6 +173,21 @@ Global
 		{55AB29D6-736C-4A2C-ADA0-188DF89C88BB}.WinXP_32|Win32.ActiveCfg = Release|Win32
 		{55AB29D6-736C-4A2C-ADA0-188DF89C88BB}.WinXP_32|Win32.Build.0 = Release|Win32
 		{55AB29D6-736C-4A2C-ADA0-188DF89C88BB}.WinXP_32|x64.ActiveCfg = Release|Win32
+		{907B6D90-95F1-474A-ABE2-DDAC75812721}.Debug|Mixed Platforms.ActiveCfg = Debug|Win32
+		{907B6D90-95F1-474A-ABE2-DDAC75812721}.Debug|Mixed Platforms.Build.0 = Debug|Win32
+		{907B6D90-95F1-474A-ABE2-DDAC75812721}.Debug|Win32.ActiveCfg = Debug|Win32
+		{907B6D90-95F1-474A-ABE2-DDAC75812721}.Debug|Win32.Build.0 = Debug|Win32
+		{907B6D90-95F1-474A-ABE2-DDAC75812721}.Debug|x64.ActiveCfg = Debug|x64
+		{907B6D90-95F1-474A-ABE2-DDAC75812721}.Release|Mixed Platforms.ActiveCfg = Release|Win32
+		{907B6D90-95F1-474A-ABE2-DDAC75812721}.Release|Mixed Platforms.Build.0 = Release|Win32
+		{907B6D90-95F1-474A-ABE2-DDAC75812721}.Release|Win32.ActiveCfg = Release|Win32
+		{907B6D90-95F1-474A-ABE2-DDAC75812721}.Release|Win32.Build.0 = Release|Win32
+		{907B6D90-95F1-474A-ABE2-DDAC75812721}.Release|x64.ActiveCfg = Release|x64
+		{907B6D90-95F1-474A-ABE2-DDAC75812721}.WinXP_32|Mixed Platforms.ActiveCfg = Release|Win32
+		{907B6D90-95F1-474A-ABE2-DDAC75812721}.WinXP_32|Mixed Platforms.Build.0 = Release|Win32
+		{907B6D90-95F1-474A-ABE2-DDAC75812721}.WinXP_32|Win32.ActiveCfg = Release|Win32
+		{907B6D90-95F1-474A-ABE2-DDAC75812721}.WinXP_32|Win32.Build.0 = Release|Win32
+		{907B6D90-95F1-474A-ABE2-DDAC75812721}.WinXP_32|x64.ActiveCfg = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

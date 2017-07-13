@@ -721,8 +721,13 @@ map<uint32_t, uint32_t> BtcWallet::computeScrAddrMapHistSummary()
 
    auto addrMap = scrAddrMap_.get();
 
-   LMDBEnv::Transaction tx;
-   bdvPtr_->getDB()->beginDBTransaction(&tx, SSH, LMDB::ReadOnly);
+   LMDBEnv::Transaction sshtx;
+   bdvPtr_->getDB()->beginDBTransaction(&sshtx, SSH, LMDB::ReadOnly);
+   
+   LMDBEnv::Transaction subtx;
+   bdvPtr_->getDB()->beginDBTransaction(&subtx, SUBSSH, LMDB::ReadOnly);
+
+   
    for (auto& scrAddrPair : *addrMap)
    {
       scrAddrPair.second->mapHistory();

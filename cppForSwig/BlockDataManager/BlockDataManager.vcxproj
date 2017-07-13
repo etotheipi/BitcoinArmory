@@ -144,6 +144,7 @@
     <ClCompile Include="..\BitcoinP2P.cpp" />
     <ClCompile Include="..\Blockchain.cpp" />
     <ClCompile Include="..\BlockchainScanner.cpp" />
+    <ClCompile Include="..\BlockchainScanner_Super.cpp" />
     <ClCompile Include="..\BlockDataManagerConfig.cpp" />
     <ClCompile Include="..\BlockDataMap.cpp" />
     <ClCompile Include="..\BlockDataViewer.cpp" />
@@ -185,6 +186,7 @@
     <ClInclude Include="..\bdmenums.h" />
     <ClInclude Include="..\BinaryData.h" />
     <ClInclude Include="..\BitcoinP2p.h" />
+    <ClInclude Include="..\BlockchainScanner_Super.h" />
     <ClInclude Include="..\BlockDataManagerConfig.h" />
     <ClInclude Include="..\BlockObj.h" />
     <ClInclude Include="..\BtcUtils.h" />

@@ -22,6 +22,16 @@
 #include <map>
 
 ////////////////////////////////////////////////////////////////////////////////
+struct HeightAndDup
+{
+   const unsigned height_;
+   const uint8_t dup_;
+
+   HeightAndDup(unsigned height, uint8_t dup) :
+      height_(height), dup_(dup)
+   {}
+};
+
 ////////////////////////////////////////////////////////////////////////////////
 //
 // Manages the blockchain, keeping track of all the block headers
@@ -99,6 +109,7 @@ public:
    unsigned int getNewUniqueID(void) { return topID_.fetch_add(1, memory_order_relaxed); }
 
    map<unsigned, set<unsigned>> mapIDsPerBlockFile(void) const;
+   map<unsigned, HeightAndDup> getHeightAndDupMap(void) const;
 
 private:
    shared_ptr<BlockHeader> organizeChain(bool forceRebuild = false, bool verbose = false);

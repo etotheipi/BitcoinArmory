@@ -3936,7 +3936,7 @@ TEST_F(StoredBlockObjTest, STxOutSerDBValue_1)
    // For this example:  DBVer=0, TxVer=1, TxSer=FRAGGED[1]
    //   0000   01    00   0  --- ----
    EXPECT_EQ(serializeDBValue(stxo0, ARMORY_DB_FULL),  
-      READHEX("2400") + rawTxOut0_);
+      READHEX("2420") + rawTxOut0_);
 }
    
 
@@ -3958,7 +3958,7 @@ TEST_F(StoredBlockObjTest, STxOutSerDBValue_2)
    stxo0.spentByTxInKey_ = spentStr;
    EXPECT_EQ(
       serializeDBValue(stxo0, ARMORY_DB_FULL),
-      READHEX("2500")+rawTxOut0_+spentStr
+      READHEX("2520")+rawTxOut0_+spentStr
    );
 }
 
@@ -3982,7 +3982,7 @@ TEST_F(StoredBlockObjTest, STxOutSerDBValue_3)
    stxo0.spentByTxInKey_ = spentStr;
    EXPECT_EQ(
       serializeDBValue(stxo0, ARMORY_DB_FULL),
-      READHEX("2580") + rawTxOut0_ + spentStr
+      READHEX("25a0") + rawTxOut0_ + spentStr
    );
 }
 
@@ -5173,7 +5173,7 @@ TEST_F(LMDBTest, PutGetDelete)
 TEST_F(LMDBTest, STxOutPutGet)
 {
    BinaryData TXP     = WRITE_UINT8_BE((uint8_t)DB_PREFIX_TXDATA);
-   BinaryData stxoVal = READHEX("2400") + rawTxOut0_;
+   BinaryData stxoVal = READHEX("2420") + rawTxOut0_;
    BinaryData stxoKey = TXP + READHEX("01e078""0f""0007""0001");
    
    ASSERT_TRUE(standardOpenDBs());
@@ -5213,7 +5213,7 @@ TEST_F(LMDBTest, STxOutPutGet)
    stxo1.txIndex_     = 7;
    stxo1.txOutIndex_  = 1;
    stxo1.unserialize(rawTxOut1_);
-   stxoVal = READHEX("2400") + rawTxOut1_;
+   stxoVal = READHEX("2420") + rawTxOut1_;
    stxoKey = TXP + READHEX("030e8d""03""00070001");
    iface_->putStoredTxOut(stxo1);
 
@@ -9121,66 +9121,6 @@ protected:
    BinaryData LB1ID;
    BinaryData LB2ID;
 };
-
-////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsBare, DISABLED_DbInit1kIter)
-{
-   theBDMt_->start(config.initMode_);
-   auto&& bdvID = registerBDV(clients_, magic_);
-   
-   vector<BinaryData> scrAddrVec;
-   scrAddrVec.push_back(TestChain::scrAddrA);
-   scrAddrVec.push_back(TestChain::scrAddrB);
-   scrAddrVec.push_back(TestChain::scrAddrC);
-   scrAddrVec.push_back(TestChain::scrAddrD);
-   scrAddrVec.push_back(TestChain::scrAddrE);
-   scrAddrVec.push_back(TestChain::scrAddrF);
-
-   const vector<BinaryData> lb1ScrAddrs
-   {
-      TestChain::lb1ScrAddr,
-      TestChain::lb1ScrAddrP2SH
-   };
-   const vector<BinaryData> lb2ScrAddrs
-   {
-      TestChain::lb2ScrAddr,
-      TestChain::lb2ScrAddrP2SH
-   };
-
-   regWallet(clients_, bdvID, scrAddrVec, "wallet1");
-   regLockbox(clients_, bdvID, lb1ScrAddrs, TestChain::lb1B58ID);
-   regLockbox(clients_, bdvID, lb2ScrAddrs, TestChain::lb2B58ID);
-
-   //wait on signals
-   goOnline(clients_, bdvID);
-   waitOnBDMReady(clients_, bdvID);
-
-   clients_->exitRequestLoop();
-   clients_->shutdown();
-
-   delete clients_;
-   delete theBDMt_;
-
-   auto fakeprog = [](BDMPhase, double, unsigned, unsigned)->void
-   {};
-   
-   for(unsigned i=0; i<1000; i++)
-   {
-      cout << "iter: " << i << endl;
-      initBDM();
-      auto bdm = theBDMt_->bdm();
-      bdm->doInitialSyncOnLoad_Rebuild(fakeprog);
-
-      clients_->exitRequestLoop();
-      clients_->shutdown();
-
-      delete clients_;
-      delete theBDMt_;
-   }
-
-   //one last init so that TearDown doesn't blow up
-   initBDM();
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, Load5Blocks)

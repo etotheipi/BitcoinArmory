@@ -57,10 +57,15 @@ private:
       unsigned fileID);
 
    void verifyTransactions(void);
-   void commitAllTxHints(const map<uint32_t, BlockData>& bdMap);
-   
+   void commitAllTxHints(
+      const map<uint32_t, BlockData>&, const set<unsigned>&);
+   void commitAllStxos(shared_ptr<BlockDataFileMap>, 
+      const map<uint32_t, BlockData>&, const set<unsigned>&);
+
    void repairTxFilters(const set<unsigned>&);
-   void reprocessTxFilter(BlockFileMapPointer&, unsigned);
+   void reprocessTxFilter(shared_ptr<BlockDataFileMap>, unsigned);
+
+   void cycleDatabases(void);
 
 public:
    DatabaseBuilder(BlockFiles&, BlockDataManager&,

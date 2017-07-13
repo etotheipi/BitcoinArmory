@@ -223,5 +223,18 @@ bool BinaryData::operator==(BinaryDataRef const & bd2) const
    return (memcmp(getPtr(), bd2.getPtr(), getSize()) == 0);
 }
 
+/////////////////////////////////////////////////////////////////////////////
+bool BinaryData::operator<(BinaryDataRef const & bd2) const
+{
+   size_t minLen = min(getSize(), bd2.getSize());
+   auto ref_ptr = bd2.getPtr();
+   for (size_t i = 0; i<minLen; i++)
+   {
+      if (data_[i] == ref_ptr[i])
+         continue;
+      return data_[i] < ref_ptr[i];
+   }
+   return (getSize() < bd2.getSize());
+}
 
 

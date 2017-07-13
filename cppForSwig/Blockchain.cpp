@@ -563,3 +563,19 @@ map<unsigned, set<unsigned>> Blockchain::mapIDsPerBlockFile(void) const
 
    return resultMap;
 }
+
+/////////////////////////////////////////////////////////////////////////////
+map<unsigned, HeightAndDup> Blockchain::getHeightAndDupMap(void) const
+{
+   map<unsigned, HeightAndDup> hd_map;
+
+   for (auto& block_pair : headersById_)
+   {
+      hd_map.insert(make_pair(
+         block_pair.first,
+         HeightAndDup(block_pair.second->getBlockHeight(),
+                      block_pair.second->getDuplicateID())));
+   }
+
+   return hd_map;
+}

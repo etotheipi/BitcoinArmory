@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//  Copyright (C) 2016, goatpig.                                              //
+//  Copyright (C) 2016-17, goatpig.                                           //
 //  Distributed under the MIT license                                         //
 //  See LICENSE-MIT or https://opensource.org/licenses/MIT                    //                                      
 //                                                                            //
@@ -16,7 +16,6 @@
 
 #include <future>
 #include <atomic>
-#include <condition_variable>
 #include <exception>
 
 #ifndef _BLOCKCHAINSCANNER_H
@@ -33,53 +32,11 @@ public:
    { }
 };
 
-
-////////////////////////////////////////////////////////////////////////////////
-struct BlockDataBatch
-{
-   const unsigned end_;
-
-   promise<bool> scanUtxosPromise;
-   shared_future<bool> doneScanningUtxos_;
-
-   mutex parseTxinMutex_;
-   exception_ptr exceptionPtr_;
-
-   unsigned highestProcessedHeight_;
-   
-   //keep a reference to the file mmaps used by this object since we don't copy 
-   //the data, just point at it.
-   map<unsigned, BlockFileMapPointer> fileMaps_;
-
-   //only for addresses and utxos we track
-   map<BinaryData, map<unsigned, StoredTxOut>> utxos_;
-   map<BinaryData, StoredScriptHistory> ssh_;
-   vector<StoredTxOut> spentTxOuts_;
-
-   map<unsigned, BlockData> blocks_;
-
-   //to synchronize pulling block data
-   atomic<unsigned> *blockCounter_;
-
-   ////
-   BlockDataBatch(unsigned end, atomic<unsigned>* counter) :
-      end_(end), blockCounter_(counter)
-   {
-      highestProcessedHeight_ = 0;
-      doneScanningUtxos_ = scanUtxosPromise.get_future();
-   }
-
-   void flagUtxoScanDone(void) 
-   { 
-      scanUtxosPromise.set_value(true); 
-   }
-};
-
 ////////////////////////////////////////////////////////////////////////////////
 struct ParserBatch
 {
 public:
-   map<unsigned, BlockFileMapPointer> fileMaps_;
+   map<unsigned, shared_ptr<BlockDataFileMap>> fileMaps_;
 
    atomic<unsigned> blockCounter_;
    mutex mergeMutex_;
@@ -136,7 +93,6 @@ private:
    BlockDataLoader blockDataLoader_;
 
    const unsigned nBlockFilesPerBatch_;
-   const unsigned nBlocksLookAhead_ = 10;
    const unsigned totalThreadCount_;
    const unsigned totalBlockFileCount_;
 
@@ -194,7 +150,7 @@ public:
       ProgressCallback prg, bool reportProgress) :
       blockchain_(bc), db_(db), scrAddrFilter_(saf),
       totalThreadCount_(threadcount),
-      blockDataLoader_(bf.folderPath(), true, true, true),
+      blockDataLoader_(bf.folderPath(), true),
       progress_(prg), reportProgress_(reportProgress),
       totalBlockFileCount_(bf.fileCount()),
       nBlockFilesPerBatch_(batchSize)
@@ -206,7 +162,6 @@ public:
    void undo(Blockchain::ReorganizationState& reorgState);
    void updateSSH(bool);
    bool resolveTxHashes();
-   void resetFileMaps(bool verbose) { blockDataLoader_.reset(verbose); }
 
    const BinaryData& getTopScannedBlockHash(void) const
    {

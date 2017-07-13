@@ -48,6 +48,7 @@ enum DB_SELECT
    TXHINTS,
    ZERO_CONF,
    TXFILTERS,
+   SPENTNESS,
    COUNT
 };
 
@@ -157,6 +158,16 @@ public:
    void       unserializeDBValue(BinaryData const & bd);
    void       unserializeDBValue(BinaryDataRef      bd);
    void       unserializeDBKey(BinaryDataRef key);
+
+   static void serializeDBValue(
+      BinaryWriter&,
+      ARMORY_DB_TYPE, bool,
+      uint16_t txversion, bool isCoinbase,
+      TXOUT_SPENTNESS,
+      const BinaryDataRef dataRef,
+      const BinaryDataRef spentByTxIn,
+      const BinaryDataRef hash,
+      uint16_t txoutindex);
 
    BinaryData getDBKey(bool withPrefix = true) const;
    BinaryData getDBKeyOfParentTx(bool withPrefix = true) const;
@@ -534,6 +545,8 @@ public:
    void mergeSubHistory(const StoredSubHistory& subssh);
    void insertTxio(const TxIOPair& txio);
    void eraseTxio(const TxIOPair& txio);
+
+   void clear(void);
 
    BinaryData     uniqueKey_;  // includes the prefix byte!
    uint32_t       version_;

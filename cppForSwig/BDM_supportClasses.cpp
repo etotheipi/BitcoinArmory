@@ -263,6 +263,29 @@ bool ScrAddrFilter::registerAddressBatch(
    return true if addresses were registered without the need for scanning
    ***/
 
+   if (armoryDbType_ == ARMORY_DB_SUPER)
+   {
+      unique_lock<mutex> lock(mergeLock_);
+
+      map<AddrAndHash, int> updateMap;
+
+      for (auto& batch : wltInfoVec)
+      {
+         for (auto& sa : batch->scrAddrSet_)
+         {
+            AddrAndHash aah(sa);
+
+            updateMap.insert(make_pair(move(aah), 0));
+         }
+
+         batch->callback_(true);
+      }
+
+      scrAddrMap_->update(updateMap);
+
+      return true;
+   }
+
    {
       unique_lock<mutex> lock(mergeLock_);
       
@@ -377,36 +400,9 @@ bool ScrAddrFilter::registerAddressBatch(
 
    LOGINFO << "Starting address registration process";
 
-   //check if the BDM is initialized. There ought to be a better way than
-   //checking the top block
    if (bdmIsRunning())
    {
       //BDM is initialized and maintenance thread is running, check mode
-      if (armoryDbType_ == ARMORY_DB_SUPER)
-      {
-         //supernode: nothing to do, signal the wallet that its scrAddr bulk 
-         //is ready by passing isNew as true. Pass a blank BinaryData for the 
-         //top scanned block hash in this case, it will be ignored anyways      
-         
-         throw runtime_error("needs reimplemented");
-
-         /*for (auto& batch : wltInfoVec)
-         {
-            for (auto& sa : batch->scrAddrSet_)
-            {
-               AddrSyncState asc(sa);
-
-               scraddrsetptr->insert(move(asc));
-            }
-
-            batch->callback_(false);
-
-         }
-
-         scrAddrSet_->replace(*scraddrsetptr);*/
-
-         return true;
-      }
 
       //create ScrAddrFilter for side scan         
       shared_ptr<ScrAddrFilter> sca = copy();
@@ -1904,7 +1900,7 @@ void ZeroConfContainer::processInvTxVec(vector<InvEntry> invVec, bool extend)
       return;
 
    //skip this entirely if there are no addresses to scan the ZCs against
-   if (scrAddrMap_->size() == 0)
+   if (scrAddrMap_->size() == 0 && extend)
       return;
 
    for (unsigned i = 0; i < invVec.size(); i++)

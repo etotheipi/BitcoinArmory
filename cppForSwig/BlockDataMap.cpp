@@ -153,113 +153,25 @@ void BlockFiles::detectAllBlockFiles()
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BlockDataLoader::BlockDataLoader(const string& path,
-   bool preloadFile, bool prefetchNext, bool enableGC) :
-   path_(path), 
-   preloadFile_(preloadFile), prefetchNext_(prefetchNext), 
-   prefix_("blk"), enableGC_(enableGC)
-{
-   //set gcLambda
-   gcLambda_ = [this](void)->void
-   { 
-      if (!enableGC_)
-         return;
-
-	   this->gcCondVar_.notify_all(); 
-   };
-   
-   if (!enableGC_)
-      return;
-
-   //start up GC thread
-   auto gcthread = [this](void)->void
-   { this->garbageCollectorThread(); };
-
-   gcThread_ = thread(gcthread);
-}
+BlockDataLoader::BlockDataLoader(const string& path, bool preloadFile) :
+   path_(path), preloadFile_(preloadFile), prefix_("blk")
+{}
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataLoader::garbageCollectorThread()
-{
-   unique_lock<mutex> lock(gcMu_);
-
-   while (run_)
-   {
-      gcCondVar_.wait(lock);
-
-      //lock the map
-      unique_lock<mutex> mapLock(mu_);
-
-      auto mapIter = fileMaps_.begin();
-      while (mapIter != fileMaps_.end())
-      {
-         //TODO: make sure the gc doesn't go after prefetched files right away
-
-         //check the BlockDataMap counter
-         auto ptr = mapIter->second;
-         
-         int counter = ptr->useCounter_.load(memory_order_relaxed);
-         if (counter <= 0)
-         {
-            counter--;
-            ptr->useCounter_.store(counter, memory_order_relaxed);
-         }
-
-         if (counter <= -2)
-            fileMaps_.erase(mapIter++);
-         else
-            ++mapIter;
-      }
-   }
-}
-
-/////////////////////////////////////////////////////////////////////////////
-BlockFileMapPointer BlockDataLoader::get(const string& filename)
+shared_ptr<BlockDataFileMap> BlockDataLoader::get(const string& filename)
 {
    //convert to int ID
    auto intID = nameToIntID(filename);
 
    //get with int ID
-   return get(intID, prefetchNext_);
+   return get(intID);
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BlockFileMapPointer BlockDataLoader::get(uint32_t fileid, bool prefetch)
+shared_ptr<BlockDataFileMap> BlockDataLoader::get(uint32_t fileid)
 {
-   //have some fun with promise/future
-   shared_ptr<BlockDataFileMap> fMap;
-   
-   //if the prefetch flag is set, get the next file
-
-
-   //lock map, look for fileid entry
-   {
-      unique_lock<mutex> lock(mu_);
-
-      if (prefetch)
-      {
-         auto prefetchLambda = [this](unsigned fileID)
-            ->BlockFileMapPointer
-         { return get(fileID, false); };
-
-         thread tid(prefetchLambda, fileid + 1);
-         tid.detach();
-      }
-
-      auto mapIter = fileMaps_.find(fileid);
-      if (mapIter == fileMaps_.end())
-      {
-         //don't have this fileid yet, create it
-         fMap = getNewBlockDataMap(fileid).get();
-         fileMaps_[fileid] = fMap;
-      }
-      else fMap = mapIter->second;
-
-      if (fileMaps_.size() > peak_)
-         peak_ = fileMaps_.size();
-   }
-
-   return BlockFileMapPointer(fMap, gcLambda_);
+   //don't have this fileid yet, create it
+   return getNewBlockDataMap(fileid);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -286,51 +198,12 @@ string BlockDataLoader::intIDToName(uint32_t fileid)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-shared_future<shared_ptr<BlockDataFileMap>> 
+shared_ptr<BlockDataFileMap>
    BlockDataLoader::getNewBlockDataMap(uint32_t fileid)
 {
    string filename = move(intIDToName(fileid));
 
-   auto blockdataasync = [](string _filename, bool preload)->
-      shared_ptr<BlockDataFileMap>
-   {
-      shared_ptr<BlockDataFileMap> blockptr = make_shared<BlockDataFileMap>(
-         _filename, preload);
-
-      return blockptr;
-   };
-
-   return async(launch::async, blockdataasync, move(filename), preloadFile_);
-}
-
-/////////////////////////////////////////////////////////////////////////////
-void BlockDataLoader::reset(bool verbose)
-{
-   unique_lock<mutex> lock(mu_);
-   
-   if (verbose)
-   {
-      LOGINFO << "gc count: " << fileMaps_.size();
-      LOGINFO << "peak: " << peak_;
-      for (auto& file : fileMaps_)
-         LOGINFO << "   file id: " << file.first;
-   }
-
-   fileMaps_.clear();
-}
-
-/////////////////////////////////////////////////////////////////////////////
-void BlockDataLoader::dropFiles(const vector<unsigned>& idVec)
-{
-   if (idVec.size())
-      return;
-
-   unique_lock<mutex> lock(mu_);
-
-   for (auto id : idVec)
-   {
-      fileMaps_.erase(id);
-   }
+   return make_shared<BlockDataFileMap>(filename, preloadFile_);
 }
 
 /////////////////////////////////////////////////////////////////////////////

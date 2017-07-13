@@ -1064,9 +1064,12 @@ void BlockDataManager::resetDatabases(ResetDBMode mode)
       return;
    }
 
-   //we keep all scrAddr data in between db reset/clear
-   scrAddrData_->getAllScrAddrInDB();
-
+   if (config_.armoryDbType_ != ARMORY_DB_SUPER)
+   {
+      //we keep all scrAddr data in between db reset/clear
+      scrAddrData_->getAllScrAddrInDB();
+   }
+   
    switch (mode)
    {
    case Reset_Rescan:
@@ -1079,10 +1082,14 @@ void BlockDataManager::resetDatabases(ResetDBMode mode)
       break;
    }
 
-   //reapply scrAddrData_'s content to the db
-   scrAddrData_->putAddrMapInDB();
 
-   scrAddrData_->clear();
+   if (config_.armoryDbType_ != ARMORY_DB_SUPER)
+   {
+      //reapply scrAddrData_'s content to the db
+      scrAddrData_->putAddrMapInDB();
+
+      scrAddrData_->clear();
+   }
 }
 
 /////////////////////////////////////////////////////////////////////////////

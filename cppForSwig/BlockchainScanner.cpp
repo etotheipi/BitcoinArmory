@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//  Copyright (C) 2016, goatpig.                                              //
+//  Copyright (C) 2016-17, goatpig.                                           //
 //  Distributed under the MIT license                                         //
 //  See LICENSE-MIT or https://opensource.org/licenses/MIT                    //                                      
 //                                                                            //
@@ -84,8 +84,6 @@ void BlockchainScanner::scan_nocheck(int32_t scanFrom)
    auto commit_tID = thread(commitLambda);
    auto outputs_tID = thread(outputsLambda);
    auto inputs_tID = thread(inputsLambda);
-
-   shared_ptr<unique_lock<mutex>> batchLock;
 
    auto startHeight = scanFrom;
    unsigned endHeight = 0;
@@ -194,33 +192,52 @@ void BlockchainScanner::processOutputs()
       this->processOutputsThread(batch);
    };
 
-   while (1)
+   auto preloadBlockDataFiles = [this](ParserBatch* batch)->void
    {
-      unique_ptr<ParserBatch> batch;
-      try
-      {
-         batch = move(outputQueue_.pop_front());
-      }
-      catch (StopBlockingLoop&)
-      {
-         //end condition
-         break;
-      }
+      if (batch == nullptr)
+         return;
 
-      //populate batch file map
       auto file_id = batch->startBlockFileID_;
       while (file_id <= batch->targetBlockFileID_)
       {
          batch->fileMaps_.insert(
-            make_pair(file_id, move(blockDataLoader_.get(file_id, false))));
+            make_pair(file_id, blockDataLoader_.get(file_id)));
          ++file_id;
       }
+   };
 
+   //init batch
+   unique_ptr<ParserBatch> batch;
+   try
+   {
+      batch = move(outputQueue_.pop_front());
+   }
+   catch (StopBlockingLoop&)
+   {
+      LOGWARN << "empty output queue";
+      return;
+   }
+
+   preloadBlockDataFiles(batch.get());
+
+   while (1)
+   {
       //start processing threads
       vector<thread> thr_vec;
-      for (unsigned i = 1; i < totalThreadCount_; i++)
+      for (unsigned i = 0; i < totalThreadCount_; i++)
          thr_vec.push_back(thread(process_thread, batch.get()));
-      process_thread(batch.get());
+
+      unique_ptr<ParserBatch> nextBatch;
+      try
+      {
+         nextBatch = move(outputQueue_.pop_front());
+      }
+      catch (StopBlockingLoop&)
+      {}
+
+      //populate the next batch's file map while the first
+      //batch is being processed
+      preloadBlockDataFiles(nextBatch.get());
 
       //wait on threads
       for (auto& thr : thr_vec)
@@ -229,8 +246,15 @@ void BlockchainScanner::processOutputs()
             thr.join();
       }
 
-      //push for input processing
+      //push first batch for input processing
       inputQueue_.push_back(move(batch));
+
+      //exit loop condition
+      if (nextBatch == nullptr)
+         break;
+
+      //set batch for next iteration
+      batch = move(nextBatch);
    }
 
    //done with processing ouputs, there won't be anymore batches to push 
@@ -636,18 +660,6 @@ void BlockchainScanner::writeBlockData()
       thread writeHintsThreadId = 
          thread(writeHintsLambda, batch.get());
 
-      //drop all files but the top one
-      set<unsigned> allUsedFiles;
-      for (auto& filepair : batch->fileMaps_)
-      {
-         allUsedFiles.insert(filepair.first);
-      }
-
-      vector<unsigned> fileIdsToDrop;
-      fileIdsToDrop.insert(
-         fileIdsToDrop.end(), allUsedFiles.begin(), allUsedFiles.end());
-      fileIdsToDrop.pop_back();
-
       //sanity check
       if (batch->blockMap_.size() == 0)
          continue;
@@ -736,7 +748,7 @@ void BlockchainScanner::writeBlockData()
 
          //update SUBSSH sdbi
          auto&& sdbi = scrAddrFilter_->getSubSshSDBI();
-         sdbi.topBlkHgt_ = batch->end_;
+         sdbi.topBlkHgt_ = topheader->getBlockHeight();
          sdbi.topScannedBlkHash_ = topheader->getThisHash();
          scrAddrFilter_->putSubSshSDBI(sdbi);
       }
@@ -754,8 +766,6 @@ void BlockchainScanner::writeBlockData()
          progress_(BDMPhase_Rescan,
          calc.fractionCompleted(), calc.remainingSeconds(),
          progVal);
-
-      blockDataLoader_.dropFiles(fileIdsToDrop);
 
       topScannedBlockHash_ = topheader->getThisHash();
    }
@@ -1172,7 +1182,7 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
    //dont undo subssh, these are skipped by dupID when loading history
 
    auto blockPtr = reorgState.prevTop_;
-   map<uint32_t, BlockFileMapPointer> fileMaps_;
+   map<uint32_t, shared_ptr<BlockDataFileMap>> fileMaps_;
 
    map<DB_SELECT, set<BinaryData>> keysToDelete;
    map<BinaryData, StoredScriptHistory> sshMap;
@@ -1204,11 +1214,10 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
       if (fileIter == fileMaps_.end())
       {
          fileIter = fileMaps_.insert(make_pair(
-            filenum,
-            move(blockDataLoader_.get(filenum, false)))).first;
+            filenum, blockDataLoader_.get(filenum))).first;
       }
 
-      auto& filemap = fileIter->second;
+      auto filemap = fileIter->second;
 
       auto getID = [blockPtr]
          (const BinaryData&)->uint32_t {return blockPtr->getThisID(); };
@@ -1467,8 +1476,7 @@ void BlockchainScanner::processFilterHitsThread(
       map<uint32_t, set<const TxFilterResults*>> filterHit,
       set<BinaryData>& hashSet)->void
    {
-      auto filemap = blockDataLoader_.get(fileNum, false);
-      auto fileptr = filemap.get();
+      auto fileptr = blockDataLoader_.get(fileNum);
       
       for (auto& blockkey : filterHit)
       {
