@@ -567,7 +567,7 @@ BinaryData DatabaseBuilder::scanHistory(int32_t startHeight,
    {
       BlockchainScanner_Super bcs(
          blockchain_, db_,
-         blockFiles_, bdmConfig_.threadCount_,
+         blockFiles_, bdmConfig_.threadCount_, bdmConfig_.ramUsage_,
          progress_, reportprogress);
 
       bcs.scan();
@@ -627,7 +627,7 @@ void DatabaseBuilder::undoHistory(
    else
    {
       BlockchainScanner_Super bcs(blockchain_, db_, 
-         blockFiles_, bdmConfig_.threadCount_,
+         blockFiles_, bdmConfig_.threadCount_, bdmConfig_.ramUsage_,
          progress_, false);
       bcs.undo(reorgState);
    }

@@ -22,7 +22,6 @@
 #include <exception>
 
 #define BATCH_SIZE  1024 * 1024 * 512ULL
-#define WRITE_QUEUE 4
 
 class ScanningException : public runtime_error
 {
@@ -97,8 +96,8 @@ private:
    ScrAddrFilter* scrAddrFilter_;
    BlockDataLoader blockDataLoader_;
 
-   const unsigned nBlockFilesPerBatch_;
    const unsigned totalThreadCount_;
+   const unsigned writeQueueDepth_;
    const unsigned totalBlockFileCount_;
 
    BinaryData topScannedBlockHash_;
@@ -151,14 +150,13 @@ public:
    BlockchainScanner(shared_ptr<Blockchain> bc, LMDBBlockDatabase* db,
       ScrAddrFilter* saf,
       BlockFiles& bf,
-      unsigned threadcount, unsigned batchSize, 
+      unsigned threadcount, unsigned queue_depth, 
       ProgressCallback prg, bool reportProgress) :
       blockchain_(bc), db_(db), scrAddrFilter_(saf),
-      totalThreadCount_(threadcount),
+      totalThreadCount_(threadcount), writeQueueDepth_(queue_depth),
       blockDataLoader_(bf.folderPath()),
       progress_(prg), reportProgress_(reportProgress),
-      totalBlockFileCount_(bf.fileCount()),
-      nBlockFilesPerBatch_(batchSize)
+      totalBlockFileCount_(bf.fileCount())
    {}
 
    void scan(int32_t startHeight);

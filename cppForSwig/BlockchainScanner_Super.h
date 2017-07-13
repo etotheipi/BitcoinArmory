@@ -22,7 +22,6 @@
 
 #define COMMIT_SSH_SIZE 1024 * 1024 * 256ULL
 #define BATCH_SIZE      1024 * 1024 * 128ULL
-#define WRITE_QUEUE 4
 
 ////////////////////////////////////////////////////////////////////////////////
 struct ParserBatch_Super
@@ -148,6 +147,7 @@ private:
    set<BinaryData> updateSshHints_;
 
    const unsigned totalThreadCount_;
+   const unsigned writeQueueDepth_;
    const unsigned totalBlockFileCount_;
    map<unsigned, HeightAndDup> heightAndDupMap_;
 
@@ -182,10 +182,10 @@ public:
    BlockchainScanner_Super(
       shared_ptr<Blockchain> bc, LMDBBlockDatabase* db,
       BlockFiles& bf,
-      unsigned threadcount,
+      unsigned threadcount, unsigned queue_depth,
       ProgressCallback prg, bool reportProgress) :
       blockchain_(bc), db_(db),
-      totalThreadCount_(threadcount),
+      totalThreadCount_(threadcount), writeQueueDepth_(queue_depth),
       blockDataLoader_(bf.folderPath()),
       progress_(prg), reportProgress_(reportProgress),
       totalBlockFileCount_(bf.fileCount())

@@ -135,11 +135,11 @@ void BlockchainScanner_Super::scan()
 
          completedFutures.push_back(batch->completedPromise_.get_future());
          batch->count_ = _count;
-         if (_count >= WRITE_QUEUE)
+         if (_count >= writeQueueDepth_)
          {
             try
             {
-               auto futIter = completedFutures.begin() + (_count - WRITE_QUEUE);
+               auto futIter = completedFutures.begin() + (_count - writeQueueDepth_);
                futIter->wait();
             }
             catch (future_error &e)
