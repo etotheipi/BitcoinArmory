@@ -47,7 +47,7 @@ void BlockchainScanner_Super::scan()
    heightAndDupMap_ = move(blockchain_->getHeightAndDupMap());
 
    vector<future<bool>> completedFutures;
-   unsigned count = 0;
+   unsigned _count = 0;
 
    //lambdas
    auto commitLambda = [this](void)
@@ -121,7 +121,7 @@ void BlockchainScanner_Super::scan()
                if (targetBlockFileID < topBlock->getBlockFileNum())
                   targetBlockFileID = topBlock->getBlockFileNum();
 
-               if (count == 0)
+               if (_count == 0)
                   withUpdateSshHints_ = true;
             }
          }
@@ -134,12 +134,12 @@ void BlockchainScanner_Super::scan()
             firstBlockFileID, targetBlockFileID);
 
          completedFutures.push_back(batch->completedPromise_.get_future());
-         batch->count_ = count;
-         if (count >= WRITE_QUEUE)
+         batch->count_ = _count;
+         if (_count >= WRITE_QUEUE)
          {
             try
             {
-               auto futIter = completedFutures.begin() + (count - WRITE_QUEUE);
+               auto futIter = completedFutures.begin() + (_count - WRITE_QUEUE);
                futIter->wait();
             }
             catch (future_error &e)
@@ -149,7 +149,7 @@ void BlockchainScanner_Super::scan()
             }
          }
 
-         ++count;
+         ++_count;
 
          //post for txout parsing
          outputQueue_.push_back(move(batch));
@@ -774,7 +774,7 @@ void BlockchainScanner_Super::writeBlockData()
       if (spentnessThr.joinable())
          spentnessThr.join();
 
-      if (batch->start_ > batch->end_)
+      if (batch->start_ != batch->end_)
       {
          LOGINFO << "scanned from height #" << batch->start_
             << " to #" << batch->end_;

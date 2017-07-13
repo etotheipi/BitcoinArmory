@@ -153,8 +153,8 @@ void BlockFiles::detectAllBlockFiles()
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BlockDataLoader::BlockDataLoader(const string& path, bool preloadFile) :
-   path_(path), preloadFile_(preloadFile), prefix_("blk")
+BlockDataLoader::BlockDataLoader(const string& path) :
+   path_(path), prefix_("blk")
 {}
 
 /////////////////////////////////////////////////////////////////////////////
@@ -203,11 +203,11 @@ shared_ptr<BlockDataFileMap>
 {
    string filename = move(intIDToName(fileid));
 
-   return make_shared<BlockDataFileMap>(filename, preloadFile_);
+   return make_shared<BlockDataFileMap>(filename);
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BlockDataFileMap::BlockDataFileMap(const string& filename, bool preload)
+BlockDataFileMap::BlockDataFileMap(const string& filename)
 {
    //relaxed memory order for loads and stores, we only care about 
    //atomicity in these operations
@@ -255,8 +255,6 @@ BlockDataFileMap::BlockDataFileMap(const string& filename, bool preload)
          lseek(fd, 0, SEEK_SET);
 #endif
 
-         char* data = nullptr;
-
 #ifdef _WIN32
          //create mmap
          auto fileHandle = (HANDLE)_get_osfhandle(fd);
@@ -284,12 +282,6 @@ BlockDataFileMap::BlockDataFileMap(const string& filename, bool preload)
          }
 
          CloseHandle(mh);
-         //preload as indicated
-         if (preload)
-         {
-            data = new char[size_];
-            _read(fd, data, size_);
-         }
 
          _close(fd);
 #else
@@ -304,19 +296,8 @@ BlockDataFileMap::BlockDataFileMap(const string& filename, bool preload)
             throw runtime_error(errStr.str());
          }
 
-         //preload as indicated
-         if (preload)
-         {
-            data = new char[size_];
-            read(fd, data, size_);
-         }
-
          close(fd);
 #endif
-
-         if (data != nullptr)
-            delete[] data;
-
          return;
       }
       catch (exception&)

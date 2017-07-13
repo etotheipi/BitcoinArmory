@@ -88,6 +88,9 @@ void BlockchainScanner::scan_nocheck(int32_t scanFrom)
    auto startHeight = scanFrom;
    unsigned endHeight = 0;
 
+   vector<future<bool>> completedFutures;
+   unsigned _count = 0;
+
    //loop until there are no more blocks available
    try
    {
@@ -99,24 +102,31 @@ void BlockchainScanner::scan_nocheck(int32_t scanFrom)
          //figure out how many blocks to pull for this batch
          //batches try to grab up nBlockFilesPerBatch_ worth of block data
          unsigned targetHeight = 0;
+         size_t targetSize = BATCH_SIZE;
+         size_t tallySize;
          try
          {
             shared_ptr<BlockHeader> currentHeader =
                blockchain_->getHeaderByHeight(startHeight);
             firstBlockFileID = currentHeader->getBlockFileNum();
 
-            targetBlockFileID = firstBlockFileID + nBlockFilesPerBatch_;
+            targetBlockFileID = 0;
             targetHeight = startHeight;
 
-            while (currentHeader->getBlockFileNum() < targetBlockFileID)
+            tallySize = currentHeader->getBlockSize();
+
+            while (tallySize < targetSize)
             {
                currentHeader = blockchain_->getHeaderByHeight(++targetHeight);
+               tallySize += currentHeader->getBlockSize();
+
                if (currentHeader->getBlockFileNum() < firstBlockFileID)
                   firstBlockFileID = currentHeader->getBlockFileNum();
+
+               if (currentHeader->getBlockFileNum() > targetBlockFileID)
+                  targetBlockFileID = currentHeader->getBlockFileNum();
             }
 
-            if (currentHeader->getBlockFileNum() > targetBlockFileID)
-               targetBlockFileID = currentHeader->getBlockFileNum();
          }
          catch (range_error& e)
          {
@@ -131,7 +141,7 @@ void BlockchainScanner::scan_nocheck(int32_t scanFrom)
             else
             {
                targetHeight = topBlock->getBlockHeight();
-               if (targetBlockFileID < topBlock->getBlockFileNum()) 
+               if (targetBlockFileID < topBlock->getBlockFileNum())
                   targetBlockFileID = topBlock->getBlockFileNum();
             }
          }
@@ -143,6 +153,27 @@ void BlockchainScanner::scan_nocheck(int32_t scanFrom)
             startHeight, endHeight, 
             firstBlockFileID, targetBlockFileID,
             scrRefMap);
+
+
+         completedFutures.push_back(batch->completedPromise_.get_future());
+         batch->count_ = _count;
+         if (_count >= WRITE_QUEUE)
+         {
+            TIMER_START("throttling");
+            try
+            {
+               auto futIter = completedFutures.begin() + (_count - WRITE_QUEUE);
+               futIter->wait();
+            }
+            catch (future_error &e)
+            {
+               LOGERR << "future error";
+               throw e;
+            }
+            TIMER_STOP("throttling");
+         }
+
+         ++_count;
 
          //post for txout parsing
          outputQueue_.push_back(move(batch));
@@ -176,12 +207,30 @@ void BlockchainScanner::scan_nocheck(int32_t scanFrom)
    if (commit_tID.joinable())
       commit_tID.join();
 
+   topScannedBlockHash_ = topBlock->getThisHash();
+
    TIMER_STOP("scan_nocheck");
    if (topBlock->getBlockHeight() - scanFrom > 100)
    {
       auto timeSpent = TIMER_READ_SEC("scan_nocheck");
       LOGINFO << "scanned transaction history in " << timeSpent << "s";
    }
+
+   auto timeSpent = TIMER_READ_SEC("throttling");
+   if (timeSpent > 0)
+      LOGINFO << "throttling for " << timeSpent << "s";
+
+   /*timeSpent = TIMER_READ_SEC("outputs");
+   LOGINFO << "outputs: " << timeSpent << "s";
+   
+   timeSpent = TIMER_READ_SEC("inputs");
+   LOGINFO << "inputs: " << timeSpent << "s";
+   
+   timeSpent = TIMER_READ_SEC("write");
+   LOGINFO << "write: " << timeSpent << "s";
+   
+   timeSpent = TIMER_READ_SEC("preload");
+   LOGINFO << "preload: " << timeSpent << "s";*/
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -192,18 +241,36 @@ void BlockchainScanner::processOutputs()
       this->processOutputsThread(batch);
    };
 
-   auto preloadBlockDataFiles = [this](ParserBatch* batch)->void
+   map<unsigned, shared_ptr<BlockDataFileMap>> localFileMap;
+
+   auto preloadBlockDataFiles = [&](ParserBatch* batch)->void
    {
       if (batch == nullptr)
          return;
 
+      TIMER_START("preload");
+
       auto file_id = batch->startBlockFileID_;
       while (file_id <= batch->targetBlockFileID_)
       {
-         batch->fileMaps_.insert(
-            make_pair(file_id, blockDataLoader_.get(file_id)));
+         auto local_iter = localFileMap.find(file_id);
+         if (local_iter != localFileMap.end())
+         {
+            batch->fileMaps_.insert(
+               make_pair(file_id, local_iter->second));
+         }
+         else
+         {
+            batch->fileMaps_.insert(
+               make_pair(file_id, blockDataLoader_.get(file_id)));
+         }
+
          ++file_id;
       }
+
+      localFileMap = batch->fileMaps_;
+
+      TIMER_STOP("preload");
    };
 
    //init batch
@@ -235,6 +302,8 @@ void BlockchainScanner::processOutputs()
       catch (StopBlockingLoop&)
       {}
 
+      TIMER_START("outputs");
+
       //populate the next batch's file map while the first
       //batch is being processed
       preloadBlockDataFiles(nextBatch.get());
@@ -245,16 +314,21 @@ void BlockchainScanner::processOutputs()
          if (thr.joinable())
             thr.join();
       }
-
+      
       //push first batch for input processing
       inputQueue_.push_back(move(batch));
 
       //exit loop condition
       if (nextBatch == nullptr)
+      {
+         TIMER_STOP("outputs");
          break;
+      }
 
       //set batch for next iteration
       batch = move(nextBatch);
+
+      TIMER_STOP("outputs");
    }
 
    //done with processing ouputs, there won't be anymore batches to push 
@@ -282,6 +356,8 @@ void BlockchainScanner::processInputs()
          //end condition
          break;
       }
+
+      TIMER_START("inputs");
 
       //reset counter
       batch->blockCounter_.store(batch->start_, memory_order_relaxed);
@@ -338,6 +414,8 @@ void BlockchainScanner::processInputs()
 
       //push for commit
       commitQueue_.push_back(move(batch));
+
+      TIMER_STOP("inputs");
    }
 
    //done with processing inputs, there won't be anymore batches to push 
@@ -656,6 +734,8 @@ void BlockchainScanner::writeBlockData()
          break;
       }
 
+      TIMER_START("write");
+
       //start txhint writer thread
       thread writeHintsThreadId = 
          thread(writeHintsLambda, batch.get());
@@ -757,8 +837,15 @@ void BlockchainScanner::writeBlockData()
       if (writeHintsThreadId.joinable())
          writeHintsThreadId.join();
 
-      LOGINFO << "scanned from height #" << batch->start_
-         << " to #" << batch->end_;
+      if (batch->start_ != batch->end_)
+      {
+         LOGINFO << "scanned from block #" << batch->start_
+            << " to #" << batch->end_;
+      }
+      else
+      {
+         LOGINFO << "scanned block #" << batch->start_;
+      }
 
       size_t progVal = getGlobalOffsetForBlock(batch->end_);
       calc.advance(progVal);
@@ -768,6 +855,9 @@ void BlockchainScanner::writeBlockData()
          progVal);
 
       topScannedBlockHash_ = topheader->getThisHash();
+      batch->completedPromise_.set_value(true);
+
+      TIMER_STOP("write");
    }
 }
 
@@ -1119,7 +1209,17 @@ void BlockchainScanner::updateSSH(bool force)
    }
    
    //write ssh data
-   auto topheader = blockchain_->getHeaderByHash(topScannedBlockHash_);
+   shared_ptr<BlockHeader> topheader;
+   try
+   {
+      topheader = blockchain_->getHeaderByHash(topScannedBlockHash_);
+   }
+   catch (exception &e)
+   {
+      LOGERR << e.what();
+      throw e;
+   }
+
    auto topheight = topheader->getBlockHeight();
 
    LMDBEnv::Transaction putsshtx;
@@ -1317,7 +1417,15 @@ void BlockchainScanner::undo(Blockchain::ReorganizationState& reorgState)
       }
 
       //set blockPtr to prev block
-      blockPtr = blockchain_->getHeaderByHash(blockPtr->getPrevHashRef());
+      try
+      {
+         blockPtr = blockchain_->getHeaderByHash(blockPtr->getPrevHashRef());
+      }
+      catch (exception &e)
+      {
+         LOGERR << e.what();
+         throw e;
+      }
    }
 
    //at this point we have a map of updated ssh, as well as a 

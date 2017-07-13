@@ -6,6 +6,9 @@
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
+#ifndef _BLOCKCHAINSCANNER_H
+#define _BLOCKCHAINSCANNER_H
+
 #include "Blockchain.h"
 #include "lmdb_wrapper.h"
 #include "BDM_supportClasses.h"
@@ -18,8 +21,8 @@
 #include <atomic>
 #include <exception>
 
-#ifndef _BLOCKCHAINSCANNER_H
-#define _BLOCKCHAINSCANNER_H
+#define BATCH_SIZE  1024 * 1024 * 512ULL
+#define WRITE_QUEUE 4
 
 class ScanningException : public runtime_error
 {
@@ -53,6 +56,8 @@ public:
    vector<StoredTxOut> spentOutputs_;
 
    const shared_ptr<map<TxOutScriptRef, int>> scriptRefMap_;
+   promise<bool> completedPromise_;
+   unsigned count_;
 
 public:
    ParserBatch(unsigned start, unsigned end, 
@@ -150,7 +155,7 @@ public:
       ProgressCallback prg, bool reportProgress) :
       blockchain_(bc), db_(db), scrAddrFilter_(saf),
       totalThreadCount_(threadcount),
-      blockDataLoader_(bf.folderPath(), true),
+      blockDataLoader_(bf.folderPath()),
       progress_(prg), reportProgress_(reportProgress),
       totalBlockFileCount_(bf.fileCount()),
       nBlockFilesPerBatch_(batchSize)

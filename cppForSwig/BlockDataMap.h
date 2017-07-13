@@ -317,7 +317,7 @@ private:
    atomic<int> useCounter_;
 
 public:
-   BlockDataFileMap(const string& filename, bool preload);
+   BlockDataFileMap(const string& filename);
 
    ~BlockDataFileMap(void)
    {
@@ -345,15 +345,8 @@ public:
 class BlockDataLoader
 {
 private:     
-   //preload file in RAM to leverage cache hits on upcoming reads
-   const bool preloadFile_  = false; 
-
-   //prefetch next file, expecting the code to read it soon. Will preload 
-   //it if the flag is set
    const string path_;
    const string prefix_;
-
-   unsigned peak_ = 0;
 
 private:   
 
@@ -366,7 +359,7 @@ private:
       getNewBlockDataMap(uint32_t fileid);
 
 public:
-   BlockDataLoader(const string& path, bool preloadFile);
+   BlockDataLoader(const string& path);
 
    ~BlockDataLoader(void)
    {}

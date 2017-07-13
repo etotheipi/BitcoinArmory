@@ -6,6 +6,9 @@
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
+#ifndef _BLOCKCHAINSCANNER_SUPER_H
+#define _BLOCKCHAINSCANNER_SUPER_H
+
 #include "Blockchain.h"
 #include "lmdb_wrapper.h"
 #include "BlockDataMap.h"
@@ -183,7 +186,7 @@ public:
       ProgressCallback prg, bool reportProgress) :
       blockchain_(bc), db_(db),
       totalThreadCount_(threadcount),
-      blockDataLoader_(bf.folderPath(), true),
+      blockDataLoader_(bf.folderPath()),
       progress_(prg), reportProgress_(reportProgress),
       totalBlockFileCount_(bf.fileCount())
    {}
@@ -197,3 +200,5 @@ public:
       return topScannedBlockHash_;
    }
 };
+
+#endif

@@ -1728,7 +1728,7 @@ Tx LMDBBlockDatabase::getFullTxCopy(
       throw runtime_error("invalid blkFolder");
 
    //open block file
-   BlockDataLoader bdl(blkFolder_, false);
+   BlockDataLoader bdl(blkFolder_);
 
    auto fileMapPtr = bdl.get(bhPtr->getBlockFileNum());
    auto dataPtr = fileMapPtr->getPtr();
@@ -1940,7 +1940,7 @@ bool LMDBBlockDatabase::getStoredHeader(
          throw runtime_error("invalid dupId");
 
       //open block file
-      BlockDataLoader bdl(blkFolder_, false);
+      BlockDataLoader bdl(blkFolder_);
 
       auto fileMapPtr = bdl.get(bh->getBlockFileNum());
       auto dataPtr = fileMapPtr->getPtr();

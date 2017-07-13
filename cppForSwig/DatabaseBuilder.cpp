@@ -245,7 +245,7 @@ Blockchain::ReorganizationState DatabaseBuilder::updateBlocksInDB(
    const ProgressCallback &progress, bool verbose, bool fullHints)
 {
    //preload and prefetch
-   BlockDataLoader bdl(blockFiles_.folderPath(), true);
+   BlockDataLoader bdl(blockFiles_.folderPath());
 
    unsigned threadcount = min(bdmConfig_.threadCount_,
       blockFiles_.fileCount() - topBlockOffset_.fileID_);
@@ -649,7 +649,7 @@ bool DatabaseBuilder::reparseBlkFiles(unsigned fromID)
    mutex mu;
    map<BinaryData, shared_ptr<BlockHeader>> headerMap;
 
-   BlockDataLoader bdl(blockFiles_.folderPath(), true);
+   BlockDataLoader bdl(blockFiles_.folderPath());
 
    auto assessLambda = [&](unsigned fileID)->void
    {
@@ -984,7 +984,7 @@ void DatabaseBuilder::verifyTransactions()
    TIMER_START("10blocks");
 
    //dont preload, prefetch
-   BlockDataLoader bdl(blockFiles_.folderPath(), true);
+   BlockDataLoader bdl(blockFiles_.folderPath());
 
    auto stateStruct = make_shared<ParserState>();
 
@@ -1335,7 +1335,7 @@ void DatabaseBuilder::repairTxFilters(const set<unsigned>& badFilters)
    }
 
    //no preload nor prefetch
-   BlockDataLoader bdl(blockFiles_.folderPath(), false);
+   BlockDataLoader bdl(blockFiles_.folderPath());
 
    vector<unsigned> idVec;
    for (auto& id : badFilters)
