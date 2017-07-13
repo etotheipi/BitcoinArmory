@@ -21,7 +21,7 @@
 #include <exception>
 
 #define COMMIT_SSH_SIZE 1024 * 1024 * 256ULL
-#define BATCH_SIZE      1024 * 1024 * 128ULL
+#define BATCH_SIZE_SUPER 1024 * 1024 * 128ULL
 
 ////////////////////////////////////////////////////////////////////////////////
 struct ParserBatch_Super

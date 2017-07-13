@@ -13,7 +13,7 @@ INCLUDE_FILES = ../UniversalTimer.h ../BinaryData.h ../lmdb_wrapper.h \
 	../BDM_mainthread.h ../BDM_supportClasses.h \
 	../BlockDataViewer.h ../HistoryPager.h ../Progress.h \
 	../txio.h ../TxClasses.h ../StoredBlockObj.h \
-	../DatabaseBuilder.h ../BlockchainScanner.h ../BlockDataMap.h \
+	../DatabaseBuilder.h ../BlockchainScanner.h ../BlockchainScanner_Super.h ../BlockDataMap.h \
 	../DataObject.h ../BitcoinP2p.h ../BDM_Server.h ../BDM_seder.h ../SocketObject.h \
 	../FcgiMessage.h ../BlockDataManagerConfig.h \
 	../Transactions.h ../nodeRPC.h ../JSON_codec.h \
@@ -28,7 +28,7 @@ SOURCE_FILES = ../UniversalTimer.cpp ../BinaryData.cpp ../lmdb_wrapper.cpp \
 	../BDM_mainthread.cpp ../BDM_supportClasses.cpp \
 	../BlockDataViewer.cpp ../HistoryPager.cpp ../Progress.cpp \
 	../txio.cpp ../TxClasses.cpp ../StoredBlockObj.cpp \
-	../DatabaseBuilder.cpp ../BlockchainScanner.cpp ../BlockDataMap.cpp \
+	../DatabaseBuilder.cpp ../BlockchainScanner.cpp ../BlockchainScanner_Super.cpp ../BlockDataMap.cpp \
 	../DataObject.cpp ../BitcoinP2P.cpp ../BDM_Server.cpp ../BDM_seder.cpp ../SocketObject.cpp \
 	../FcgiMessage.cpp ../BlockDataManagerConfig.cpp \
 	../Transactions.cpp ../nodeRPC.cpp ../JSON_codec.cpp \
@@ -44,11 +44,12 @@ AM_CXXFLAGS += -I../lmdb \
 
 AM_LDFLAGS = -static $(LDFLAGS)
 
-bin_PROGRAMS = CppBlockUtilsTests ContainerTests DB1kIterTest
+bin_PROGRAMS = CppBlockUtilsTests ContainerTests DB1kIterTest SupernodeTests
 
 CppBlockUtilsTests_SOURCES = $(INCLUDE_FILES) $(SOURCE_FILES) CppBlockUtilsTests.cpp
 DB1kIterTest_SOURCES = $(INCLUDE_FILES) $(SOURCE_FILES) DB1kIterTest.cpp
 ContainerTests_SOURCES = ContainerTests.cpp gtest.h gtest-all.cc
+SupernodeTests_SOURCES = $(INCLUDE_FILES) $(SOURCE_FILES) SupernodeTests.cpp
 
 CppBlockUtilsTests_CXXFLAGS = $(AM_CXXFLAGS) $(CXXFLAGS) -std=c++11
 DB1kIterTest_CXXFLAGS = $(AM_CXXFLAGS) $(CXXFLAGS) -std=c++11
@@ -62,6 +63,11 @@ CppBlockUtilsTests_LDADD = -L../lmdb -llmdb \
 ContainerTests_LDADD = -lpthread $(LDFLAGS)
 
 DB1kIterTest_LDADD = -L../lmdb -llmdb \
+	-L../cryptopp -lcryptopp \
+	-L../fcgi/libfcgi/ -lfcgi \
+	-lpthread $(LDFLAGS)
+
+SupernodeTests_LDADD = -L../lmdb -llmdb \
 	-L../cryptopp -lcryptopp \
 	-L../fcgi/libfcgi/ -lfcgi \
 	-lpthread $(LDFLAGS)

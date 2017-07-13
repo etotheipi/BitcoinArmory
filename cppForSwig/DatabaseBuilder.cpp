@@ -1050,7 +1050,7 @@ void DatabaseBuilder::verifyTransactions()
 
                //get block data
                auto blockFileNum = bhPtr->getBlockFileNum();
-               auto& fileMap = getFileMap(blockFileNum);
+               auto fileMap = getFileMap(blockFileNum);
 
                auto getID = [bhPtr](const BinaryData&)->unsigned int
                {
@@ -1113,7 +1113,7 @@ void DatabaseBuilder::verifyTransactions()
 
          blockheader = blockchain_->getHeaderByHeight(thisHeight);
 
-         auto& fileMap = getFileMap(blockheader->getBlockFileNum());
+         auto fileMap = getFileMap(blockheader->getBlockFileNum());
 
          auto getID = [blockheader](const BinaryData&)->unsigned int
          {

@@ -79,7 +79,7 @@ void BlockchainScanner_Super::scan()
          //figure out how many blocks to pull for this batch
          //batches try to grab up nBlockFilesPerBatch_ worth of block data
          unsigned targetHeight = 0;
-         size_t targetSize = BATCH_SIZE;
+         size_t targetSize = BATCH_SIZE_SUPER;
          size_t tallySize;
          try
          {
