@@ -81,7 +81,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>..\leveldb_windows_port\win32_posix;..\cryptopp;..\BlockDataManager\fcgi;C:\Python27_64\include;..\BlockDataManager\fcgi\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\leveldb_windows_port\win32_posix;..\cryptopp;C:\Python27_64\include;..\fcgi\include;..\fcgi;..\lmdb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;_CRTDBG_MAP_ALLOC;_WINSOCK_DEPRECATED_NO_WARNINGS;_WINSOCKAPI_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
@@ -134,8 +134,8 @@
     <ClCompile Include="..\BitcoinP2P.cpp" />
     <ClCompile Include="..\Blockchain.cpp" />
     <ClCompile Include="..\BlockchainScanner.cpp" />
-    <ClCompile Include="..\BlockDataManager\fcgi\libfcgi\fcgiapp.c" />
-    <ClCompile Include="..\BlockDataManager\fcgi\libfcgi\os_win32.c" />
+    <ClCompile Include="..\BlockchainScanner_Super.cpp" />
+    <ClCompile Include="..\BlockDataManagerConfig.cpp" />
     <ClCompile Include="..\BlockDataMap.cpp" />
     <ClCompile Include="..\BlockDataViewer.cpp" />
     <ClCompile Include="..\BlockObj.cpp" />
@@ -147,19 +147,28 @@
     <ClCompile Include="..\DBUtils.cpp" />
     <ClCompile Include="..\EncryptionUtils.cpp" />
     <ClCompile Include="..\FcgiMessage.cpp" />
+    <ClCompile Include="..\fcgi\libfcgi\fcgiapp.c" />
+    <ClCompile Include="..\fcgi\libfcgi\os_win32.c" />
     <ClCompile Include="..\gtest\DB1kIterTest.cpp" />
     <ClCompile Include="..\gtest\gtest-all.cc" />
     <ClCompile Include="..\HistoryPager.cpp" />
+    <ClCompile Include="..\JSON_codec.cpp" />
     <ClCompile Include="..\LedgerEntry.cpp" />
     <ClCompile Include="..\leveldb_windows_port\win32_posix\dirent_win32.cpp" />
     <ClCompile Include="..\leveldb_windows_port\win32_posix\mman.cpp" />
     <ClCompile Include="..\leveldb_windows_port\win32_posix\win32_posix.cc" />
     <ClCompile Include="..\lmdb_wrapper.cpp" />
+    <ClCompile Include="..\log.cpp" />
+    <ClCompile Include="..\nodeRPC.cpp" />
     <ClCompile Include="..\Progress.cpp" />
+    <ClCompile Include="..\ReentrantLock.cpp" />
     <ClCompile Include="..\ScrAddrObj.cpp" />
+    <ClCompile Include="..\Script.cpp" />
+    <ClCompile Include="..\Signer.cpp" />
     <ClCompile Include="..\SocketObject.cpp" />
     <ClCompile Include="..\StoredBlockObj.cpp" />
     <ClCompile Include="..\StringSockets.cpp" />
+    <ClCompile Include="..\Transactions.cpp" />
     <ClCompile Include="..\TxClasses.cpp" />
     <ClCompile Include="..\txio.cpp" />
     <ClCompile Include="..\UniversalTimer.cpp" />

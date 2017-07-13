@@ -105,12 +105,6 @@
     <ClCompile Include="..\StringSockets.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\BlockDataManager\fcgi\libfcgi\fcgiapp.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\BlockDataManager\fcgi\libfcgi\os_win32.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\SocketObject.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -124,6 +118,39 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\leveldb_windows_port\win32_posix\mman.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\fcgi\libfcgi\os_win32.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\fcgi\libfcgi\fcgiapp.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\nodeRPC.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\BlockchainScanner_Super.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\JSON_codec.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Transactions.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Script.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\BlockDataManagerConfig.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\log.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ReentrantLock.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Signer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

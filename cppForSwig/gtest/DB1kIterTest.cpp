@@ -568,7 +568,7 @@ TEST_F(DB1kIter, DbInit1kIter_WithSignals)
 
       EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 2);
       EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash2);
-      EXPECT_TRUE(theBDMt_->bdm()->blockchain()->getHeaderByHash(TestChain::blkHash2).isMainBranch());
+      EXPECT_TRUE(theBDMt_->bdm()->blockchain()->getHeaderByHash(TestChain::blkHash2)->isMainBranch());
 
       const ScrAddrObj* scrObj;
       scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
@@ -674,7 +674,7 @@ TEST_F(DB1kIter, DbInit1kIter_WithSignals)
 
       EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 3);
       EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash3);
-      EXPECT_TRUE(theBDMt_->bdm()->blockchain()->getHeaderByHash(TestChain::blkHash3).isMainBranch());
+      EXPECT_TRUE(theBDMt_->bdm()->blockchain()->getHeaderByHash(TestChain::blkHash3)->isMainBranch());
 
       scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
       EXPECT_EQ(scrObj->getFullBalance(), 50 * COIN);
@@ -716,7 +716,7 @@ TEST_F(DB1kIter, DbInit1kIter_WithSignals)
 
       EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
       EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash4);
-      EXPECT_TRUE(theBDMt_->bdm()->blockchain()->getHeaderByHash(TestChain::blkHash4).isMainBranch());
+      EXPECT_TRUE(theBDMt_->bdm()->blockchain()->getHeaderByHash(TestChain::blkHash4)->isMainBranch());
 
       scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
       EXPECT_EQ(scrObj->getFullBalance(), 50 * COIN);
@@ -751,7 +751,7 @@ TEST_F(DB1kIter, DbInit1kIter_WithSignals)
 
       EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 5);
       EXPECT_EQ(iface_->getTopBlockHash(HEADERS), TestChain::blkHash5);
-      EXPECT_TRUE(theBDMt_->bdm()->blockchain()->getHeaderByHash(TestChain::blkHash5).isMainBranch());
+      EXPECT_TRUE(theBDMt_->bdm()->blockchain()->getHeaderByHash(TestChain::blkHash5)->isMainBranch());
 
       scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
       EXPECT_EQ(scrObj->getFullBalance(), 50 * COIN);
