@@ -18,6 +18,7 @@
 #include <chrono>
 #include <thread>
 #include <exception>
+#include <iostream>
 
 #include "make_unique.h"
 
@@ -305,14 +306,18 @@ public:
             valptr = bottom_.load(memory_order_acquire);
 
          if (valptr == nullptr)
+         {
+            /*if (this->count() != 0)
+               cout << "~~~ count != 0" << endl;*/
             throw IsEmpty();
+         }
       } 
       while (!bottom_.compare_exchange_weak(valptr, maxptr_,
-      memory_order_release, memory_order_relaxed));
+      memory_order_acq_rel, memory_order_acquire));
 
       auto valptrcopy = valptr;
       if (!top_.compare_exchange_strong(valptrcopy, maxptr_,
-         memory_order_release, memory_order_relaxed))
+         memory_order_acq_rel, memory_order_acquire))
       {
          AtomicEntry<T>* nextptr;
          do
@@ -320,16 +325,15 @@ public:
             nextptr = valptr->next_.load(memory_order_acquire);
          } while (nextptr == maxptr_);
       
+         count_.fetch_sub(1, memory_order_acq_rel);
          bottom_.store(nextptr, memory_order_release);
       }
       else
       {
+         count_.fetch_sub(1, memory_order_acq_rel);
          bottom_.store(nullptr, memory_order_release);
          top_.store(nullptr, memory_order_release);
       }
-
-      //update count
-      count_.fetch_sub(1, memory_order_relaxed);
 
       //delete ptr and return value
       auto&& retval = valptr->get();
@@ -357,18 +361,16 @@ public:
             topentry = top_.load(memory_order_acquire);
       } 
       while (!top_.compare_exchange_weak(topentry, maxptr_,
-         memory_order_release, memory_order_relaxed));
+      memory_order_acq_rel, memory_order_acquire));
 
       if (topentry != nullptr)
          topentry->next_.store(newentry, memory_order_release);
 
       bottom_.compare_exchange_strong(nullentry, newentry,
-         memory_order_release, memory_order_relaxed);
+         memory_order_acq_rel, memory_order_acquire);
 
+      count_.fetch_add(1, memory_order_acq_rel);
       top_.store(newentry, memory_order_release);
-
-      //update count
-      count_.fetch_add(1, memory_order_relaxed);
    }
 
    virtual void clear()
@@ -388,7 +390,7 @@ public:
 
    size_t count(void) const
    {
-      return count_.load(memory_order_relaxed);
+      return count_.load(memory_order_acquire);
    }
 };
 
@@ -878,7 +880,7 @@ public:
             {
                if(completed_.load(memory_order_acquire) || 
                   terminated_.load(memory_order_acquire))
-	          throw StopBlockingLoop();
+	            throw StopBlockingLoop();
             }
 
             try
