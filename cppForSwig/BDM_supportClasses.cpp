@@ -1879,17 +1879,6 @@ void ZeroConfContainer::init(shared_ptr<ScrAddrFilter> saf, bool clearMempool)
 
    parserThreads_.push_back(thread(processZcThread));
 
-   //start invTx threads
-   auto txthread = [this](void)->void
-   {
-      processInvTxThread();
-   };
-
-   for (int i = 0; i < GETZC_THREADCOUNT; i++)
-   {
-      parserThreads_.push_back(thread(txthread));
-   }
-
    zcEnabled_.store(true, memory_order_relaxed);
 }
 
