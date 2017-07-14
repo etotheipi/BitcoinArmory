@@ -275,14 +275,15 @@ void BlockchainScanner::processOutputs()
 
    //init batch
    unique_ptr<ParserBatch> batch;
-   try
+   while (1)
    {
-      batch = move(outputQueue_.pop_front());
-   }
-   catch (StopBlockingLoop&)
-   {
-      LOGWARN << "empty output queue";
-      return;
+      try
+      {
+         batch = move(outputQueue_.pop_front());
+         break;
+      }
+      catch (StopBlockingLoop&)
+      {}
    }
 
    preloadBlockDataFiles(batch.get());
