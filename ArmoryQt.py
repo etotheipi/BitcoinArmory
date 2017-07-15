@@ -751,6 +751,9 @@ class ArmoryMainWindow(QMainWindow):
                   shutil.rmtree(os.path.join(ARMORY_DB_DIR, LEVELDB_HEADERS))
                if reply[1]==True:
                   self.writeSetting('DNAA_DeleteLevelDB', True)
+                  
+      self.signalExecution.callLater(1, self.walletTimeoutCheck)
+      
    ####################################################
    def getWatchingOnlyWallets(self):
       result = []
@@ -5124,9 +5127,6 @@ class ArmoryMainWindow(QMainWindow):
             else:
                func()
 
-         for idx,wltID in enumerate(self.walletIDList):
-            self.walletMap[wltID].checkWalletLockTimeout()
-
          if self.doAutoBitcoind:
 
             if (sdmState in ['BitcoindInitializing','BitcoindSynchronizing']) or \
@@ -5907,6 +5907,12 @@ class ArmoryMainWindow(QMainWindow):
       dlgSpend = DlgSendBitcoins(None, self, self)
       dlgSpend.frame.prefillFromBatch(batchStr)
       dlgSpend.exec_()
+      
+   #############################################################################
+   def walletTimeoutCheck(self):
+      for idx,wltID in enumerate(self.walletIDList):
+         self.walletMap[wltID].checkWalletLockTimeout()
+      self.signalExecution.callLater(2, self.walletTimeoutCheck)
 
 ############################################
 def checkForAlreadyOpen():
