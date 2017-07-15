@@ -770,21 +770,7 @@ def estimateFee(nblocksToConfirm):
 ################################################################################
 # Call bitcoin core to get the priority estimate
 def estimatePriority():
-   result = DEFAULT_PRIORITY
-   try:
-      # See https://bitcoin.org/en/developer-reference#estimatepriority for
-      # documentation about this RPC call
-      priority = BDM.TheSDM.callJSON('estimatepriority', NBLOCKS_TO_CONFIRM)
-      # -1 is returned if BitcoinD does not have enough data to estimate
-      # the priority
-      if priority == -1:
-         result = priority
-   except:
-      # if the BitcoinD version does not support priority estimation
-      # return default
-      # if the BitcoinD was never started return default
-      pass
-   return int(result)
+   return DEFAULT_PRIORITY
 
 ################################################################################
 def calcMinSuggestedFeesHackMS(selectCoinsResult, targetOutVal, preSelectedFee, 

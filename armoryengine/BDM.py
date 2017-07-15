@@ -12,7 +12,6 @@ import threading
 import traceback
 
 from armoryengine.ArmoryUtils import *
-from SDM import SatoshiDaemonManager
 from armoryengine.Timer import TimeThisFunction
 import CppBlockUtils as Cpp
 from armoryengine.BinaryPacker import UINT64
@@ -346,14 +345,10 @@ class BlockDataManager(object):
 # Make TheBDM reference the asyncrhonous BlockDataManager wrapper if we are 
 # running 
 TheBDM = None
-TheSDM = None
 if CLI_OPTIONS.offline:
    LOGINFO('Armory loaded in offline-mode.  Will not attempt to load ')
    LOGINFO('blockchain without explicit command to do so.')
    TheBDM = BlockDataManager(isOffline=True)
-
-   # Also create the might-be-needed SatoshiDaemonManager
-   TheSDM = SatoshiDaemonManager()
 
 else:
    # NOTE:  "TheBDM" is sometimes used in the C++ code to reference the
@@ -375,12 +370,6 @@ else:
       cpplf = cppLogFile.encode('utf8')
    Cpp.StartCppLogging(cpplf, 4)
    Cpp.EnableCppLogStdOut()    
-
-   #LOGINFO('LevelDB max-open-files is %d', TheBDM.getMaxOpenFiles())
-
-   # Also load the might-be-needed SatoshiDaemonManager
-   TheSDM = SatoshiDaemonManager()
-
 
 # Put the import at the end to avoid circular reference problem
 from armoryengine.MultiSigUtils import MultiSigLockbox

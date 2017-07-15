@@ -43,6 +43,7 @@ from armoryengine.ALL import *
 from armoryengine.Block import PyBlock
 from armoryengine.Decorators import RemoveRepeatingExtensions
 from armoryengine.PyBtcWalletRecovery import WalletConsistencyCheck
+from SDM import SatoshiDaemonManager
 
 from ui.QtExecuteSignal import QtExecuteSignal
 
@@ -5942,6 +5943,7 @@ if 1:
    # Will make this customizable
    QAPP.setFont(GETFONT('var'))
 
+   TheSDM = SatoshiDaemonManager()
    form = ArmoryMainWindow(splashScreen=SPLASH)
    form.show()
 
