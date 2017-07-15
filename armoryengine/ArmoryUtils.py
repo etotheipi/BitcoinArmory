@@ -47,7 +47,6 @@ import subprocess
 import psutil
 
 from CppBlockUtils import KdfRomix, CryptoAES, ConfigFile_fleshOutArgs
-from qrcodenative import QRCode, QRErrorCorrectLevel
 
 try:
    if os.path.exists('update_version.py') and os.path.exists('.git'):
@@ -968,8 +967,12 @@ if CLI_OPTIONS.logDisable:
 
 
 def logexcept_override(_type, value, tback):
-   strList = traceback.format_exception(_type,value,tback)
-   logging.error(''.join([s for s in strList]))
+   try:
+      strList = traceback.format_exception(_type,value,tback)
+      logging.error(''.join([s for s in strList]))
+   except:
+      pass
+   
    # then call the default handler
    sys.__excepthook__(_type, value, tback)
 
@@ -2451,43 +2454,6 @@ def binaryBits_to_difficulty(b):
 # TODO:  I don't actually know how to do this, yet...
 def difficulty_to_binaryBits(i):
    pass
-
-################################################################################
-def CreateQRMatrix(dataToEncode, errLevel=QRErrorCorrectLevel.L):
-   dataLen = len(dataToEncode)
-   baseSz = 4 if errLevel == QRErrorCorrectLevel.L else \
-            5 if errLevel == QRErrorCorrectLevel.M else \
-            6 if errLevel == QRErrorCorrectLevel.Q else \
-            7 # errLevel = QRErrorCorrectLevel.H
-   sz = baseSz if dataLen < 70 else  5 +  (dataLen - 70) / 30
-   qrmtrx = [[]]
-   while sz<20:
-      try:
-         errCorrectEnum = getattr(QRErrorCorrectLevel, errLevel.upper())
-         qr = QRCode(sz, errCorrectEnum)
-         qr.addData(dataToEncode)
-         qr.make()
-         success=True
-         break
-      except TypeError:
-         sz += 1
-
-   if not success:
-      LOGERROR('Unsuccessful attempt to create QR code')
-      LOGERROR('Data to encode: (Length: %s, isAscii: %s)', \
-                     len(dataToEncode), isASCII(dataToEncode))
-      return [[0]], 1
-
-   qrmtrx = []
-   modCt = qr.getModuleCount()
-   for r in range(modCt):
-      tempList = [0]*modCt
-      for c in range(modCt):
-         # The matrix is transposed by default, from what we normally expect
-         tempList[c] = 1 if qr.isDark(c,r) else 0
-      qrmtrx.append(tempList)
-
-   return [qrmtrx, modCt]
 
 
 # The following params are for the Bitcoin elliptic curves (secp256k1)

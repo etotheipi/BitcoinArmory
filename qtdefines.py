@@ -20,6 +20,7 @@ from armorycolors import Colors, htmlColor
 from armoryengine.ArmoryUtils import *
 from armoryengine.BinaryUnpacker import *
 from armoryengine.MultiSigUtils import *
+from ui.QrCodeMatrix import CreateQRMatrix
 
 import gettext
 

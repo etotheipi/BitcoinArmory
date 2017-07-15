@@ -32,6 +32,7 @@ from armoryengine.PyBtcWalletRecovery import RECOVERMODE
 from armoryengine.ArmoryUtils import BTC_HOME_DIR
 
 from ui.TreeViewGUI import AddressTreeModel
+from ui.QrCodeMatrix import CreateQRMatrix
 
 NO_CHANGE = 'NoChange'
 MIN_PASSWD_WIDTH = lambda obj: tightSizeStr(obj, '*' * 16)[0]
