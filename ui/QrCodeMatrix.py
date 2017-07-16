@@ -1,3 +1,11 @@
+##############################################################################
+#                                                                            #
+# Copyright (C) 2016-17, goatpig                                             #
+#  Distributed under the MIT license                                         #
+#  See LICENSE-MIT or https://opensource.org/licenses/MIT                    #                                   
+#                                                                            #
+##############################################################################
+
 from armoryengine.ArmoryUtils import LOGERROR, isASCII
 from qrcodenative import QRCode, QRErrorCorrectLevel
 

@@ -14,92 +14,33 @@ from qtdefines import ArmoryDialog, QLabel, QGridLayout, \
    SIGNAL, STYLE_RAISED, QRichLabel
    
 from armoryengine.ArmoryUtils import PyBackgroundThread
+from armoryengine.CppWalletMirroring import WalletMirroringClass, \
+   STATUS_MIRROR, STATUS_SYNC, STATUS_IMPORTS, STATUS_DONE
 
 ##############################################################################
-class WalletComparisonClass(object):
+class WalletComparisonClass(WalletMirroringClass):
    
    ###########################################################################
    def __init__(self, main):
+      super(WalletComparisonClass, self).__init__(\
+         main.walletMap, main.walletManager)
       self.main = main
-   
-   ###########################################################################   
-   def checkWallets(self):   
-      #compare with loaded python wallets
-      walletsToMirror = []
-      walletsToSync = []
-      importsToCheck = []
-      for wltID in self.main.walletMap:
-         wlt = self.main.walletMap[wltID]
-         
-         if len(wlt.importList) > 0:
-            importsToCheck.append(wltID)
-         
-         if not self.main.walletManager.hasWallet(wltID):
-            #if python wallet id is missing from cpp wallet map, 
-            #flag it for mirroring
-            walletsToMirror.append(wltID)
-            continue
-         
-         lastComputed = self.main.walletManager.getLastComputedIndex(wltID)
-         if lastComputed < wlt.lastComputedChainIndex:
-            #if python wallet has more computed addresses than cpp 
-            #wallet, mark it for synchronizing
-            walletsToSync.append(wltID)
-                    
-      if len(walletsToMirror) + len(walletsToSync) + len(importsToCheck) > 0:
-         self.updateCppWallets(walletsToMirror, walletsToSync, importsToCheck)
    
    ###########################################################################
    def updateCppWallets(self, mirrorList, syncList, importList):
       #construct GUI
       mirrorWalletDlg = MirrorWalletsDialog(self.main, self.main)
       
-      def updateStatusText(text):
-         mirrorWalletDlg.setStatusText(text)
+      def updateStatus(statusCode, wltId):
+         mirrorWalletDlg.setStatus(statusCode, wltId)
       
       thr = PyBackgroundThread(self.walletComputation,
-                        mirrorList, syncList, importList, updateStatusText)
+                        mirrorList, syncList, importList, updateStatus)
       thr.start()
       
       mirrorWalletDlg.exec_()
       thr.join()
-      
-   ###########################################################################   
-   def walletComputation(\
-         self, mirrorList, syncList, importList, reportTextProgress):
-      
-      #mirror missing wallets
-      for wltID in mirrorList:
-         reportTextProgress(QObject().tr("Mirroring wallet %1").arg(wltID))
-         
-         wlt = self.main.walletMap[wltID]
-         rootEntry = wlt.addrMap['ROOT']
-         
-         self.main.walletManager.duplicateWOWallet(\
-            rootEntry.binPublicKey65, rootEntry.chaincode,\
-            wlt.lastComputedChainIndex + 1)
-         
-      #synchronize wallets
-      for wltID in syncList:
-         reportTextProgress(QObject().tr("Synchronizing wallet %1").arg(wltID))
-         
-         wlt = self.main.walletMap[wltID]
-         self.main.walletManager.synchronizeWallet(
-            wltID, wlt.lastComputedChainIndex)
-         
-      for wltID in importList:
-         reportTextProgress(QObject().tr("Checking imports for wallet %1").arg(wltID))
-         
-         wlt = self.main.walletMap[wltID]
-         for importId in wlt.importList:
-            scrAddr = wlt.linearAddr160List[importId]
-            addrObj = wlt.addrMap[scrAddr]
             
-            self.main.walletManager.setImport(\
-               wltID, importId, addrObj.getPubKey())
-         
-      reportTextProgress('shutdown')
-         
          
 ##############################################################################
 class MirrorWalletsDialog(ArmoryDialog):
@@ -162,20 +103,28 @@ class MirrorWalletsDialog(ArmoryDialog):
          count += 1
     
    ###########################################################################   
-   def setStatusText(self, text):
-      if text == 'shutdown':
+   def setStatus(self, statusCode, wltId):
+      if statusCode == STATUS_DONE:
          self.stopProgressThread()
          self.signalTerminateDialog()
       else:
          self.stopProgressThread()
          self.startProgressThread()         
-         self.progressText = text
+         self.progressStatus = statusCode
+         self.progressId = wltId
          self.counter = 1
          self.buildProgressText()
 
    ###########################################################################   
    def buildProgressText(self):
-      text = self.progressText
+      text = ""
+      if self.progressStatus == STATUS_MIRROR:
+         text = QObject().tr("Mirroring wallet %1").arg(self.progressId)
+      elif self.progressStatus == STATUS_SYNC:
+         text = QObject().tr("Synchronizing wallet %1").arg(self.progressId)
+      elif self.progressStatus == STATUS_IMPORTS:
+         text = QObject().tr("Checking imports for wallet %1").arg(self.progressId)
+               
       dotCount = self.counter % 5
       self.counter += 1
       
