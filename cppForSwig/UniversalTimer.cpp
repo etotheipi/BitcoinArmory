@@ -34,8 +34,7 @@ void UniversalTimer::timer::start(void)
    if (isRunning_)
       return;
    isRunning_ = true;
-   start_clock_ = clock();
-   start_time_ = time(0);
+   start_clock_ = chrono::system_clock::now();
 }
 
 // RESTART TIMER
@@ -43,8 +42,7 @@ void UniversalTimer::timer::restart(void)
 {
    isRunning_ = true;
    accum_time_ = 0;
-   start_clock_ = clock();
-   start_time_ = time(0);
+   start_clock_ = chrono::system_clock::now();
 }
 
 // STOP TIMER
@@ -52,12 +50,9 @@ void UniversalTimer::timer::stop(void)
 {
    if (isRunning_)
    {
-      time_t acc_sec = time(0) - start_time_;
-      if (acc_sec < 3600)
-         prev_elapsed_ = (clock() - start_clock_) / (1.0 * CLOCKS_PER_SEC);
-      else
-         prev_elapsed_ = (1.0 * acc_sec);
-      accum_time_ += prev_elapsed_;
+      chrono::duration<double> acc_sec = 
+         chrono::system_clock::now() - start_clock_;
+      accum_time_ += acc_sec.count();
    }
    isRunning_ = false;
 }

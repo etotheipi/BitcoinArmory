@@ -61,7 +61,7 @@ int32_t BlockchainScanner::check_merkle(int32_t scanFrom)
 ////////////////////////////////////////////////////////////////////////////////
 void BlockchainScanner::scan_nocheck(int32_t scanFrom)
 {
-   TIMER_START("scan_nocheck");
+   TIMER_RESTART("scan_nocheck");
 
    startAt_ = scanFrom;
    auto topBlock = blockchain_->top();
@@ -215,7 +215,7 @@ void BlockchainScanner::scan_nocheck(int32_t scanFrom)
    }
 
    auto timeSpent = TIMER_READ_SEC("throttling");
-   if (timeSpent > 0)
+   if (timeSpent > 5)
       LOGINFO << "throttling for " << timeSpent << "s";
 
    /*timeSpent = TIMER_READ_SEC("outputs");
@@ -234,8 +234,9 @@ void BlockchainScanner::scan_nocheck(int32_t scanFrom)
 ////////////////////////////////////////////////////////////////////////////////
 void BlockchainScanner::processOutputs()
 {
-   TIMER_RESTART("throttling");
-   TIMER_STOP("throttling");
+   TIMER_RESET("throttling");
+   TIMER_RESET("preload");
+   TIMER_RESET("outputs");
 
    auto process_thread = [this](ParserBatch* batch)->void
    {
@@ -344,6 +345,8 @@ void BlockchainScanner::processOutputs()
 ////////////////////////////////////////////////////////////////////////////////
 void BlockchainScanner::processInputs()
 {
+   TIMER_RESET("inputs");
+
    auto process_thread = [this](ParserBatch* batch)->void
    {
       this->processInputsThread(batch);
@@ -726,6 +729,8 @@ void BlockchainScanner::writeBlockData()
    auto writeHintsLambda = 
       [&](ParserBatch* batch_ref)->void
    { processAndCommitTxHints(batch_ref); };
+
+   TIMER_RESET("write");
 
    while (1)
    {
