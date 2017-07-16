@@ -159,7 +159,6 @@ void BlockchainScanner::scan_nocheck(int32_t scanFrom)
          batch->count_ = _count;
          if (_count >= writeQueueDepth_)
          {
-            TIMER_START("throttling");
             try
             {
                auto futIter = completedFutures.begin() + (_count - writeQueueDepth_);
@@ -170,7 +169,6 @@ void BlockchainScanner::scan_nocheck(int32_t scanFrom)
                LOGERR << "future error";
                throw e;
             }
-            TIMER_STOP("throttling");
          }
 
          ++_count;
@@ -236,6 +234,9 @@ void BlockchainScanner::scan_nocheck(int32_t scanFrom)
 ////////////////////////////////////////////////////////////////////////////////
 void BlockchainScanner::processOutputs()
 {
+   TIMER_RESTART("throttling");
+   TIMER_STOP("throttling");
+
    auto process_thread = [this](ParserBatch* batch)->void
    {
       this->processOutputsThread(batch);
@@ -296,12 +297,15 @@ void BlockchainScanner::processOutputs()
          thr_vec.push_back(thread(process_thread, batch.get()));
 
       unique_ptr<ParserBatch> nextBatch;
+
+      TIMER_START("throttling");
       try
       {
          nextBatch = move(outputQueue_.pop_front());
       }
       catch (StopBlockingLoop&)
       {}
+      TIMER_STOP("throttling");
 
       TIMER_START("outputs");
 
