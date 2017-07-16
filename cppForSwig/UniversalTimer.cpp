@@ -158,11 +158,7 @@ void UniversalTimer::reset(string key, string grpstr)
 {
    lock();
    most_recent_key_ = grpstr + key;
-   if( call_timers_.find(most_recent_key_) == call_timers_.end() )
-   {
-      cout << "***WARNING: attempting to reset a timer not prev used" << endl;
-      cout << " KEY: " << most_recent_key_ << endl;
-   }
+
    init(key,grpstr);
    call_timers_[most_recent_key_].reset();
    unlock();
