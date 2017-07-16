@@ -2268,8 +2268,14 @@ class ArmoryMainWindow(QMainWindow):
 
 
       types = list(ffilter)
-      types.append('All files (*)')
-      typesStr = ';; '.join(types)
+      types.append(self.tr('All files (*)'))
+      
+      typeStr = QString("")
+      for i in range(0, len(types)):
+         _type = types[i]         
+         typeStr += QString(_type)
+         if i < len(types) - 1:
+            typeStr += QString(";; ")
 
       # Open the native file load dialog and grab the loaded file/path unless
       # we're in OS X, where native dialogs sometimes freeze. Looks like a Qt
@@ -2278,10 +2284,10 @@ class ArmoryMainWindow(QMainWindow):
       # circumstances.
       if not OS_MACOSX:
          fullPath = unicode(QFileDialog.getOpenFileName(self, title, defaultDir,
-                                                        typesStr))
+                                                        typeStr))
       else:
          fullPath = unicode(QFileDialog.getOpenFileName(self, title, defaultDir,
-                                                        typesStr,
+                                                        typeStr,
                                        options=QFileDialog.DontUseNativeDialog))
 
       self.writeSetting('LastDirectory', os.path.split(fullPath)[0])
