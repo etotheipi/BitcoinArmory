@@ -231,11 +231,6 @@ class BlockDataManager(object):
    
    #############################################################################
    @ActLikeASingletonBDM
-   def getTopBlockDifficulty(self):
-      return self.bdv().getTopBlockHeader().getDifficulty()
-   
-   #############################################################################
-   @ActLikeASingletonBDM
    def registerCppNotification(self, cppNotificationListener):
       self.cppNotificationListenerList.append(cppNotificationListener)
     
