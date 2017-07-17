@@ -7297,18 +7297,16 @@ TEST_F(TransactionsTest, Wallet_SpendTest_MultipleSigners_DifferentInputs)
    //// create 2 assetWlt ////
 
    //create a root private key
-   auto&& wltRoot = SecureBinaryData().GenerateRandom(32);
    auto assetWlt_1 = AssetWallet_Single::createFromPrivateRoot_Armory135(
       homedir_,
-      AddressEntryType_P2PKH,
-      move(wltRoot), //root as a rvalue
+      AddressEntryType_Nested_P2WPKH,
+      SecureBinaryData().GenerateRandom(32), //root as rvalue
       3); //set lookup computation to 3 entries
 
-   wltRoot = move(SecureBinaryData().GenerateRandom(32));
    auto assetWlt_2 = AssetWallet_Single::createFromPrivateRoot_Armory135(
       homedir_,
       AddressEntryType_P2PKH,
-      move(wltRoot), //root as a rvalue
+      move(SecureBinaryData().GenerateRandom(32)), //root as rvalue
       3); //set lookup computation to 3 entries
 
    //register with db
@@ -7455,9 +7453,6 @@ TEST_F(TransactionsTest, Wallet_SpendTest_MultipleSigners_DifferentInputs)
    EXPECT_EQ(scrObj->getFullBalance(), 15 * COIN);
 
    //spend 18 back to wlt, split change among the 2
-   auto spendVal = 18 * COIN;
-   Signer signer2;
-   signer2.setFlags(SCRIPT_VERIFY_SEGWIT);
 
    //get utxo list for spend value
    auto&& unspentVec_1 =
@@ -7465,66 +7460,97 @@ TEST_F(TransactionsTest, Wallet_SpendTest_MultipleSigners_DifferentInputs)
    auto&& unspentVec_2 = 
       wlt_2->getSpendableTxOutListZC();
 
-   unspentVec_1.insert(
-      unspentVec_1.end(), unspentVec_2.begin(), unspentVec_2.end());
+   BinaryData serializedSignerState;
+   
+   auto assetFeed2 = make_shared<ResolvedFeed_AssetWalletSingle>(assetWlt_1);
+   auto assetFeed3 = make_shared<ResolvedFeed_AssetWalletSingle>(assetWlt_2);
 
-
-   //create feed from asset wallet 1
-   auto assetFeed = make_shared<ResolvedFeed_AssetWalletSingle>(assetWlt_1);
-
-   //create spenders
-   uint64_t total = 0;
-   for (auto& utxo : unspentVec_1)
    {
-      total += utxo.getValue();
-      signer2.addSpender(getSpenderPtr(utxo, assetFeed));
+      auto spendVal = 8 * COIN;
+      Signer signer2;
+      signer2.setFlags(SCRIPT_VERIFY_SEGWIT);
+
+      //create feed from asset wallet 1
+
+      //create wlt_1 spenders
+      uint64_t total = 0;
+      for (auto& utxo : unspentVec_1)
+      {
+         total += utxo.getValue();
+         signer2.addSpender(getSpenderPtr(utxo, assetFeed2));
+      }
+
+      //spend 18 to addrB, use P2PKH
+      auto recipient2 = make_shared<Recipient_P2PKH>(
+         TestChain::scrAddrB.getSliceCopy(1, 20), 18 * COIN);
+      signer2.addRecipient(recipient2);
+
+      //change back to wlt_1
+      if (total > spendVal)
+      {
+         //spend 4 to p2pkh script hash
+         signer2.addRecipient(addrVec_1[1]->getRecipient(total - spendVal));
+      }
+
+      serializedSignerState = move(signer2.serializeState());
    }
 
-   //creates outputs
-   //spend 18 to addr 0, use P2PKH
-   auto recipient2 = make_shared<Recipient_P2PKH>(
-      TestChain::scrAddrB.getSliceCopy(1, 20), spendVal);
-   signer2.addRecipient(recipient2);
-
-   if (total > spendVal)
    {
-      //spend 4 to p2pkh script hash
-      signer2.addRecipient(addrVec_1[1]->getRecipient(4 * COIN));
+      //serialize signer 2, deser with signer3 and populate
+      auto spendVal = 10 * COIN;
+      Signer signer3;
+      signer3.deserializeState(serializedSignerState, assetFeed3);
 
-      //spend 5 to p2pkh script hash
-      signer2.addRecipient(addrVec_2[1]->getRecipient(5 * COIN));
+      //add spender from wlt_2
+      uint64_t total = 0;
+      for (auto& utxo : unspentVec_2)
+      {
+         total += utxo.getValue();
+         signer3.addSpender(getSpenderPtr(utxo, assetFeed3));
+      }
+
+      //set change
+      if (total > spendVal)
+      {
+         //spend 4 to p2pkh script hash
+         signer3.addRecipient(addrVec_2[1]->getRecipient(total - spendVal));
+      }
+
+      serializedSignerState = move(signer3.serializeState());
    }
+
 
    //sign, verify & return signed tx
-   signer2.sign();
+   Signer signer4;
+   signer4.deserializeState(serializedSignerState, assetFeed2);
+   signer4.sign();
+
    try
    {
-      signer2.verify();
+      signer4.verify();
       EXPECT_TRUE(false);
    }
    catch (...)
    {
    }
 
-   EXPECT_FALSE(signer2.isValid());
+   EXPECT_FALSE(signer4.isValid());
 
-   Signer signer3;
-   //create feed from asset wallet 2
-   auto assetFeed3 = make_shared<ResolvedFeed_AssetWalletSingle>(assetWlt_2);
-   signer3.deserializeState(signer2.serializeState(), assetFeed3);
+   Signer signer5;
+   signer5.deserializeState(signer4.serializeState(), assetFeed3);
 
-   signer3.sign();
-   ASSERT_TRUE(signer3.isValid());
+   signer5.sign();
+   ASSERT_TRUE(signer5.isValid());
    try
    {
-      signer3.verify();
+      signer5.verify();
    }
    catch (...)
    {
       EXPECT_TRUE(false);
    }
 
-   auto&& tx1 = signer3.serialize();
+   auto&& tx1 = signer5.serialize();
 
    //broadcast the last one
    ZcVector zcVec;

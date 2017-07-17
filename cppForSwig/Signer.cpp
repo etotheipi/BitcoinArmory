@@ -922,6 +922,7 @@ BinaryData Signer::serializeState() const
    bw.put_uint32_t(version_);
    bw.put_uint32_t(lockTime_);
    bw.put_uint32_t(flags_);
+   bw.put_uint8_t(isSegWit_);
 
    bw.put_var_int(spenders_.size());
    for (auto& spender : spenders_)
@@ -951,6 +952,7 @@ void Signer::deserializeState(
    version_    = brr.get_uint32_t();
    lockTime_   = brr.get_uint32_t();
    flags_      = brr.get_uint32_t();
+   isSegWit_   = brr.get_uint8_t();
 
    auto spender_count = brr.get_var_int();
    for (unsigned i = 0; i < spender_count; i++)
