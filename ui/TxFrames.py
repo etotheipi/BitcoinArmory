@@ -21,7 +21,7 @@ from armoryengine.MultiSigUtils import \
    isP2SHLockbox
 from armoryengine.ArmoryUtils import MAX_COMMENT_LENGTH, getAddrByte
 from FeeSelectUI import FeeSelectionDialog
-from CppBlockUtils import TXOUT_SCRIPT_P2SH, TransactionBatch
+from CppBlockUtils import TXOUT_SCRIPT_P2SH, TransactionBatch, SecureBinaryData
 
 
 class SendBitcoinsFrame(ArmoryFrame):
@@ -473,7 +473,11 @@ class SendBitcoinsFrame(ArmoryFrame):
       return serializedUtxoList
    
    #############################################################################   
-   def resolveCoinSelection(self):          
+   def resolveCoinSelection(self):   
+      maxRecipientID = self.getMaxRecipientID()
+      if maxRecipientID != None:
+         self.setMaximum(maxRecipientID)
+             
       try:
          fee, feePerByte, adjust_fee = self.feeDialog.getFeeData()
          processFlag = 0
@@ -987,7 +991,32 @@ class SendBitcoinsFrame(ArmoryFrame):
       return changeScript,selectedBehavior
 
    #####################################################################
-   def setMaximum(self, targWidget):
+   def getMaxRecipientID(self):
+      for widget_obj in self.widgetTable:
+         if widget_obj['BTN_MAX'].isChecked():
+            return widget_obj['UID']
+      return None
+      
+   #####################################################################
+   def setMaximum(self, targWidgetID):
+      #is the box checked?
+      targetWidget = None
+      for widget_obj in self.widgetTable:
+         if widget_obj['UID'] == targWidgetID:
+            targetWidget = widget_obj
+      
+      if targetWidget != None and targetWidget['BTN_MAX'].isChecked():
+         #disable all check boxes but this one
+         for widget_obj in self.widgetTable:
+            widget_obj['BTN_MAX'].setEnabled(False)
+            
+         targetWidget['BTN_MAX'].setEnabled(True)
+      else:
+         #enable all checkboxes and return
+         for widget_obj in self.widgetTable:
+            widget_obj['BTN_MAX'].setEnabled(True)
+         return
+         
       nRecip = len(self.widgetTable)
       totalOther = 0
       r = 0
@@ -996,7 +1025,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          txFee, fee_byte, adjust = self.feeDialog.getFeeData()
          while r < nRecip:
             # Use while loop so 'r' is still in scope in the except-clause
-            if targWidget == self.widgetTable[r]['QLE_AMT']:
+            if targWidgetID == self.widgetTable[r]['UID']:
                r += 1
                continue
          
@@ -1019,8 +1048,6 @@ class SendBitcoinsFrame(ArmoryFrame):
                'for recipient %1.').arg(r + 1,), QMessageBox.Ok)
          return
 
-
-
       maxStr = coin2str((bal - (txFee + totalOther)), maxZeros=0)
       if bal < txFee + totalOther:
          QMessageBox.warning(self, self.tr('Insufficient funds'), \
@@ -1030,18 +1057,18 @@ class SendBitcoinsFrame(ArmoryFrame):
                QMessageBox.Ok)
          return
 
-      targWidget.setText(maxStr.strip())
+      targetWidget['QLE_AMT'].setText(maxStr.strip())
       self.isMax = True
 
 
    #####################################################################
-   def createSetMaxButton(self, targWidget):
-      newBtn = QPushButton('MAX')
-      newBtn.setMaximumWidth(relaxedSizeStr(self, 'MAX')[0])
+   def createSetMaxButton(self, targWidgetID):
+      newBtn = QCheckBox('MAX')
+      #newBtn.setMaximumWidth(relaxedSizeStr(self, 'MAX')[0])
       newBtn.setToolTip(self.tr('Fills in the maximum spendable amount minus '
                          'the amounts specified for other recipients '
                          'and the transaction fee '))
-      funcSetMax = lambda:  self.setMaximum(targWidget)
+      funcSetMax = lambda:  self.setMaximum(targWidgetID)
       self.connect(newBtn, SIGNAL(CLICKED), funcSetMax)
       return newBtn
 
@@ -1078,6 +1105,8 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.widgetTable = []
       for r in range(nRecip):
          self.widgetTable.append({})
+         
+         self.widgetTable[r]['UID'] = SecureBinaryData().GenerateRandom(8).toHexStr()
 
          self.widgetTable[r]['LBL_ADDR'] = QLabel('Address %d:' % (r+1))
 
@@ -1108,7 +1137,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          self.widgetTable[r]['LBL_BTC'].setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
          self.widgetTable[r]['BTN_MAX'] = \
-                           self.createSetMaxButton(self.widgetTable[r]['QLE_AMT'])
+                           self.createSetMaxButton(self.widgetTable[r]['UID'])
 
          self.widgetTable[r]['LBL_COMM'] = QLabel('Comment:')
          self.widgetTable[r]['QLE_COMM'] = QLineEdit()
