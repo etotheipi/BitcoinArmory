@@ -74,9 +74,40 @@ shared_ptr<ScriptRecipient> ScriptRecipient::deserialize(
 //// ScriptSpender
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-BinaryDataRef ScriptSpender::getOutputScript(void) const
+BinaryDataRef ScriptSpender::getOutputScript() const
 {
+   if (!utxo_.isInitialized())
+      throw runtime_error("missing utxo");
+
    return utxo_.getScript();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryDataRef ScriptSpender::getOutputHash() const
+{
+   if (utxo_.isInitialized())
+      return utxo_.getTxHash();
+
+   if (outpoint_.getSize() != 36)
+      throw runtime_error("missing utxo");
+
+   BinaryRefReader brr(outpoint_);
+   return brr.get_BinaryDataRef(32);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+unsigned ScriptSpender::getOutputIndex() const
+{
+   if (utxo_.isInitialized())
+      return utxo_.getTxOutIndex();
+   
+   if (outpoint_.getSize() != 36)
+      throw runtime_error("missing utxo");
+
+   BinaryRefReader brr(outpoint_);
+   brr.advance(32);
+
+   return brr.get_uint32_t();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -88,7 +119,7 @@ BinaryDataRef ScriptSpender::getOutpoint() const
       bw.put_BinaryDataRef(getOutputHash());
       bw.put_uint32_t(getOutputIndex());
 
-      outpoint_ = move(bw.getData());
+      outpoint_ = bw.getData();
    }
 
    return outpoint_.getRef();
@@ -449,9 +480,21 @@ BinaryData ScriptSpender::serializeState() const
    bw.put_uint8_t(sigHashType_);
    bw.put_uint32_t(sequence_);
 
-   auto&& ser_utxo = utxo_.serialize();
-   bw.put_var_int(ser_utxo.getSize());
-   bw.put_BinaryData(ser_utxo);
+   if (hasUTXO())
+   {
+      bw.put_uint8_t(PREFIX_UTXO);
+      auto&& ser_utxo = utxo_.serialize();
+      bw.put_var_int(ser_utxo.getSize());
+      bw.put_BinaryData(ser_utxo);
+   }
+   else
+   {
+      auto& outpoint = getOutpoint();
+      bw.put_uint8_t(PREFIX_OUTPOINT);
+      bw.put_var_int(outpoint.getSize());
+      bw.put_BinaryData(outpoint);
+      bw.put_uint64_t(value_);
+   }
 
    if (legacyStatus_ == SpenderStatus_Resolved)
    {
@@ -500,20 +543,48 @@ BinaryData ScriptSpender::serializeState() const
 
 ////////////////////////////////////////////////////////////////////////////////
 shared_ptr<ScriptSpender> ScriptSpender::deserializeState(
-   const BinaryDataRef& dataRef, shared_ptr<ResolverFeed> feedPtr)
+   const BinaryDataRef& dataRef)
 {
    BinaryRefReader brr(dataRef);
 
    BitUnpacker<uint8_t> bup(brr.get_uint8_t());
    auto sighash_type = (SIGHASH_TYPE)brr.get_uint8_t();
    auto sequence = brr.get_uint32_t();
+   
+   shared_ptr<ScriptSpender> script_spender;
 
-   auto utxo_len = brr.get_var_int();
-   auto utxo_data = brr.get_BinaryDataRef(utxo_len);
-   UTXO utxo;
-   utxo.unserialize(utxo_data);
+   auto prefix = brr.get_uint8_t();
+   switch (prefix)
+   {
+   case PREFIX_UTXO:
+   {
+      auto utxo_len = brr.get_var_int();
+      auto utxo_data = brr.get_BinaryDataRef(utxo_len);
+      UTXO utxo;
+      utxo.unserialize(utxo_data);
+      script_spender = make_shared<ScriptSpender>(utxo);
+      break;
+   }
 
-   auto script_spender = make_shared<ScriptSpender>(utxo, feedPtr);
+   case PREFIX_OUTPOINT:
+   {
+      auto outpoint_len = brr.get_var_int();
+      auto outpoint = brr.get_BinaryDataRef(outpoint_len);
+
+      BinaryRefReader brr_outpoint(outpoint);
+      auto hash_ref = brr_outpoint.get_BinaryDataRef(32);
+      auto idx = brr_outpoint.get_uint32_t();
+      auto val = brr.get_uint64_t();
+
+      script_spender = make_shared<ScriptSpender>(hash_ref, idx, val);
+      break;
+   }
+
+   default:
+      throw runtime_error("invalid prefix for utxo/outpoint deser");
+   }
+
+
    script_spender->legacyStatus_ = (SpenderStatus)bup.getBits(2);
    script_spender->segwitStatus_ = (SpenderStatus)bup.getBits(2);
 
@@ -562,7 +633,7 @@ shared_ptr<ScriptSpender> ScriptSpender::deserializeState(
       case WITNESS_STACK_PARTIAL:
       {
          auto count = brr.get_var_int();
-
+          
          for (unsigned i = 0; i < count; i++)
          {
             auto len = brr.get_var_int();
@@ -580,6 +651,51 @@ shared_ptr<ScriptSpender> ScriptSpender::deserializeState(
    }
 
    return script_spender;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void ScriptSpender::merge(const ScriptSpender& obj)
+{
+   if (resolved())
+      return;
+
+   if (!utxo_.isInitialized() && obj.utxo_.isInitialized())
+      utxo_ = obj.utxo_;
+
+   if (legacyStatus_ != SpenderStatus_Resolved)
+   {
+      switch (obj.legacyStatus_)
+      {
+      case SpenderStatus_Resolved:
+      {
+         serializedScript_ = obj.serializedScript_;
+         legacyStatus_ = SpenderStatus_Resolved;
+         break;
+      }
+
+      case SpenderStatus_Partial:
+         partialStack_.insert(obj.partialStack_.begin(), obj.partialStack_.end());
+         evaluatePartialStacks();
+      }
+   }
+
+   if (segwitStatus_ != SpenderStatus_Resolved)
+   {
+      switch (obj.segwitStatus_)
+      {
+      case SpenderStatus_Resolved:
+      {
+         witnessData_ = obj.witnessData_;
+         segwitStatus_ = SpenderStatus_Resolved;
+         break;
+      }
+
+      case SpenderStatus_Partial:
+         partialWitnessStack_.insert(
+            obj.partialWitnessStack_.begin(), obj.partialWitnessStack_.end());
+         evaluatePartialStacks();
+      }
+   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -649,8 +765,7 @@ BinaryData Signer::serializeAllOutpoints(void) const
    BinaryWriter bw;
    for (auto& spender : spenders_)
    {
-      bw.put_BinaryDataRef(spender->getOutputHash());
-      bw.put_uint32_t(spender->getOutputIndex());
+      bw.put_BinaryDataRef(spender->getOutpoint());
    }
 
    return bw.getData();
@@ -696,6 +811,17 @@ void Signer::sign(void)
 
       if (spender->resolved())
          continue;
+
+      if (!spender->hasUTXO())
+         continue;
+
+      if (!spender->hasFeed())
+      {
+         if (resolverPtr_ == nullptr)
+            continue;
+
+         spender->setFeed(resolverPtr_);
+      }
 
       //resolve spender script
       auto proxy = make_shared<SignerProxyFromSigner>(this, i);
@@ -944,15 +1070,15 @@ BinaryData Signer::serializeState() const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void Signer::deserializeState(
-   const BinaryData& data, shared_ptr<ResolverFeed> feedPtr)
+Signer Signer::createFromState(const BinaryData& state)
 {
-   BinaryRefReader brr(data.getRef());
+   Signer signer;
+   BinaryRefReader brr(state.getRef());
 
-   version_    = brr.get_uint32_t();
-   lockTime_   = brr.get_uint32_t();
-   flags_      = brr.get_uint32_t();
-   isSegWit_   = brr.get_uint8_t();
+   signer.version_ = brr.get_uint32_t();
+   signer.lockTime_ = brr.get_uint32_t();
+   signer.flags_ = brr.get_uint32_t();
+   signer.isSegWit_ = brr.get_uint8_t();
 
    auto spender_count = brr.get_var_int();
    for (unsigned i = 0; i < spender_count; i++)
@@ -960,8 +1086,16 @@ void Signer::deserializeState(
       auto spender_len = brr.get_var_int();
       auto spender_data = brr.get_BinaryDataRef(spender_len);
 
-      auto spender_ptr = ScriptSpender::deserializeState(spender_data, feedPtr);
-      spenders_.push_back(spender_ptr);
+      try
+      {
+         auto spender_ptr = ScriptSpender::deserializeState(spender_data);
+         signer.spenders_.push_back(spender_ptr);
+      }
+      catch (exception &e)
+      {
+         LOGWARN << "failed to deser spender";
+         LOGWARN << "error: " << e.what();
+      }
    }
 
    auto recipient_count = brr.get_var_int();
@@ -971,7 +1105,87 @@ void Signer::deserializeState(
       auto recipient_data = brr.get_BinaryDataRef(recipient_len);
 
       auto recipient_ptr = ScriptRecipient::deserialize(recipient_data);
-      recipients_.push_back(recipient_ptr);
+      signer.recipients_.push_back(recipient_ptr);
+   }
+
+   return signer;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void Signer::deserializeState(
+   const BinaryData& data)
+{
+   //deser into a new object
+   auto&& new_signer = createFromState(data);
+
+   version_ = new_signer.version_;
+   lockTime_ = new_signer.lockTime_;
+   flags_ |= new_signer.flags_;
+   isSegWit_ |= new_signer.isSegWit_;
+
+   auto find_spender = [this](shared_ptr<ScriptSpender> obj)->
+      shared_ptr<ScriptSpender>
+   {
+      for (auto spd : this->spenders_)
+      {
+         if (*spd == *obj)
+            return spd;
+      }
+
+      return nullptr;
+   };
+
+   auto find_recipient = [this](shared_ptr<ScriptRecipient> obj)->
+      shared_ptr<ScriptRecipient>
+   {
+      auto& scriptHash = obj->getSerializedScript();
+      for (auto rec : this->recipients_)
+      {
+         if (scriptHash == rec->getSerializedScript())
+            return rec;
+      }
+
+      return nullptr;
+   };
+
+   //Merge new signer with this. As a general rule, the added entries are all 
+   //pushed back.
+
+   //merge spender
+   for (auto& spender : new_signer.spenders_)
+   {
+      auto local_spender = find_spender(spender);
+      if (local_spender != nullptr)
+         local_spender->merge(*spender);
+      else
+         spenders_.push_back(spender);
+   }
+
+
+   /*Recipients are told apart by their script hash. Several recipients with
+   the same script hash will be aggregated into a single one.
+
+   Note that in case the local signer has several recipient with the same
+   hash scripts, these won't be aggregated. Only those from the new_signer will.
+
+   As a general rule, do not create several outputs with the script hash.
+
+   NOTE: adding recipients or triggering an aggregation will render prior signatures 
+   invalid. This code does NOT check for that. It's the caller's responsibility 
+   to check for this condition.
+
+   As with spenders, new recipients are pushed back.
+   */
+
+   for (auto& recipient : new_signer.recipients_)
+   {
+      auto local_recipient = find_recipient(recipient);
+
+      if (local_recipient == nullptr)
+         recipients_.push_back(recipient);
+      else
+         local_recipient->setValue(
+            local_recipient->getValue() + recipient->getValue());
    }
 }
 
@@ -985,6 +1199,38 @@ bool Signer::isValid() const
    }
 
    return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void Signer::populateUtxo(const UTXO& utxo)
+{
+   for (auto& spender : spenders_)
+   {
+      if (spender->hasUTXO())
+      {
+         auto& spender_utxo = spender->getUtxo();
+         if (spender_utxo == utxo)
+            return;
+      }
+      else
+      {
+         auto outpoint = spender->getOutpoint();
+         BinaryRefReader brr(outpoint);
+         
+         auto&& hash = brr.get_BinaryDataRef(32);
+         if (hash != utxo.getTxHash())
+            continue;
+
+         auto txoutid = brr.get_uint32_t();
+         if (txoutid != utxo.getTxOutIndex())
+            continue;
+
+         spender->setUtxo(utxo);
+         return;
+      }
+   }
+
+   throw runtime_error("could not match utxo to any spender");
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -178,6 +178,7 @@
     <ClInclude Include="..\BlockUtils.h" />
     <ClInclude Include="..\BtcUtils.h" />
     <ClInclude Include="..\BtcWallet.h" />
+    <ClInclude Include="..\CoinSelection.h" />
     <ClInclude Include="..\DatabaseBuilder.h" />
     <ClInclude Include="..\EncryptionUtils.h" />
     <ClInclude Include="..\gtest\gtest.h" />
@@ -189,12 +190,17 @@
     <ClInclude Include="..\log.h" />
     <ClInclude Include="..\Progress.h" />
     <ClInclude Include="..\ScrAddrObj.h" />
+    <ClInclude Include="..\Script.h" />
+    <ClInclude Include="..\ScriptRecipient.h" />
+    <ClInclude Include="..\Signer.h" />
     <ClInclude Include="..\SocketObject.h" />
     <ClInclude Include="..\StoredBlockObj.h" />
+    <ClInclude Include="..\Transactions.h" />
     <ClInclude Include="..\TxClasses.h" />
     <ClInclude Include="..\txio.h" />
     <ClInclude Include="..\UniversalTimer.h" />
     <ClInclude Include="..\WalletManager.h" />
+    <ClInclude Include="..\Wallets.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\BDM_mainthread.cpp" />

@@ -31,6 +31,9 @@ enum SpenderStatus
 #define LEGACY_STACK_PARTIAL    0x03
 #define WITNESS_STACK_PARTIAL   0x04
 
+#define PREFIX_UTXO        0x05
+#define PREFIX_OUTPOINT    0x06
+
 ////////////////////////////////////////////////////////////////////////////////
 class ScriptSpender
 {
@@ -43,7 +46,8 @@ private:
    bool isCSV_ = false;
    bool isCLTV_ = false;
 
-   const UTXO utxo_;
+   UTXO utxo_;
+   const uint64_t value_ = UINT64_MAX;
    BinaryDataRef p2shScript_;
    unsigned sequence_ = UINT32_MAX;
    SIGHASH_TYPE sigHashType_ = SIGHASH_ALL;
@@ -70,8 +74,23 @@ private:
       const vector<shared_ptr<StackItem>>&);
 
 public:
+   ScriptSpender(
+      const BinaryDataRef txHash, unsigned index, uint64_t value) :
+      value_(value)
+   {
+      BinaryWriter bw;
+      bw.put_BinaryDataRef(txHash);
+      bw.put_uint32_t(index);
+
+      outpoint_ = bw.getData();
+   }
+
+   ScriptSpender(const UTXO& utxo) :
+      utxo_(utxo), value_(utxo.getValue())
+   {}
+
    ScriptSpender(const UTXO& utxo, shared_ptr<ResolverFeed> feed) :
-      utxo_(utxo), resolverFeed_(feed)
+      utxo_(utxo), value_(utxo.getValue()), resolverFeed_(feed)
    {}
 
    bool isSegWit(void) const { return segwitStatus_ != SpenderStatus_Unkonwn; }
@@ -87,14 +106,15 @@ public:
    SIGHASH_TYPE getSigHashType(void) const { return sigHashType_; }
    unsigned getSequence(void) const { return sequence_; }
    BinaryDataRef getOutputScript(void) const;
-   BinaryDataRef getOutputHash(void) const { return utxo_.getTxHash().getRef(); }
-   unsigned getOutputIndex(void) const { return utxo_.getTxOutIndex(); }
+   BinaryDataRef getOutputHash(void) const;
+   unsigned getOutputIndex(void) const;
    BinaryDataRef getSerializedInput(void) const;
    BinaryDataRef getWitnessData(void) const { return witnessData_.getRef(); }
    BinaryDataRef getOutpoint(void) const;
-   uint64_t getValue(void) const { return utxo_.getValue(); }
+   uint64_t getValue(void) const { return value_; }
    shared_ptr<ResolverFeed> getFeed(void) const { return resolverFeed_; }
    const UTXO& getUtxo(void) const { return utxo_; }
+   void setUtxo(const UTXO& utxo) { utxo_ = utxo; }
    const BinaryData& getSingleSig(void) const;
 
    unsigned getFlags(void) const
@@ -151,10 +171,22 @@ public:
    
    void evaluatePartialStacks(void);
    bool resolved(void) const;
+   bool isPartial(void) const;
 
    BinaryData serializeState(void) const;
    static shared_ptr<ScriptSpender> deserializeState(
-      const BinaryDataRef&, shared_ptr<ResolverFeed>);
+      const BinaryDataRef&);
+
+   void merge(const ScriptSpender&);
+   bool hasUTXO(void) const { return utxo_.isInitialized(); }
+
+   bool hasFeed(void) const { return resolverFeed_ != nullptr; }
+   void setFeed(shared_ptr<ResolverFeed> feedPtr) { resolverFeed_ = feedPtr; }
+
+   bool operator==(const ScriptSpender& rhs)
+   {
+      return this->getOutpoint() == rhs.getOutpoint();
+   }
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -171,6 +203,8 @@ protected:
 
    vector<shared_ptr<ScriptSpender>> spenders_;
    vector<shared_ptr<ScriptRecipient>> recipients_;
+
+   shared_ptr<ResolverFeed> resolverPtr_;
 
    mutable bool isSegWit_ = false;
 
@@ -218,8 +252,13 @@ public:
    const BinaryData& getSigForInputIndex(unsigned) const;
 
    BinaryData serializeState(void) const;
-   void deserializeState(const BinaryData&, shared_ptr<ResolverFeed>);
+   void deserializeState(const BinaryData&);
    bool isValid(void) const;
+   
+   void setFeed(shared_ptr<ResolverFeed> feedPtr) { resolverPtr_ = feedPtr; }
+   void populateUtxo(const UTXO& utxo);
+
+   static Signer createFromState(const BinaryData&);
 };
 
 ////////////////////////////////////////////////////////////////////////////////

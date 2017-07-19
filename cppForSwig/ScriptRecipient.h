@@ -38,7 +38,7 @@ class ScriptRecipient
 {
 protected:
    const SpendScriptType type_;
-   const uint64_t value_ = UINT64_MAX;
+   uint64_t value_ = UINT64_MAX;
 
    BinaryData script_;
 
@@ -63,6 +63,7 @@ public:
 
    //locals
    uint64_t getValue(void) const { return value_; }
+   void setValue(uint64_t val) { value_ = val; }
 
    //static
    static shared_ptr<ScriptRecipient> deserialize(const BinaryDataRef& dataPtr);

@@ -534,6 +534,8 @@ struct UTXO
 
       return false;
    }
+
+   bool isInitialized(void) const { return script_.getSize() > 0; }
 };
 
 
