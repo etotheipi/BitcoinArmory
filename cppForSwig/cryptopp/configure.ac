@@ -88,6 +88,13 @@ AC_SUBST([CLANG])
 AM_CONDITIONAL([CRYPTOPP_HAVE_CLANG], [test x$CLANG = xyes])
 AM_CONDITIONAL([CRYPTOPP_HAVE_GCC], [test $CXX == g++])
 
+#set this otherwise autoconf complains about conditionals never getting defined
+AM_CONDITIONAL([GAS210_OR_LATER], [test "a" == "b"])
+AM_CONDITIONAL([GAS217_OR_LATER], [test "a" == "b"])
+AM_CONDITIONAL([GAS219_OR_LATER], [test "a" == "b"])
+AM_CONDITIONAL([HAVE_AES], [test "a" == "b"])
+AM_CONDITIONAL([HAVE_PCLMUL], [test "a" == "b"])
+
 if test $CXX == g++; then
 AM_CONDITIONAL([GAS210_OR_LATER], [test $(as -v 2>&1 | egrep -c "GNU assembler version (2\.[1-9][0-9]|[3-9])")])
 AM_CONDITIONAL([GAS217_OR_LATER], [test $(as -v 2>&1 | egrep -c "GNU assembler version (2\.1[7-9]|2\.[2-9]|[3-9])")])
