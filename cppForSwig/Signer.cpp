@@ -489,7 +489,7 @@ BinaryData ScriptSpender::serializeState() const
    }
    else
    {
-      auto& outpoint = getOutpoint();
+      auto outpoint = getOutpoint();
       bw.put_uint8_t(PREFIX_OUTPOINT);
       bw.put_var_int(outpoint.getSize());
       bw.put_BinaryData(outpoint);
