@@ -1762,7 +1762,38 @@ TxOut LMDBBlockDatabase::getTxOutCopy(
 
    BinaryRefReader brr;
    if (!ldbKey6B.startsWith(ZCprefix_))
-      brr = getValueReader(STXO, DB_PREFIX_TXDATA, ldbKey8);
+   {
+      if (armoryDbType_ == ARMORY_DB_SUPER)
+      {
+         BinaryRefReader brr_key(ldbKey6B);
+         unsigned block;
+         uint8_t dup;
+         uint16_t txid;
+         DBUtils::readBlkDataKeyNoPrefix(brr_key, block, dup, txid);
+
+         auto header = blockchainPtr_->getHeaderByHeight(block);
+         auto&& key_super = DBUtils::getBlkDataKeyNoPrefix(
+            header->getThisID(), 0xFF, txid, txOutIdx);
+         brr = getValueReader(STXO, key_super);
+
+         if (brr.getSize() == 0)
+         {
+            LOGERR << "TxOut key does not exist in BLKDATA DB";
+            return TxOut();
+         }
+
+         StoredTxOut stxo;
+         stxo.unserializeDBValue(brr.getRawRef());
+         auto&& txout_raw = stxo.getSerializedTxOut();
+         TxRef txref(ldbKey6B);
+         txoOut.unserialize(txout_raw, txout_raw.getSize(), txref, txOutIdx);
+         return txoOut;
+      }
+      else
+      {
+         brr = getValueReader(STXO, DB_PREFIX_TXDATA, ldbKey8);
+      }
+   }
    else
    {
       LMDBEnv::Transaction zctx;
