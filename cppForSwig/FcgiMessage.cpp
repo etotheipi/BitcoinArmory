@@ -142,7 +142,7 @@ FcgiPacket& FcgiMessage::getNewPacket(void)
 uint16_t FcgiMessage::beginRequest(void)
 {
    //randomize requestID
-   requestID_ = rand() % 65536;
+   requestID_ = 1 + rand() % 65534; //cannot be 0
 
    //make begin_request packet
    auto& packet = getNewPacket();
