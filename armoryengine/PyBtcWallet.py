@@ -2604,6 +2604,8 @@ class PyBtcWallet(object):
          self.addrMap[newAddr160].lock(self.kdfKey)
          if not self.isLocked:
             self.addrMap[newAddr160].unlock(self.kdfKey)
+            
+      return computedPubkey
 
    #############################################################################  
    def importExternalAddressBatch(self, privKeyList):
@@ -2614,6 +2616,7 @@ class PyBtcWallet(object):
          self.importExternalAddressData(key)
          addr160List.append(Hash160ToScrAddr(a160))
 
+      return addr160List
 
    #############################################################################
    @CheckWalletRegistration
