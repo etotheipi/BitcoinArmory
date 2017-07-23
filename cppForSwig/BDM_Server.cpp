@@ -894,6 +894,40 @@ void BDV_Server_Object::buildMethodMap()
    };
 
    methodMap_["getUTXOsForAddrList"] = getUTXOsForAddrList;
+
+   //getRawHeaderForTxHash
+   auto getRawHeaderForTxHash = [this]
+      (const vector<string>& ids, Arguments& args)->Arguments
+   {
+      auto&& hash = args.get<BinaryDataObject>();
+      auto&& dbKey = this->db_->getDBKeyForHash(hash.get());
+      
+      Arguments retarg;
+      if (dbKey.getSize() == 0)
+         return retarg;
+
+      unsigned height; uint8_t dup;
+      BinaryRefReader key_brr(dbKey.getRef());
+      DBUtils::readBlkDataKeyNoPrefix(key_brr, height, dup);
+
+      BinaryData rawHeader;
+      try
+      {
+         auto block = this->blockchain().getHeaderByHeight(height);
+         rawHeader = block->serialize();
+      }
+      catch (exception&)
+      {
+         return retarg;
+      }
+
+      BinaryDataObject headerBDO(move(rawHeader));
+      retarg.push_back(move(headerBDO));
+      return retarg;
+   };
+
+   methodMap_["getRawHeaderForTxHash"] = getRawHeaderForTxHash;
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -902,7 +936,10 @@ const shared_ptr<BDV_Server_Object>& Clients::get(const string& id) const
    auto bdvmap = BDVs_.get();
    auto iter = bdvmap->find(id);
    if (iter == bdvmap->end())
+   {
+      LOGERR << "unknown BDVid";
       throw runtime_error("unknown BDVid");
+   }
 
    return iter->second;
 }
@@ -1363,6 +1400,7 @@ void FCGI_Server::processRequest(FCGX_Request* req)
    }
    else
    {
+      LOGERR << "empty content_length";
       FCGX_Finish_r(req);
       delete req;
 

@@ -84,10 +84,19 @@ void BlockDataViewer::goOnline()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+BlockDataViewer::BlockDataViewer(void)
+{
+   txMap_ = make_shared<map<BinaryData, Tx>>();
+   rawHeaderMap_ = make_shared<map<BinaryData, BinaryData>>();
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
 BlockDataViewer::BlockDataViewer(const shared_ptr<BinarySocket> sock) :
    sock_(sock)
 {
    txMap_ = make_shared<map<BinaryData, Tx>>();
+   rawHeaderMap_ = make_shared<map<BinaryData, BinaryData>>();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -272,6 +281,42 @@ Tx BlockDataViewer::getTxByHash(const BinaryData& txHash)
    tx.unserializeWithMetaData(rawtx.get());
    txMap_->insert(make_pair(txHash, tx));
    return tx;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+BinaryData BlockDataViewer::getRawHeaderForTxHash(const BinaryData& txHash)
+{
+   BinaryDataRef bdRef(txHash);
+   BinaryData hash;
+
+   if (txHash.getSize() != 32)
+   {
+      if (txHash.getSize() == 64)
+      {
+         string hashstr(txHash.toCharPtr(), txHash.getSize());
+         hash = READHEX(hashstr);
+         bdRef.setRef(hash);
+      }
+   }
+
+   auto iter = rawHeaderMap_->find(bdRef);
+   if (iter != rawHeaderMap_->end())
+      return iter->second;
+
+   Command cmd;
+
+   cmd.method_ = "getRawHeaderForTxHash";
+   cmd.ids_.push_back(bdvID_);
+   cmd.args_.push_back(BinaryDataObject(bdRef));
+   cmd.serialize();
+
+   auto&& result = sock_->writeAndRead(cmd.command_);
+
+   Arguments retval(result);
+   auto&& rawheader = retval.get<BinaryDataObject>();
+
+   rawHeaderMap_->insert(make_pair(bdRef, rawheader.get()));
+   return rawheader.get();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
