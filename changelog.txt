@@ -1,27 +1,47 @@
 v0.96.1
 
 == Added ==
+   - Raised default fee to 200 satoshi/Bytes. This fee will apply when using defaults and the node RPC is down.
+     Any applied fee lower than that rate will trigger a warning message box. Users have to actively choose to 
+     bypass the warning.
    - Split unit tests building from default autotools setup. To build tests, use:
       ./configure --enable-tests.
    - You can now disable GUI in the autotools build system. Use: 
       ./configure --without-gui
    - When spawned with a cookie file, the DB now randomizes its listen port to (49150 + [0-15000]) and reports it in the cookie file.
-   - Added --fcgi-port command line argument to the DB.
+   - Added --fcgi-port command line argument to the DB
+   - Address comments are now visible again in the Coin Control GUI
+   - DB messages now have checksums; this improves error and version mismatch detection
+   - Transactions that failed to broadcast throug the P2P layer will now be pushed to the RPC afterwards, if it's enabled
+   - Refresh address view in Wallet Properties dialog on several user interactions.
+   - RPC status is now signaled in the bottom right corner status bar. Disabled RPC will result in bold purple text.
+   - Highly improved DB corruption self diagnosis and automated fixing.
+   - Zero confirmation parser pool now is now capped at 100 threads. 
+     You can modify this value with the --zcthread-pool command line argument.
 
 == Fixed ==
-   - ZC parsing will no long occur while the BDM is initializing
-   - Wait on cookie file creation before connection to auto managed DB
+   - ZC parsing will no longer occur while the BDM is initializing
+   - Wait on cookie file creation before connecting to auto managed DB
    - Fixed registration/callback premature garbage collection
    - Translation patch issues
    - Fixed "Fund from wallet" lockbox GUI
    - Fixed TxIn/Out pretty printing
    - Tied init phase spinning icon rotation to progress notifications. The icon will not spin when no progress data is received, correctly 
      indicating the DB is hanging.   
-   - Fixed cryptopp build against older CPUs (no AES or PCLMUL archs)
-   - Fixed RBF bumping with no change
+   - Fixed cryptopp build against older CPUs (no AES or PCLMUL archs).
+   - Fixed RBF bumping with no change.
+   - Improved timestamps granularity in logs.
+   - Improved transaction broadcast consistency.
+   - Improved error message verbose of timed out transaction broadcasts.
+   - ./configure --prefix now propagates correctly to Makefiles.
+   - Fixed several memleaks in the database code.
+   - Fixed false positive throws over bad packet detection in socketing layer.
+   - Fixed coin selection edge cases.
+   - Fixed the displaying of address comments in the lobby ledger.
 
 == Removed ==
    - Python-twisted dependency. This should remove the underlying openSSL dependency as well.
+   - Database command prompt will no longer appear when auto managing the DB on Windows
 
 v0.96, released April 30th 2017
 
