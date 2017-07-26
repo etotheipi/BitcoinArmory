@@ -6063,6 +6063,10 @@ TEST_F(TransactionsTest, Wallet_SpendTest_P2PKH)
          signer.addRecipient(recipientChange);
       }
 
+      //add op_return output for coverage
+      BinaryData opreturn_msg("testing op_return");
+      signer.addRecipient(make_shared<Recipient_OPRETURN>(opreturn_msg));
+
       //sign, verify then broadcast
       signer.sign();
       EXPECT_TRUE(signer.verify());
@@ -6547,6 +6551,9 @@ TEST_F(TransactionsTest, Wallet_SpendTest_Nested_Multisig)
          signer.addRecipient(recipientChange);
       }
 
+      BinaryData opreturn_msg("testing op_return message");
+      signer.addRecipient(make_shared<Recipient_OPRETURN>(opreturn_msg));
+
       //sign, verify then broadcast
       signer.sign();
       EXPECT_TRUE(signer.verify());
@@ -6810,6 +6817,10 @@ TEST_F(TransactionsTest, Wallet_SpendTest_MultipleSigners_1of3)
          signer.addRecipient(recipientChange);
       }
 
+      //add op_return output for coverage
+      BinaryData opreturn_msg("testing op_return 0123");
+      signer.addRecipient(make_shared<Recipient_OPRETURN>(opreturn_msg));
+
       //sign, verify then broadcast
       signer.sign();
       EXPECT_TRUE(signer.verify());
@@ -6911,6 +6922,10 @@ TEST_F(TransactionsTest, Wallet_SpendTest_MultipleSigners_1of3)
          auto changeVal = total - spendVal;
          signer2.addRecipient(addr_ms.getRecipient(changeVal));
       }
+
+      //add op_return output for coverage
+      BinaryData opreturn_msg("testing op_return 0123");
+      signer2.addRecipient(make_shared<Recipient_OPRETURN>(opreturn_msg));
 
       //sign, verify & return signed tx
       signer2.sign();
@@ -8948,6 +8963,10 @@ TEST_F(TransactionsTest, Wallet_SpendTest_Nested_P2PK)
          signer2.addRecipient(addr2->getRecipient(changeVal));
          addrVec.push_back(addr2->getPrefixedHash());
       }
+
+      //add opreturn for coverage
+      BinaryData opreturn_msg("op_return message testing");
+      signer2.addRecipient(make_shared<Recipient_OPRETURN>(opreturn_msg));
 
       //sign, verify & broadcast
       signer2.sign();

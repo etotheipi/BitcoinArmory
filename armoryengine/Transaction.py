@@ -2734,6 +2734,39 @@ class UnsignedTransaction(AsciiSerializable):
       
       pytxObj = PyTx()
       
+   #############################################################################
+   def addOpReturnOutput(self, msgBin):
+      #op_return
+      bp = BinaryPacker()
+      bp.put(UINT8, OP_RETURN)
+      
+      #op_pushdata and message
+      msgLen = len(msgBin)
+      if msgLen > 80:
+         raise InvalidScriptError("msg for OP_RETURN cannot exceed 80 bytes")
+      elif msgLen > 0 and msgLen < 76:
+         bp.put(UINT8, msgLen)
+         bp.put(BINARY_CHUNK, msgBin)
+      elif msgLen > 75:
+         bp.put(UINT8, OP_PUSHDATA1)
+         bp.put(UINT8, msgLen)
+         bp.put(BINARY_CHUNK, msgBin)
+         
+      binScript = bp.getBinaryString()
+      
+      #add to PyTx object  
+      iout = len(self.pytxObj.outputs)
+      self.pytxObj.outputs.append(PyTxOut())
+      self.pytxObj.outputs[iout].value     = 0
+      self.pytxObj.outputs[iout].binScript = binScript
+
+      #add to UnsignedTransaction object
+      self.decorTxOuts.append(DecoratedTxOut(script=binScript, value=0))
+      
+      #update USTX id
+      rawTxNoSigs = self.pytxObj.serialize()
+      self.uniqueIDB58 = self.computeUniqueIDB58(rawTxNoSigs)
+      self.asciiID = self.uniqueIDB58
       
 
 ################################################################################

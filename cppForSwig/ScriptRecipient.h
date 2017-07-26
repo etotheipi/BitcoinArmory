@@ -21,7 +21,8 @@ enum SpendScriptType
    SST_P2WPKH,
    SST_NESTED_P2WPKH,
    SST_P2WSH,
-   SST_NESTED_P2WSH
+   SST_NESTED_P2WSH,
+   SST_OPRETURN
 };
 
 ////
@@ -188,6 +189,61 @@ public:
    }
 
    size_t getSize(void) const { return 43; }
+};
+
+////////////////////////////////////////////////////////////////////////////////
+class Recipient_OPRETURN : public ScriptRecipient
+{
+private:
+   const BinaryData message_;
+
+public:
+   Recipient_OPRETURN(const BinaryData& message) :
+      ScriptRecipient(SST_OPRETURN, 0), message_(message)
+   {
+      if (message_.getSize() > 80)
+         throw ScriptRecipientException(
+            "OP_RETURN message cannot exceed 80 bytes");
+   }
+
+   void serialize(void)
+   {
+      BinaryWriter bw;
+      bw.put_uint64_t(0);
+      
+      BinaryWriter bw_msg;
+      auto size = message_.getSize();
+      if (size > 75)
+      {
+         bw_msg.put_uint8_t(OP_PUSHDATA1);
+         bw_msg.put_uint8_t(size);
+      }
+      else if (size > 0)
+      {
+         bw_msg.put_uint8_t(size);
+      }
+
+      if (size > 0)
+         bw_msg.put_BinaryData(message_);
+
+      bw.put_uint8_t(bw_msg.getSize() + 1);
+      bw.put_uint8_t(OP_RETURN);
+      bw.put_BinaryData(bw_msg.getData());
+
+      script_ = bw.getData();
+   }
+
+   size_t getSize(void) const
+   {
+      auto size = message_.getSize();
+      if (size > 75)
+         size += 2;
+      else if (size > 0)
+         size += 1;
+      
+      size += 9; //8 for value, one for op_return
+      return size;
+   }
 };
 
 #endif

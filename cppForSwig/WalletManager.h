@@ -432,6 +432,8 @@ public:
          recipient = make_shared<Recipient_P2PKH>(txOutRef.scriptRef_, value);
       else if (txOutRef.type_ == p2sh_prefix)
          recipient = make_shared<Recipient_P2SH>(txOutRef.scriptRef_, value);
+      else if (txOutRef.type_ == SCRIPT_PREFIX_OPRETURN)
+         recipient = make_shared<Recipient_OPRETURN>(txOutRef.scriptRef_);
       else
          throw WalletException("unexpected output type");
 

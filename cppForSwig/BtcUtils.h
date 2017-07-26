@@ -106,7 +106,8 @@ typedef enum
    TXOUT_SCRIPT_P2SH,
    TXOUT_SCRIPT_NONSTANDARD,
    TXOUT_SCRIPT_P2WPKH,
-   TXOUT_SCRIPT_P2WSH
+   TXOUT_SCRIPT_P2WSH,
+   TXOUT_SCRIPT_OPRETURN
 }  TXOUT_SCRIPT_TYPE;
 
 typedef enum
@@ -132,6 +133,7 @@ typedef enum
   SCRIPT_PREFIX_P2SH_TESTNET=0xc4,
   SCRIPT_PREFIX_MULTISIG=0xfe,
   SCRIPT_PREFIX_NONSTD=0xff,
+  SCRIPT_PREFIX_OPRETURN=0x6a
 } SCRIPT_PREFIX;
 
 
@@ -989,6 +991,9 @@ public:
    // TXOUT_SCRIPT_MULTISIG,
    // TXOUT_SCRIPT_P2SH,
    // TXOUT_SCRIPT_NONSTANDARD,
+   // TXOUT_SCRIPT_P2WPKH,
+   // TXOUT_SCRIPT_P2WSH,
+   // TXOUT_SCRIPT_OPRETURN
    static TXOUT_SCRIPT_TYPE getTxOutScriptType(BinaryDataRef s)
    {
       size_t sz = s.getSize();
@@ -1026,6 +1031,8 @@ public:
          return TXOUT_SCRIPT_P2SH;
       else if (s[-1] == 0xae && isMultisigScript(s))
          return TXOUT_SCRIPT_MULTISIG;
+      else if (s[0] == 0x6a)
+         return TXOUT_SCRIPT_OPRETURN;
       else
          return TXOUT_SCRIPT_NONSTANDARD;
    }
