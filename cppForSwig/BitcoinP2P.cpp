@@ -936,7 +936,7 @@ void BitcoinP2P::connectLoop(void)
          version.setVersionHeaderIPv4(70012, services, timestamp,
             node_addr_, clientsocketaddr);
 
-         version.userAgent_ = "Armory:0.96.0.4";
+         version.userAgent_ = "Armory:0.96.1";
          version.startHeight_ = -1;
 
          sendMessage(move(version));
