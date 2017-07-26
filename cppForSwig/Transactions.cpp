@@ -52,18 +52,18 @@ bool TransactionVerifier::checkSigs() const
       }
       catch (ScriptException &e)
       {
-         LOGERR << "tx verification failed with error: ";
-         LOGERR << e.what();
+         //LOGERR << "tx verification failed with error: ";
+         //LOGERR << e.what();
 
       }
       catch (exception &e)
       {
-         LOGERR << "tx verification failed with error: ";
-         LOGERR << e.what();
+         //LOGERR << "tx verification failed with error: ";
+         //LOGERR << e.what();
       }
       catch (...)
       {
-         LOGERR << "tx verification failed with unkown error";
+         //LOGERR << "tx verification failed with unkown error";
       }
          
       return false;

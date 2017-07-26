@@ -1989,7 +1989,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
             Passphrase.destroy()                                              
 
       newUstx = self.wlt.signUnsignedTx(self.ustxObj)
-      self.wlt.advanceHighestIndex()
+      self.wlt.advanceHighestIndex(isNew=True)
       self.txtUSTX.setText(newUstx.serializeAscii())
       self.ustxObj = newUstx
 

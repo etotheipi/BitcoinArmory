@@ -620,7 +620,7 @@ void ScrAddrFilter::mergeSideScanPile()
    {
       for (auto wltinfo : scandata.wltInfoVec_)
       {
-         wltinfo->callback_(true);
+         wltinfo->callback_(scandata.doScan_);
          scanningAddresses_.erase(wltinfo);
       }
    }
