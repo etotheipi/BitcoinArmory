@@ -551,7 +551,8 @@ void ScrAddrFilter::mergeSideScanPile()
    {
       auto& topHash = scanData.lastScannedBlkHash_;
       auto&& idStrings = scanData.getWalletIDString();
-      walletIDs.insert(walletIDs.end(), idStrings.begin(), idStrings.end());
+      if (scanData.doScan_)
+         walletIDs.insert(walletIDs.end(), idStrings.begin(), idStrings.end());
 
       try
       {
@@ -620,7 +621,7 @@ void ScrAddrFilter::mergeSideScanPile()
    {
       for (auto wltinfo : scandata.wltInfoVec_)
       {
-         wltinfo->callback_(scandata.doScan_);
+         wltinfo->callback_(true);
          scanningAddresses_.erase(wltinfo);
       }
    }

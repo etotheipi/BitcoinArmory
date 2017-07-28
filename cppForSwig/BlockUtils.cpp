@@ -813,6 +813,9 @@ protected:
       const auto progress
          = [&](BDMPhase phase, double prog, unsigned time, unsigned numericProgress)
       {
+         if (wltIDs.size() == 0)
+            return;
+
          auto&& notifPtr = make_unique<BDV_Notification_Progress>(
             phase, prog, time, numericProgress, wltIDs);
 
