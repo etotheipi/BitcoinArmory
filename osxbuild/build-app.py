@@ -27,7 +27,7 @@ pipVer        = '9.0.1'
 pipSubdir     = '11/b6/abcb525026a4be042b486df43905d6893fb04f05aac21c32c638e939e447'
 psutilVer     = '5.2.2'
 psutilSubdir  = '57/93/47a2e3befaf194ccc3d05ffbcba2cdcdd22a231100ef7e4cf63f085c900b'
-libpngVer     = '1.6.29'
+libpngVer     = '1.6.31'
 qtVer         = '4.8.7'  # NB: ArmoryMac.pro must also be kept up to date!!!
                          # Possibly "sipFlags" below too.
 sipVer        = '4.19.2' # NB: ArmoryMac.pro must also be kept up to date!!!
@@ -348,7 +348,7 @@ distfiles.append( [ "psutil", \
 distfiles.append( [ 'libpng', \
                     "libpng-%s.tar.xz" % libpngVer, \
                     "https://sourceforge.net/projects/libpng/files/libpng16/%s/libpng-%s.tar.xz" % (libpngVer, libpngVer), \
-                    "7dbe6a5088b938545fc0857c507d4e0cf5d9023e" ] )
+                    "de695064363df331734466981ef7f6546ef516bf" ] )
 
 # When we upgrade to Qt5....
 #distfiles.append( [ "Qt", \
@@ -612,6 +612,7 @@ def compile_armory():
    os.chdir(currentDir)
    execAndWait('./autogen.sh', cwd='..')
    execAndWait('./configure %s' % CONFIGFLAGS, cwd='..')
+   execAndWait('make clean', cwd='..')
    execAndWait('make DESTDIR="%s" install %s' % (PREFIXBASEDIR, MAKEFLAGS), cwd='..')
    copyfile('Armory-script.sh', armoryAppScript)
    copyfile('armoryd-script.sh', armorydAppScript)
