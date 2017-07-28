@@ -436,6 +436,27 @@ void regWallet(Clients* clients, const string& bdvId,
       throw runtime_error("server returned false to registerWallet query");
 }
 
+BinaryData getTxByHash(Clients* clients, const string bdvId,
+   const BinaryData& txHash)
+{
+   Command cmd;
+
+   BinaryDataObject bdo(txHash);
+   cmd.args_.push_back(move(bdo));
+
+   cmd.method_ = "getTxByHash";
+   cmd.ids_.push_back(bdvId);
+   cmd.serialize();
+
+   auto&& result = clients->runCommand(cmd.command_);
+
+   //check result
+   auto& argVec = result.getArgVector();
+   auto tx = dynamic_pointer_cast<DataObject<BinaryDataObject>>(argVec[0]);
+
+   return tx->getObj().get();
+}
+
 vector<uint64_t> getBalanceAndCount(Clients* clients,
    const string& bdvId, const string& walletId, unsigned blockheight)
 {
@@ -1118,6 +1139,16 @@ TEST_F(BlockUtilsSuper, Load3BlocksPlus3)
    EXPECT_EQ(ssh.getScriptBalance(), 0 * COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 5 * COIN);
    EXPECT_EQ(ssh.totalTxioCount_, 2);
+
+   //grab a tx by hash for coverage
+   auto& txioHeightMap = ssh.subHistMap_.rbegin()->second;
+   auto& txio = txioHeightMap.txioMap_.rbegin()->second;
+   auto&& txhash = txio.getTxHashOfOutput(iface_);
+
+   auto&& tx_raw = getTxByHash(clients_, bdvID, txhash);
+   Tx tx_obj;
+   tx_obj.unserializeWithMetaData(tx_raw);
+   EXPECT_EQ(tx_obj.getThisHash(), txhash);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1727,6 +1758,8 @@ TEST_F(BlockUtilsWithWalletTest, Test_WithWallet)
    EXPECT_EQ(balanceDB, 30 * COIN);
    balanceDB = iface_->getBalanceForScrAddr(TestChain::scrAddrF);
    EXPECT_EQ(balanceDB, 5 * COIN);
+
+   
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1918,6 +1951,12 @@ TEST_F(BlockUtilsWithWalletTest, ZeroConfUpdate)
    BinaryData zcKey = WRITE_UINT16_BE(0xFFFF);
    zcKey.append(WRITE_UINT32_LE(0));
    EXPECT_EQ(iface_->getTxHashForLdbKey(zcKey), ZChash);
+
+   //grab ZC by hash
+   auto&& zctx_fromdb = getTxByHash(clients_, bdvID, ZChash);
+   Tx zctx_obj;
+   zctx_obj.unserializeWithMetaData(zctx_fromdb);
+   EXPECT_EQ(zctx_obj.getThisHash(), ZChash);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

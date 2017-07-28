@@ -715,43 +715,57 @@ BinaryData LMDBBlockDatabase::getDBKeyForHash(const BinaryData& txhash,
    BinaryRefReader brrHints = getValueRef(TXHINTS, DB_PREFIX_TXHINTS, hash4);
 
    uint32_t valSize = brrHints.getSize();
-
    if (valSize < 6)
-   {
-      //LOGERR << "No tx in DB with hash: " << txHash.toHexStr();
       return BinaryData();
-   }
-
    uint32_t numHints = (uint32_t)brrHints.get_var_int();
-   uint32_t height;
-   uint8_t  dup;
-   uint16_t txIdx;
-   for (uint32_t i = 0; i < numHints; i++)
+
+   if (armoryDbType_ != ARMORY_DB_SUPER)
    {
-      BinaryDataRef hint = brrHints.get_BinaryDataRef(6);
-      BinaryRefReader brrHint(hint);
-      BLKDATA_TYPE bdtype = DBUtils::readBlkDataKeyNoPrefix(
-         brrHint, height, dup, txIdx);
-
-      if (dup != expectedDupId)
+      uint32_t height;
+      uint8_t  dup;
+      uint16_t txIdx;
+      for (uint32_t i = 0; i < numHints; i++)
       {
-         if (dup != getValidDupIDForHeight(height) && numHints > 1)
+         BinaryDataRef hint = brrHints.get_BinaryDataRef(6);
+         BinaryRefReader brrHint(hint);
+         BLKDATA_TYPE bdtype = DBUtils::readBlkDataKeyNoPrefix(
+            brrHint, height, dup, txIdx);
+
+         if (dup != expectedDupId)
+         {
+            if (dup != getValidDupIDForHeight(height) && numHints > 1)
+               continue;
+         }
+
+         auto&& txKey = DBUtils::getBlkDataKey(height, dup, txIdx);
+         auto dbVal = getValueNoCopy(TXHINTS, txKey.getRef());
+         if (dbVal.getSize() < 36)
             continue;
+
+         auto txHashRef = dbVal.getSliceRef(4, 32);
+
+         if (txHashRef != txhash)
+            continue;
+
+         return txKey.getSliceCopy(1, 6);
       }
-
-      auto&& txKey = DBUtils::getBlkDataKey(height, dup, txIdx);
-      auto dbVal = getValueNoCopy(TXHINTS, txKey.getRef());
-      if (dbVal.getSize() < 36)
-         continue;
-
-      auto txHashRef = dbVal.getSliceRef(4, 32);
-
-      if (txHashRef != txhash)
-         continue;
-
-      return txKey.getSliceCopy(1, 6);
    }
-   
+   else
+   {
+      if (numHints == 1)
+         return brrHints.get_BinaryData(6);
+
+      for (uint32_t i = 0; i < numHints; i++)
+      {
+         BinaryDataRef hint = brrHints.get_BinaryDataRef(6);
+         //grab tx by key, hash and check
+
+         TxRef ref(hint);
+         if (txhash == getTxHashForLdbKey(hint))
+            return hint;
+      }
+   }
+
    return BinaryData();
 }
 
@@ -1688,7 +1702,11 @@ Tx LMDBBlockDatabase::getFullTxCopy(BinaryData ldbKey6B) const
       throw runtime_error("invalid key length");
    }
    
-   auto header = blockchainPtr_->getHeaderByHeight(height);
+   shared_ptr<BlockHeader> header;
+   if (armoryDbType_ != ARMORY_DB_SUPER)
+      header = blockchainPtr_->getHeaderByHeight(height);
+   else
+      header = blockchainPtr_->getHeaderById(height);
 
    return getFullTxCopy(txid, header);
 }
