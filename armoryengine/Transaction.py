@@ -2728,14 +2728,25 @@ class UnsignedTransaction(AsciiSerializable):
             return True
          
       return False
+         
+   #############################################################################
+   def getSigCount(self):
+      signStat = self.evaluateSigningStatus()
+
+      # Now check that all the raw signatures are actually value
+      numSig = 0  # we'll double check sufficient sigs
+      for inputStatus in signStat.statusList:
+         for i in range(inputStatus.N):
+            if inputStatus.statusN[i] in [TXIN_SIGSTAT.ALREADY_SIGNED, \
+                                    TXIN_SIGSTAT.WLT_ALREADY_SIGNED]:
+               numSig +=1
+      return numSig
    
    #############################################################################
-   def serializeSignedSegWitTx(self):
-      
-      pytxObj = PyTx()
-      
-   #############################################################################
    def addOpReturnOutput(self, msgBin):
+      if self.getSigCount() > 0:
+         raise Exception("Tx is already Signed")
+      
       #op_return
       bp = BinaryPacker()
       bp.put(UINT8, OP_RETURN)
