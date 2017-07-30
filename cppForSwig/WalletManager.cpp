@@ -446,6 +446,17 @@ void CoinSelectionInstance::updateRecipient(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+void CoinSelectionInstance::updateOpReturnRecipient(
+   unsigned id, const BinaryData& message)
+{
+   recipients_.erase(id);
+
+   auto recipient = make_shared<Recipient_OPRETURN>(message);
+   recipients_.insert(make_pair(id, recipient));
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
 void CoinSelectionInstance::removeRecipient(unsigned id)
 {
    recipients_.erase(id);

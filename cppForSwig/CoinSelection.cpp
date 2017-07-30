@@ -1006,7 +1006,13 @@ void PaymentStruct::init()
    {
       auto rcVal = recipient.second->getValue();
       if (rcVal == 0)
-         throw CoinSelectionException("recipient has null value");
+      {
+         auto rc_opreturn = 
+            dynamic_pointer_cast<Recipient_OPRETURN>(recipient.second);
+
+         if (rc_opreturn == nullptr)
+            throw CoinSelectionException("recipient has null value");
+      }
 
       spendVal_ += rcVal;
       size_ += recipient.second->getSize();

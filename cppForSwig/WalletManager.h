@@ -70,6 +70,7 @@ public:
 
    unsigned addRecipient(const BinaryData&, uint64_t);
    void updateRecipient(unsigned, const BinaryData&, uint64_t);
+   void updateOpReturnRecipient(unsigned, const BinaryData&);
    void removeRecipient(unsigned);
    void resetRecipients(void);
 
