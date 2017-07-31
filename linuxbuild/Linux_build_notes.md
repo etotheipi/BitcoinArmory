@@ -43,7 +43,7 @@ HEAD is now at a3d01aa... bump version
 
 In Ubuntu, you are required to install some packages before attempting to build Armory. To do so, type the following line (omitting the dollar sign) into a terminal. This only needs to be done once:
 
-    $ sudo apt-get install git-core build-essential pyqt4-dev-tools swig libqtcore4 libqt4-dev python-qt4 python-dev python-twisted python-psutil
+    $ sudo apt-get install git-core pkg-config build-essential pyqt4-dev-tools swig libqtcore4 libqt4-dev python-qt4 python-dev python-twisted python-psutil
 
 Now, you need to clone Armory's git repository and initialize the submodules:
 
@@ -59,6 +59,13 @@ At this point, you may want to check the authenticity of the source code, as sta
 ~~~bash
 $ git checkout v0.96
 $ git tag -v v0.96
+~~~
+
+Init and update submodules; this will check out external repositories withing Armory source tree
+
+~~~bash
+    $ git submodule init
+    $ git submodule update
 ~~~
 
 Finally, we make the application. This may take a while, depending on your computer:
