@@ -45,7 +45,11 @@
 %typedef unsigned long long uint64_t;
 #else
 #if defined(__GNUC__) // Linux
+#if defined(__LP64__) // 64bit
 %typedef long unsigned int uint64_t;
+#else // Linux 32bit
+%typedef long long unsigned int uint64_t;
+#endif
 #else
 %typedef unsigned long long uint64_t;
 #endif

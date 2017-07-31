@@ -11,6 +11,9 @@ AM_CXXFLAGS = $(CXXFLAGS) -std=c++11
 
 if HAVE_GCC
 SWIG_FLAGS += -D__GNUC__
+if HAVE_64BIT
+SWIG_FLAGS += -D__LP64__
+endif
 endif
 
 if HAVE_CLANG
