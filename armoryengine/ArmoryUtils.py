@@ -313,11 +313,17 @@ ENABLE_DETSIGN = CLI_OPTIONS.enableDetSign
 # Figure out the default directories for Satoshi client, and BicoinArmory
 OS_NAME          = ''
 OS_VARIANT       = ''
-USER_HOME_DIR    = ''
+USER_HOME_DIR    = ''   
 BTC_HOME_DIR     = ''
 ARMORY_HOME_DIR  = ''
-ARMORY_DB_DIR      = ''
+ARMORY_DB_DIR    = ''
 SUBDIR = 'testnet3' if USE_TESTNET else '' + 'regtest' if USE_REGTEST else ''
+
+if not CLI_OPTIONS.satoshiHome==DEFAULT:
+   BTC_HOME_DIR = CLI_OPTIONS.satoshiHome
+   if BTC_HOME_DIR.endswith('blocks'):
+      BTC_HOME_DIR, blocks_suffix = os.path.split(BTC_HOME_DIR)
+
 if OS_WINDOWS:
    OS_NAME         = 'Windows'
    OS_VARIANT      = platform.win32_ver()
@@ -327,7 +333,11 @@ if OS_WINDOWS:
    rt = ctypes.windll.shell32.SHGetFolderPathW(0, 26, 0, 0, ctypes.byref(buffer))
    USER_HOME_DIR = unicode(buffer.value)
 
-   BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, 'Bitcoin', SUBDIR)
+   if BTC_HOME_DIR == '':
+      BTC_HOME_DIR = os.path.join(USER_HOME_DIR, 'Bitcoin')
+   if SUBDIR != '':
+      BTC_HOME_DIR = os.path.join(BTC_HOME_DIR, SUBDIR)
+   
    ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'Armory', SUBDIR)
    BLKFILE_DIR     = os.path.join(BTC_HOME_DIR, 'blocks')
    BLKFILE_1stFILE = os.path.join(BLKFILE_DIR, 'blk00000.dat')
@@ -335,7 +345,12 @@ elif OS_LINUX:
    OS_NAME         = 'Linux'
    OS_VARIANT      = platform.linux_distribution()
    USER_HOME_DIR   = os.getenv('HOME')
-   BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, '.bitcoin', SUBDIR)
+   
+   if BTC_HOME_DIR == '':
+      BTC_HOME_DIR = os.path.join(USER_HOME_DIR, '.bitcoin')
+   if SUBDIR != '':
+      BTC_HOME_DIR = os.path.join(BTC_HOME_DIR, SUBDIR)
+   
    ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, '.armory', SUBDIR)
    BLKFILE_DIR     = os.path.join(BTC_HOME_DIR, 'blocks')
    BLKFILE_1stFILE = os.path.join(BLKFILE_DIR, 'blk00000.dat')
@@ -344,7 +359,12 @@ elif OS_MACOSX:
    OS_NAME         = 'MacOSX'
    OS_VARIANT      = platform.mac_ver()
    USER_HOME_DIR   = os.path.expanduser('~/Library/Application Support')
-   BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, 'Bitcoin', SUBDIR)
+    
+   if BTC_HOME_DIR == '':
+      BTC_HOME_DIR = os.path.join(USER_HOME_DIR, 'Bitcoin')
+   if SUBDIR != '':
+      BTC_HOME_DIR = os.path.join(BTC_HOME_DIR, SUBDIR)   
+   
    ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'Armory', SUBDIR)
    BLKFILE_DIR     = os.path.join(BTC_HOME_DIR, 'blocks')
    BLKFILE_1stFILE = os.path.join(BLKFILE_DIR, 'blk00000.dat')
@@ -402,24 +422,6 @@ def readVersionInt(verInt):
    verList.append( int(verStr[ -7:-5    ]) )
    verList.append( int(verStr[:-7       ]) )
    return tuple(verList[::-1])
-
-# Allow user to override default bitcoin-core/bitcoind home directory
-if not CLI_OPTIONS.satoshiHome==DEFAULT:
-   success = True
-   if USE_TESTNET:
-      testnetTry = os.path.join(CLI_OPTIONS.satoshiHome, 'testnet3')
-      if os.path.exists(testnetTry):
-         CLI_OPTIONS.satoshiHome = testnetTry
-   if USE_REGTEST:
-      regtestTry = os.path.join(CLI_OPTIONS.satoshiHome, 'regtest')
-      if os.path.exists(regtestTry):
-         CLI_OPTIONS.satoshiHome = regtestTry
-
-   if not os.path.exists(CLI_OPTIONS.satoshiHome):
-      print 'Directory "%s" does not exist!  Using default!' % \
-                                                CLI_OPTIONS.satoshiHome
-   else:
-      BTC_HOME_DIR = CLI_OPTIONS.satoshiHome
 
 # Allow user to override default Armory home directory
 if not CLI_OPTIONS.datadir==DEFAULT:

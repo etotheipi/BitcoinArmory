@@ -364,15 +364,8 @@ class SatoshiDaemonManager(object):
          pargs.append('--regtest');
 
       haveSatoshiDir = False
-      blocksdir = self.satoshiHome
-      if os.path.exists(blocksdir):
-         haveSatoshiDir = True
-      else:
-         blocksdir = os.path.join(self.satoshiHome, 'blocks')
-         if os.path.exists(blocksdir):
-            haveSatoshiDir = True
-      
-      if haveSatoshiDir:      
+      blocksdir = os.path.join(self.satoshiHome, 'blocks')
+      if os.path.exists(blocksdir):   
          pargs.append('--satoshi-datadir="' + blocksdir + '"')
          
       pargs.append('--datadir="' + dataDir + '"')
@@ -400,7 +393,7 @@ class SatoshiDaemonManager(object):
          kargs['creationflags'] = win32process.CREATE_NO_WINDOW
 
       argStr = " ".join(astr for astr in pargs)
-      LOGWARN('Spawning DB with command:' + argStr)
+      LOGWARN('Spawning DB with command: ' + argStr)
 
       launchProcess(pargs, **kargs)
 
@@ -414,7 +407,7 @@ class SatoshiDaemonManager(object):
       elif USE_REGTEST:
          pargs.append('-regtest')
 
-      pargs.append('-datadir=%s' % self.satoshiRoot)
+      pargs.append('-datadir=%s' % self.satoshiHome)
 
       try:
          # Don't want some strange error in this size-check to abort loading
@@ -442,6 +435,8 @@ class SatoshiDaemonManager(object):
          kargs['creationflags'] = win32process.CREATE_NO_WINDOW
 
       # Startup bitcoind and get its process ID (along with our own)
+      argStr = " ".join(astr for astr in pargs)
+      LOGWARN('Spawning bitcoind with command: ' + argStr)      
       self.bitcoind = launchProcess(pargs, **kargs)
 
       self.btcdpid  = self.bitcoind.pid

@@ -734,11 +734,11 @@ class ArmoryMainWindow(QMainWindow):
             'not be found nor created.'), QMessageBox.Ok)
 
       # This is true if and only if the command line has a bitcoin dir that doesn't exist
-      if not CLI_OPTIONS.satoshiHome in [BTC_HOME_DIR, DEFAULT]:
-         QMessageBox.warning(self, self.tr('Bitcoin Directory'), self.tr(
-            'Armory is using the default Bitcoin directory because '
-            'the Bitcoin directory specified in the command line could '
-            'not be found.'), QMessageBox.Ok)
+      #if not CLI_OPTIONS.satoshiHome in [BTC_HOME_DIR, DEFAULT]:
+      #   QMessageBox.warning(self, self.tr('Bitcoin Directory'), self.tr(
+      #      'Armory is using the default Bitcoin directory because '
+      #      'the Bitcoin directory specified in the command line could '
+      #      'not be found.'), QMessageBox.Ok)
 
       if not self.getSettingOrSetDefault('DNAA_DeleteLevelDB', False) and \
             os.path.exists(os.path.join(ARMORY_DB_DIR, LEVELDB_BLKDATA)):
