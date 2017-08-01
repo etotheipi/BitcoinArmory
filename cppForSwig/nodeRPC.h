@@ -35,15 +35,24 @@ private:
    bool goodNode_ = false; 
 
    NodeChainState nodeChainState_;
+   function<void(void)> nodeStatusLambda_;
+
+   RpcStatus previousState_ = RpcStatus_Disabled;
 
 private:
    string getAuthString(void);
    string getDatadir(void);
 
+   void callback(void)
+   {
+      if (nodeStatusLambda_)
+         nodeStatusLambda_();
+   }
+
 public:
    NodeRPC(BlockDataManagerConfig&);
    
-   RpcStatus testConnection(void);
+   RpcStatus testConnection();
    RpcStatus setupConnection(void);
    float getFeeByte(unsigned);
    void shutdown(void);
@@ -52,6 +61,8 @@ public:
    const NodeChainState& getChainStatus(void) const;   
    void waitOnChainSync(function<void(void)>);
    string broadcastTx(const BinaryData&) const;
+
+   void registerNodeStatusLambda(function<void(void)> lbd) { nodeStatusLambda_ = lbd; }
 };
 
 #endif

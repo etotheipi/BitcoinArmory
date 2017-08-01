@@ -145,10 +145,16 @@ try
 
    auto updateNodeStatusLambda = [bdm]()->void
    {
-      auto&& nodeStatus = bdm->getNodeStatus();
-      auto&& notifPtr =
-         make_unique<BDV_Notification_NodeStatus>(move(nodeStatus));
-      bdm->notificationStack_.push_back(move(notifPtr));
+      try
+      {
+         auto&& nodeStatus = bdm->getNodeStatus();
+         auto&& notifPtr =
+            make_unique<BDV_Notification_NodeStatus>(move(nodeStatus));
+         bdm->notificationStack_.push_back(move(notifPtr));
+      }
+      catch (exception&)
+      {
+      }
    };
 
    //connect to node as async, no need to wait for a succesful connection
@@ -160,9 +166,10 @@ try
    {
       bdm->nodeRPC_->waitOnChainSync(updateNodeStatusLambda);
    }
-   catch (runtime_error&)
+   catch (exception& e)
    {
       LOGINFO << "Error occured while querying the RPC for sync status";
+      LOGINFO << "Message: " << e.what();
    }
 
    tuple<BDMPhase, double, unsigned, unsigned> lastvalues;
@@ -242,6 +249,7 @@ try
    };
 
    bdm->networkNode_->registerNodeStatusLambda(updateNodeStatusLambda);
+   bdm->nodeRPC_->registerNodeStatusLambda(updateNodeStatusLambda);
 
    while (pimpl->run)
    {

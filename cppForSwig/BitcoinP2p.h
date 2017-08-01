@@ -519,7 +519,7 @@ private:
    //callback lambdas
    Stack<function<void(const vector<InvEntry>&)>> invBlockLambdas_;
    function<void(vector<InvEntry>&)> invTxLambda_ = {};
-   function<void(void)> nodeStatusLambda_ = {};
+   function<void(void)> nodeStatusLambda_;
 
    //stores callback by txhash for getdata packet we send to the node
    TransactionalMap<BinaryData, shared_ptr<GetDataStatus>> getTxCallbackMap_;
@@ -565,6 +565,12 @@ private:
    void processReject(unique_ptr<Payload>);
 
    int64_t getTimeStamp() const;
+
+   void callback(void)
+   {
+      if (nodeStatusLambda_)
+         nodeStatusLambda_();
+   }
 
 public:
    BitcoinP2P(const string& addr, const string& port, uint32_t magic_word);

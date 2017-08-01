@@ -1450,5 +1450,5 @@ void BitcoinP2P::shutdown()
 void BitcoinP2P::updateNodeStatus(bool connected)
 {
    nodeConnected_.store(connected, memory_order_release);
-   nodeStatusLambda_();
+   callback();
 }

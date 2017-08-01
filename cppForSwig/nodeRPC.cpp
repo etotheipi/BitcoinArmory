@@ -41,27 +41,22 @@ RpcStatus NodeRPC::setupConnection()
    if (authString.size() == 0)
       return RpcStatus_BadAuth;
 
-   if (basicAuthString_ != authString)
-   {
-      basicAuthString_ = move(authString);
-      auto&& b64_ba = BtcUtils::base64_encode(basicAuthString_);
+   basicAuthString_ = move(authString);
+   auto&& b64_ba = BtcUtils::base64_encode(basicAuthString_);
 
-      socket_->resetHeaders();
-      stringstream auth_header;
-      auth_header << "Authorization: Basic " << b64_ba;
-      socket_->addHeader(auth_header.str());
+   socket_->resetHeaders();
+   stringstream auth_header;
+   auth_header << "Authorization: Basic " << b64_ba;
+   socket_->addHeader(auth_header.str());
 
-      goodNode_ = true;
-      nodeChainState_.reset();
-      
-      auto status = testConnection();
-      if (status == RpcStatus_Online)
-         LOGINFO << "RPC connection established";
+   goodNode_ = true;
+   nodeChainState_.reset();
 
-      return status;
-   }
+   auto status = testConnection();
+   if (status == RpcStatus_Online)
+      LOGINFO << "RPC connection established";
 
-   return RpcStatus_Disabled;
+   return status;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -69,52 +64,68 @@ RpcStatus NodeRPC::testConnection()
 {
    ReentrantLock lock(this);
 
+   RpcStatus state = RpcStatus_Disabled;
+
    if (!goodNode_)
-      return setupConnection();
-
-   goodNode_ = false;
-
-   JSON_object json_obj;
-   json_obj.add_pair("method", "getblockcount");
-
-   try
    {
-      auto&& serializedPacket = JSON_encode(json_obj);
-      auto&& response = socket_->writeAndRead(serializedPacket);
-      auto&& response_obj = JSON_decode(response);
+      state = setupConnection();
+   }
+   else
+   {
+      goodNode_ = false;
 
-      if (response_obj.isResponseValid(json_obj.id_))
+
+      JSON_object json_obj;
+      json_obj.add_pair("method", "getblockcount");
+
+      try
       {
-         goodNode_ = true;
-         return RpcStatus_Online;
-      }
-      else
-      {
-         auto error_ptr = response_obj.getValForKey("error");
-         auto error_obj = dynamic_pointer_cast<JSON_object>(error_ptr);
-         auto error_code_ptr = error_obj->getValForKey("code");
-         auto error_code = dynamic_pointer_cast<JSON_number>(error_code_ptr);
+         auto&& serializedPacket = JSON_encode(json_obj);
+         auto&& response = socket_->writeAndRead(serializedPacket);
+         auto&& response_obj = JSON_decode(response);
 
-         if (error_code == nullptr)
-            throw JSON_Exception("failed to get error code");
-
-         if ((int)error_code->val_ == -28)
+         if (response_obj.isResponseValid(json_obj.id_))
          {
-            return RpcStatus_Error_28;
+            goodNode_ = true;
+            state = RpcStatus_Online;
+         }
+         else
+         {
+            auto error_ptr = response_obj.getValForKey("error");
+            auto error_obj = dynamic_pointer_cast<JSON_object>(error_ptr);
+            auto error_code_ptr = error_obj->getValForKey("code");
+            auto error_code = dynamic_pointer_cast<JSON_number>(error_code_ptr);
+
+            if (error_code == nullptr)
+               throw JSON_Exception("failed to get error code");
+
+            if ((int)error_code->val_ == -28)
+            {
+               state = RpcStatus_Error_28;
+            }
          }
       }
-   }
-   catch (SocketError&)
-   {
-      return RpcStatus_Disabled;
-   }
-   catch (JSON_Exception& e)
-   {
-      LOGERR << "RPC connection test error: " << e.what();
-      return RpcStatus_BadAuth;
+      catch (SocketError &e)
+      {
+         state = RpcStatus_Disabled;
+      }
+      catch (JSON_Exception& e)
+      {
+         LOGERR << "RPC connection test error: " << e.what();
+         state = RpcStatus_BadAuth;
+      }
    }
 
-   return RpcStatus_Disabled;
+   bool doCallback = false;
+   if (state != previousState_)
+      doCallback = true;
+
+   previousState_ = state;
+
+   if (doCallback)
+      callback();
+
+   return state;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

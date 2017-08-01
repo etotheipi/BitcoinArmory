@@ -126,6 +126,8 @@ private:
    exception_ptr exceptPtr_ = nullptr;
 
    unsigned checkTransactionCount_ = 0;
+   
+   mutable shared_ptr<mutex> nodeStatusPollMutex_;
 
 public:
    typedef function<void(BDMPhase, double,unsigned, unsigned)> ProgressCallback;   
@@ -184,6 +186,8 @@ private:
       const ProgressCallback &progress,
       bool doRescan=false
    );
+
+   void pollNodeStatus() const;
    
 public:
    Blockchain::ReorganizationState readBlkFileUpdate(

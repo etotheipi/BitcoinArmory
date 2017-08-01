@@ -874,6 +874,8 @@ BlockDataManager::BlockDataManager(
       config_.magicBytes_
       );
 
+   nodeStatusPollMutex_ = make_shared<mutex>();
+
    try
    {
       openDatabase();
@@ -1255,6 +1257,40 @@ NodeStatusStruct BlockDataManager::getNodeStatus() const
       return nss;
 
    nss.rpcStatus_ = nodeRPC_->testConnection();
+   if (nss.rpcStatus_ != RpcStatus_Online)
+      pollNodeStatus();
+
    nss.chainState_ = nodeRPC_->getChainStatus();
    return nss;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataManager::pollNodeStatus() const
+{
+   unique_lock<mutex> lock(*nodeStatusPollMutex_, defer_lock);
+
+   if (!lock.try_lock())
+      return;
+
+   auto poll_thread = [this](void)->void
+   {
+      auto nodeRPC = this->nodeRPC_;
+      auto mutexPtr = this->nodeStatusPollMutex_;
+
+      unique_lock<mutex> lock(*mutexPtr);
+
+      unsigned count = 0;
+      while (nodeRPC->testConnection() != RpcStatus_Online)
+      {
+         ++count;
+         if (count > 10)
+            break; //give up after 20sec
+
+         this_thread::sleep_for(chrono::seconds(2));
+      }
+   };
+
+   thread pollThr(poll_thread);
+   if (pollThr.joinable())
+      pollThr.detach();
 }
