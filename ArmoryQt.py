@@ -1819,7 +1819,7 @@ class ArmoryMainWindow(QMainWindow):
             LOGWARN("DB is already running")
    
          return True
-      except Exception, e:
+      except Exception as e:
          LOGEXCEPT('Failed to start Armory database: %s' % str(e))
       
       return False
