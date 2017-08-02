@@ -1176,7 +1176,7 @@ bool ProcessMutex::acquire()
 
    auto holdldb = [this]()
    {
-      this->hold();
+      this->hodl();
    };
 
    holdThr_ = thread(holdldb);
@@ -1213,7 +1213,7 @@ bool ProcessMutex::test(const string& uriLink)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void ProcessMutex::hold()
+void ProcessMutex::hodl()
 {
    auto server = make_unique<ListenServer>(addr_, port_);
    

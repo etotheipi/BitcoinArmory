@@ -392,7 +392,7 @@ namespace SwigClient
 
    private:
 
-      void hold();
+      void hodl();
 
    public:
       ProcessMutex(const string& addr, const string& port) :
