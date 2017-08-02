@@ -28,6 +28,7 @@
 #include "FcgiMessage.h"
 
 #define MAX_CONTENT_LENGTH 1024*1024*1024
+#define CALLBACK_EXPIRE_COUNT 5
 
 enum WalletType
 {
@@ -40,14 +41,16 @@ class SocketCallback : public Callback
 {
 private:
    mutex mu_;
-   unsigned int count_ = 0;
+   atomic<unsigned> count_;
 
    function<unsigned(void)> isReady_;
 
 public:
    SocketCallback(function<unsigned(void)> isReady) :
       Callback(), isReady_(isReady)
-   {}
+   {
+      count_.store(0, memory_order_relaxed);
+   }
 
    void emit(void);
    Arguments respond(const string&);
@@ -58,8 +61,8 @@ public:
 
       if (lock.try_lock())
       {
-         ++count_;
-         if (count_ >= 5)
+         auto count = count_.fetch_add(1, memory_order_relaxed) + 1;
+         if (count >= CALLBACK_EXPIRE_COUNT)
             return false;
       }
 
@@ -73,6 +76,11 @@ public:
       //after signaling shutdown, grab the mutex to make sure 
       //all responders threads have terminated
       unique_lock<mutex> lock(mu_);
+   }
+
+   void resetCounter(void)
+   {
+      count_.store(0, memory_order_relaxed);
    }
 };
 
