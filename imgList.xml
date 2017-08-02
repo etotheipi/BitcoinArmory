@@ -167,7 +167,12 @@
       <file alias="9c.png">img/9c.png</file>
       <file alias="9d.png">img/9d.png</file>
       <file alias="9h.png">img/9h.png</file>
-      <file alias="9s.png">img/9s.png</file>      
+      <file alias="9s.png">img/9s.png</file>   
+
+      <file alias="Tc.png">img/Tc.png</file>
+      <file alias="Td.png">img/Td.png</file>
+      <file alias="Th.png">img/Th.png</file>
+      <file alias="Ts.png">img/Ts.png</file>    
 
       <file alias="Jc.png">img/Jc.png</file>
       <file alias="Jd.png">img/Jd.png</file>
