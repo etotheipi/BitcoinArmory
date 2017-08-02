@@ -26,10 +26,10 @@ def createDesktopFile(name, idstr, arglist, toDir=''):
    if name:
       deskfile.write(' (' + name + ')')
    deskfile.write('\n')
-   deskfile.write('GenericName=Bitcoin Client\n')
+   deskfile.write('GenericName=Bitcoin Armory Wallet\n')
    deskfile.write('Comment=Full-featured Bitcoin wallet management application\n')
    deskfile.write('Categories=Qt;Network;Internet;\n')
-   deskfile.write('Exec=/usr/local/bin/armory')
+   deskfile.write('Exec=/usr/bin/armory')
    for a in arglist:
       deskfile.write(' --%s' % a)
    if perm_app_register:
@@ -49,9 +49,9 @@ createDesktopFile('Offline',     'offline',['offline'],'/usr/share/applications'
 createDesktopFile('Test Network','testnet',['testnet'],'/usr/share/applications')
 
 print '   Setting up menu items.'
-execAndWait('xdg-icon-resource install --novendor --context apps --size 64 /usr/local/share/armory/img/armory_icon_64x64.png armoryicon')
-execAndWait('xdg-icon-resource install --novendor --context apps --size 64 /usr/local/share/armory/img/armory_icon_64x64.png armoryofflineicon')
-execAndWait('xdg-icon-resource install --novendor --context apps --size 64 /usr/local/share/armory/img/armory_icon_green_64x64.png armorytestneticon')
+execAndWait('xdg-icon-resource install --novendor --context apps --size 64 /usr/share/armory/img/armory_icon_64x64.png armoryicon')
+execAndWait('xdg-icon-resource install --novendor --context apps --size 64 /usr/share/armory/img/armory_icon_64x64.png armoryofflineicon')
+execAndWait('xdg-icon-resource install --novendor --context apps --size 64 /usr/share/armory/img/armory_icon_green_64x64.png armorytestneticon')
 
 if os.path.exists('/usr/share/desktop-directories'):
    execAndWait('xdg-desktop-menu  install --novendor /usr/share/applications/armory.desktop')

@@ -12,9 +12,6 @@
 %:
 	dh $@
 
-override_dh_auto_build:
-	make PYVER=python2.7
-
 override_dh_auto_test:
 
 override_dh_usrlocal:
