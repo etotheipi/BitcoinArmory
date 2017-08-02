@@ -158,16 +158,14 @@ string NodeRPC::getAuthString()
       auto&& lines = BlockDataManagerConfig::getLines(datadir);
       if (lines.size() != 1)
       {
-         LOGERR << "unexpected cookie file content";
-         throw runtime_error("");
+         throw runtime_error("unexpected cookie file content");
       }
 
       auto&& keyVals = BlockDataManagerConfig::getKeyValsFromLines(lines, ':');
       auto keyIter = keyVals.find("__cookie__");
       if (keyIter == keyVals.end())
       {
-         LOGERR << "unexpected cookie file content";
-         throw runtime_error("");
+         throw runtime_error("unexpected cookie file content");
       }
 
       return lines[0];

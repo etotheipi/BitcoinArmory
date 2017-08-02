@@ -1254,17 +1254,21 @@ class SendBitcoinsFrame(ArmoryFrame):
       btnFrm.setFrameStyle(QFrame.NoFrame)
       btnLayout = QHBoxLayout()
       lbtnAddRecip = QLabelButton(self.tr('+ Recipient'))
-      lbtnAddRecip.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-      lbtnAddOpReturn = QLabelButton(self.tr('+ OP_RETURN'))
-      lbtnAddOpReturn.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)      
+      lbtnAddRecip.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)  
       lbtnRmRecip = QLabelButton(self.tr('- Recipient'))
       lbtnRmRecip.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       self.connect(lbtnAddRecip, SIGNAL(CLICKED), lambda: self.makeRecipFrame(nRecip + 1))
-      self.connect(lbtnAddOpReturn, SIGNAL(CLICKED), lambda: self.makeRecipFrame(nRecip + 1, True))      
       self.connect(lbtnRmRecip, SIGNAL(CLICKED), lambda: self.makeRecipFrame(nRecip - 1))
+      
+      if self.main.usermode == USERMODE.Expert:
+         lbtnAddOpReturn = QLabelButton('+ OP_RETURN')
+         lbtnAddOpReturn.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)   
+         self.connect(lbtnAddOpReturn, SIGNAL(CLICKED), lambda: self.makeRecipFrame(nRecip + 1, True))
+                      
       btnLayout.addStretch()
       btnLayout.addWidget(lbtnAddRecip)
-      btnLayout.addWidget(lbtnAddOpReturn)
+      if self.main.usermode == USERMODE.Expert:
+         btnLayout.addWidget(lbtnAddOpReturn)
       btnLayout.addWidget(lbtnRmRecip)
       btnFrm.setLayout(btnLayout)
 
