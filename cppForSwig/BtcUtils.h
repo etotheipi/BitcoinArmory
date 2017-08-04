@@ -997,7 +997,7 @@ public:
    static TXOUT_SCRIPT_TYPE getTxOutScriptType(BinaryDataRef s)
    {
       size_t sz = s.getSize();
-      if (s[0] == 0x6a && sz < 81)
+      if (sz > 0 && sz < 81 && s[0] == 0x6a)
          return TXOUT_SCRIPT_OPRETURN;
       else if (sz < 21)
          return TXOUT_SCRIPT_NONSTANDARD;
