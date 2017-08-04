@@ -138,6 +138,12 @@ private:
       notificationStack_.push_back(move(notifPtr));
    }
 
+   void resetCounter(void) const
+   {
+      if (cb_ != nullptr)
+         cb_->resetCounter();
+   }
+
 public:
    BDV_Server_Object(BlockDataManagerThread *bdmT);
    ~BDV_Server_Object(void) 

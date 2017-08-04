@@ -1025,7 +1025,7 @@ Arguments Clients::runCommand(const string& cmdStr)
 
    //execute command
    auto&& result = bdv->executeCommand(cmdObj.method_, cmdObj.ids_, cmdObj.args_);
-   bdv->cb_->resetCounter();
+   bdv->resetCounter();
 
    return result;
 }
