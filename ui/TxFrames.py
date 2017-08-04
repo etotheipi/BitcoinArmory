@@ -22,7 +22,7 @@ from armoryengine.MultiSigUtils import \
 from armoryengine.ArmoryUtils import MAX_COMMENT_LENGTH, getAddrByte
 from FeeSelectUI import FeeSelectionDialog
 from CppBlockUtils import TXOUT_SCRIPT_P2SH, TransactionBatch, SecureBinaryData
-
+from armoryengine.SignerWrapper import SIGNER_DEFAULT
 
 class SendBitcoinsFrame(ArmoryFrame):
    def __init__(self, parent, main, initLabel='',
@@ -46,6 +46,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.widgetTable = []
       self.isMax = False
       self.scrollRecipArea = QScrollArea()
+      self.signerType = SIGNER_DEFAULT
 
       lblRecip = QRichLabel('<b>Enter Recipients:</b>')
       lblRecip.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
@@ -615,6 +616,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          if 'OP_RETURN' in widget_obj:
             opreturn_msg = str(widget_obj['QLE_ADDR'].text())
             if len(opreturn_msg) > 80:
+               self.updateAddrColor(row, Colors.SlightRed)
                QMessageBox.critical(self, self.tr('Negative Value'), \
                   self.tr('You have specified a OP_RETURN message over 80 bytes long in recipient %1!'
                           ).arg(row + 1), QMessageBox.Ok)
@@ -812,6 +814,8 @@ class SendBitcoinsFrame(ArmoryFrame):
       
             if not dlg.exec_():
                return False
+            
+            self.signerType = dlg.getSignerType()
          else:
             self.main.warnNewUSTXFormat()
       
@@ -863,8 +867,8 @@ class SendBitcoinsFrame(ArmoryFrame):
                         commentStr += '%s (%s);  ' % (self.comments[i][0], coin2str_approx(amt).strip())
       
       
-               ustxSigned = self.wlt.signUnsignedTx(ustx)
-               finalTx = ustxSigned.getSignedPyTx()
+               ustxSigned = self.wlt.signUnsignedTx(ustx, signer=self.signerType)
+               finalTx = ustxSigned.getSignedPyTx(signer=self.signerType)
                if len(commentStr) > 0:
                   self.wlt.setComment(finalTx.getHash(), commentStr)
                self.main.broadcastTransaction(finalTx)
@@ -1820,7 +1824,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
             self.ustxObj = UnsignedTransaction().unserializeAscii(ustxStr)
             self.signStat = self.ustxObj.evaluateSigningStatus()
             self.enoughSigs = self.signStat.canBroadcast
-            self.sigsValid = self.ustxObj.verifySigsAllInputs()
+            self.sigsValid = self.ustxObj.verifySigsAllInputs(self.ustxObj.signerType)
             self.ustxReadable = True
          except BadAddressError:
             QMessageBox.critical(self, self.tr('Inconsistent Data!'), \
@@ -2078,7 +2082,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
             self.wlt.kdfKey = self.wlt.kdf.DeriveKey(Passphrase)
             Passphrase.destroy()                                              
 
-      newUstx = self.wlt.signUnsignedTx(self.ustxObj)
+      newUstx = self.wlt.signUnsignedTx(self.ustxObj, signer=dlg.getSignerType())
       self.wlt.advanceHighestIndex(isNew=True)
       self.txtUSTX.setText(newUstx.serializeAscii())
       self.ustxObj = newUstx
@@ -2105,7 +2109,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
 
       try:
-         finalTx = self.ustxObj.getSignedPyTx()
+         finalTx = self.ustxObj.getSignedPyTx(signer=self.ustxObj.signerType)
       except SignatureError:
          QMessageBox.warning(self, self.tr('Signature Error'), self.tr(
             'Not all signatures are valid.  This transaction '

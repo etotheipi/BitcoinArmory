@@ -384,9 +384,11 @@ class PythonSigner
    friend class ResolvedFeed_PythonWalletSingle;
 
 private:
-   unique_ptr<Signer> signer_;
    shared_ptr<AssetWallet> walletPtr_;
    shared_ptr<ResolvedFeed_PythonWalletSingle> feedPtr_;
+
+protected:
+   unique_ptr<Signer> signer_;
 
 public:
    PythonSigner(WalletContainer& wltContainer)
@@ -402,7 +404,6 @@ public:
 
       feedPtr_ = make_shared<ResolvedFeed_PythonWalletSingle>(
          walletSingle, this);
-
    }
 
    void addSpender(
@@ -480,6 +481,18 @@ public:
 };
 
 ////////////////////////////////////////////////////////////////////////////////
+class PythonSigner_BCH : public PythonSigner
+{
+public:
+   PythonSigner_BCH(WalletContainer& wltContainer) :
+      PythonSigner(wltContainer)
+   {
+      signer_ = make_unique<Signer_BCH>();
+   }
+};
+
+
+////////////////////////////////////////////////////////////////////////////////
 class PythonVerifier
 {
 private:
@@ -494,6 +507,25 @@ public:
 
    bool verifySignedTx(const BinaryData& rawTx,
      const map<BinaryData, map<unsigned, BinaryData> >& utxoMap)
+   {
+      return signer_->verifyRawTx(rawTx, utxoMap);
+   }
+};
+
+////////////////////////////////////////////////////////////////////////////////
+class PythonVerifier_BCH
+{
+private:
+   unique_ptr<Signer_BCH> signer_;
+
+public:
+   PythonVerifier_BCH()
+   {
+      signer_ = make_unique<Signer_BCH>();
+   }
+
+   bool verifySignedTx(const BinaryData& rawTx,
+      const map<BinaryData, map<unsigned, BinaryData> >& utxoMap)
    {
       return signer_->verifyRawTx(rawTx, utxoMap);
    }

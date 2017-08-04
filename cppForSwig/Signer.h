@@ -209,12 +209,15 @@ protected:
    mutable bool isSegWit_ = false;
 
 protected:
-   shared_ptr<SigHashData> getSigHashDataForSpender(unsigned, bool) const;
+   virtual shared_ptr<SigHashData> getSigHashDataForSpender(unsigned, bool) const;
    SecureBinaryData sign(
       BinaryDataRef script,
       const SecureBinaryData& privKey, 
       shared_ptr<SigHashData>,
       unsigned index);
+
+   virtual unique_ptr<TransactionVerifier> getVerifier(shared_ptr<BCTX>,
+      map<BinaryData, map<unsigned, UTXO>>&) const;
 
 public:
    void addSpender(shared_ptr<ScriptSpender> spender) 
@@ -225,8 +228,9 @@ public:
 
    void sign(void);
    BinaryDataRef serialize(void) const;
+   
    bool verify(void);
-   bool verifyRawTx(const BinaryData& rawTx, 
+   bool verifyRawTx(const BinaryData& rawTx,
       const map<BinaryData, map<unsigned, BinaryData> >& rawUTXOs);
 
    ////
@@ -259,6 +263,15 @@ public:
    void populateUtxo(const UTXO& utxo);
 
    static Signer createFromState(const BinaryData&);
+};
+
+////////////////////////////////////////////////////////////////////////////////
+class Signer_BCH : public Signer
+{
+protected:
+   shared_ptr<SigHashData> getSigHashDataForSpender(unsigned, bool) const;
+   unique_ptr<TransactionVerifier> getVerifier(shared_ptr<BCTX>,
+      map<BinaryData, map<unsigned, UTXO>>&) const;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

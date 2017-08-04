@@ -46,7 +46,7 @@ import subprocess
 #from psutil import Popen
 import psutil
 
-from CppBlockUtils import KdfRomix, CryptoAES, ConfigFile_fleshOutArgs
+from CppBlockUtils import KdfRomix, CryptoAES, ConfigFile_fleshOutArgs, AddressType_P2SH_P2WPKH
 
 try:
    if os.path.exists('update_version.py') and os.path.exists('.git'):
@@ -589,6 +589,7 @@ CPP_TXOUT_STDSINGLESIG = [CPP_TXOUT_STDHASH160, \
                           CPP_TXOUT_STDPUBKEY33]
 CPP_TXOUT_NESTED_SINGLESIG = [CPP_TXOUT_STDPUBKEY33,
                           CPP_TXOUT_P2WPKH]
+CPP_TXOUT_SEGWIT = [AddressType_P2SH_P2WPKH]
 
 CPP_TXOUT_SCRIPT_NAMES = ['']*9
 CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_STDHASH160]  = 'Standard (PKH)'

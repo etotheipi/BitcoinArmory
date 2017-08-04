@@ -975,6 +975,39 @@ shared_ptr<SigHashData> Signer::getSigHashDataForSpender(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+shared_ptr<SigHashData> Signer_BCH::getSigHashDataForSpender(
+   unsigned index, bool sw) const
+{
+   if (index > spenders_.size())
+      throw ScriptException("invalid spender index");
+
+   auto& spender = spenders_[index];
+
+   shared_ptr<SigHashData> SHD;
+   if (sigHashDataObject_ == nullptr)
+      sigHashDataObject_ = make_shared<SigHashData_BCH>();
+
+   SHD = sigHashDataObject_;
+   isSegWit_ = true;
+
+   return SHD;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+unique_ptr<TransactionVerifier> Signer::getVerifier(shared_ptr<BCTX> bctx,
+   map<BinaryData, map<unsigned, UTXO>>& utxoMap) const
+{
+   return move(make_unique<TransactionVerifier>(*bctx, utxoMap));
+}
+
+////////////////////////////////////////////////////////////////////////////////
+unique_ptr<TransactionVerifier> Signer_BCH::getVerifier(shared_ptr<BCTX> bctx,
+   map<BinaryData, map<unsigned, UTXO>>& utxoMap) const
+{
+   return move(make_unique<TransactionVerifier_BCH>(*bctx, utxoMap));
+}
+
+////////////////////////////////////////////////////////////////////////////////
 bool Signer::verify(void)
 {
    //serialize signed tx
@@ -994,12 +1027,12 @@ bool Signer::verify(void)
    }
 
    //setup verifier
-   TransactionVerifier tsv(*bctx, utxoMap);
-   auto tsvFlags = tsv.getFlags();
+   auto tsv = getVerifier(bctx, utxoMap);
+   auto tsvFlags = tsv->getFlags();
    tsvFlags |= flags;
-   tsv.setFlags(tsvFlags);
+   tsv->setFlags(tsvFlags);
 
-   return tsv.verify();
+   return tsv->verify();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1026,12 +1059,12 @@ bool Signer::verifyRawTx(const BinaryData& rawTx,
    }
 
    //setup verifier
-   TransactionVerifier tsv(*bctx, utxoMap);
-   auto tsvFlags = tsv.getFlags();
+   auto tsv = getVerifier(bctx, utxoMap);
+   auto tsvFlags = tsv->getFlags();
    tsvFlags |= SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_SEGWIT;
-   tsv.setFlags(tsvFlags);
+   tsv->setFlags(tsvFlags);
 
-   return tsv.verify(true);
+   return tsv->verify(true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

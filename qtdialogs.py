@@ -33,6 +33,7 @@ from armoryengine.ArmoryUtils import BTC_HOME_DIR
 
 from ui.TreeViewGUI import AddressTreeModel
 from ui.QrCodeMatrix import CreateQRMatrix
+from ui.SignerSelectDialog import SignerLabelFrame
 
 NO_CHANGE = 'NoChange'
 MIN_PASSWD_WIDTH = lambda obj: tightSizeStr(obj, '*' * 16)[0]
@@ -4531,7 +4532,26 @@ class DlgConfirmSend(ArmoryDialog):
       buttonBox = QDialogButtonBox()
       buttonBox.addButton(self.btnAccept, QDialogButtonBox.AcceptRole)
       buttonBox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
-
+      
+      self.signerType = SIGNER_DEFAULT
+      def setSignerType(_type):
+         self.signerType = _type
+      
+      isSigned = False
+      if isinstance(pytxOrUstx, PyTx):
+         ustx = UnsignedTransaction()
+         ustx.createFromPyTx(pytxOrUstx)
+         isSigned = pytxOrUstx.verifySigsAllInputs()
+      else:
+         isSigned = pytxOrUstx.verifySigsAllInputs(pytxOrUstx.signerType)
+         
+      if self.main.usermode == USERMODE.Expert and isSigned == False:
+         self.signerSelect = SignerLabelFrame(self.main, wlt, pytxOrUstx, setSignerType)
+         self.signerSelectFrame = self.signerSelect.getFrame()
+      
+         frmBtnSelect = makeHorizFrame([STRETCH, self.signerSelectFrame, buttonBox])
+      else:
+         frmBtnSelect = buttonBox
 
       frmTable = makeLayoutFrame(VERTICAL, recipLbls, STYLE_RAISED)
       frmRight = makeVertFrame([ lblMsg, \
@@ -4541,7 +4561,7 @@ class DlgConfirmSend(ArmoryDialog):
                                   'Space(10)', \
                                   lblLastConfirm, \
                                   'Space(10)', \
-                                  buttonBox ])
+                                  frmBtnSelect ])
 
       frmAll = makeHorizFrame([ lblInfoImg, frmRight ])
 
@@ -4550,6 +4570,10 @@ class DlgConfirmSend(ArmoryDialog):
       self.setLayout(layout)
       self.setMinimumWidth(350)
       self.setWindowTitle(self.tr('Confirm Transaction'))
+   
+   #############################################################################   
+   def getSignerType(self):
+      return self.signerType
 
 
 ################################################################################

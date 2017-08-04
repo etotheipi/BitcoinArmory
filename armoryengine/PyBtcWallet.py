@@ -19,6 +19,9 @@ from armoryengine.BinaryPacker import *
 from armoryengine.BinaryUnpacker import *
 from armoryengine.Timer import *
 from armoryengine.Decorators import singleEntrantMethod
+
+from armoryengine.SignerWrapper import SIGNER_DEFAULT, SIGNER_BCH, SIGNER_CPP, \
+   SIGNER_LEGACY, PythonSignerDirector, PythonSignerDirector_BCH
 # This import is causing a circular import problem when used by findpass and promokit
 # it is imported at the end of the file. Do not add it back at the begining
 # from armoryengine.Transaction import *
@@ -2635,7 +2638,7 @@ class PyBtcWallet(object):
 
 
    #############################################################################
-   def signUnsignedTx(self, ustx, hashcode=1):
+   def signUnsignedTx(self, ustx, hashcode=1, signer=SIGNER_DEFAULT):
       if not hashcode==1:
          LOGERROR('hashcode!=1 is not supported at this time!')
          return
@@ -2658,9 +2661,16 @@ class PyBtcWallet(object):
       numMyAddr = len(wltAddr)
       LOGDEBUG('Total number of inputs in transaction:  %d', numInputs)
       LOGDEBUG('Number of inputs that you can sign for: %d', numMyAddr)
+      
+      #figure out signer if it's set to default
+      if signer == SIGNER_DEFAULT:
+         if not ustx.isLegacyTx:
+            signer = SIGNER_LEGACY
+         else:
+            signer = SIGNER_CPP
 
 
-      # Unlock the wallet if necessary, sign inputs 
+      # Unlock the wallet if necessary
       maxChainIndex = -1
       for addrObj,idx,sigIdx in wltAddr:
          maxChainIndex = max(maxChainIndex, addrObj.chainIndex)
@@ -2679,16 +2689,15 @@ class PyBtcWallet(object):
             addrObj.binPublicKey65 = \
                CryptoECDSA().ComputePublicKey(addrObj.binPrivKey32_Plain)
 
-
-         ##### MAGIC #####
-         if ustx.isLegacyTx:
+      
+      #python signer
+      if signer == SIGNER_LEGACY:
+         for addrObj,idx,sigIdx in wltAddr:
             ustx.createAndInsertSignatureForInput(idx, addrObj.binPrivKey32_Plain)
-         ##### MAGIC #####
-          
-      if not ustx.isLegacyTx:
-         
+
+      #cpp signer
+      elif signer == SIGNER_CPP:
          #create cpp signer
-         from armoryengine.CppSignerDirector import PythonSignerDirector
          cppsigner = PythonSignerDirector(self)
          cppsigner.setLockTime(ustx.lockTime)
          
@@ -2726,8 +2735,49 @@ class PyBtcWallet(object):
             
             #pubkeys are all empty strings for non legacy tx
             ustxi.insertSignature(sigStr, pubkey)
+      
+      #bch signer
+      elif signer == SIGNER_BCH:
+         #create cpp signer
+         cppsigner = PythonSignerDirector_BCH(self)
+         cppsigner.setLockTime(ustx.lockTime)
+         
+         #set spenders
+         for ustxi in ustx.ustxInputs:
+            cppsigner.addSpender(ustxi.getUnspentTxOut(), ustxi.sequence)
             
-
+         #set recipients
+         for txout in ustx.decorTxOuts:
+            cppsigner.addRecipient(txout.binScript, txout.value)
+         
+         #sign
+         cppsigner.signTx()
+         
+         #set sigs and witness data
+         for inID in range(0, len(ustx.ustxInputs)):
+            try:
+               sigStr = cppsigner.getSigForInputIndex(inID)
+            except:
+               if cppsigner.isInptuSW(inID):
+                  sigStr = ''
+                  
+                  try:
+                     sigStr = cppsigner.getWitnessDataForInputIndex(inID)
+                  except:
+                     raise Exception("missing witness data for SW input")
+               else:
+                  raise Exception("no sig for index %d" % inID)
+            
+            ustxi = ustx.ustxInputs[inID]
+            if len(ustxi.pubKeys) != 1:
+               raise Exception("unexepected ustxi scrAddr count")
+            
+            pubkey = ustxi.pubKeys[0]
+            
+            #pubkeys are all empty strings for non legacy tx
+            ustxi.insertSignature(sigStr, pubkey)
+            
+         ustx.signerType = SIGNER_BCH
 
       if self.useEncryption:
          self.lock()

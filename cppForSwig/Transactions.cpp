@@ -84,6 +84,29 @@ bool TransactionVerifier::checkSigs_NoCatch() const
    return true;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+StackInterpreter TransactionVerifier::getStackInterpreter(
+   unsigned inputid) const
+{
+   StackInterpreter sstack(this, inputid);
+   auto flags = sstack.getFlags();
+   flags |= flags_;
+   sstack.setFlags(flags);
+   return sstack;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+StackInterpreter TransactionVerifier_BCH::getStackInterpreter(
+   unsigned inputid) const
+{
+   auto sstack = TransactionVerifier::getStackInterpreter(inputid);
+
+   if (sigHashDataObject_ == nullptr)
+      sigHashDataObject_ = make_shared<SigHashData_BCH>();
+
+   sstack.setSigHashDataObject(sigHashDataObject_);
+   return sstack;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 bool TransactionVerifier::checkSig(unsigned inputId) const
@@ -114,11 +137,7 @@ bool TransactionVerifier::checkSig(unsigned inputId) const
    auto& outputScript = utxo.getScript();
 
    //init stack
-   StackInterpreter sstack(this, inputId);
-   auto flags = sstack.getFlags();
-   flags |= flags_;
-   sstack.setFlags(flags);
-
+   auto sstack = getStackInterpreter(inputId);
    if (theTx_.usesWitness_)
    {
       //reuse the sighash data object with segwit tx to leverage the pre state
@@ -452,7 +471,7 @@ BinaryData SigHashDataSegWit::getDataForSigHashAll(const TransactionStub& stub,
    hashdata.put_uint32_t(stub.getLockTime());
 
    //sighash type
-   hashdata.put_uint32_t(1);
+   hashdata.put_uint32_t(getSigHashAll_4Bytes());
 
    return hashdata.getData();
 }

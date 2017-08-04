@@ -799,6 +799,11 @@ public:
       SHD_SW_ = shdo;
    }
 
+   void setSigHashDataObject(shared_ptr<SigHashData> shdo)
+   {
+      sigHashDataObject_ = shdo;
+   }
+
    unsigned getFlags(void) const { return flags_; }
    void setFlags(unsigned flags) { flags_ = flags; }
 

@@ -121,10 +121,26 @@ private:
    BinaryData hashOutputs_;
 
 private:
+   virtual uint32_t getSigHashAll_4Bytes(void) const
+   {
+      return 1;
+   }
+
+private:
    BinaryData getDataForSigHashAll(const TransactionStub&,
       BinaryDataRef, unsigned);
 
    void computePreState(const TransactionStub&);
+};
+
+////////////////////////////////////////////////////////////////////////////////
+class SigHashData_BCH : public SigHashDataSegWit
+{
+private:
+   uint32_t getSigHashAll_4Bytes(void) const
+   {
+      return (0x40 << 8) | 1;
+   }
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -142,6 +158,9 @@ private:
    bool checkSigs(void) const;
    bool checkSigs_NoCatch(void) const;
    bool checkSig(unsigned) const;
+
+protected:
+   virtual StackInterpreter getStackInterpreter(unsigned) const;
 
 public:
    TransactionVerifier(const BCTX& theTx, const utxoMap& utxos) :
@@ -165,6 +184,18 @@ public:
    BinaryDataRef getOutpoint(unsigned) const;
    uint64_t getOutpointValue(unsigned) const;
    unsigned getTxInSequence(unsigned) const;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+class TransactionVerifier_BCH : public TransactionVerifier
+{
+protected:
+   StackInterpreter getStackInterpreter(unsigned) const;
+
+public:
+   TransactionVerifier_BCH(const BCTX& theTx, const utxoMap& utxos) :
+      TransactionVerifier(theTx, utxos)
+   {}
 };
 
 

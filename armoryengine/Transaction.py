@@ -15,6 +15,8 @@ from armoryengine.BinaryPacker import *
 from armoryengine.BinaryUnpacker import *
 
 from armoryengine.AsciiSerialize import AsciiSerializable
+from armoryengine.SignerWrapper import SIGNER_DEFAULT, \
+   SIGNER_LEGACY, SIGNER_CPP, SIGNER_BCH
 
 
 UNSIGNED_TX_VERSION = 1
@@ -2078,6 +2080,7 @@ class UnsignedTransaction(AsciiSerializable):
       self.ustxInputs  = []
       self.decorTxOuts = []
       self.isLegacyTx = True
+      self.signerType = SIGNER_DEFAULT
 
       txMap   = {} if txMap   is None else txMap
       p2shMap = {} if p2shMap is None else p2shMap
@@ -2336,7 +2339,14 @@ class UnsignedTransaction(AsciiSerializable):
          bp.put(VAR_STR, dtxo.serialize())
          
       bp.put(UINT32, self.lockTime)
-
+      
+      if self.signerType == SIGNER_LEGACY:
+         bp.put(UINT8, 1)
+      elif self.signerType == SIGNER_CPP:
+         bp.put(UINT8, 2)
+      elif self.signerType == SIGNER_BCH:
+         bp.put(UINT8, 3)
+                  
       return bp.getBinaryString()
 
 
@@ -2357,8 +2367,17 @@ class UnsignedTransaction(AsciiSerializable):
       for i in range(numDtxo):
          dtxoList.append( DecoratedTxOut().unserialize(bu.get(VAR_STR), skipMagicCheck) )
          
-      if bu.getRemainingSize() == 4:
+      if bu.getRemainingSize() >= 4:
          lockt = bu.get(UINT32)
+         
+      if bu.getRemainingSize() == 1:
+         signerTypeInt = bu.get(UINT8)
+         if signerTypeInt == 1:
+            self.signerType = SIGNER_LEGACY
+         if signerTypeInt == 2:
+            self.signerType = SIGNER_CPP
+         if signerTypeInt == 3:
+            self.signerType = SIGNER_BCH                     
 
       # Issue a warning if the versions don't match
       if not ver == UNSIGNED_TX_VERSION:
@@ -2511,15 +2530,43 @@ class UnsignedTransaction(AsciiSerializable):
 
 
    #############################################################################
-   def verifySigsAllInputs(self):
-      isSegWit = self.isSegWit()
+   def verifySigsAllInputs(self, signer=SIGNER_DEFAULT):
+      if signer == SIGNER_DEFAULT:
+         if self.isLegacyTx:
+            signer = SIGNER_LEGACY
+         else:
+            signer = SIGNER_CPP
            
-      if not isSegWit:
+      if signer == SIGNER_LEGACY:
          for ustxi in self.ustxInputs:
             if not ustxi.verifyAllSignatures(self.pytxObj):
                return False
-      else:
+         return True
+            
+      elif signer == SIGNER_CPP:
          cppVerifier = Cpp.PythonVerifier()
+
+         pytx = self.getSignedPyTx(doVerifySigs=False)
+         rawTxOuts = {}
+         for ustxi in self.ustxInputs:
+            txHash = ustxi.outpoint.txHash
+            outid = ustxi.outpoint.txOutIndex
+            
+            if txHash not in rawTxOuts:
+               rawTxOuts[txHash] = {}
+            
+            bp = BinaryPacker()
+            bp.put(UINT64, ustxi.value)
+            bp.put(VAR_STR, ustxi.txoScript)
+            
+            rawTxOuts[txHash][outid] = bp.getBinaryString()
+         try:   
+            return cppVerifier.verifySignedTx(pytx.serialize(), rawTxOuts)
+         except:
+            return False
+            
+      elif signer == SIGNER_BCH:
+         cppVerifier = Cpp.PythonVerifier_BCH()
 
          pytx = self.getSignedPyTx(doVerifySigs=False)
          rawTxOuts = {}
@@ -2540,9 +2587,9 @@ class UnsignedTransaction(AsciiSerializable):
             return cppVerifier.verifySignedTx(pytx.serialize(), rawTxOuts)
          except:
             return False
-      
-      return True
 
+      return False
+   
    #############################################################################
    def verifyInputsMatchPyTxObj(self):
       """
@@ -2567,7 +2614,8 @@ class UnsignedTransaction(AsciiSerializable):
 
 
    #############################################################################
-   def getSignedPyTx(self, doVerifySigs=True, stripExtraSigs=True):
+   def getSignedPyTx(self, doVerifySigs=True, stripExtraSigs=True, \
+                     signer=SIGNER_DEFAULT):
       # Make sure the USTXI list is synchronous with the pytx input list
       if not self.verifyInputsMatchPyTxObj():
          LOGERROR('Invalid USTXI set or ordering')
@@ -2582,7 +2630,7 @@ class UnsignedTransaction(AsciiSerializable):
       #       but it doesn't currently handle P2SH scripts properly, so it
       #       wouldn't be reliable for P2SH scripts
       if doVerifySigs:
-         if not self.verifySigsAllInputs():
+         if not self.verifySigsAllInputs(signer):
             LOGERROR('Attempted to prepare final tx, but not all sigs available')
             raise SignatureError('Invalid signature while preparing final tx')
    

@@ -14,6 +14,7 @@
 %module(directors="1") CppBlockUtils
 %feature("director") PythonCallback;
 %feature("director") PythonSigner;
+%feature("director") PythonSigner_BCH;
 %feature("director") ProcessMutex;
 
 %{
