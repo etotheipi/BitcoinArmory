@@ -1053,11 +1053,13 @@ class SendBitcoinsFrame(ArmoryFrame):
                widget_obj['BTN_MAX'].setEnabled(False)
             
          targetWidget['BTN_MAX'].setEnabled(True)
+         targetWidget['QLE_AMT'].setEnabled(False)
       else:
          #enable all checkboxes and return
          for widget_obj in self.widgetTable:
             if 'BTN_MAX' in widget_obj:
                widget_obj['BTN_MAX'].setEnabled(True)
+               widget_obj['QLE_AMT'].setEnabled(True)               
          return
          
       nRecip = len(self.widgetTable)
