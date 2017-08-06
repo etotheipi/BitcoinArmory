@@ -385,10 +385,10 @@ class PythonSigner
 
 private:
    shared_ptr<AssetWallet> walletPtr_;
-   shared_ptr<ResolvedFeed_PythonWalletSingle> feedPtr_;
 
 protected:
    unique_ptr<Signer> signer_;
+   shared_ptr<ResolvedFeed_PythonWalletSingle> feedPtr_;
 
 public:
    PythonSigner(WalletContainer& wltContainer)
@@ -406,7 +406,7 @@ public:
          walletSingle, this);
    }
 
-   void addSpender(
+   virtual void addSpender(
       uint64_t value, 
       uint32_t height, uint16_t txindex, uint16_t outputIndex, 
       const BinaryData& txHash, const BinaryData& script, unsigned sequence)
@@ -488,6 +488,20 @@ public:
       PythonSigner(wltContainer)
    {
       signer_ = make_unique<Signer_BCH>();
+   }
+
+   void addSpender(
+      uint64_t value,
+      uint32_t height, uint16_t txindex, uint16_t outputIndex,
+      const BinaryData& txHash, const BinaryData& script, unsigned sequence)
+   {
+      UTXO utxo(value, height, txindex, outputIndex, txHash, script);
+
+      //set spenders
+      auto spenderPtr = make_shared<ScriptSpender_BCH>(utxo, feedPtr_);
+      spenderPtr->setSequence(sequence);
+
+      signer_->addSpender(spenderPtr);
    }
 };
 
