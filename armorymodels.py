@@ -1136,7 +1136,7 @@ class TxInDispModel(QAbstractTableModel):
       ustx = None
       if isinstance(pytx, UnsignedTransaction):
          ustx = pytx
-         pytx = ustx.getPyTxSignedIfPossible()
+         pytx = ustx.getPyTxSignedIfPossible(signer=ustx.signerType)
       self.tx = pytx.copy()
       
       for i,txin in enumerate(self.tx.inputs):

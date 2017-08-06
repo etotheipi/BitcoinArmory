@@ -5258,7 +5258,7 @@ class DlgDispTxInfo(ArmoryDialog):
       ustx = None
       if isinstance(pytx, UnsignedTransaction):
          ustx = pytx
-         pytx = ustx.getPyTxSignedIfPossible()
+         pytx = ustx.getPyTxSignedIfPossible(signer=ustx.signerType)
 
 
       self.pytx = pytx.copyWithoutWitness()
