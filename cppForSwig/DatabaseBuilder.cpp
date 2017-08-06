@@ -446,7 +446,8 @@ bool DatabaseBuilder::addBlocksToDB(BlockDataLoader& bdl,
    else
    {
       commitAllTxHints(bdMap, insertedBlocks);
-      commitAllStxos(blockfilemappointer, bdMap, insertedBlocks);
+      if (bdmConfig_.armoryDbType_ == ARMORY_DB_SUPER)
+         commitAllStxos(blockfilemappointer, bdMap, insertedBlocks);
    }
 
    return true;
