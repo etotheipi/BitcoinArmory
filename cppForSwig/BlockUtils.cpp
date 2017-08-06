@@ -884,11 +884,13 @@ BlockDataManager::BlockDataManager(
       {
          networkNode_ = make_shared<BitcoinP2P>("127.0.0.1", config_.btcPort_,
             *(uint32_t*)config_.magicBytes_.getPtr());
+         nodeRPC_ = make_shared<NodeRPC>(config_);
       }
       else if (bdmConfig.nodeType_ == Node_UnitTest)
       {
          networkNode_ = make_shared<NodeUnitTest>("127.0.0.1", config_.btcPort_,
             *(uint32_t*)config_.magicBytes_.getPtr());
+         nodeRPC_ = make_shared<NodeRPC_UnitTest>(config_);
       }
       else
       {
@@ -896,7 +898,6 @@ BlockDataManager::BlockDataManager(
       }
 
       config_.armoryDbType_ = iface_->armoryDbType();
-      nodeRPC_ = make_shared<NodeRPC>(config_);
 
       zeroConfCont_ = make_shared<ZeroConfContainer>(
          iface_, networkNode_, config_.zcThreadCount_);
@@ -942,10 +943,12 @@ BlockDataManager::~BlockDataManager()
    dbBuilder_.reset();
    networkNode_.reset();
    readBlockHeaders_.reset();
-   iface_->closeDatabases();
    scrAddrData_.reset();
-   delete iface_;
    
+   if (iface_ != nullptr)
+      iface_->closeDatabases();
+   delete iface_;
+
    blockchain_.reset();
 }
 
@@ -1267,6 +1270,9 @@ NodeStatusStruct BlockDataManager::getNodeStatus() const
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager::pollNodeStatus() const
 {
+   if (!nodeRPC_->canPool())
+      return;
+
    unique_lock<mutex> lock(*nodeStatusPollMutex_, defer_lock);
 
    if (!lock.try_lock())

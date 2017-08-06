@@ -63,6 +63,20 @@ public:
    string broadcastTx(const BinaryData&) const;
 
    void registerNodeStatusLambda(function<void(void)> lbd) { nodeStatusLambda_ = lbd; }
+
+   virtual bool canPool(void) const { return true; }
+};
+
+////////////////////////////////////////////////////////////////////////////////
+class NodeRPC_UnitTest : public NodeRPC
+{
+public:
+
+   NodeRPC_UnitTest(BlockDataManagerConfig& bdmc) :
+      NodeRPC(bdmc)
+   {}
+
+   bool canPool(void) const { return false; }
 };
 
 #endif
