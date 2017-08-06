@@ -6,6 +6,8 @@ v0.96.2
    - The MAX button in the Send dialog has been changed to a checkbox, effect is now binding. 
      Maximum value will be calculated on any change.
    - You can now create OP_RETURN outputs from the Send dialog. This feature is only available in Expert mode.
+   - You can now pick the signer of your choosing in Expert mode.
+   - Added BCH on top of the legacy and 0.96 C++ signer.
 
 == Fixed ==
    - Fixed benchmark timers on POSIX systems.
