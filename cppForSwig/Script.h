@@ -25,8 +25,7 @@
 #include "BinaryData.h"
 #include "EncryptionUtils.h"
 #include "BtcUtils.h"
-
-enum SIGHASH_TYPE;
+#include "SigHashEnum.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 class ScriptException : public runtime_error

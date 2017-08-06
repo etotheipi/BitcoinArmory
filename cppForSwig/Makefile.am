@@ -31,7 +31,7 @@ INCLUDE_FILES = UniversalTimer.h BinaryData.h lmdb_wrapper.h \
 	FcgiMessage.h BlockDataManagerConfig.h \
 	Transactions.h Script.h Signer.h nodeRPC.h JSON_codec.h \
 	ReentrantLock.h StringSockets.h log.h OS_TranslatePath.h \
-	TransactionBatch.h BlockchainScanner_Super.h
+	TransactionBatch.h BlockchainScanner_Super.h SigHashEnum.h
 
 DB_SOURCE_FILES = UniversalTimer.cpp BinaryData.cpp lmdb_wrapper.cpp \
 	BtcUtils.cpp DBUtils.cpp BlockObj.cpp BlockUtils.cpp EncryptionUtils.cpp \

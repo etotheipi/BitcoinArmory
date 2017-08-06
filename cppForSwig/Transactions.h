@@ -17,11 +17,7 @@
 #include "BtcUtils.h"
 #include "BlockDataMap.h"
 #include "Script.h"
-
-enum SIGHASH_TYPE
-{
-   SIGHASH_ALL = 1
-};
+#include "SigHashEnum.h"
 
 class UnsupportedSigHashTypeException : public runtime_error
 {
