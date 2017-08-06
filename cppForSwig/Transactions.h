@@ -135,7 +135,7 @@ class SigHashData_BCH : public SigHashDataSegWit
 private:
    uint32_t getSigHashAll_4Bytes(void) const
    {
-      return (0x40 << 8) | 1;
+      return 0x41;
    }
 };
 

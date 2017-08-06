@@ -2230,7 +2230,8 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
    def copyTxHex(self):
       clipb = QApplication.clipboard()
       clipb.clear()
-      clipb.setText(binary_to_hex(self.ustxObj.getSignedPyTx().serialize()))
+      clipb.setText(binary_to_hex(\
+         self.ustxObj.getSignedPyTx(signer=self.ustxObj.signerType).serialize()))
       self.lblCopied.setText(self.tr('<i>Copied!</i>'))
          
 
