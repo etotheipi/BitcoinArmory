@@ -50,8 +50,6 @@ private:
    const uint64_t value_ = UINT64_MAX;
    BinaryDataRef p2shScript_;
    unsigned sequence_ = UINT32_MAX;
-   SIGHASH_TYPE sigHashType_ = SIGHASH_ALL;
-
    mutable BinaryData outpoint_;
 
    //
@@ -63,6 +61,9 @@ private:
 
    map<unsigned, shared_ptr<StackItem>> partialStack_;
    map<unsigned, shared_ptr<StackItem>> partialWitnessStack_;
+
+protected:
+   SIGHASH_TYPE sigHashType_ = SIGHASH_ALL;
 
 private:
    static BinaryData serializeScript(
@@ -135,7 +136,7 @@ public:
       return flags;
    }
 
-   uint8_t getSigHashByte(void) const
+   virtual uint8_t getSigHashByte(void) const
    {
       uint8_t hashbyte;
       switch (sigHashType_)
@@ -187,6 +188,41 @@ public:
    {
       return this->getOutpoint() == rhs.getOutpoint();
    }
+};
+
+////////////////////////////////////////////////////////////////////////////////
+class ScriptSpender_BCH : public ScriptSpender
+{
+public:
+   ScriptSpender_BCH(
+      const BinaryDataRef txHash, unsigned index, uint64_t value) :
+      ScriptSpender(txHash, index, value)
+   {}
+
+   ScriptSpender_BCH(const UTXO& utxo) :
+      ScriptSpender(utxo)
+   {}
+
+   ScriptSpender_BCH(const UTXO& utxo, shared_ptr<ResolverFeed> feed) :
+      ScriptSpender(utxo, feed)
+   {}
+
+   virtual uint8_t getSigHashByte(void) const
+   {
+      uint8_t hashbyte;
+      switch (sigHashType_)
+      {
+      case SIGHASH_ALL:
+         hashbyte = 0x40 | 1;
+         break;
+
+      default:
+         throw ScriptException("unsupported sighash type");
+      }
+
+      return hashbyte;
+   }
+
 };
 
 ////////////////////////////////////////////////////////////////////////////////

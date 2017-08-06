@@ -85,27 +85,25 @@ bool TransactionVerifier::checkSigs_NoCatch() const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-StackInterpreter TransactionVerifier::getStackInterpreter(
+unique_ptr<StackInterpreter> TransactionVerifier::getStackInterpreter(
    unsigned inputid) const
 {
-   StackInterpreter sstack(this, inputid);
-   auto flags = sstack.getFlags();
+   auto sstack = make_unique<StackInterpreter>(this, inputid);
+   auto flags = sstack->getFlags();
    flags |= flags_;
-   sstack.setFlags(flags);
-   return sstack;
+   sstack->setFlags(flags);
+   return move(sstack);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-StackInterpreter TransactionVerifier_BCH::getStackInterpreter(
+unique_ptr<StackInterpreter> TransactionVerifier_BCH::getStackInterpreter(
    unsigned inputid) const
 {
-   auto sstack = TransactionVerifier::getStackInterpreter(inputid);
-
-   if (sigHashDataObject_ == nullptr)
-      sigHashDataObject_ = make_shared<SigHashData_BCH>();
-
-   sstack.setSigHashDataObject(sigHashDataObject_);
-   return sstack;
+   auto sstack = make_unique<StackInterpreter_BCH>(this, inputid);
+   auto flags = sstack->getFlags();
+   flags |= flags_;
+   sstack->setFlags(flags);
+   return move(sstack);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -144,24 +142,24 @@ bool TransactionVerifier::checkSig(unsigned inputId) const
       if (sigHashDataObject_ == nullptr)
          sigHashDataObject_ = make_shared<SigHashDataSegWit>();
 
-      sstack.setSegWitSigHashDataObject(sigHashDataObject_);
+      sstack->setSegWitSigHashDataObject(sigHashDataObject_);
    }
 
    if ((flags_ & SCRIPT_VERIFY_SEGWIT) &&
       inputScript.getSize() == 0)
    {
-      sstack.processSW(outputScript);
+      sstack->processSW(outputScript);
    }
    else
    {
-      sstack.processScript(inputScript, false);
+      sstack->processScript(inputScript, false);
       BinaryData inputScriptBD(inputScript);
 
       //process script
-      sstack.processScript(outputScript, true);
+      sstack->processScript(outputScript, true);
    }
 
-   sstack.checkState();
+   sstack->checkState();
    return true;
 }
 

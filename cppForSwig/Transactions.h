@@ -160,7 +160,7 @@ private:
    bool checkSig(unsigned) const;
 
 protected:
-   virtual StackInterpreter getStackInterpreter(unsigned) const;
+   virtual unique_ptr<StackInterpreter> getStackInterpreter(unsigned) const;
 
 public:
    TransactionVerifier(const BCTX& theTx, const utxoMap& utxos) :
@@ -190,7 +190,7 @@ public:
 class TransactionVerifier_BCH : public TransactionVerifier
 {
 protected:
-   StackInterpreter getStackInterpreter(unsigned) const;
+   unique_ptr<StackInterpreter> getStackInterpreter(unsigned) const;
 
 public:
    TransactionVerifier_BCH(const BCTX& theTx, const utxoMap& utxos) :

@@ -700,6 +700,20 @@ void StackInterpreter::processOpCode(const OpCode& oc)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+SIGHASH_TYPE StackInterpreter::getSigHashSingleByte(uint8_t sighashbyte) const
+{
+   return SIGHASH_TYPE(sighashbyte);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+SIGHASH_TYPE StackInterpreter_BCH::getSigHashSingleByte(uint8_t sighashbyte) const
+{
+   if (!(sighashbyte & 0x40))
+      throw ScriptException("invalid sighash for bch sig");
+   return SIGHASH_TYPE(sighashbyte & 0xBF);
+}
+
+////////////////////////////////////////////////////////////////////////////////
 void StackInterpreter::op_checksig()
 {
    //pop sig and pubkey from the stack
@@ -718,7 +732,7 @@ void StackInterpreter::op_checksig()
    BinaryRefReader brrSig(sigScript);
    auto sigsize = sigScript.getSize() - 1;
    auto sig = brrSig.get_BinaryDataRef(sigsize);
-   auto hashType = (SIGHASH_TYPE)brrSig.get_uint8_t();
+   auto hashType = getSigHashSingleByte(brrSig.get_uint8_t());
 
    //get data for sighash
    if (sigHashDataObject_ == nullptr)
@@ -969,6 +983,25 @@ void StackInterpreter::process_p2wsh(const BinaryData& scriptHash)
    //construct output script
    auto&& swScript = BtcUtils::getP2WSHScript(scriptHash);
    processScript(swScript, true);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+//// StackInterpreter_BCH
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+StackInterpreter_BCH::StackInterpreter_BCH(void) :
+StackInterpreter()
+{
+   sigHashDataObject_ = make_shared<SigHashData_BCH>();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+StackInterpreter_BCH::StackInterpreter_BCH(
+   const TransactionStub* stubPtr, unsigned inputId) :
+StackInterpreter(stubPtr, inputId)
+{
+   sigHashDataObject_ = make_shared<SigHashData_BCH>();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

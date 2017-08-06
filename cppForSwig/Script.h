@@ -26,6 +26,8 @@
 #include "EncryptionUtils.h"
 #include "BtcUtils.h"
 
+enum SIGHASH_TYPE;
+
 ////////////////////////////////////////////////////////////////////////////////
 class ScriptException : public runtime_error
 {
@@ -221,7 +223,10 @@ private:
    BinaryData p2shScript_;
 
    shared_ptr<SigHashDataSegWit> SHD_SW_ = nullptr;
+
+protected:
    shared_ptr<SigHashData> sigHashDataObject_ = nullptr;
+   virtual SIGHASH_TYPE getSigHashSingleByte(uint8_t) const;
 
 private:
    void processOpCode(const OpCode&);
@@ -799,11 +804,6 @@ public:
       SHD_SW_ = shdo;
    }
 
-   void setSigHashDataObject(shared_ptr<SigHashData> shdo)
-   {
-      sigHashDataObject_ = shdo;
-   }
-
    unsigned getFlags(void) const { return flags_; }
    void setFlags(unsigned flags) { flags_ = flags; }
 
@@ -811,6 +811,17 @@ public:
    void processScript(BinaryRefReader&, bool);
 };
 
+
+////////////////////////////////////////////////////////////////////////////////
+class StackInterpreter_BCH : public StackInterpreter
+{
+protected:
+   SIGHASH_TYPE getSigHashSingleByte(uint8_t) const;
+
+public:
+   StackInterpreter_BCH(void);
+   StackInterpreter_BCH(const TransactionStub* stubPtr, unsigned inputId);
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 struct ReversedStackEntry;
