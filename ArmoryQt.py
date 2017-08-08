@@ -1613,16 +1613,23 @@ class ArmoryMainWindow(QMainWindow):
          raise NotImplementedError
 
       # Set the file name.
+      export_rootpubkey = False
       if copyType.lower()=='pkcc':
          fn = 'armory_%s.%s' % (wlt.uniqueIDB58, suffix)
+         export_rootpubkey = True
       else:
          fn = 'armory_%s_%s.wallet' % (wlt.uniqueIDB58, suffix)
 
       if wlt.watchingOnly and copyType.lower() != 'pkcc':
          fn = 'armory_%s_%s_WatchOnly.wallet' % (wlt.uniqueIDB58, suffix)
-      savePath = unicode(self.getFileSave(defaultFilename=fn,
+         
+      if export_rootpubkey is True:
+         savePath = unicode(self.getFileSave(defaultFilename=fn,
                 ffilter=['Root Pubkey Text Files (*.rootpubkey)']))
-      if not len(savePath)>0:
+      else:
+         savePath = unicode(self.getFileSave(defaultFilename=fn))
+                            
+      if not len(savePath) > 0:
          return False
 
       # Create the file based on the type you want.
