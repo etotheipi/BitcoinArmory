@@ -484,7 +484,7 @@ void ScrAddrFilter::scanScrAddrThread()
 
       //scan from 0
       topScannedBlockHash =
-         applyBlockRangeToDB(0, endBlock, wltIDs);
+         applyBlockRangeToDB(0, endBlock, wltIDs, true);
    }
       
    addToMergePile(topScannedBlockHash);
@@ -546,13 +546,18 @@ void ScrAddrFilter::mergeSideScanPile()
    vector<string> walletIDs;
 
    auto bcptr = blockchain();
+   bool reportProgress = false;
+
    uint32_t startHeight = bcptr->top()->getBlockHeight();
    for (auto& scanData : scanDataVec)
    {
       auto& topHash = scanData.lastScannedBlkHash_;
       auto&& idStrings = scanData.getWalletIDString();
       if (scanData.doScan_)
+      {
          walletIDs.insert(walletIDs.end(), idStrings.begin(), idStrings.end());
+         reportProgress = true;
+      }
 
       try
       {
@@ -583,7 +588,7 @@ void ScrAddrFilter::mergeSideScanPile()
    applyBlockRangeToDB(
       startHeight, 
       bcptr->top()->getBlockHeight(),
-      walletIDs);
+      walletIDs, reportProgress);
    updateAddressMerkleInDB();
 
    //clean up SDBI entries

@@ -362,7 +362,7 @@ void BlockDataViewer::scanScrAddrVector(
    saf->regScrAddrVecForScan(saVec);
 
    //scan addresses
-   saf->applyBlockRangeToDB(startBlock, endBlock, vector<string>());
+   saf->applyBlockRangeToDB(startBlock, endBlock, vector<string>(), true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

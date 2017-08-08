@@ -774,7 +774,7 @@ protected:
    
    virtual BinaryData applyBlockRangeToDB(
       uint32_t startBlock, uint32_t endBlock, 
-      const vector<string>& wltIDs
+      const vector<string>& wltIDs, bool reportProgress
    )
    {
       //make sure sdbis are initialized (fresh ids wont have sdbi entries)
@@ -813,7 +813,7 @@ protected:
       const auto progress
          = [&](BDMPhase phase, double prog, unsigned time, unsigned numericProgress)
       {
-         if (wltIDs.size() == 0)
+         if (!reportProgress)
             return;
 
          auto&& notifPtr = make_unique<BDV_Notification_Progress>(

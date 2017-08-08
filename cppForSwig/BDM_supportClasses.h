@@ -347,8 +347,8 @@ public:
 protected:
    virtual bool bdmIsRunning() const=0;
    virtual BinaryData applyBlockRangeToDB(
-      uint32_t startBlock, uint32_t endBlock, const vector<string>& wltIDs
-   )=0;
+      uint32_t startBlock, uint32_t endBlock, const vector<string>& wltIDs,
+      bool reportProgress)=0;
    virtual uint32_t currentTopBlockHeight() const=0;
    virtual void wipeScrAddrsSSH(const vector<BinaryData>& saVec) = 0;
    virtual shared_ptr<Blockchain> blockchain(void) = 0;
