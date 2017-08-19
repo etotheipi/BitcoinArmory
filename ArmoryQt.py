@@ -3134,15 +3134,16 @@ class ArmoryMainWindow(QMainWindow):
          pytx = self.broadcasting[txHash]
       except:
          return
-      
+     
       LOGINFO("Failed to broadcast Tx through P2P")
       isTimeoutError = False
       
+      errorMsgFromRPC = None
       if errorMsg.startswith("tx broadcast timed out"):
          isTimeoutError = True
          try:
-            errorMsg = TheBDM.bdv().broadcastThroughRPC(pytx.serialize())
-            if errorMsg == "success":
+            errorMsgFromRPC = TheBDM.bdv().broadcastThroughRPC(pytx.serialize())
+            if errorMsgFromRPC == "success":
                QMessageBox.warning(self, self.tr('Transaction Broadcast'), self.tr(
                   'Your Transaction failed to broadcast through the P2P layer but '
                   'successfully broadcasted through the RPC. This can be a symptom '
@@ -3193,14 +3194,22 @@ class ArmoryMainWindow(QMainWindow):
             'ticket at <a href="%5">%5</a>').arg(errorMsg, BLOCKEXPLORE_NAME, blkexplURL, \
             blkexplURL_short, supportURL), QMessageBox.Ok)
       else:
-         LOGERROR('Broadcast error: %s' % errorMsg)
-         QMessageBox.warning(self, self.tr('Transaction Not Accepted'), self.tr(
-            'The transaction that you just attempted to broadcast has timed out. '
-            '<br><br>'
-            'The RPC interface of your node is disabled, therefor Armory cannot '
-            'use it to gather more information about the timeout. It is ' 
-            'recommended that you enable the RPC and try again.'
-            ), QMessageBox.Ok)      
+         if errorMsgFromRPC == None:
+            LOGERROR('Broadcast error: %s' % errorMsg)
+            QMessageBox.warning(self, self.tr('Transaction Not Accepted'), self.tr(
+               'The transaction that you just attempted to broadcast has timed out. '
+               '<br><br>'
+               'The RPC interface of your node is disabled, therefor Armory cannot '
+               'use it to gather more information about the timeout. It is ' 
+               'recommended that you enable the RPC and try again.'
+               ), QMessageBox.Ok)
+         else:
+            LOGERROR('Broadcast error: %s' % errorMsgFromRPC)
+            QMessageBox.warning(self, self.tr('Transaction Not Accepted'), self.tr(
+               'The transaction that you just attempted to broadcast has failed with '
+               'the following error: '
+               '<br><br><b>%1</b>'
+               ).arg(errorMsgFromRPC), QMessageBox.Ok)      
 
 
 
