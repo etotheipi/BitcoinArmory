@@ -799,7 +799,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          # Now create the unsigned USTX
          ustx = UnsignedTransaction().createFromTxOutSelection(\
             utxoSelect, scriptValPairs, pubKeyMap, p2shMap=p2shMap, \
-            lockTime=TheBDM.getTopBlockHeight()-1)
+            lockTime=TheBDM.getTopBlockHeight())
          
          for msg in opreturn_list:
             ustx.addOpReturnOutput(str(msg))
