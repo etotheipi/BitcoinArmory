@@ -1814,10 +1814,14 @@ class PyBtcWallet(object):
 
    #############################################################################
    def getCommentForAddress(self, addr160):
-      if self.commentsMap.has_key(addr160):
-         return self.commentsMap[addr160]
-      else:
-         return ''
+      assetIndex = self.cppWallet.getAssetIndexForAddr(addr160)
+      hashList = self.cppWallet.getScriptHashVectorForIndex(assetIndex)
+
+      for _hash in hashList:
+         if self.commentsMap.has_key(_hash):
+            return self.commentsMap[_hash]
+      
+      return ''
 
    #############################################################################
    def getComment(self, hashVal):
