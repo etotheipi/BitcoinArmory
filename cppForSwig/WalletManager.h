@@ -374,6 +374,8 @@ public:
    int convertToImportIndex(int);
    int convertFromImportIndex(int);
    void removeAddressBulk(const vector<BinaryData>&);
+
+   vector<BinaryData> getScriptHashVectorForIndex(int) const;
 };
 
 class ResolvedFeed_PythonWalletSingle;

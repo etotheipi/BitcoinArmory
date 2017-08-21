@@ -413,6 +413,9 @@ private:
    //<zcKey, vector<ScrAddr>>
    TransactionalMap<HashString, set<HashString>> keyToSpentScrAddr_;
    map<BinaryData, set<BinaryData>> keyToFundedScrAddr_;
+
+   //
+   map<string, set<BinaryData>> flaggedBDVs_;
    
    BinaryData lastParsedBlockHash_;
    std::atomic<uint32_t> topId_;

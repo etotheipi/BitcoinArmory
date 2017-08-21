@@ -1457,18 +1457,19 @@ void AssetWallet_Single::fillHashIndexMap()
       for (auto& entry : assets_)
       {
          auto assetSingle = dynamic_pointer_cast<AssetEntry_Single>(entry.second);
+         auto&& hashMap = assetSingle->getScriptHashMap();
          
          hashMaps_.hashUncompressed_.insert(make_pair(
-            assetSingle->getHash160Uncompressed().getRef(), assetSingle->getId()));
+            hashMap[ScriptHash_P2PKH_Uncompressed], assetSingle->getId()));
          
          hashMaps_.hashCompressed_.insert(make_pair(
-            assetSingle->getHash160Compressed().getRef(), assetSingle->getId()));
+            hashMap[ScriptHash_P2PKH_Compressed], assetSingle->getId()));
          
          hashMaps_.hashNestedP2WPKH_.insert(make_pair(
-            assetSingle->getWitnessScriptH160().getRef(), assetSingle->getId()));
+            hashMap[ScriptHash_P2WPKH], assetSingle->getId()));
 
          hashMaps_.hashNestedP2PK_.insert(make_pair(
-            assetSingle->getP2PKScriptH160().getRef(), assetSingle->getId()));
+            hashMap[ScriptHash_Nested_P2PK], assetSingle->getId()));
       }
 
       lastKnownIndex_ = assets_.rbegin()->first;
@@ -2709,6 +2710,26 @@ AddressEntryType AssetEntry_Single::getAddressTypeForHash(
 
 
    return AddressEntryType_Default;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+map<ScriptHashType, BinaryDataRef> AssetEntry_Single::getScriptHashMap() const
+{
+   map<ScriptHashType, BinaryDataRef> result;
+
+   result.insert(make_pair(
+      ScriptHash_P2PKH_Uncompressed, getHash160Uncompressed().getRef()));
+
+   result.insert(make_pair(
+      ScriptHash_P2PKH_Compressed, getHash160Compressed().getRef()));
+
+   result.insert(make_pair(
+      ScriptHash_P2WPKH, getWitnessScriptH160().getRef()));
+
+   result.insert(make_pair(
+      ScriptHash_Nested_P2PK, getP2PKScriptH160().getRef()));
+
+   return result;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

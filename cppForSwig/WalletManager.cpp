@@ -248,6 +248,23 @@ void WalletContainer::removeAddressBulk(const vector<BinaryData>& addrVec)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+vector<BinaryData> WalletContainer::getScriptHashVectorForIndex(int index) const
+{
+   vector<BinaryData> hashVec;
+
+   auto assetPtr = wallet_->getAssetForIndex(index);
+   auto asset_single = dynamic_pointer_cast<AssetEntry_Single>(assetPtr);
+   if (asset_single == nullptr)
+      return hashVec;
+
+   auto&& hashMap = asset_single->getScriptHashMap();
+   for (auto hashRef : hashMap)
+      hashVec.push_back(BinaryData(hashRef.second));
+
+   return hashVec;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 ////
 //// CoinSelectionInstance
 ////

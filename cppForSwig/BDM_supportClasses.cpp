@@ -1111,6 +1111,7 @@ void ZeroConfContainer::parseNewZC(void)
                ++keyIter;
          }
 
+         flaggedBDVs_.clear();
          notify = false;
       }
 
@@ -1156,8 +1157,6 @@ void ZeroConfContainer::parseNewZC(map<BinaryData, Tx> zcMap,
 
    map<BinaryData, BinaryData> txhashmap_update;
    map<BinaryData, Tx> txmap_update;
-
-   map<string, set<BinaryData>> flaggedBDVs;
 
    {
       auto txhashmap_ptr = txHashToDBKey_.get();
@@ -1342,9 +1341,9 @@ void ZeroConfContainer::parseNewZC(map<BinaryData, Tx> zcMap,
 
                for (const auto& saTxio : bulkData.scrAddrTxioMap_)
                {
-                  auto& currentTxioMap = (*txiomapPtr)[saTxio.first];
-                  if (currentTxioMap != nullptr)
-                     saTxio.second->insert(currentTxioMap->begin(), currentTxioMap->end());
+                  auto saIter = txiomapPtr->find(saTxio.first);
+                  if (saIter != txiomapPtr->end())
+                     saTxio.second->insert(saIter->second->begin(), saIter->second->end());
 
                   newtxiomap.insert(move(make_pair(saTxio.first, saTxio.second)));
                }
@@ -1358,7 +1357,7 @@ void ZeroConfContainer::parseNewZC(map<BinaryData, Tx> zcMap,
 
                for (auto& bdvMap : bulkData.flaggedBDVs_)
                {
-                  auto& addrSet = flaggedBDVs[bdvMap.first];
+                  auto& addrSet = flaggedBDVs_[bdvMap.first];
                   addrSet.insert(bdvMap.second.begin(), bdvMap.second.end());
                }
             }
@@ -1386,7 +1385,7 @@ void ZeroConfContainer::parseNewZC(map<BinaryData, Tx> zcMap,
    auto txiomapPtr = txioMap_.get();
    auto bdvcallbacks = bdvCallbacks_.get();
 
-   for (auto& bdvMap : flaggedBDVs)
+   for (auto& bdvMap : flaggedBDVs_)
    {
       map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>>
          notificationMap;
