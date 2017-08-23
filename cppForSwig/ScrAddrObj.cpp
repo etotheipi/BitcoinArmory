@@ -168,6 +168,12 @@ void ScrAddrObj::scanZC(const ScanAddressStruct& scanInfo,
    if (haveIter == scanInfo.zcMap_.end())
       return;
 
+   if (haveIter->second == nullptr)
+   {
+      LOGWARN << "empty zc notification txio map";
+      return;
+   }
+
    auto& zcTxIOMap = *haveIter->second;
 
    //look for new keys
