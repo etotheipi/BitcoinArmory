@@ -1429,17 +1429,23 @@ void StackResolver::resolveStack()
             resolver.setFlags(flags_);
             resolver.isSW_ = true;
 
-            auto stackptr = move(resolver.getResolvedStack());
+            try
+            {
+               //failed SW should just result in an empty stack instead of an actual throw
+               auto newResolvedStack = make_shared<ResolvedStackWitness>(resolvedStack_);
+               resolvedStack_ = newResolvedStack;
 
-            auto stackptrLegacy = dynamic_pointer_cast<ResolvedStackLegacy>(stackptr);
-            if (stackptrLegacy == nullptr)
-               throw runtime_error("unexpected resolved stack ptr type");
+               auto stackptr = move(resolver.getResolvedStack());
 
-            auto newResolvedStack = make_shared<ResolvedStackWitness>(resolvedStack_);
-            newResolvedStack->setWitnessStack(
-               stackptrLegacy->getStack());
+               auto stackptrLegacy = dynamic_pointer_cast<ResolvedStackLegacy>(stackptr);
+               if (stackptrLegacy == nullptr)
+                  throw runtime_error("unexpected resolved stack ptr type");
 
-            resolvedStack_ = newResolvedStack;
+               newResolvedStack->setWitnessStack(
+                  stackptrLegacy->getStack());
+            }
+            catch (exception&)
+            { }
          }
       }
    }

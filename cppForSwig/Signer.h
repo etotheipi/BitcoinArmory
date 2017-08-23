@@ -95,6 +95,7 @@ public:
    {}
 
    bool isSegWit(void) const { return segwitStatus_ != SpenderStatus_Unkonwn; }
+   bool isP2SH(void) const { return isP2SH_; }
 
    //set
    void setSigHashType(SIGHASH_TYPE sht) { sigHashType_ = sht; }
@@ -110,7 +111,7 @@ public:
    BinaryDataRef getOutputHash(void) const;
    unsigned getOutputIndex(void) const;
    BinaryDataRef getSerializedInput(void) const;
-   BinaryDataRef getWitnessData(void) const { return witnessData_.getRef(); }
+   BinaryDataRef getWitnessData(void) const;
    BinaryDataRef getOutpoint(void) const;
    uint64_t getValue(void) const { return value_; }
    shared_ptr<ResolverFeed> getFeed(void) const { return resolverFeed_; }
@@ -222,7 +223,6 @@ public:
 
       return hashbyte;
    }
-
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -245,7 +245,7 @@ protected:
    mutable bool isSegWit_ = false;
 
 protected:
-   virtual shared_ptr<SigHashData> getSigHashDataForSpender(unsigned, bool) const;
+   virtual shared_ptr<SigHashData> getSigHashDataForSpender(bool) const;
    SecureBinaryData sign(
       BinaryDataRef script,
       const SecureBinaryData& privKey, 
@@ -254,6 +254,8 @@ protected:
 
    virtual unique_ptr<TransactionVerifier> getVerifier(shared_ptr<BCTX>,
       map<BinaryData, map<unsigned, UTXO>>&) const;
+
+   void evaluateSpenderStatus(void);
 
 public:
    void addSpender(shared_ptr<ScriptSpender> spender) 
@@ -299,13 +301,15 @@ public:
    void populateUtxo(const UTXO& utxo);
 
    static Signer createFromState(const BinaryData&);
+
+   BinaryData getTxId(void);
 };
 
 ////////////////////////////////////////////////////////////////////////////////
 class Signer_BCH : public Signer
 {
 protected:
-   shared_ptr<SigHashData> getSigHashDataForSpender(unsigned, bool) const;
+   shared_ptr<SigHashData> getSigHashDataForSpender(bool) const;
    unique_ptr<TransactionVerifier> getVerifier(shared_ptr<BCTX>,
       map<BinaryData, map<unsigned, UTXO>>&) const;
 };
@@ -332,9 +336,24 @@ public:
 ////
 class SignerProxyFromSigner : public SignerProxy
 {
+private:
+   void setLambda(Signer*, shared_ptr<ScriptSpender>, unsigned index,
+      shared_ptr<ResolverFeed>);
+
 public:
-   SignerProxyFromSigner(Signer* signer, 
-      unsigned index);
+   SignerProxyFromSigner(Signer* signer,
+      unsigned index)
+   {
+      auto spender = signer->getSpender(index);
+      setLambda(signer, spender, index, spender->getFeed());
+   }
+
+   SignerProxyFromSigner(Signer* signer,
+      unsigned index, shared_ptr<ResolverFeed> feedPtr)
+   {
+      auto spender = signer->getSpender(index);
+      setLambda(signer, spender, index, feedPtr);
+   }
 };
 
 #endif

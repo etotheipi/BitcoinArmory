@@ -328,7 +328,7 @@ bool ScriptSpender::resolved() const
 ////////////////////////////////////////////////////////////////////////////////
 BinaryDataRef ScriptSpender::getSerializedInput() const
 {
-   if (!resolved())
+   if (legacyStatus_ != SpenderStatus_Resolved)
       throw ScriptException("unresolved spender");
    
    BinaryWriter bw;
@@ -342,6 +342,15 @@ BinaryDataRef ScriptSpender::getSerializedInput() const
 
    serializedInput_ = move(bw.getData());
    return serializedInput_.getRef();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryDataRef ScriptSpender::getWitnessData(void) const
+{
+   if (segwitStatus_ == SpenderStatus_Partial)
+      throw runtime_error("unresolved witness");
+
+   return witnessData_.getRef();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -867,6 +876,65 @@ void Signer::sign(void)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+void Signer::evaluateSpenderStatus()
+{
+   auto publicResolver = make_shared<ResolverFeedPublic>(resolverPtr_.get());
+
+   //run through each spenders
+   for (unsigned i = 0; i < spenders_.size(); i++)
+   {
+      auto& spender = spenders_[i];
+      
+      if (spender->resolved())
+         continue;
+      
+      if (!spender->hasUTXO())
+         continue;
+
+      //resolve spender script
+      auto proxy = make_shared<SignerProxyFromSigner>(this, i, publicResolver);
+
+      StackResolver resolver(
+         spender->getOutputScript(),
+         publicResolver,
+         proxy);
+
+      resolver.setFlags(flags_);
+
+      try
+      {
+         auto resolvedStack = resolver.getResolvedStack();
+
+         auto resolvedStackLegacy =
+            dynamic_pointer_cast<ResolvedStackLegacy>(resolvedStack);
+
+         if (resolvedStackLegacy == nullptr)
+            throw runtime_error("invalid resolved stack ptr type");
+
+         spender->flagP2SH(resolvedStack->isP2SH());
+         spender->updatePartialStack(
+            resolvedStackLegacy->getStack());
+         spender->evaluatePartialStacks();
+
+         auto resolvedStackWitness =
+            dynamic_pointer_cast<ResolvedStackWitness>(resolvedStack);
+
+         if (resolvedStackWitness == nullptr)
+            continue;
+         isSegWit_ = true;
+
+         spender->updatePartialWitnessStack(
+            resolvedStackWitness->getWitnessStack());
+         spender->evaluatePartialStacks();
+      }
+      catch (exception&)
+      {
+         continue;
+      }
+   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
 SecureBinaryData Signer::sign(
    BinaryDataRef script,
    const SecureBinaryData& privKey,
@@ -936,7 +1004,7 @@ BinaryDataRef Signer::serialize(void) const
          if (witnessRef.getSize() == 0)
             bw.put_uint8_t(0);
          else
-            bw.put_BinaryDataRef(spender->getWitnessData());
+            bw.put_BinaryDataRef(witnessRef);
       }
    }
 
@@ -949,14 +1017,8 @@ BinaryDataRef Signer::serialize(void) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-shared_ptr<SigHashData> Signer::getSigHashDataForSpender(
-   unsigned index, bool sw) const
+shared_ptr<SigHashData> Signer::getSigHashDataForSpender(bool sw) const
 {
-   if (index > spenders_.size())
-      throw ScriptException("invalid spender index");
-
-   auto& spender = spenders_[index];
-
    shared_ptr<SigHashData> SHD;
    if (sw)
    {
@@ -975,14 +1037,8 @@ shared_ptr<SigHashData> Signer::getSigHashDataForSpender(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-shared_ptr<SigHashData> Signer_BCH::getSigHashDataForSpender(
-   unsigned index, bool sw) const
+shared_ptr<SigHashData> Signer_BCH::getSigHashDataForSpender(bool sw) const
 {
-   if (index > spenders_.size())
-      throw ScriptException("invalid spender index");
-
-   auto& spender = spenders_[index];
-
    shared_ptr<SigHashData> SHD;
    if (sigHashDataObject_ == nullptr)
       sigHashDataObject_ = make_shared<SigHashData_BCH>();
@@ -1267,6 +1323,45 @@ void Signer::populateUtxo(const UTXO& utxo)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+BinaryData Signer::getTxId()
+{
+   try
+   {
+      auto txdataref = serialize();
+      Tx tx(txdataref);
+      return tx.getThisHash();
+   }
+   catch (exception&)
+   {
+   }
+
+   //tx isn't signed, let's check for SW inputs
+   evaluateSpenderStatus();
+   
+   //serialize the tx
+   BinaryWriter bw;
+
+   //version
+   bw.put_uint32_t(version_);
+   
+   //inputs
+   bw.put_var_int(spenders_.size());
+   for (auto spender : spenders_)
+      bw.put_BinaryDataRef(spender->getSerializedInput());
+
+   //outputs
+   bw.put_var_int(recipients_.size());
+   for (auto recipient : recipients_)
+      bw.put_BinaryDataRef(recipient->getSerializedScript());
+
+   //locktime
+   bw.put_uint32_t(lockTime_);
+
+   //hash and return
+   return BtcUtils::getHash256(bw.getDataRef());
+}
+
+////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 //// SignerProxy
 ////////////////////////////////////////////////////////////////////////////////
@@ -1274,17 +1369,18 @@ void Signer::populateUtxo(const UTXO& utxo)
 SignerProxy::~SignerProxy(void)
 {}
 
-SignerProxyFromSigner::SignerProxyFromSigner(
-   Signer* signer, unsigned index)
+////////////////////////////////////////////////////////////////////////////////
+void SignerProxyFromSigner::setLambda(
+   Signer* signer, shared_ptr<ScriptSpender> spender, unsigned index,
+   shared_ptr<ResolverFeed> feedPtr)
 {
-   auto signerLBD = [signer, index]
+   auto signerLBD = [signer, spender, index, feedPtr]
       (BinaryDataRef script, const BinaryData& pubkey, bool sw)->SecureBinaryData
    {
-      auto spender = signer->getSpender(index);
-      auto SHD = signer->getSigHashDataForSpender(index, sw);
+      auto SHD = signer->getSigHashDataForSpender(sw);
 
       //get priv key for pubkey
-      auto&& privKey = spender->getFeed()->getPrivKeyForPubkey(pubkey);
+      auto&& privKey = feedPtr->getPrivKeyForPubkey(pubkey);
 
       //sign
       auto&& sig = signer->sign(script, privKey, SHD, index);

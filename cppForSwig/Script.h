@@ -958,6 +958,34 @@ public:
    virtual const SecureBinaryData& getPrivKeyForPubkey(const BinaryData&) = 0;
 };
 
+////////////////////////////////////////////////////////////////////////////////
+class ResolverFeedPublic : public ResolverFeed
+{
+   //can only return public wallet data
+
+private:
+   ResolverFeed* feedPtr_ = nullptr;
+
+public:
+   ResolverFeedPublic(ResolverFeed* feedPtr) :
+      feedPtr_(feedPtr)
+   {}
+
+   BinaryData getByVal(const BinaryData& key)
+   {
+      if (feedPtr_ == nullptr)
+         throw runtime_error("invalid value");
+
+      return feedPtr_->getByVal(key);
+   }
+
+   const SecureBinaryData& getPrivKeyForPubkey(const BinaryData& key)
+   {
+      throw runtime_error("invalid value");
+      return SecureBinaryData();
+   }
+};
+
 enum StackItemType
 {
    StackItemType_PushData,

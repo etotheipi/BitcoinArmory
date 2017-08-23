@@ -8050,6 +8050,377 @@ TEST_F(TransactionsTest, Wallet_SpendTest_MultipleSigners_ParallelSigning)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+TEST_F(TransactionsTest, GetUnsignedTxId)
+{
+   //create spender lamba
+   auto getSpenderPtr = [](
+      const UnspentTxOut& utxo,
+      shared_ptr<ResolverFeed> feed)
+      ->shared_ptr<ScriptSpender>
+   {
+      UTXO entry(utxo.value_, utxo.txHeight_, utxo.txIndex_, utxo.txOutIndex_,
+         move(utxo.txHash_), move(utxo.script_));
+
+      return make_shared<ScriptSpender>(entry, feed);
+   };
+
+   //
+   setBlocks({ "0", "1", "2", "3" }, blk0dat_);
+
+   initBDM();
+
+   theBDMt_->start(config.initMode_);
+   auto&& bdvID = registerBDV(clients_, magic_);
+
+   vector<BinaryData> scrAddrVec;
+   scrAddrVec.push_back(TestChain::scrAddrA);
+   scrAddrVec.push_back(TestChain::scrAddrB);
+   scrAddrVec.push_back(TestChain::scrAddrC);
+   scrAddrVec.push_back(TestChain::scrAddrD);
+   scrAddrVec.push_back(TestChain::scrAddrE);
+
+   //// create 2 assetWlt ////
+
+   //create a root private key
+   auto assetWlt_1 = AssetWallet_Single::createFromPrivateRoot_Armory135(
+      homedir_,
+      AddressEntryType_P2PKH,
+      SecureBinaryData().GenerateRandom(32), //root as rvalue
+      3); //set lookup computation to 3 entries
+
+   auto assetWlt_2 = AssetWallet_Single::createFromPrivateRoot_Armory135(
+      homedir_,
+      AddressEntryType_Nested_P2WPKH,
+      move(SecureBinaryData().GenerateRandom(32)), //root as rvalue
+      3); //set lookup computation to 3 entries
+
+   //register with db
+   vector<shared_ptr<AddressEntry>> addrVec_1;
+   addrVec_1.push_back(assetWlt_1->getNewAddress());
+   addrVec_1.push_back(assetWlt_1->getNewAddress());
+   addrVec_1.push_back(assetWlt_1->getNewAddress());
+
+   vector<BinaryData> hashVec_1;
+   for (auto addrPtr : addrVec_1)
+      hashVec_1.push_back(addrPtr->getPrefixedHash());
+
+   vector<shared_ptr<AddressEntry>> addrVec_2;
+   addrVec_2.push_back(assetWlt_2->getNewAddress());
+   addrVec_2.push_back(assetWlt_2->getNewAddress());
+   addrVec_2.push_back(assetWlt_2->getNewAddress());
+
+   vector<BinaryData> hashVec_2;
+   for (auto addrPtr : addrVec_2)
+      hashVec_2.push_back(addrPtr->getPrefixedHash());
+
+   regWallet(clients_, bdvID, scrAddrVec, "wallet1");
+   regWallet(clients_, bdvID, hashVec_1, assetWlt_1->getID());
+   regWallet(clients_, bdvID, hashVec_2, assetWlt_2->getID());
+
+   auto bdvPtr = getBDV(clients_, bdvID);
+
+   //wait on signals
+   goOnline(clients_, bdvID);
+   waitOnBDMReady(clients_, bdvID);
+   auto wlt = bdvPtr->getWalletOrLockbox(wallet1id);
+   auto wlt_1 = bdvPtr->getWalletOrLockbox(assetWlt_1->getID());
+   auto wlt_2 = bdvPtr->getWalletOrLockbox(assetWlt_2->getID());
+
+   //check balances
+   const ScrAddrObj* scrObj;
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50 * COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 30 * COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 55 * COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrD);
+   EXPECT_EQ(scrObj->getFullBalance(), 5 * COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrE);
+   EXPECT_EQ(scrObj->getFullBalance(), 30 * COIN);
+
+   //check new wallet balances
+   scrObj = wlt_1->getScrAddrObjByKey(hashVec_1[0]);
+   EXPECT_EQ(scrObj->getFullBalance(), 0 * COIN);
+   scrObj = wlt_2->getScrAddrObjByKey(hashVec_2[0]);
+   EXPECT_EQ(scrObj->getFullBalance(), 0 * COIN);
+
+   {
+      ////spend 12 to wlt_1, 15 to wlt_2 from wlt
+      ////send rest back to scrAddrA
+
+      auto spendVal = 27 * COIN;
+      Signer signer;
+
+      //instantiate resolver feed overloaded object
+      auto feed = make_shared<TestResolverFeed>();
+
+      auto addToFeed = [feed](const BinaryData& key)->void
+      {
+         auto&& datapair = getAddrAndPubKeyFromPrivKey(key);
+         feed->h160ToPubKey_.insert(datapair);
+         feed->pubKeyToPrivKey_[datapair.second] = key;
+      };
+
+      addToFeed(TestChain::privKeyAddrA);
+      addToFeed(TestChain::privKeyAddrB);
+      addToFeed(TestChain::privKeyAddrC);
+      addToFeed(TestChain::privKeyAddrD);
+      addToFeed(TestChain::privKeyAddrE);
+
+      //get utxo list for spend value
+      auto&& unspentVec = wlt->getSpendableTxOutListForValue(spendVal);
+
+      vector<UnspentTxOut> utxoVec;
+      uint64_t tval = 0;
+      auto utxoIter = unspentVec.begin();
+      while (utxoIter != unspentVec.end())
+      {
+         tval += utxoIter->getValue();
+         utxoVec.push_back(*utxoIter);
+
+         if (tval > spendVal)
+            break;
+
+         ++utxoIter;
+      }
+
+      //create script spender objects
+      uint64_t total = 0;
+      for (auto& utxo : utxoVec)
+      {
+         total += utxo.getValue();
+         signer.addSpender(getSpenderPtr(utxo, feed));
+      }
+
+      //spend 12 to p2pkh script hash
+      signer.addRecipient(addrVec_1[0]->getRecipient(12 * COIN));
+
+      //spend 15 to p2pkh script hash
+      signer.addRecipient(addrVec_2[0]->getRecipient(15 * COIN));
+
+      if (total > spendVal)
+      {
+         //change to scrAddrD, no fee
+         auto changeVal = total - spendVal;
+         auto recipientChange = make_shared<Recipient_P2PKH>(
+            TestChain::scrAddrD.getSliceCopy(1, 20), changeVal);
+         signer.addRecipient(recipientChange);
+      }
+
+      try
+      {
+         //shouldn't be able to get txid on legacy unsigned tx
+         signer.getTxId();
+         EXPECT_TRUE(false);
+      }
+      catch (exception&)
+      {}
+
+      //sign, verify then broadcast
+      signer.sign();
+      EXPECT_TRUE(signer.verify());
+
+      ZcVector zcVec;
+      zcVec.push_back(signer.serialize(), 14000000);
+
+      pushNewZc(theBDMt_, zcVec);
+      waitOnNewZcSignal(clients_, bdvID);
+   }
+
+   //check balances
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrA);
+   EXPECT_EQ(scrObj->getFullBalance(), 50 * COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrB);
+   EXPECT_EQ(scrObj->getFullBalance(), 30 * COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrC);
+   EXPECT_EQ(scrObj->getFullBalance(), 55 * COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrD);
+   EXPECT_EQ(scrObj->getFullBalance(), 8 * COIN);
+   scrObj = wlt->getScrAddrObjByKey(TestChain::scrAddrE);
+   EXPECT_EQ(scrObj->getFullBalance(), 0 * COIN);
+
+   //check new wallet balances
+   scrObj = wlt_1->getScrAddrObjByKey(hashVec_1[0]);
+   EXPECT_EQ(scrObj->getFullBalance(), 12 * COIN);
+   scrObj = wlt_2->getScrAddrObjByKey(hashVec_2[0]);
+   EXPECT_EQ(scrObj->getFullBalance(), 15 * COIN);
+
+
+   auto&& unspentVec_1 =
+      wlt_1->getSpendableTxOutListZC();
+   auto&& unspentVec_2 =
+      wlt_2->getSpendableTxOutListZC();
+
+   BinaryData serializedSignerState;
+
+   {
+      //create first signer, set outpoint from wlt_1 and change to wlt_1
+      auto spendVal = 18 * COIN;
+      Signer signer2;
+      signer2.setFlags(SCRIPT_VERIFY_SEGWIT);
+
+      //create feed from asset wallet 1
+
+      //create wlt_1 spenders
+      uint64_t total = 0;
+      for (auto& utxo : unspentVec_1)
+      {
+         total += utxo.getValue();
+         signer2.addSpender(
+            make_shared<ScriptSpender>(
+            utxo.getTxHash(), utxo.getTxOutIndex(), utxo.getValue()));
+      }
+
+      //spend 18 to addrB, use P2PKH
+      auto recipient2 = make_shared<Recipient_P2PKH>(
+         TestChain::scrAddrB.getSliceCopy(1, 20), 18 * COIN);
+      signer2.addRecipient(recipient2);
+
+      //change back to wlt_1
+      if (total > spendVal)
+      {
+         //spend 4 to p2pkh script hash
+         signer2.addRecipient(addrVec_1[1]->getRecipient(total - spendVal));
+      }
+
+      serializedSignerState = move(signer2.serializeState());
+   }
+
+   {
+      //serialize signer 2, deser with signer3 and populate with outpoint and 
+      //change from wlt_2
+      auto spendVal = 10 * COIN;
+      Signer signer3;
+      signer3.deserializeState(serializedSignerState);
+
+      //add spender from wlt_2
+      uint64_t total = 0;
+      for (auto& utxo : unspentVec_2)
+      {
+         total += utxo.getValue();
+         signer3.addSpender(
+            make_shared<ScriptSpender>(
+            utxo.getTxHash(), utxo.getTxOutIndex(), utxo.getValue()));
+      }
+
+      //set change
+      if (total > spendVal)
+      {
+         //spend 4 to p2pkh script hash
+         signer3.addRecipient(addrVec_2[1]->getRecipient(total - spendVal));
+      }
+
+      serializedSignerState = move(signer3.serializeState());
+   }
+
+   auto assetFeed2 = make_shared<ResolvedFeed_AssetWalletSingle>(assetWlt_1);
+   auto assetFeed3 = make_shared<ResolvedFeed_AssetWalletSingle>(assetWlt_2);
+
+   //deser to new signer, this time populate with feed and utxo from wlt_1
+   Signer signer4;
+   for (auto& utxo : unspentVec_1)
+   {
+      signer4.addSpender(getSpenderPtr(utxo, assetFeed2));
+   }
+
+   signer4.deserializeState(serializedSignerState);
+   signer4.sign();
+
+   try
+   {
+      signer4.verify();
+      EXPECT_TRUE(false);
+   }
+   catch (...)
+   {
+   }
+
+   EXPECT_FALSE(signer4.isValid());
+
+   //should fail to get txid
+   try
+   {
+      signer4.getTxId();
+      EXPECT_TRUE(false);
+   }
+   catch (...)
+   { }
+
+   //deser from same state into wlt_2 signer
+   Signer signer5;
+
+   //in this case, we can't set the utxos first then deser the state, as it would break
+   //utxo ordering. we have to deser first, then populate utxos
+   signer5.deserializeState(signer4.serializeState());
+
+   //should fail since we lack the utxos
+   try
+   {
+      signer5.getTxId();
+      EXPECT_TRUE(false);
+   }
+   catch (...)
+   {
+   }
+
+   for (auto& utxo : unspentVec_2)
+   {
+      UTXO entry(utxo.value_, utxo.txHeight_, utxo.txIndex_, utxo.txOutIndex_,
+         move(utxo.txHash_), move(utxo.script_));
+
+      signer5.populateUtxo(entry);
+   }
+
+   //finally set the feed
+   signer5.setFeed(assetFeed3);
+
+   //tx should be unsigned
+   try
+   {
+      signer5.verify();
+      EXPECT_TRUE(false);
+   }
+   catch (...)
+   {
+   }
+
+   //should produce valid txid without signing
+   BinaryData txid;
+   try
+   {
+      txid = signer5.getTxId();
+   }
+   catch (...)
+   {
+      EXPECT_TRUE(false);
+   }
+
+   //producing a txid should not change the signer status from unsigned to signed
+   try
+   {
+      signer5.verify();
+      EXPECT_TRUE(false);
+   }
+   catch (...)
+   {
+   }
+
+   signer5.sign();
+   try
+   {
+      signer5.verify();
+   }
+   catch (...)
+   {
+      EXPECT_TRUE(false);
+   }
+
+   //check txid pre sig with txid post sig
+   EXPECT_EQ(txid, signer5.getTxId());
+}
+
+////////////////////////////////////////////////////////////////////////////////
 TEST_F(TransactionsTest, Wallet_SpendTest_Nested_P2WSH)
 {
    //create spender lamba
