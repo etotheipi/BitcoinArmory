@@ -218,6 +218,8 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
 
    --clear-mempool: delete all zero confirmation transactions from the DB.
 
+   --satoshirpc-port: set node rpc port
+
    ***/
 
    try
@@ -375,7 +377,7 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
 void BlockDataManagerConfig::processArgs(const map<string, string>& args, 
    bool onlyDetectNetwork)
 {
-   //port
+   //server port
    auto iter = args.find("fcgi-port");
    if (iter != args.end())
    {
@@ -411,6 +413,25 @@ void BlockDataManagerConfig::processArgs(const map<string, string>& args,
       else
       {
          selectNetwork("Main");
+      }
+   }
+
+   //rpc port
+   auto iter = args.find("satoshirpc-port");
+   if (iter != args.end())
+   {
+      auto value = stripQuotes(iter->second);
+      int portInt = 0;
+      stringstream portSS(value);
+      portSS >> portInt;
+
+      if (portInt < 1 || portInt > 65535)
+      {
+         cout << "Invalid satoshi rpc port, falling back to default" << endl;
+      }
+      else
+      {
+         rpcPort_ = value;
       }
    }
 
