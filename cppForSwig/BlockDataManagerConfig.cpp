@@ -417,7 +417,7 @@ void BlockDataManagerConfig::processArgs(const map<string, string>& args,
    }
 
    //rpc port
-   auto iter = args.find("satoshirpc-port");
+   iter = args.find("satoshirpc-port");
    if (iter != args.end())
    {
       auto value = stripQuotes(iter->second);
