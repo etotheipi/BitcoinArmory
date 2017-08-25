@@ -1158,6 +1158,8 @@ void ZeroConfContainer::parseNewZC(map<BinaryData, Tx> zcMap,
    map<BinaryData, BinaryData> txhashmap_update;
    map<BinaryData, Tx> txmap_update;
 
+   bool hasChanges = false;
+
    {
       auto txhashmap_ptr = txHashToDBKey_.get();
       auto txmap_ptr = txMap_.get();
@@ -1305,12 +1307,17 @@ void ZeroConfContainer::parseNewZC(map<BinaryData, Tx> zcMap,
 
                //drop the replacedKeys if any
                if (replacedHashes.size() > 0)
+               {
                   dropZC(replacedHashes);
+                  hasChanges = true;
+               }
             }
 
             //add ZC if its relevant
             if (!bulkData.isEmpty())
             {
+               hasChanges = true;
+
                //merge spent outpoints
                txOutsSpentByZC_.insert(bulkData.txOutsSpentByZC_);
 
@@ -1352,13 +1359,11 @@ void ZeroConfContainer::parseNewZC(map<BinaryData, Tx> zcMap,
                newZcByHash.insert(txHash);
 
                //notify BDVs
-               if (!notify)
-                  continue;
-
                for (auto& bdvMap : bulkData.flaggedBDVs_)
                {
                   auto& addrSet = flaggedBDVs_[bdvMap.first];
-                  addrSet.insert(bdvMap.second.begin(), bdvMap.second.end());
+                  addrSet.second.insert(bdvMap.second.begin(), bdvMap.second.end());
+                  addrSet.first = true;
                }
             }
          }
@@ -1382,14 +1387,23 @@ void ZeroConfContainer::parseNewZC(map<BinaryData, Tx> zcMap,
    lastParsedBlockHash_ = db_->getTopBlockHash();
 
    //notify bdvs
+   if (!hasChanges)
+      return;
+
+   if (!notify)
+      return;
+
    auto txiomapPtr = txioMap_.get();
    auto bdvcallbacks = bdvCallbacks_.get();
 
    for (auto& bdvMap : flaggedBDVs_)
    {
+      if (!bdvMap.second.first)
+         continue;
+
       map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>>
          notificationMap;
-      for (auto& sa : bdvMap.second)
+      for (auto& sa : bdvMap.second.second)
       {
          auto saIter = txiomapPtr->find(sa);
          if (saIter == txiomapPtr->end())
@@ -1397,6 +1411,8 @@ void ZeroConfContainer::parseNewZC(map<BinaryData, Tx> zcMap,
 
          notificationMap.insert(*saIter);
       }
+
+      bdvMap.second.first = false;
 
       auto callbackIter = bdvcallbacks->find(bdvMap.first);
       if (callbackIter == bdvcallbacks->end())
