@@ -2260,17 +2260,60 @@ bool LMDBBlockDatabase::getStoredTxOut(
    //so there is a high chance we wont need to pull the stxo from the raw
    //block, since fullnode keeps track of all relevant stxos
 
-   LMDBEnv::Transaction tx(dbEnv_[STXO].get(), LMDB::ReadOnly);
-   BinaryRefReader brr = getValueReader(STXO, DB_PREFIX_TXDATA, DBkey);
-
-   if (brr.getSize() > 0)
+   if (armoryDbType_ != ARMORY_DB_SUPER)
    {
-      stxo.blockHeight_ = DBUtils::hgtxToHeight(DBkey.getSliceRef(0, 4));
-      stxo.duplicateID_ = DBUtils::hgtxToDupID(DBkey.getSliceRef(0, 4));
-      stxo.txIndex_ = READ_UINT16_BE(DBkey.getSliceRef(4, 2));
-      stxo.txOutIndex_ = READ_UINT16_BE(DBkey.getSliceRef(6, 2));
+      LMDBEnv::Transaction tx(dbEnv_[STXO].get(), LMDB::ReadOnly);
+      BinaryRefReader brr = getValueReader(STXO, DB_PREFIX_TXDATA, DBkey);
 
-      stxo.unserializeDBValue(brr);
+      if (brr.getSize() > 0)
+      {
+         stxo.blockHeight_ = DBUtils::hgtxToHeight(DBkey.getSliceRef(0, 4));
+         stxo.duplicateID_ = DBUtils::hgtxToDupID(DBkey.getSliceRef(0, 4));
+         stxo.txIndex_ = READ_UINT16_BE(DBkey.getSliceRef(4, 2));
+         stxo.txOutIndex_ = READ_UINT16_BE(DBkey.getSliceRef(6, 2));
+
+         stxo.unserializeDBValue(brr);
+         return true;
+      }
+   }
+   else
+   {
+      unsigned id;
+      uint8_t dup;
+      uint16_t txIdx, txoutid;
+
+      BinaryRefReader txout_key(DBkey);
+      DBUtils::readBlkDataKeyNoPrefix(txout_key, id, dup, txIdx, txoutid);
+
+      if (dup != 0x7F)
+      {
+         LOGINFO << "need id in block key, got height";
+         throw runtime_error("unexpected block key format");
+      }
+
+      //grab header
+      auto header = blockchainPtr_->getHeaderById(id);
+
+      //grab tx
+      auto&& theTx = getFullTxCopy(txIdx, header);
+
+      //grab txout
+      auto txOutOffset = theTx.getTxOutOffset(txoutid);
+
+      //grab dataref
+      BinaryDataRef tx_bdr(theTx.getPtr(), theTx.getSize());
+      BinaryRefReader brr(tx_bdr);
+      brr.advance(txOutOffset);
+
+      //convert to stxo
+      stxo.unserialize(brr);
+      stxo.parentHash_ = theTx.getThisHash();
+      stxo.blockHeight_ = header->getBlockHeight();
+      stxo.duplicateID_ = header->getDuplicateID();
+      stxo.txIndex_ = txIdx;
+      stxo.txOutIndex_ = txoutid;
+      stxo.isCoinbase_ = (txIdx == 0);
+
       return true;
    }
 
