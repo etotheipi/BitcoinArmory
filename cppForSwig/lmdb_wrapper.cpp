@@ -1919,10 +1919,24 @@ BinaryData LMDBBlockDatabase::getTxHashForLdbKey(BinaryDataRef ldbKey6B) const
          BinaryRefReader brr(ldbKey6B);
 
          DBUtils::readBlkDataKeyNoPrefix(brr, height, dup, txid);
+         
+         unsigned block_id = height;
+         if (dup != 0x7F)
+         {
+            try
+            {
+               auto header = blockchainPtr_->getHeaderByHeight(height);
+               block_id = header->getThisID();
+            }
+            catch (exception&)
+            {
+               LOGWARN << "failed to grab header while resolving txhash";
+               return BinaryData();
+            }
+         }
 
-         auto header = blockchainPtr_->getHeaderByHeight(height);
          auto&& id_key = DBUtils::getBlkDataKeyNoPrefix(
-            header->getThisID(), 0xFF, txid, 0);
+            block_id, 0xFF, txid, 0);
 
          //get stxo at this key
          LMDBEnv::Transaction tx(dbEnv_[STXO].get(), LMDB::ReadOnly);
