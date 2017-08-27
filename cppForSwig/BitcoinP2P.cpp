@@ -936,7 +936,7 @@ void BitcoinP2P::connectLoop(void)
          version.setVersionHeaderIPv4(70012, services, timestamp,
             node_addr_, clientsocketaddr);
 
-         version.userAgent_ = "Armory:0.96.1.2";
+         version.userAgent_ = "Armory:0.96.2";
          version.startHeight_ = -1;
 
          sendMessage(move(version));
@@ -1105,8 +1105,7 @@ void BitcoinP2P::checkServices(unique_ptr<Payload> payload)
    auto mwInt = (uint32_t*)mainnetMW.getPtr();
 
    //Hardcode disabling SW for mainnet until BIP9 rule detection is implemented
-   if(pver->vheader_.services_ & NODE_WITNESS && 
-      magic_word_ != *mwInt)
+   if(pver->vheader_.services_ & NODE_WITNESS)
       PEER_USES_WITNESS = true;
    else
       PEER_USES_WITNESS = false;
