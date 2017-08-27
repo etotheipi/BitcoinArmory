@@ -1,5 +1,6 @@
-v0.96.2
+v0.96.2, released August 27th 2017
 == Added ==
+   - Enabled SegWit on the mainnet. Running against a node with WITNESS service bit flagged will allow you to create SegWit addresses.
    - Improved DB scan speed (~80% faster) and stability.
    - Reduced DB memory usage (~20% less).
    - Supernode DB mode. This isn't optimized for consumer grade computers, use at your own risk.
@@ -8,16 +9,21 @@ v0.96.2
    - You can now create OP_RETURN outputs from the Send dialog. This feature is only available in Expert mode.
    - You can now pick the signer of your choosing in Expert mode.
    - Added BCH on top of the legacy and 0.96 C++ signer.
+   - Improved verbose on ZC broadcast failure.
 
 == Fixed ==
    - Fixed benchmark timers on POSIX systems.
    - Fixed several Linux build configure bugs.
    - Properly update RPC state in GUI on connect/disconnect events.
+   - Various zero conf bugs.
+   - Scan progress notification.
+   - Properly display comments for non legacy addresses.
+   - Digital exports will be saved under the proper file extention in Windows.
 
 == Removed ==
    - Removed armoryd from the repository. armoryd was moved to its own repository (https://github.com/goatpig/armoryd)
 
-v0.96.1, release July 26th 2017
+v0.96.1, released July 26th 2017
 
 == Added ==
    - Raised default fee to 200 satoshi/Bytes. This fee will apply when using defaults and the node RPC is down.
