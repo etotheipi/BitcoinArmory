@@ -551,3 +551,27 @@ uint64_t CoinSelectionInstance::getFeeForMaxVal(float fee_byte)
    vector<BinaryData> utxos;
    return getFeeForMaxValUtxoVector(utxos, fee_byte);
 }
+
+////////////////////////////////////////////////////////////////////////////////
+////
+//// UniversalSigner
+////
+////////////////////////////////////////////////////////////////////////////////
+UniversalSigner::UniversalSigner(const string& signerType)
+{
+   if (signerType != "Bcash")
+      signer_ = make_unique<Signer>();
+   else
+      signer_ = make_unique<Signer_BCH>();
+
+   signer_->setFlags(SCRIPT_VERIFY_SEGWIT);
+
+   auto feed = make_shared<ResolverFeed_Universal>(this);
+   signer_->setFeed(feed);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+UniversalSigner::~UniversalSigner()
+{}
+
+

@@ -23,6 +23,7 @@ using namespace std;
 #include "Signer.h"
 #include "BlockDataManagerConfig.h"
 #include "CoinSelection.h"
+#include "Script.h"
 
 enum AddressType
 {
@@ -378,19 +379,19 @@ public:
    vector<BinaryData> getScriptHashVectorForIndex(int) const;
 };
 
-class ResolvedFeed_PythonWalletSingle;
+class ResolverFeed_PythonWalletSingle;
 
 ////////////////////////////////////////////////////////////////////////////////
 class PythonSigner
 {
-   friend class ResolvedFeed_PythonWalletSingle;
+   friend class ResolverFeed_PythonWalletSingle;
 
 private:
    shared_ptr<AssetWallet> walletPtr_;
 
 protected:
    unique_ptr<Signer> signer_;
-   shared_ptr<ResolvedFeed_PythonWalletSingle> feedPtr_;
+   shared_ptr<ResolverFeed_PythonWalletSingle> feedPtr_;
 
 public:
    PythonSigner(WalletContainer& wltContainer)
@@ -404,7 +405,7 @@ public:
       if (walletSingle == nullptr)
          throw WalletException("unexpected wallet type");
 
-      feedPtr_ = make_shared<ResolvedFeed_PythonWalletSingle>(
+      feedPtr_ = make_shared<ResolverFeed_PythonWalletSingle>(
          walletSingle, this);
    }
 
@@ -477,6 +478,16 @@ public:
       return signer_->isInputSW(id);
    }
 
+   BinaryData serializeSignedTx() const
+   {
+      return signer_->serialize();
+   }
+
+   BinaryData serializeState(void) const
+   {
+      return signer_->serializeState();
+   }
+
    virtual ~PythonSigner(void) = 0;
    virtual const SecureBinaryData& getPrivateKeyForIndex(unsigned) = 0;
    virtual const SecureBinaryData& getPrivateKeyForImportIndex(unsigned) = 0;
@@ -507,6 +518,106 @@ public:
    }
 };
 
+class ResolverFeed_Universal;
+
+////////////////////////////////////////////////////////////////////////////////
+class UniversalSigner
+{
+private:
+   unique_ptr<Signer> signer_;
+   shared_ptr<ResolverFeed_Universal> feedPtr_;
+
+public:
+   UniversalSigner(const string& signerType);
+
+   virtual ~UniversalSigner(void) = 0;
+
+   void updateSignerState(const BinaryData& state)
+   {
+      signer_->deserializeState(state);
+   }
+
+   void populateUtxo(const BinaryData& hash, unsigned txoId, 
+                uint64_t value, const BinaryData& script)
+   {
+      UTXO utxo(value, UINT32_MAX, UINT32_MAX, txoId, hash, script);
+      signer_->populateUtxo(utxo);
+   }
+
+   void signTx(void)
+   {
+      signer_->sign();
+   }
+
+   void setLockTime(unsigned locktime)
+   {
+      signer_->setLockTime(locktime);
+   }
+
+   void setVersion(unsigned version)
+   {
+      signer_->setVersion(version);
+   }
+
+   void addSpenderByOutpoint(
+      const BinaryData& hash, unsigned index, unsigned sequence, uint64_t value)
+   {
+      auto spender = make_shared<ScriptSpender>(hash, index, value);
+      spender->setSequence(sequence);
+
+      signer_->addSpender(spender);
+   }
+
+   void addRecipient(uint64_t value, const BinaryData& script)
+   {
+      auto recipient = make_shared<Recipient_Universal>(script, value);
+      signer_->addRecipient(recipient);
+   }
+
+   BinaryData getSignedTx(void)
+   {
+      BinaryData finalTx(signer_->serialize());
+      return finalTx;
+   }
+
+   const BinaryData& getSigForInputIndex(unsigned id) const
+   {
+      return signer_->getSigForInputIndex(id);
+   }
+
+   BinaryData getWitnessDataForInputIndex(unsigned id)
+   {
+      return BinaryData(signer_->getWitnessData(id));
+   }
+
+   bool isInptuSW(unsigned id) const
+   {
+      return signer_->isInputSW(id);
+   }
+
+   BinaryData serializeState(void) const
+   {
+      return signer_->serializeState();
+   }
+
+   void deserializeState(const BinaryData& state)
+   {
+      signer_->deserializeState(state);
+   }
+
+   TxEvalState getSignedState(void) const
+   {
+      return signer_->evaluateSignedState();
+   }
+
+   BinaryData serializeSignedTx() const
+   {
+      return signer_->serialize();
+   }
+
+   virtual string getPublicDataForKey(const string&) = 0;
+   virtual const SecureBinaryData& getPrivDataForKey(const string&) = 0;
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 class PythonVerifier
@@ -548,13 +659,13 @@ public:
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-class ResolvedFeed_PythonWalletSingle : public ResolvedFeed_AssetWalletSingle
+class ResolverFeed_PythonWalletSingle : public ResolvedFeed_AssetWalletSingle
 {
 private:
    PythonSigner* signerPtr_ = nullptr;
 
 public:
-   ResolvedFeed_PythonWalletSingle(
+   ResolverFeed_PythonWalletSingle(
       shared_ptr<AssetWallet_Single> walletPtr,
       PythonSigner* signerptr) :
       ResolvedFeed_AssetWalletSingle(walletPtr),
@@ -577,6 +688,40 @@ public:
 
       id = AssetWallet::convertToImportIndex(id);
       return signerPtr_->getPrivateKeyForImportIndex(id);
+   }
+};
+
+////////////////////////////////////////////////////////////////////////////////
+class ResolverFeed_Universal : public ResolverFeed
+{
+private:
+   UniversalSigner* signerPtr_ = nullptr;
+
+public:
+   ResolverFeed_Universal(UniversalSigner* signerptr) :
+      signerPtr_(signerptr)
+   {
+      if (signerPtr_ == nullptr)
+         throw WalletException("null signer ptr");
+   }
+
+   const SecureBinaryData& getPrivKeyForPubkey(const BinaryData& pubkey)
+   {
+      auto&& pubkey_hex = pubkey.toHexStr();
+      auto& data = signerPtr_->getPrivDataForKey(pubkey_hex);
+      if (data.getSize() == 0)
+         throw runtime_error("invalid value");
+      return data;
+   }
+
+   BinaryData getByVal(const BinaryData& val)
+   {
+      auto&& val_str = val.toHexStr();
+      auto data_str = signerPtr_->getPublicDataForKey(val_str);
+      if (data_str.size() == 0)
+         throw runtime_error("invalid value");
+      BinaryData data_bd(data_str);
+      return data_bd;
    }
 };
 

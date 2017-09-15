@@ -15,6 +15,7 @@
 %feature("director") PythonCallback;
 %feature("director") PythonSigner;
 %feature("director") PythonSigner_BCH;
+%feature("director") UniversalSigner;
 %feature("director") ProcessMutex;
 
 %{
@@ -28,6 +29,7 @@
 #include "WalletManager.h"
 #include "BlockDataManagerConfig.h"
 #include "TransactionBatch.h"
+#include "TxEvalState.h"
 %}
 
 %include "std_string.i"
@@ -399,4 +401,5 @@ namespace std
 %include "WalletManager.h"
 %include "BlockDataManagerConfig.h"
 %include "TransactionBatch.h"
+%include "TxEvalState.h"
 

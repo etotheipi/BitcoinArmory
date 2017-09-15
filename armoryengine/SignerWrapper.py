@@ -7,6 +7,7 @@
 ################################################################################
 
 import CppBlockUtils as Cpp
+from armoryengine.ArmoryUtils import hex_to_binary
 
 SIGNER_DEFAULT = 'Default'
 SIGNER_LEGACY  = 'Legacy'
@@ -54,3 +55,30 @@ class PythonSignerDirector_BCH(Cpp.PythonSigner_BCH):
          utxo.val, \
          0, 0, utxo.txOutIndex, \
          utxo.txHash, utxo.binScript, sequence)
+            
+class UniversalSignerDirector(Cpp.UniversalSigner):
+   def __init__(self, signerType):
+      Cpp.UniversalSigner.__init__(self, signerType)
+
+      self.pubData = {}
+      self.privData = {}      
+      
+   def updatePubDataDict(self, _dict):
+      self.pubData.update(_dict)
+      
+   def updatePrivDataDict(self, _dict):
+      self.privData.update(_dict)
+      
+   def getPublicDataForKey(self, key):
+      if key in self.pubData:
+         return self.pubData[key]
+      else:
+         return ""
+   
+   def getPrivDataForKey(self, key):
+      if key in self.privData:
+         return self.privData[key]
+      else:
+         return Cpp.SecureBinaryData()
+      
+   
