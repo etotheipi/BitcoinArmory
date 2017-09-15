@@ -17,7 +17,7 @@ from armoryengine.ArmoryUtils import CPP_TXOUT_SEGWIT
 
 class SignerSelectDialog(ArmoryDialog):
    
-   def __init__(self, parent, main, wlt, ustx):
+   def __init__(self, parent, main, ustx, lockType):
       super(SignerSelectDialog, self).__init__(parent, main)   
       
       self.type = SIGNER_DEFAULT
@@ -26,24 +26,35 @@ class SignerSelectDialog(ArmoryDialog):
       canUseLegacySigner = True
       canUseBchSigner = True
       
-      if not ustx.isLegacyTx:
-         canUseLegacySigner = False
+      hasSegWitRecipients = False        
+      if ustx != None:
+         if not ustx.isLegacyTx:
+            canUseLegacySigner = False
+            
+         if ustx.isSegWit():
+            canUseBchSigner = False
          
-      if ustx.isSegWit():
-         canUseBchSigner = False
-      
-      #check the recipients for segwit scripts
-      hasSegWitRecipients = False   
-      for dtxo in ustx.decorTxOuts:
-         try:
-            addrIndex = wlt.cppWallet.getAssetIndexForAddr(dtxo.scrAddr)
-            addrType = wlt.cppWallet.getAddrTypeForIndex(addrIndex)
-            if addrType in CPP_TXOUT_SEGWIT:
-               hasSegWitRecipients = True
-               break
-         except:
-            continue
-      
+         #check the recipients for segwit scripts
+
+         
+         for dtxo in ustx.decorTxOuts:
+            wltID = main.getWalletForScrAddr(dtxo.scrAddr)
+            if wltID != '':
+               wlt = main.walletMap[wltID]
+               try:
+                  addrIndex = wlt.cppWallet.getAssetIndexForAddr(dtxo.scrAddr)
+                  addrType = wlt.cppWallet.getAddrTypeForIndex(addrIndex)
+                  if addrType in CPP_TXOUT_SEGWIT:
+                     hasSegWitRecipients = True
+                     break
+               except:
+                  continue
+            else:
+               lbox = main.getLockboxByP2SHAddrStr(dtxo.scrAddr)
+               if lbox != None and lbox.isAddrSegWit(dtxo.scrAddr):
+                  hasSegWitRecipients = True
+                  break
+                        
       if hasSegWitRecipients:
          canUseBchSigner = False
       
@@ -147,7 +158,11 @@ class SignerSelectDialog(ArmoryDialog):
       self.setLayout(layout)
       self.setWindowTitle(self.tr('Select Address Type'))
       
-      self.selectType(self.type)
+      if lockType != SIGNER_DEFAULT:
+         self.type = lockType
+         self.forceType(self.type)
+      else:
+         self.selectType(self.type)
       self.setFocus()   
       
    def selectType(self, _type):
@@ -167,17 +182,24 @@ class SignerSelectDialog(ArmoryDialog):
       elif _type == SIGNER_BCH:
          self.radioBch.setChecked(True)
          
+   def forceType(self, _type):
+      self.radioDefault.setEnabled(False)
+      self.radioLegacy.setEnabled(False)
+      self.radioCpp.setEnabled(False)
+      self.radioBch.setEnabled(False)
+      
+      self.selectType(_type)
+         
    def getType(self):
       return self.type
 
 class SignerLabelFrame(object):
-   def __init__(self, main, wlt, pytxOrUstx, setSignerFunc):
+   def __init__(self, main, pytxOrUstx, setSignerFunc):
       self.main = main
       self.setSignerFunc = setSignerFunc
-      self.wlt = wlt
-      
+
       self.ustx = pytxOrUstx
-      if isinstance(pytxOrUstx, PyTx):
+      if pytxOrUstx != None and isinstance(pytxOrUstx, PyTx):
          self.ustx = UnsignedTransaction()
          self.ustx.createFromPyTx(pytxOrUstx)
          
@@ -189,7 +211,13 @@ class SignerLabelFrame(object):
       signerLabel.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
       self.typeLabel = QLabelButton("")
       self.typeLabel.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-      self.setType(SIGNER_DEFAULT)
+      
+      self.originalType = SIGNER_DEFAULT
+      if self.ustx != None:
+         self.originalType = self.ustx.signerType
+
+      self.setType(self.originalType)
+      setSignerFunc(self.originalType)
          
       self.main.connect(self.typeLabel, SIGNAL('clicked()'), self.changeType)
       
@@ -205,7 +233,7 @@ class SignerLabelFrame(object):
       return self.type
          
    def changeType(self):
-      dlg = SignerSelectDialog(self.main, self.main, self.wlt, self.ustx)
+      dlg = SignerSelectDialog(self.main, self.main, self.ustx, self.originalType)
       if dlg.exec_():
          self.setType(dlg.getType())
          self.setSignerFunc(dlg.getType())

@@ -452,7 +452,23 @@ class SendBitcoinsFrame(ArmoryFrame):
          coinSelRow = self.widgetTable[id_]
          
          if 'OP_RETURN' not in coinSelRow:
-            prefix, h160 = addrStr_to_hash160(str(coinSelRow['QLE_ADDR'].text()).strip())
+            addrStr = str(coinSelRow['QLE_ADDR'].text()).strip()
+            
+            try:
+               prefix, h160 = addrStr_to_hash160(addrStr)
+            except:
+               #recipient input is not an address, is it a locator instead?
+               scriptDict = getScriptForUserString(\
+                  addrStr, self.main.walletMap, self.main.allLockboxes)
+               
+               if scriptDict['Script'] == None:
+                  raise Exception("invalid addrStr in recipient")
+               
+               scraddr = script_to_scrAddr(scriptDict['Script']) 
+               prefix = scraddr[0]
+               h160 = scraddr[1:]   
+               abc=0
+               
             scrAddr = prefix + h160
             valueStr = str(coinSelRow['QLE_AMT'].text()).strip()
             try:
@@ -738,11 +754,10 @@ class SendBitcoinsFrame(ArmoryFrame):
       p2shMap = {}
       pubKeyMap = {}
       
-      # In order to create the USTXI objects, need to make we supply a
+      # In order to create the USTXI objects, need to make sure we supply a
       # map of public keys that can be included
       if self.lbox:
-         p2shMap = {binary_to_hex(script_to_scrAddr(script_to_p2sh_script(
-                        self.lbox.binScript))) : self.lbox.binScript}
+         p2shMap = self.lbox.getScriptDict()
          ustx = UnsignedTransaction().createFromTxOutSelection( \
                                        utxoSelect, scriptValPairs,
                                        p2shMap = p2shMap)
@@ -868,7 +883,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       
       
                ustxSigned = self.wlt.signUnsignedTx(ustx, signer=self.signerType)
-               finalTx = ustxSigned.getSignedPyTx(signer=self.signerType)
+               finalTx = ustxSigned.getSignedPyTx(signer=ustxSigned.signerType)
                if len(commentStr) > 0:
                   self.wlt.setComment(finalTx.getHash(), commentStr)
                self.main.broadcastTransaction(finalTx)

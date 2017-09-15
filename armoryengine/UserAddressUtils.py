@@ -63,9 +63,7 @@ def getScriptForUserString(userStr, wltMap, lboxList):
          for iterLbox in lboxList:
             # Search for a lockbox with the same ID
             if iterLbox.uniqueIDB58 == parsedLboxID:
-               outScript = iterLbox.binScript
-               if isP2SHLockbox(userStr):
-                  outScript = script_to_p2sh_script(iterLbox.binScript) 
+               outScript = iterLbox.getScript()
                lboxID = parsedLboxID
                hasAddrInIt = False
                break
@@ -93,7 +91,7 @@ def getScriptForUserString(userStr, wltMap, lboxList):
 
          # Check if it's a known P2SH
          for lbox in lboxList:
-            if lbox.p2shScrAddr == scrAddr:
+            if lbox.getAddr() == scrAddr:
                lboxID = lbox.uniqueIDB58
                break
 
@@ -181,7 +179,7 @@ def getDisplayStringForScript(binScript, wltMap, lboxList, maxChars=256,
             searchScrAddr = script_to_scrAddr(script_to_p2sh_script(binScript))
             
          for iterLbox in lboxList:
-            if searchScrAddr == iterLbox.p2shScrAddr:
+            if iterLbox.hasScrAddr(searchScrAddr):
                lbox = iterLbox
                break
    else:
@@ -205,7 +203,7 @@ def getDisplayStringForScript(binScript, wltMap, lboxList, maxChars=256,
    elif lbox is not None:
       strType  = 'Lockbox %d-of-%d:' % (lbox.M, lbox.N)
       strLabel = lbox.shortName
-      addrStr = scrAddr_to_addrStr(lbox.p2shScrAddr)
+      addrStr = scrAddr_to_addrStr(scrAddr)
       strLast = lbox.uniqueIDB58 if prefIDOverAddr else addrStr
    else:
       strType = ''

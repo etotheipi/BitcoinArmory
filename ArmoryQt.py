@@ -2388,7 +2388,7 @@ class ArmoryMainWindow(QMainWindow):
    def getLockboxByP2SHAddrStr(self, p2shAddrStr):
       for lboxId in self.lockboxIDMap.keys():
          lbox = self.allLockboxes[self.lockboxIDMap[lboxId]]
-         if p2shAddrStr == binScript_to_p2shAddrStr(lbox.binScript):
+         if lbox.hasScrAddr(p2shAddrStr):
             return lbox
       return None
 
@@ -5721,13 +5721,8 @@ class ArmoryMainWindow(QMainWindow):
 
       for lbObj in self.allLockboxes:
          lbID = lbObj.uniqueIDB58
-
-         scraddrReg = script_to_scrAddr(lbObj.binScript)
-         scraddrP2SH = script_to_scrAddr(script_to_p2sh_script(lbObj.binScript))
-         scrAddrList = []
-         scrAddrList.append(scraddrReg)
-         scrAddrList.append(scraddrP2SH)
-
+         
+         scrAddrList = lbObj.getScrAddrList()
          self.cppLockboxWltMap[lbID] = lbObj.registerLockbox(scrAddrList, False)
 
    #############################################################################

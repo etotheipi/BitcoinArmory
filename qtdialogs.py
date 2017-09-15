@@ -4546,7 +4546,7 @@ class DlgConfirmSend(ArmoryDialog):
          isSigned = pytxOrUstx.verifySigsAllInputs(pytxOrUstx.signerType)
          
       if self.main.usermode == USERMODE.Expert and isSigned == False:
-         self.signerSelect = SignerLabelFrame(self.main, wlt, pytxOrUstx, setSignerType)
+         self.signerSelect = SignerLabelFrame(self.main, pytxOrUstx, setSignerType)
          self.signerSelectFrame = self.signerSelect.getFrame()
       
          frmBtnSelect = makeHorizFrame([STRETCH, self.signerSelectFrame, buttonBox])
