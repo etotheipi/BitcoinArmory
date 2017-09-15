@@ -22,7 +22,8 @@ enum SpendScriptType
    SST_NESTED_P2WPKH,
    SST_P2WSH,
    SST_NESTED_P2WSH,
-   SST_OPRETURN
+   SST_OPRETURN,
+   SST_UNIVERSAL
 };
 
 ////
@@ -246,4 +247,37 @@ public:
    }
 };
 
+////////////////////////////////////////////////////////////////////////////////
+class Recipient_Universal : public ScriptRecipient
+{
+private: 
+   const BinaryData binScript_;
+
+public:
+   Recipient_Universal(const BinaryData& script, uint64_t val) :
+      ScriptRecipient(SST_UNIVERSAL, val), binScript_(script)
+   {}
+
+   void serialize(void)
+   {
+      if (script_.getSize() != 0)
+         return;
+
+      BinaryWriter bw;
+      bw.put_uint64_t(value_);
+      bw.put_var_int(binScript_.getSize());
+      bw.put_BinaryData(binScript_);
+
+      script_ = move(bw.getData());
+   }
+
+   size_t getSize(void) const
+   {
+      size_t varint_len = 1;
+      if (binScript_.getSize() >= 0xfd)
+         varint_len = 3; //larger scripts would make the tx invalid
+
+      return 8 + binScript_.getSize() + varint_len;
+   }
+};
 #endif

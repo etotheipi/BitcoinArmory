@@ -7083,7 +7083,7 @@ TEST_F(TransactionsTest, Wallet_SpendTest_MultipleSigners_2of3)
    wltRoot = move(SecureBinaryData().GenerateRandom(32));
    auto assetWlt_2 = AssetWallet_Single::createFromPrivateRoot_Armory135(
       homedir_,
-      AddressEntryType_P2WPKH,
+      AddressEntryType_Nested_P2PK,
       move(wltRoot), //root as a rvalue
       3); //set lookup computation to 3 entries
 
@@ -7104,6 +7104,8 @@ TEST_F(TransactionsTest, Wallet_SpendTest_MultipleSigners_2of3)
    BinaryData wltid2_bd(assetWlt_2->getID());
    asset_single_map.insert(make_pair(wltid2_bd, asset2));
 
+   auto asset4_singlesig = assetWlt_2->getNewAddress();
+
    auto asset3 = assetWlt_3->getAssetForIndex(0);
    BinaryData wltid3_bd(assetWlt_3->getID());
    asset_single_map.insert(make_pair(wltid3_bd, asset3));
@@ -7115,8 +7117,14 @@ TEST_F(TransactionsTest, Wallet_SpendTest_MultipleSigners_2of3)
    vector<BinaryData> addrVec;
    addrVec.push_back(addr_ms.getPrefixedHash());
 
+   vector<BinaryData> addrVec_singleSig;
+   auto&& addrSet = assetWlt_2->getAddrHashSet();
+   for (auto& addr : addrSet)
+      addrVec_singleSig.push_back(addr);
+
    regWallet(clients_, bdvID, addrVec, "ms_entry");
    regWallet(clients_, bdvID, scrAddrVec, "wallet1");
+   regWallet(clients_, bdvID, addrVec_singleSig, assetWlt_2->getID());
 
    auto bdvPtr = getBDV(clients_, bdvID);
 
@@ -7125,6 +7133,7 @@ TEST_F(TransactionsTest, Wallet_SpendTest_MultipleSigners_2of3)
    waitOnBDMReady(clients_, bdvID);
    auto wlt = bdvPtr->getWalletOrLockbox(wallet1id);
    auto ms_wlt = bdvPtr->getWalletOrLockbox(BinaryData("ms_entry"));
+   auto wlt_singleSig = bdvPtr->getWalletOrLockbox(BinaryData(assetWlt_2->getID()));
 
 
    //check balances
@@ -7192,8 +7201,11 @@ TEST_F(TransactionsTest, Wallet_SpendTest_MultipleSigners_2of3)
          signer.addSpender(getSpenderPtr(utxo, feed));
       }
 
-      //spend 27 to nested p2wsh script hash
-      signer.addRecipient(addr_ms.getRecipient(27 * COIN));
+      //spend 20 to nested p2wsh script hash
+      signer.addRecipient(addr_ms.getRecipient(20 * COIN));
+
+      //spend 7 to assetWlt_2
+      signer.addRecipient(asset4_singlesig->getRecipient(7 * COIN));
 
       if (total > spendVal)
       {
@@ -7229,7 +7241,10 @@ TEST_F(TransactionsTest, Wallet_SpendTest_MultipleSigners_2of3)
 
    //check new wallet balances
    scrObj = ms_wlt->getScrAddrObjByKey(addrVec[0]);
-   EXPECT_EQ(scrObj->getFullBalance(), 27 * COIN);
+   EXPECT_EQ(scrObj->getFullBalance(), 20 * COIN);
+   scrObj = wlt_singleSig->getScrAddrObjByKey(asset4_singlesig->getPrefixedHash());
+   EXPECT_EQ(scrObj->getFullBalance(), 7 * COIN);
+
 
    //custom feed: grab hash preimages from ms entry, 
    //get private keys from a single wallet at a time
@@ -7258,7 +7273,7 @@ TEST_F(TransactionsTest, Wallet_SpendTest_MultipleSigners_2of3)
          auto keyRef = BinaryDataRef(key);
          auto iter = hash_to_preimage_.find(keyRef);
          if (iter == hash_to_preimage_.end())
-            throw runtime_error("invalid value");
+            return wltFeed_->getByVal(key);
 
          return iter->second;
       }
@@ -7276,6 +7291,11 @@ TEST_F(TransactionsTest, Wallet_SpendTest_MultipleSigners_2of3)
    //get utxo list for spend value
    auto&& unspentVec =
       ms_wlt->getSpendableTxOutListZC();
+
+   auto&& unspentVec_singleSig = wlt_singleSig->getSpendableTxOutListZC();
+
+   unspentVec.insert(unspentVec.end(), 
+      unspentVec_singleSig.begin(), unspentVec_singleSig.end());
 
    //create feed from asset wallet 1
    auto assetFeed = make_shared<CustomFeed>(ae_ms, assetWlt_1);
@@ -7302,6 +7322,23 @@ TEST_F(TransactionsTest, Wallet_SpendTest_MultipleSigners_2of3)
    }
 
    //sign, verify & return signed tx
+   auto&& signerState = signer2.evaluateSignedState();
+
+   {
+      EXPECT_EQ(signerState.getEvalMapSize(), 2);
+
+      auto&& txinEval = signerState.getSignedStateForInput(0);
+      auto& pubkeyMap = txinEval.getPubKeyMap();
+      EXPECT_EQ(pubkeyMap.size(), 3);
+      for (auto& pubkeyState : pubkeyMap)
+         EXPECT_FALSE(pubkeyState.second);
+
+      txinEval = signerState.getSignedStateForInput(1);
+      auto& pubkeyMap_2 = txinEval.getPubKeyMap();
+      EXPECT_EQ(pubkeyMap_2.size(), 0);
+   }
+
+
    signer2.sign();
    try
    {
@@ -7309,17 +7346,43 @@ TEST_F(TransactionsTest, Wallet_SpendTest_MultipleSigners_2of3)
       EXPECT_TRUE(false);
    }
    catch (...)
-   {
-   }
+   {}
 
-   EXPECT_FALSE(signer2.isValid());
+   {
+      //signer state with 1 sig
+      EXPECT_FALSE(signer2.isValid());
+      signerState = signer2.evaluateSignedState();
+
+      EXPECT_EQ(signerState.getEvalMapSize(), 2);
+
+      auto&& txinEval = signerState.getSignedStateForInput(0);
+      EXPECT_EQ(txinEval.getSigCount(), 1);
+
+      auto asset_single = dynamic_pointer_cast<AssetEntry_Single>(asset1);
+      ASSERT_NE(asset_single, nullptr);
+      ASSERT_TRUE(txinEval.isSignedForPubKey(asset_single->getPubKey()->getCompressedKey()));
+   }
 
    Signer signer3;
    //create feed from asset wallet 2
    auto assetFeed3 = make_shared<CustomFeed>(ae_ms, assetWlt_2);
    signer3.deserializeState(signer2.serializeState());
+
+   {
+      //make sure sig was properly carried over with state
+      EXPECT_FALSE(signer3.isValid());
+      signerState = signer3.evaluateSignedState();
+
+      EXPECT_EQ(signerState.getEvalMapSize(), 2);
+      auto&& txinEval = signerState.getSignedStateForInput(0);
+      EXPECT_EQ(txinEval.getSigCount(), 1);
+
+      auto asset_single = dynamic_pointer_cast<AssetEntry_Single>(asset1);
+      ASSERT_NE(asset_single, nullptr);
+      ASSERT_TRUE(txinEval.isSignedForPubKey(asset_single->getPubKey()->getCompressedKey()));
+   }
+
    signer3.setFeed(assetFeed3);
-   
    signer3.sign();
    ASSERT_TRUE(signer3.isValid());
    try
@@ -7329,6 +7392,24 @@ TEST_F(TransactionsTest, Wallet_SpendTest_MultipleSigners_2of3)
    catch (...)
    {
       EXPECT_TRUE(false);
+   }
+
+   {
+      //should have 2 sigs now
+      EXPECT_TRUE(signer3.isValid());
+      signerState = signer3.evaluateSignedState();
+
+      EXPECT_EQ(signerState.getEvalMapSize(), 2);
+      auto&& txinEval = signerState.getSignedStateForInput(0);
+      EXPECT_EQ(txinEval.getSigCount(), 2);
+
+      auto asset_single = dynamic_pointer_cast<AssetEntry_Single>(asset1);
+      ASSERT_NE(asset_single, nullptr);
+      ASSERT_TRUE(txinEval.isSignedForPubKey(asset_single->getPubKey()->getCompressedKey()));
+
+      asset_single = dynamic_pointer_cast<AssetEntry_Single>(asset2);
+      ASSERT_NE(asset_single, nullptr);
+      ASSERT_TRUE(txinEval.isSignedForPubKey(asset_single->getPubKey()->getCompressedKey()));
    }
 
    auto&& tx1 = signer3.serialize();
@@ -7355,6 +7436,8 @@ TEST_F(TransactionsTest, Wallet_SpendTest_MultipleSigners_2of3)
    //check new wallet balances
    scrObj = ms_wlt->getScrAddrObjByKey(addrVec[0]);
    EXPECT_EQ(scrObj->getFullBalance(), 9 * COIN);
+   scrObj = wlt_singleSig->getScrAddrObjByKey(asset4_singlesig->getPrefixedHash());
+   EXPECT_EQ(scrObj->getFullBalance(), 0 * COIN);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

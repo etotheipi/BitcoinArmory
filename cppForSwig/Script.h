@@ -26,6 +26,7 @@
 #include "EncryptionUtils.h"
 #include "BtcUtils.h"
 #include "SigHashEnum.h"
+#include "TxEvalState.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 class ScriptException : public runtime_error
@@ -222,6 +223,8 @@ private:
    BinaryData p2shScript_;
 
    shared_ptr<SigHashDataSegWit> SHD_SW_ = nullptr;
+
+   TxInEvalState txInEvalState_;
 
 protected:
    shared_ptr<SigHashData> sigHashDataObject_ = nullptr;
@@ -808,6 +811,11 @@ public:
 
    void processScript(const BinaryDataRef&, bool);
    void processScript(BinaryRefReader&, bool);
+
+   const TxInEvalState& getTxInEvalState(void) const
+   {
+      return txInEvalState_;
+   }
 };
 
 
@@ -953,6 +961,7 @@ public:
 class ResolverFeed
 {
 public:
+   virtual ~ResolverFeed(void) = 0;
 
    virtual BinaryData getByVal(const BinaryData&) = 0;
    virtual const SecureBinaryData& getPrivKeyForPubkey(const BinaryData&) = 0;

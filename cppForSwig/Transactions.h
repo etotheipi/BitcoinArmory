@@ -151,9 +151,11 @@ private:
 
 private:
    uint64_t checkOutputs(void) const;
-   bool checkSigs(void) const;
-   bool checkSigs_NoCatch(void) const;
-   bool checkSig(unsigned) const;
+   void checkSigs(void) const;
+   void checkSigs_NoCatch(void) const;
+   TxInEvalState checkSig(unsigned, StackInterpreter* ptr=nullptr) const;
+
+   mutable TxEvalState txEvalState_;
 
 protected:
    virtual unique_ptr<StackInterpreter> getStackInterpreter(unsigned) const;
@@ -163,7 +165,8 @@ public:
       utxos_(utxos), theTx_(theTx)
    {}
    
-   bool verify(bool noCatch = false) const;
+   bool verify(bool noCatch = true) const;
+   TxEvalState evaluateState() const;
 
    BinaryDataRef getSerializedOutputScripts(void) const;
    vector<TxInData> getTxInsData(void) const;

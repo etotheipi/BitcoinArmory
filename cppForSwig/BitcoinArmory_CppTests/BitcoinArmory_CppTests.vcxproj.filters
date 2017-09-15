@@ -117,6 +117,9 @@
     <ClInclude Include="..\Wallets.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\TxEvalState.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\BinaryData.cpp">
@@ -273,6 +276,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\BlockchainScanner_Super.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\TxEvalState.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

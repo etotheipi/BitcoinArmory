@@ -197,6 +197,7 @@
     <ClInclude Include="..\StoredBlockObj.h" />
     <ClInclude Include="..\Transactions.h" />
     <ClInclude Include="..\TxClasses.h" />
+    <ClInclude Include="..\TxEvalState.h" />
     <ClInclude Include="..\txio.h" />
     <ClInclude Include="..\UniversalTimer.h" />
     <ClInclude Include="..\WalletManager.h" />
@@ -251,6 +252,7 @@
     <ClCompile Include="..\SwigClient.cpp" />
     <ClCompile Include="..\Transactions.cpp" />
     <ClCompile Include="..\TxClasses.cpp" />
+    <ClCompile Include="..\TxEvalState.cpp" />
     <ClCompile Include="..\txio.cpp" />
     <ClCompile Include="..\UniversalTimer.cpp" />
     <ClCompile Include="..\WalletManager.cpp" />

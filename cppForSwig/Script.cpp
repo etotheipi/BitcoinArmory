@@ -18,6 +18,9 @@ StackValue::~StackValue()
 ResolvedStack::~ResolvedStack()
 {}
 
+ResolverFeed::~ResolverFeed()
+{}
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 //// StackItem
@@ -728,6 +731,9 @@ void StackInterpreter::op_checksig()
       return;
    }
 
+   txInEvalState_.n_ = 1;
+   txInEvalState_.m_ = 1;
+
    //extract sig and sighash type
    BinaryRefReader brrSig(sigScript);
    auto sigsize = sigScript.getSize() - 1;
@@ -759,6 +765,9 @@ void StackInterpreter::op_checksig()
 
    bool result = CryptoECDSA().VerifyData(sighashdata, rs, cppPubKey);
    stack_.push_back(move(intToRawBinary(result)));
+
+   if (result)
+      txInEvalState_.pubKeyState_.insert(make_pair(pubkey, true));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -775,7 +784,7 @@ void StackInterpreter::op_checkmultisig()
       throw ScriptException("invalid n");
 
    //pop pubkeys
-   map<unsigned, BTC_PUBKEY> pubkeys;
+   map<unsigned, pair<BTC_PUBKEY, BinaryData>> pubkeys;
    for (unsigned i = 0; i < nI; i++)
    {
       auto&& pubkey = pop_back();
@@ -789,7 +798,11 @@ void StackInterpreter::op_checkmultisig()
 
       BTC_PRNG prng;
       if (cppPubKey.Validate(prng, 3))
-         pubkeys.insert(move(make_pair(i, move(cppPubKey))));
+      {
+         txInEvalState_.pubKeyState_.insert(make_pair(pubkey, false));
+         auto&& pubkeypair = make_pair(move(cppPubKey), pubkey);
+         pubkeys.insert(move(make_pair(i, move(pubkeypair))));
+      }
    }
 
    //pop m
@@ -797,6 +810,9 @@ void StackInterpreter::op_checkmultisig()
    auto mI = rawBinaryToInt(m);
    if (mI < 0 || mI > nI)
       throw ScriptException("invalid m");
+
+   txInEvalState_.n_ = nI;
+   txInEvalState_.m_ = mI;
 
    //pop sigs
    struct sigData
@@ -824,8 +840,8 @@ void StackInterpreter::op_checkmultisig()
    }
 
    //should have at least as many sigs as m
-   if (sigVec.size() < mI)
-      throw ScriptException("invalid sig count");
+   /*if (sigVec.size() < mI)
+      throw ScriptException("invalid sig count");*/
 
    //check sigs
    map<SIGHASH_TYPE, BinaryData> dataToHash;
@@ -859,8 +875,17 @@ void StackInterpreter::op_checkmultisig()
          auto pubkey = pubkeys[index];
          pubkeys.erase(index--);
 
-         if (CryptoECDSA().VerifyData(hashdata, rs, pubkey))
+#ifdef SIGNER_DEBUG
+         LOGWARN << "Verifying sig for: ";
+         LOGWARN << "   pubkey: " << pubkey.second.toHexStr();
+
+         auto&& msg_hash = BtcUtils::getHash256(hashdata);
+         LOGWARN << "   message: " << hashdata.toHexStr();
+#endif
+            
+         if (CryptoECDSA().VerifyData(hashdata, rs, pubkey.first))
          {
+            txInEvalState_.pubKeyState_[pubkey.second] = true;
             validSigCount++;
             break;
          }        
@@ -930,6 +955,8 @@ void StackInterpreter::checkState()
 {
    if (!isValid_)
       op_verify();
+
+   txInEvalState_.validStack_ = true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

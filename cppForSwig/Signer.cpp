@@ -138,9 +138,10 @@ const BinaryData& ScriptSpender::getSingleSig(void) const
 
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData ScriptSpender::serializeScript(
-   const vector<shared_ptr<StackItem>>& stack)
+   const vector<shared_ptr<StackItem>>& stack, bool no_throw)
 {
    BinaryWriter bwStack;
+
    for (auto& stackItem : stack)
    {
       switch (stackItem->type_)
@@ -150,7 +151,13 @@ BinaryData ScriptSpender::serializeScript(
          auto stackItem_pushdata = 
             dynamic_pointer_cast<StackItem_PushData>(stackItem);
          if (stackItem_pushdata == nullptr)
-            throw ScriptException("unexpected StackItem type");
+         {
+            if (!no_throw)
+               throw ScriptException("unexpected StackItem type");
+
+            bwStack.put_uint8_t(0);
+            break;
+         }
 
          bwStack.put_BinaryData(
             BtcUtils::getPushDataHeader(stackItem_pushdata->data_));
@@ -163,7 +170,12 @@ BinaryData ScriptSpender::serializeScript(
          auto stackItem_ss =
             dynamic_pointer_cast<StackItem_SerializedScript>(stackItem);
          if (stackItem_ss == nullptr)
-            throw ScriptException("unexpected StackItem type");
+         {
+            if (!no_throw)
+               throw ScriptException("unexpected StackItem type");
+            
+            break;
+         }
 
          bwStack.put_BinaryData(stackItem_ss->data_);
          break;
@@ -174,7 +186,13 @@ BinaryData ScriptSpender::serializeScript(
          auto stackItem_sig =
             dynamic_pointer_cast<StackItem_Sig>(stackItem);
          if (stackItem_sig == nullptr)
-            throw ScriptException("unexpected StackItem type");
+         {
+            if (!no_throw)
+               throw ScriptException("unexpected StackItem type");
+
+            bwStack.put_uint8_t(0);
+            break;
+         }
 
          bwStack.put_BinaryData(
             BtcUtils::getPushDataHeader(stackItem_sig->data_));
@@ -187,10 +205,19 @@ BinaryData ScriptSpender::serializeScript(
          auto stackItem_sig =
             dynamic_pointer_cast<StackItem_MultiSig>(stackItem);
          if (stackItem_sig == nullptr)
-            throw ScriptException("unexpected StackItem type");
+         {
+            if (!no_throw)
+               throw ScriptException("unexpected StackItem type");
+            
+            bwStack.put_uint8_t(0);
+            break;
+         }
 
          if (stackItem_sig->sigs_.size() < stackItem_sig->m_)
-            throw ScriptException("missing sigs for ms script");
+         {
+            if (!no_throw)
+               throw ScriptException("missing sigs for ms script");
+         }
 
          for (auto& sigpair : stackItem_sig->sigs_)
          {
@@ -206,14 +233,21 @@ BinaryData ScriptSpender::serializeScript(
          auto stackItem_opcode =
             dynamic_pointer_cast<StackItem_OpCode>(stackItem);
          if (stackItem_opcode == nullptr)
-            throw ScriptException("unexpected StackItem type");
+         {
+            if (no_throw)
+               throw ScriptException("unexpected StackItem type");
+            
+            bwStack.put_uint8_t(0);
+            break;
+         }
 
          bwStack.put_uint8_t(stackItem_opcode->opcode_);
          break;
       }
 
       default:
-         throw ScriptException("unexpected StackItem type");
+         if (!no_throw)
+            throw ScriptException("unexpected StackItem type");
       }
    }
 
@@ -222,7 +256,8 @@ BinaryData ScriptSpender::serializeScript(
 
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData ScriptSpender::serializeWitnessData(
-   const vector<shared_ptr<StackItem>>& stack, unsigned &itemCount)
+   const vector<shared_ptr<StackItem>>& stack, 
+   unsigned &itemCount, bool no_throw)
 {
    itemCount = 0;
 
@@ -233,42 +268,58 @@ BinaryData ScriptSpender::serializeWitnessData(
       {
       case StackItemType_PushData:
       {
+         ++itemCount;
+
          auto stackItem_pushdata =
             dynamic_pointer_cast<StackItem_PushData>(stackItem);
          if (stackItem_pushdata == nullptr)
-            throw ScriptException("unexpected StackItem type");
+         {
+            if (!no_throw)
+               throw ScriptException("unexpected StackItem type");
+
+            bwStack.put_uint8_t(0);
+            break;
+         }
 
          bwStack.put_var_int(stackItem_pushdata->data_.getSize());
          bwStack.put_BinaryData(stackItem_pushdata->data_);
-         ++itemCount;
-         
          break;
       }
 
       case StackItemType_SerializedScript:
       {
+
          auto stackItem_ss =
             dynamic_pointer_cast<StackItem_SerializedScript>(stackItem);
          if (stackItem_ss == nullptr)
-            throw ScriptException("unexpected StackItem type");
+         {
+            if (!no_throw)
+               throw ScriptException("unexpected StackItem type");
+
+            break;
+         }
 
          bwStack.put_BinaryData(stackItem_ss->data_);
          ++itemCount;
-         
          break;
       }
 
       case StackItemType_Sig:
       {
+         ++itemCount;
          auto stackItem_sig =
             dynamic_pointer_cast<StackItem_Sig>(stackItem);
          if (stackItem_sig == nullptr)
-            throw ScriptException("unexpected StackItem type");
+         {
+            if (!no_throw)
+               throw ScriptException("unexpected StackItem type");
+
+            bwStack.put_uint8_t(0);
+            break;
+         }
 
          bwStack.put_var_int(stackItem_sig->data_.getSize());
          bwStack.put_BinaryData(stackItem_sig->data_);
-         ++itemCount;
-
          break;
       }
 
@@ -277,10 +328,19 @@ BinaryData ScriptSpender::serializeWitnessData(
          auto stackItem_sig =
             dynamic_pointer_cast<StackItem_MultiSig>(stackItem);
          if (stackItem_sig == nullptr)
-            throw ScriptException("unexpected StackItem type");
+         {
+            if (!no_throw)
+               throw ScriptException("unexpected StackItem type");
+
+            bwStack.put_uint8_t(0);
+            break;
+         }
 
          if (stackItem_sig->sigs_.size() < stackItem_sig->m_)
-            throw ScriptException("missing sigs for ms script");
+         {
+            if (!no_throw)
+               throw ScriptException("missing sigs for ms script");
+         }
 
          for (auto& sigpair : stackItem_sig->sigs_)
          {
@@ -294,19 +354,25 @@ BinaryData ScriptSpender::serializeWitnessData(
 
       case StackItemType_OpCode:
       {
+         ++itemCount;
          auto stackItem_opcode =
             dynamic_pointer_cast<StackItem_OpCode>(stackItem);
          if (stackItem_opcode == nullptr)
-            throw ScriptException("unexpected StackItem type");
+         {
+            if (!no_throw)
+               throw ScriptException("unexpected StackItem type");
+
+            bwStack.put_uint8_t(0);
+            break;
+         }
 
          bwStack.put_uint8_t(stackItem_opcode->opcode_);
-         ++itemCount;
-
          break;
       }
 
       default:
-         throw ScriptException("unexpected StackItem type");
+         if (!no_throw)
+            throw ScriptException("unexpected StackItem type");
       }
    }
 
@@ -326,15 +392,32 @@ bool ScriptSpender::resolved() const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+BinaryData ScriptSpender::getSerializedOutpoint() const
+{
+   if (utxo_.isInitialized())
+   {
+      BinaryWriter bw;
+
+      bw.put_BinaryData(utxo_.getTxHash());
+      bw.put_uint32_t(utxo_.getTxOutIndex());
+
+      return bw.getData();
+   }
+
+   if (outpoint_.getSize() != 36)
+      throw ScriptException("missing outpoint");
+
+   return outpoint_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 BinaryDataRef ScriptSpender::getSerializedInput() const
 {
    if (legacyStatus_ != SpenderStatus_Resolved)
       throw ScriptException("unresolved spender");
    
    BinaryWriter bw;
-   bw.put_BinaryData(utxo_.getTxHash());
-   bw.put_uint32_t(utxo_.getTxOutIndex());
-
+   bw.put_BinaryData(getSerializedOutpoint());
 
    bw.put_var_int(serializedScript_.getSize());
    bw.put_BinaryData(serializedScript_);
@@ -345,12 +428,66 @@ BinaryDataRef ScriptSpender::getSerializedInput() const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+BinaryData ScriptSpender::serializeAvailableStack() const
+{
+   try
+   {
+      return getSerializedInput();
+   }
+   catch (exception&)
+   {}
+
+   vector<shared_ptr<StackItem>> partial_stack;
+   for (auto& stack_item : partialStack_)
+      partial_stack.push_back(stack_item.second);
+
+   auto&& serialized_script = serializeScript(partial_stack, true);
+
+   BinaryWriter bw;
+   bw.put_BinaryData(getSerializedOutpoint());
+
+   bw.put_var_int(serialized_script.getSize());
+   bw.put_BinaryData(serialized_script);
+   bw.put_uint32_t(sequence_);
+
+   return bw.getData();
+}
+
+////////////////////////////////////////////////////////////////////////////////
 BinaryDataRef ScriptSpender::getWitnessData(void) const
 {
    if (segwitStatus_ == SpenderStatus_Partial)
       throw runtime_error("unresolved witness");
 
    return witnessData_.getRef();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData ScriptSpender::serializeAvailableWitnessData(void) const
+{
+   try
+   {
+      return getWitnessData();
+   }
+   catch (exception&)
+   {}
+
+   vector<shared_ptr<StackItem>> partial_stack;
+   for (auto& stack_item : partialWitnessStack_)
+      partial_stack.push_back(stack_item.second);
+
+   //serialize and get item count
+   unsigned itemCount = 0;
+   auto&& data = serializeWitnessData(partial_stack, itemCount, true);
+
+   //put stack item count
+   BinaryWriter bw;
+   bw.put_var_int(itemCount);
+
+   //put serialized stack
+   bw.put_BinaryData(data);
+
+   return bw.getData();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -878,7 +1015,6 @@ void Signer::sign(void)
 ////////////////////////////////////////////////////////////////////////////////
 void Signer::evaluateSpenderStatus()
 {
-   auto publicResolver = make_shared<ResolverFeedPublic>(resolverPtr_.get());
 
    //run through each spenders
    for (unsigned i = 0; i < spenders_.size(); i++)
@@ -891,9 +1027,12 @@ void Signer::evaluateSpenderStatus()
       if (!spender->hasUTXO())
          continue;
 
+      auto publicResolver = make_shared<ResolverFeedPublic>(resolverPtr_.get());
+      if (spender->hasFeed())
+         publicResolver = make_shared<ResolverFeedPublic>(spender->getFeed().get());
+
       //resolve spender script
       auto proxy = make_shared<SignerProxyFromSigner>(this, i, publicResolver);
-
       StackResolver resolver(
          spender->getOutputScript(),
          publicResolver,
@@ -929,6 +1068,7 @@ void Signer::evaluateSpenderStatus()
       }
       catch (exception&)
       {
+         //nothing to do here, just trying to evaluate signing status
          continue;
       }
    }
@@ -945,9 +1085,19 @@ SecureBinaryData Signer::sign(
    auto&& dataToHash = SHD->getDataForSigHash(
       spender->getSigHashType(), *this,
       script, index);
+   
+#ifdef SIGNER_DEBUG   
+   auto&& pubkey = CryptoECDSA().ComputePublicKey(privKey);
+   LOGWARN << "signing for: ";
+   LOGWARN << "   pubkey: " << pubkey.toHexStr();
+
+   auto&& msghash = BtcUtils::getHash256(dataToHash);
+   LOGWARN << "   message: " << dataToHash.toHexStr();
+#endif
 
    SecureBinaryData dataSBD(dataToHash);
    auto&& sig = CryptoECDSA().SignData(dataSBD, privKey, false);
+
 
    return sig;
 }
@@ -1017,6 +1167,64 @@ BinaryDataRef Signer::serialize(void) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+BinaryData Signer::serializeAvailableResolvedData(void) const
+{
+   try
+   {
+      auto&& serTx = serialize();
+      return serTx;
+   }
+   catch (exception&)
+   {}
+   
+   BinaryWriter bw;
+
+   //version
+   bw.put_uint32_t(version_);
+
+   if (isSegWit_)
+   {
+      //marker and flag
+      bw.put_uint8_t(0);
+      bw.put_uint8_t(1);
+   }
+
+   //txin count
+   bw.put_var_int(spenders_.size());
+
+   //txins
+   for (auto& spender : spenders_)
+      bw.put_BinaryDataRef(spender->serializeAvailableStack());
+
+   //txout count
+   bw.put_var_int(recipients_.size());
+
+   //txouts
+   for (auto& recipient : recipients_)
+      bw.put_BinaryDataRef(recipient->getSerializedScript());
+
+   if (isSegWit_)
+   {
+      //witness data
+      for (auto& spender : spenders_)
+      {
+         BinaryData witnessData = spender->serializeAvailableWitnessData();
+
+         //account for empty witness data
+         if (witnessData.getSize() == 0)
+            bw.put_uint8_t(0);
+         else
+            bw.put_BinaryData(witnessData);
+      }
+   }
+
+   //lock time
+   bw.put_uint32_t(lockTime_);
+
+   return bw.getData();
+}
+
+////////////////////////////////////////////////////////////////////////////////
 shared_ptr<SigHashData> Signer::getSigHashDataForSpender(bool sw) const
 {
    shared_ptr<SigHashData> SHD;
@@ -1064,11 +1272,25 @@ unique_ptr<TransactionVerifier> Signer_BCH::getVerifier(shared_ptr<BCTX> bctx,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-bool Signer::verify(void)
+TxEvalState Signer::verify(const BinaryData& rawTx,
+   map<BinaryData, map<unsigned, UTXO>>& utxoMap, unsigned flags) const
+{
+   auto bctx = BCTX::parse(rawTx);
+
+   //setup verifier
+   auto tsv = getVerifier(bctx, utxoMap);
+   auto tsvFlags = tsv->getFlags();
+   tsvFlags |= flags;
+   tsv->setFlags(tsvFlags);
+
+   return tsv->evaluateState();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool Signer::verify(void) 
 {
    //serialize signed tx
    auto txdata = serialize();
-   auto bctx = BCTX::parse(txdata);
 
    map<BinaryData, map<unsigned, UTXO>> utxoMap;
 
@@ -1082,22 +1304,14 @@ bool Signer::verify(void)
       flags |= spender->getFlags();
    }
 
-   //setup verifier
-   auto tsv = getVerifier(bctx, utxoMap);
-   auto tsvFlags = tsv->getFlags();
-   tsvFlags |= flags;
-   tsv->setFlags(tsvFlags);
-
-   return tsv->verify();
+   auto evalState = verify(txdata, utxoMap, flags);
+   return evalState.isValid();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 bool Signer::verifyRawTx(const BinaryData& rawTx, 
    const map<BinaryData, map<unsigned, BinaryData>>& rawUTXOs)
 {
-   //deser raw tx
-   auto bctx = BCTX::parse(rawTx);
-
    map<BinaryData, map<unsigned, UTXO>> utxoMap;
 
    //deser utxos
@@ -1114,13 +1328,10 @@ bool Signer::verifyRawTx(const BinaryData& rawTx,
       utxoMap.insert(move(make_pair(utxoPair.first, move(idMap))));
    }
 
-   //setup verifier
-   auto tsv = getVerifier(bctx, utxoMap);
-   auto tsvFlags = tsv->getFlags();
-   tsvFlags |= SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_SEGWIT;
-   tsv->setFlags(tsvFlags);
+   auto&& evalState = 
+      verify(rawTx, utxoMap, SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_SEGWIT);
 
-   return tsv->verify(true);
+   return evalState.isValid();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

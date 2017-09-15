@@ -19,7 +19,7 @@ INCLUDE_FILES = ../UniversalTimer.h ../BinaryData.h ../lmdb_wrapper.h \
 	../Transactions.h ../nodeRPC.h ../JSON_codec.h \
 	../ReentrantLock.h ../StringSockets.h ../log.h ../OS_TranslatePath.h \
 	../WalletManager.h ../Wallets.h ../Signer.h ../SwigClient.h \
-	../CoinSelection.h ../SigHashEnum.h \
+	../CoinSelection.h ../SigHashEnum.h ../TxEvalState.h \
 	gtest.h
 
 SOURCE_FILES = ../UniversalTimer.cpp ../BinaryData.cpp ../lmdb_wrapper.cpp \
@@ -34,7 +34,7 @@ SOURCE_FILES = ../UniversalTimer.cpp ../BinaryData.cpp ../lmdb_wrapper.cpp \
 	../Transactions.cpp ../nodeRPC.cpp ../JSON_codec.cpp \
 	../StringSockets.cpp ../ReentrantLock.cpp \
 	../WalletManager.cpp ../Wallets.cpp ../Script.cpp ../Signer.cpp ../SwigClient.cpp \
-	../CoinSelection.cpp ../log.cpp \
+	../CoinSelection.cpp ../log.cpp ../TxEvalState.cpp \
 	gtest-all.cc
 
 AM_CXXFLAGS += -I../lmdb \

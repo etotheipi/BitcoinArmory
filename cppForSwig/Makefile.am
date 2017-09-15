@@ -31,7 +31,7 @@ INCLUDE_FILES = UniversalTimer.h BinaryData.h lmdb_wrapper.h \
 	FcgiMessage.h BlockDataManagerConfig.h \
 	Transactions.h Script.h Signer.h nodeRPC.h JSON_codec.h \
 	ReentrantLock.h StringSockets.h log.h OS_TranslatePath.h \
-	TransactionBatch.h BlockchainScanner_Super.h SigHashEnum.h
+	TransactionBatch.h BlockchainScanner_Super.h SigHashEnum.h TxEvalState.h
 
 DB_SOURCE_FILES = UniversalTimer.cpp BinaryData.cpp lmdb_wrapper.cpp \
 	BtcUtils.cpp DBUtils.cpp BlockObj.cpp BlockUtils.cpp EncryptionUtils.cpp \
@@ -53,7 +53,7 @@ CPPBLOCKUTILS_SOURCE_FILES = UniversalTimer.cpp BinaryData.cpp \
 	WalletManager.cpp Wallets.cpp Script.cpp Signer.cpp \
 	Transactions.cpp \
 	CoinSelection.cpp ReentrantLock.cpp JSON_codec.cpp \
-	TransactionBatch.cpp log.cpp
+	TransactionBatch.cpp log.cpp TxEvalState.cpp
 
 
 #ArmoryDB

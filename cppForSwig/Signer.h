@@ -15,6 +15,7 @@
 #include "TxClasses.h"
 #include "Transactions.h"
 #include "ScriptRecipient.h"
+#include "TxEvalState.h"
 
 using namespace std;
 
@@ -67,12 +68,15 @@ protected:
 
 private:
    static BinaryData serializeScript(
-      const vector<shared_ptr<StackItem>>& stack);
+      const vector<shared_ptr<StackItem>>& stack, bool no_throw=false);
    static BinaryData serializeWitnessData(
-      const vector<shared_ptr<StackItem>>& stack, unsigned& itemCount);
+      const vector<shared_ptr<StackItem>>& stack, 
+      unsigned& itemCount, bool no_throw=false);
 
    void updateStack(map<unsigned, shared_ptr<StackItem>>&,
       const vector<shared_ptr<StackItem>>&);
+
+   BinaryData getSerializedOutpoint(void) const;
 
 public:
    ScriptSpender(
@@ -111,12 +115,15 @@ public:
    BinaryDataRef getOutputHash(void) const;
    unsigned getOutputIndex(void) const;
    BinaryDataRef getSerializedInput(void) const;
+   BinaryData serializeAvailableStack(void) const;
    BinaryDataRef getWitnessData(void) const;
+   BinaryData serializeAvailableWitnessData(void) const;
    BinaryDataRef getOutpoint(void) const;
    uint64_t getValue(void) const { return value_; }
    shared_ptr<ResolverFeed> getFeed(void) const { return resolverFeed_; }
    const UTXO& getUtxo(void) const { return utxo_; }
    void setUtxo(const UTXO& utxo) { utxo_ = utxo; }
+
    const BinaryData& getSingleSig(void) const;
 
    unsigned getFlags(void) const
@@ -256,6 +263,9 @@ protected:
       map<BinaryData, map<unsigned, UTXO>>&) const;
 
    void evaluateSpenderStatus(void);
+   BinaryData serializeAvailableResolvedData(void) const;
+   TxEvalState verify(const BinaryData& rawTx, 
+      map<BinaryData, map<unsigned, UTXO>>&, unsigned flags) const;
 
 public:
    void addSpender(shared_ptr<ScriptSpender> spender) 
@@ -284,6 +294,7 @@ public:
 
    uint32_t getLockTime(void) const { return lockTime_; }
    void setLockTime(unsigned locktime) { lockTime_ = locktime; }
+   void setVersion(unsigned version) { version_ = version; }
 
    //sw methods
    BinaryData serializeAllOutpoints(void) const;
@@ -303,6 +314,24 @@ public:
    static Signer createFromState(const BinaryData&);
 
    BinaryData getTxId(void);
+
+   TxEvalState evaluateSignedState(void)
+   {
+      evaluateSpenderStatus();
+      auto&& txdata = serializeAvailableResolvedData();
+
+      map<BinaryData, map<unsigned, UTXO>> utxoMap;
+      unsigned flags = 0;
+      for (auto& spender : spenders_)
+      {
+         auto& indexMap = utxoMap[spender->getOutputHash()];
+         indexMap[spender->getOutputIndex()] = spender->getUtxo();
+
+         flags |= spender->getFlags();
+      }
+
+      return verify(txdata, utxoMap, flags);
+   }
 };
 
 ////////////////////////////////////////////////////////////////////////////////
