@@ -2668,7 +2668,7 @@ class PyBtcWallet(object):
       
       #figure out signer if it's set to default
       if signer == SIGNER_DEFAULT:
-         if not ustx.isLegacyTx:
+         if ustx.isLegacyTx:
             signer = SIGNER_LEGACY
          else:
             signer = SIGNER_CPP
@@ -2693,11 +2693,13 @@ class PyBtcWallet(object):
             addrObj.binPublicKey65 = \
                CryptoECDSA().ComputePublicKey(addrObj.binPrivKey32_Plain)
 
+      ustx.signerType = signer
       
       #python signer
       if signer == SIGNER_LEGACY:
          for addrObj,idx,sigIdx in wltAddr:
-            ustx.createAndInsertSignatureForInput(idx, addrObj.binPrivKey32_Plain)
+            ustx.createAndInsertSignatureForInput(idx, addrObj.binPrivKey32_Plain,
+                                                  signerType=signer)
 
       #cpp signer
       elif signer == SIGNER_CPP:
@@ -2715,31 +2717,9 @@ class PyBtcWallet(object):
          
          #sign
          cppsigner.signTx()
-         
-         #set sigs and witness data
-         for inID in range(0, len(ustx.ustxInputs)):
-            try:
-               sigStr = cppsigner.getSigForInputIndex(inID)
-            except:
-               if cppsigner.isInptuSW(inID):
-                  sigStr = ''
-                  
-                  try:
-                     sigStr = cppsigner.getWitnessDataForInputIndex(inID)
-                  except:
-                     raise Exception("missing witness data for SW input")
-               else:
-                  raise Exception("no sig for index %d" % inID)
-            
-            ustxi = ustx.ustxInputs[inID]
-            if len(ustxi.pubKeys) != 1:
-               raise Exception("unexepected ustxi scrAddr count")
-            
-            pubkey = ustxi.pubKeys[0]
-            
-            #pubkeys are all empty strings for non legacy tx
-            ustxi.insertSignature(sigStr, pubkey)
-      
+         ustx.pytxObj.signerState = cppsigner.serializeState()
+         ustx.pytxObj.setSignerType(signer)
+               
       #bch signer
       elif signer == SIGNER_BCH:
          #create cpp signer
@@ -2756,41 +2736,17 @@ class PyBtcWallet(object):
          
          #sign
          cppsigner.signTx()
-         
-         #set sigs and witness data
-         for inID in range(0, len(ustx.ustxInputs)):
-            try:
-               sigStr = cppsigner.getSigForInputIndex(inID)
-            except:
-               if cppsigner.isInptuSW(inID):
-                  sigStr = ''
-                  
-                  try:
-                     sigStr = cppsigner.getWitnessDataForInputIndex(inID)
-                  except:
-                     raise Exception("missing witness data for SW input")
-               else:
-                  raise Exception("no sig for index %d" % inID)
-            
-            ustxi = ustx.ustxInputs[inID]
-            if len(ustxi.pubKeys) != 1:
-               raise Exception("unexepected ustxi scrAddr count")
-            
-            pubkey = ustxi.pubKeys[0]
-            
-            #pubkeys are all empty strings for non legacy tx
-            ustxi.insertSignature(sigStr, pubkey)
-            
-         ustx.signerType = SIGNER_BCH
+         ustx.pytxObj.signerState = cppsigner.serializeState()
+         ustx.pytxObj.setSignerType(signer)
 
       if self.useEncryption:
          self.lock()
       
       prevHighestIndex = self.highestUsedChainIndex  
-      if prevHighestIndex<maxChainIndex:
+      if prevHighestIndex < maxChainIndex:
          self.advanceHighestIndex(maxChainIndex-prevHighestIndex)
          self.fillAddressPool()
-      
+
       return ustx
 
 
