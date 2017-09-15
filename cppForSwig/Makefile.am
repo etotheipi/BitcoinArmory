@@ -43,7 +43,7 @@ DB_SOURCE_FILES = UniversalTimer.cpp BinaryData.cpp lmdb_wrapper.cpp \
 	DataObject.cpp BitcoinP2P.cpp BDM_Server.cpp BDM_seder.cpp SocketObject.cpp \
 	FcgiMessage.cpp BlockDataManagerConfig.cpp \
 	Transactions.cpp Script.cpp Signer.cpp nodeRPC.cpp JSON_codec.cpp \
-	StringSockets.cpp main.cpp ReentrantLock.cpp log.cpp
+	StringSockets.cpp main.cpp ReentrantLock.cpp log.cpp TxEvalState.cpp
 
 CPPBLOCKUTILS_SOURCE_FILES = UniversalTimer.cpp BinaryData.cpp \
 	BtcUtils.cpp DBUtils.cpp EncryptionUtils.cpp \
