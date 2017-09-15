@@ -179,6 +179,7 @@
     <ClCompile Include="..\StringSockets.cpp" />
     <ClCompile Include="..\Transactions.cpp" />
     <ClCompile Include="..\TxClasses.cpp" />
+    <ClCompile Include="..\TxEvalState.cpp" />
     <ClCompile Include="..\txio.cpp" />
     <ClCompile Include="..\UniversalTimer.cpp" />
   </ItemGroup>
@@ -206,6 +207,7 @@
     <ClInclude Include="..\StoredBlockObj.h" />
     <ClInclude Include="..\ThreadSafeClasses.h" />
     <ClInclude Include="..\Transactions.h" />
+    <ClInclude Include="..\TxEvalState.h" />
     <ClInclude Include="..\TxOutScrRef.h" />
     <ClInclude Include="..\util.h" />
     <ClInclude Include="..\TxClasses.h" />
