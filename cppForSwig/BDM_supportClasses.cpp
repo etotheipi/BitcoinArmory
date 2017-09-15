@@ -1568,8 +1568,9 @@ ZeroConfContainer::ZCisMineBulkFilter(const Tx & tx,
             auto&& flaggedBDVs = filter(sa);
             if (flaggedBDVs.first)
             {
+               auto&& txkey = stxOut.getDBKey(false).getSliceCopy(0, 6);
                TxIOPair txio(
-                  TxRef(stxOut.getDBKey(false)), op.getTxOutIndex(),
+                  TxRef(txkey), op.getTxOutIndex(),
                   TxRef(ZCkey), iin);
 
                txio.setTxHashOfOutput(op.getTxHash());
