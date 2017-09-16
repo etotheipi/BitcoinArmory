@@ -754,13 +754,19 @@ class SendBitcoinsFrame(ArmoryFrame):
       p2shMap = {}
       pubKeyMap = {}
       
+      if self.getRBFFlag():
+         for utxo in utxoSelect:
+            if utxo.sequence == 2**32 - 1:
+               utxo.sequence = 2**32 - 3             
+      
       # In order to create the USTXI objects, need to make sure we supply a
       # map of public keys that can be included
       if self.lbox:
          p2shMap = self.lbox.getScriptDict()
          ustx = UnsignedTransaction().createFromTxOutSelection( \
-                                       utxoSelect, scriptValPairs,
-                                       p2shMap = p2shMap)
+                                       utxoSelect, scriptValPairs, \
+                                       p2shMap = p2shMap, \
+                                       lockTime=TheBDM.getTopBlockHeight())
 
          for i in range(len(ustx.ustxInputs)):
             ustx.ustxInputs[i].contribID = self.lbox.uniqueIDB58
@@ -805,12 +811,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          and outputs to the new signer for processing instead of creating the
          unsigned tx in Python.
          '''
-            
-         if self.getRBFFlag():
-            for utxo in utxoSelect:
-               if utxo.sequence == 2**32 - 1:
-                  utxo.sequence = 2**32 - 3 
-         
+                     
          # Now create the unsigned USTX
          ustx = UnsignedTransaction().createFromTxOutSelection(\
             utxoSelect, scriptValPairs, pubKeyMap, p2shMap=p2shMap, \
