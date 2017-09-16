@@ -69,7 +69,6 @@ LBP2SHPREFIX = 'Lockbox['
 LBTYPE_RAW          = "lba_raw"
 LBTYPE_P2SH         = "lba_p2sh"
 LBTYPE_NESTED_P2WSH = "lba_nested_p2wsh"
-LBTYPE_DEFAULT      = LBTYPE_NESTED_P2WSH
 
 #############################################################################
 def getRecipStr(decoratedTxOut):
@@ -275,8 +274,13 @@ class LockboxAddresses(object):
       self.nested_p2wsh_scrAddr = \
          script_to_scrAddr(self.p2wsh_nested_script)
          
+      self.defaultScriptType = LBTYPE_P2SH
+         
    #############################################################################
-   def getAddr(self, _type=LBTYPE_DEFAULT):
+   def getAddr(self, _type=None):
+      if _type == None:
+         _type = self.defaultScriptType
+      
       if _type == LBTYPE_RAW:
          return self.scrAddr
       
@@ -302,7 +306,10 @@ class LockboxAddresses(object):
       return scrAddr == self.nested_p2wsh_scrAddr
     
    #############################################################################  
-   def getScript(self, _type=LBTYPE_DEFAULT):
+   def getScript(self, _type=None):
+      if _type == None:
+         _type = self.defaultScriptType
+      
       if _type == LBTYPE_RAW:
          return self.script
       
@@ -314,6 +321,19 @@ class LockboxAddresses(object):
       
       else:
          raise Exception("illegal script type")
+      
+   #############################################################################
+   def getScrAddrType(self, scrAddr):
+      if scrAddr == self.scrAddr:
+         return LBTYPE_RAW
+      
+      elif scrAddr == self.p2shScrAddr:
+         return LBTYPE_P2SH
+      
+      elif scrAddr == self.nested_p2wsh_scrAddr:
+         return LBTYPE_NESTED_P2WSH
+      
+      return None
       
    #############################################################################
    def getScrAddrList(self):
@@ -344,7 +364,58 @@ class LockboxAddresses(object):
       scriptDict[binary_to_hex(self.scriptHash256)] = self.p2wsh_base_script
       
       return scriptDict
+   
+   #############################################################################
+   def getChangeScript(self, utxoList=None): 
+      if utxoList == None:
+         return self.getScript(self.defaultScriptType)
+      
+      hasRawScript = False
+      hasP2SHScript = False
+      hasNestedSWScript = False
+      
+      for utxo in utxoList:
+         scrAddr = utxo.getRecipientScrAddr()
+         scrType = self.getScrAddrType(scrAddr)
+         
+         if scrType == None:
+            continue
+         
+         if scrType == LBTYPE_RAW:
+            hasRawScript = True
+            
+         elif scrType == LBTYPE_P2SH:
+            hasP2SHScript = True
+            
+         elif scrType == LBTYPE_NESTED_P2WSH:
+            hasNestedSWScript = True
+            
+      returnType = None
+      
+      if hasRawScript and not hasP2SHScript and not hasNestedSWScript:
+         returnType = LBTYPE_RAW
+      elif hasP2SHScript and not hasRawScript and not hasNestedSWScript:
+         returnType = LBTYPE_P2SH
+      elif hasNestedSWScript and not hasP2SHScript and not hasRawScript:
+         returnType = LBTYPE_NESTED_P2WSH
+         
+      if returnType == None:
+         returnType = self.defaultScriptType
            
+      return self.getScript(returnType)
+   
+   #############################################################################
+   def setScriptType(self, _type):
+      if _type != LBTYPE_RAW and \
+         _type != LBTYPE_P2SH and \
+         _type != LBTYPE_NESTED_P2WSH:
+         return
+      
+      self.defaultScriptType = _type
+      
+   #############################################################################
+   def getScriptType(self):
+      return self.defaultScriptType     
                 
 ################################################################################
 ################################################################################
@@ -731,7 +802,7 @@ class MultiSigLockbox(AsciiSerializable):
       return UnsignedTransaction().createFromUnsignedTxIO(ustxiAccum, dtxoAccum)
       
    #############################################################################
-   def getAddr(self, _type=LBTYPE_DEFAULT):
+   def getAddr(self, _type=None):
       return self.addrStruct.getAddr(_type)
    
    #############################################################################
@@ -739,7 +810,7 @@ class MultiSigLockbox(AsciiSerializable):
       return self.addrStruct.hasScrAddr(scrAddr)
       
    #############################################################################
-   def getScript(self, _type=LBTYPE_DEFAULT):
+   def getScript(self, _type=None):
       return self.addrStruct.getScript(_type)
       
    #############################################################################
@@ -753,7 +824,15 @@ class MultiSigLockbox(AsciiSerializable):
    #############################################################################
    def isAddrSegWit(self, scrAddr):
       return self.addrStruct.isAddrSegWit(scrAddr)
+      
+   #############################################################################
+   def setScriptType(self, _type):
+      self.addrStruct.setScriptType(_type)
 
+   #############################################################################
+   def getScriptType(self):
+      return self.addrStruct.getScriptType()
+   
 ################################################################################
 ################################################################################
 class DecoratedPublicKey(AsciiSerializable):

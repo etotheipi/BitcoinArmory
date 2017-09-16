@@ -1133,6 +1133,20 @@ class DlgLockboxManager(ArmoryDialog):
       self.btnQRCodeDisp  = QPushButton(self.tr('QR Code'))
       self.btnFundRequest = QPushButton(self.tr('Request Payment'))
       self.btnCopyClip = QPushButton(self.tr('Copy Address'))
+      
+      #segwit checkbox
+      self.chkSegWit = QCheckBox("SegWit")
+      self.chkSegWit.setChecked(False)
+      
+      def checkSegWit():
+         lbox = self.getSelectedLockbox()
+         if self.chkSegWit.isChecked() == True:
+            lbox.setScriptType(LBTYPE_NESTED_P2WSH)
+         else:
+            lbox.setScriptType(LBTYPE_P2SH)
+         updateRegFundCell(True, TheBDM.getState() == BDM_BLOCKCHAIN_READY)
+         
+      self.connect(self.chkSegWit, SIGNAL('clicked()'), checkSegWit)
 
       def funcCopyClip():  
          lbox = self.getSelectedLockbox()
@@ -1174,6 +1188,7 @@ class DlgLockboxManager(ArmoryDialog):
             self.btnFundRequest.setEnabled(False)
             self.btnCopyClip.setEnabled(False)
             self.lblDispAddr.setEnabled(False)
+            self.chkSegWit.setEnabled(False)
             self.lblDispAddr.setText('No lockbox selected')
          else:
             p2shAddr = scrAddr_to_addrStr(lbox.getAddr())
@@ -1182,17 +1197,30 @@ class DlgLockboxManager(ArmoryDialog):
             self.btnFundRequest.setEnabled(True)
             self.btnCopyClip.setEnabled(True)
             self.lblDispAddr.setEnabled(True)
+            self.chkSegWit.setEnabled(True)
             self.lblDispAddr.setText(self.tr(
                'Anyone can send funds to this lockbox using this '
                'Bitcoin address: <br><b>%1</b>').arg(p2shAddr))
-
+            
+      def setSWCheckBox(arg1, arg2):
+         lbox = self.getSelectedLockbox()
+         if lbox == None:
+            return
+         
+         if lbox.getScriptType() != LBTYPE_NESTED_P2WSH:
+            self.chkSegWit.setChecked(False)
+         else:
+            self.chkSegWit.setChecked(True)
+            
       self.updateDashFuncs.append(updateRegFundCell)
+      self.updateDashFuncs.append(setSWCheckBox)
 
       layoutFundRow = QGridLayout()
-      layoutFundRow.addWidget( self.btnFundRegular,  0,2)
-      layoutFundRow.addWidget( self.btnQRCodeDisp,   0,3)
-      layoutFundRow.addWidget( self.btnFundRequest,  0,4)
-      layoutFundRow.addWidget( self.btnCopyClip,     0,5)
+      layoutFundRow.addWidget( self.btnFundRegular,  0,1)
+      layoutFundRow.addWidget( self.btnQRCodeDisp,   0,2)
+      layoutFundRow.addWidget( self.btnFundRequest,  0,3)
+      layoutFundRow.addWidget( self.btnCopyClip,     0,4)
+      layoutFundRow.addWidget( self.chkSegWit,       0,5)
       layoutFundRow.addWidget( self.lblDispAddr,     1,1, 1,6)
       layoutFundRow.setColumnStretch(0, 1)
       layoutFundRow.setColumnStretch(1, 1)
@@ -1285,9 +1313,9 @@ class DlgLockboxManager(ArmoryDialog):
       row, col = index.row(), index.column()
       currComment = str(view.model().index(row, LEDGERCOLS.Comment).data().toString())
       if not currComment:
-          dialog = DlgSetComment(self, self.main, currComment, self.tr('Add Transaction Comment'))
+         dialog = DlgSetComment(self, self.main, currComment, self.tr('Add Transaction Comment'))
       else:          
-          dialog = DlgSetComment(self, self.main, currComment, self.tr('Change Transaction Comment'))
+         dialog = DlgSetComment(self, self.main, currComment, self.tr('Change Transaction Comment'))
       if dialog.exec_():
          newComment = str(dialog.edtComment.text())
          lboxId = str(view.model().index(row, LEDGERCOLS.WltID).data().toString())
