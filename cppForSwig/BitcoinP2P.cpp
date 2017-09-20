@@ -520,7 +520,7 @@ void Payload_Version::deserialize(uint8_t* data, size_t len)
    vheader_.nonce_ = *(uint64_t*)dataptr;
    dataptr += 8;
 
-   size_t remaining = len - MESSAGE_HEADER_LEN - USERAGENT_OFFSET;
+   size_t remaining = len - USERAGENT_OFFSET;
    uint64_t uaLen;
    auto varintlen = get_varint(uaLen, dataptr, remaining);
    dataptr += varintlen;
