@@ -525,7 +525,7 @@ else:
    bdmConfig.selectNetwork("Test")
    
    BITCOIN_PORT = 18444 if USE_REGTEST else 18333
-   BITCOIN_RPC_PORT = 18332
+   BITCOIN_RPC_PORT = 18443 if USE_REGTEST else 18332
    ARMORY_RPC_PORT     = 18225
    if USE_TESTNET:
       MAGIC_BYTES  = '\x0b\x11\x09\x07'
