@@ -2593,7 +2593,7 @@ class FiniteField(object):
 
 
 ################################################################################
-def SplitSecret(secret, needed, pieces, nbytes=None, use_random_x=False):
+def SplitSecret(secret, needed, pieces, nbytes=None):
    if not isinstance(secret, basestring):
       secret = secret.toBinStr()
 
@@ -2620,13 +2620,10 @@ def SplitSecret(secret, needed, pieces, nbytes=None, use_random_x=False):
       raise FiniteFieldError
 
 
-   # We deterministically produce the coefficients so that we always use the
-   # same polynomial for a given secret
-   lasthmac = secret[:]
+   # We use randomized coefficients so as to respect SSS security parameters
    othernum = []
    for i in range(pieces+needed-1):
-      lasthmac = HMAC512(lasthmac, 'splitsecrets')[:nbytes]
-      othernum.append(binary_to_int(lasthmac))
+      othernum.append(binary_to_int(SecureBinaryData().GenerateRandom(32).toBinStr()))
 
    def poly(x):
       polyout = ff.mult(a, ff.power(x,needed-1))
@@ -2636,7 +2633,7 @@ def SplitSecret(secret, needed, pieces, nbytes=None, use_random_x=False):
       return polyout
 
    for i in range(pieces):
-      x = othernum[i+2] if use_random_x else i+1
+      x = i+1
       fragments.append( [x, poly(x)] )
 
    secret,a = None,None
