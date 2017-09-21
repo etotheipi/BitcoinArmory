@@ -6793,7 +6793,9 @@ class DlgPrintBackup(ArmoryDialog):
       elif printType == 'SingleSheetImported':
          bType = self.tr('Imported Keys %1').arg(ssType)
       elif printType.lower().startswith('frag'):
-         bstr = self.tr('Fragmented Backup (%1-of-%2)').arg(self.fragData['M'], self.fragData['N'])
+         m_count = str(self.fragData['M'])
+         n_count = str(self.fragData['N'])
+         bstr = self.tr('Fragmented Backup (%1-of-%2)').arg(m_count, n_count)
          bType = bstr + ' ' + ssType
 
       if printType.startswith('SingleSheet'):
@@ -6944,7 +6946,7 @@ class DlgPrintBackup(ArmoryDialog):
 
          try:
             yBin = fmtrx[printData][1].toBinStr()
-            binID = self.wlt.uniqueIDBin
+            binID = base58_to_binary(self.fragData['fragSetID'])
             IDLine = ComputeFragIDLineHex(M, printData, binID, doMask, addSpaces=True)
             if len(yBin) == 32:
                Prefix.append('ID:');  Lines.append(IDLine)
@@ -10552,7 +10554,8 @@ class DlgFragBackup(ArmoryDialog):
       M = int(str(self.comboM.currentText()))
       N = int(str(self.comboN.currentText()))
 
-      lblFragID = QRichLabel(self.tr('<b>Fragment ID:<br>%1-%2</b>').arg(self.fragPrefixStr, idx + 1))
+      lblFragID = QRichLabel(self.tr('<b>Fragment ID:<br>%1-%2</b>').arg(\
+                                    str(self.fragPrefixStr), str(idx + 1)))
       # lblWltID = QRichLabel('(%s)' % self.wlt.uniqueIDB58)
       lblFragPix = QImageLabel(self.fragPixmapFn, size=(72, 72))
       if doMask:
@@ -10563,7 +10566,7 @@ class DlgFragBackup(ArmoryDialog):
       easyYs1 = makeSixteenBytesEasy(ys[:16   ])
       easyYs2 = makeSixteenBytesEasy(ys[ 16:32])
 
-      binID = self.wlt.uniqueIDBin
+      binID = base58_to_binary(self.uniqueFragSetID)
       ID = ComputeFragIDLineHex(M, idx, binID, doMask, addSpaces=True)
 
       fragPreview = 'ID: %s...<br>' % ID[:12]
@@ -10619,6 +10622,7 @@ class DlgFragBackup(ArmoryDialog):
       fragData['FragPixmap'] = self.fragPixmapFn
       fragData['Range'] = zindex
       fragData['Secure'] = self.chkSecurePrint.isChecked()
+      fragData['fragSetID'] = self.uniqueFragSetID
       dlg = DlgPrintBackup(self, self.main, self.wlt, 'Fragments', \
                               self.secureMtrx, self.secureMtrxCrypt, fragData, \
                               self.secureRoot, self.secureChain)
@@ -10670,7 +10674,7 @@ class DlgFragBackup(ArmoryDialog):
 
       try:
          yBin = saveMtrx[zindex][1].toBinStr()
-         binID = self.wlt.uniqueIDBin
+         binID = base58_to_binary(self.uniqueFragSetID)
          IDLine = ComputeFragIDLineHex(M, zindex, binID, doMask, addSpaces=True)
          if len(yBin) == 32:
             fout.write('ID: ' + IDLine + '\n')
@@ -10747,6 +10751,8 @@ class DlgFragBackup(ArmoryDialog):
       N = int(str(self.comboN.currentText()))
       # Make sure only local variables contain non-SBD data
       self.destroyFrags()
+      self.uniqueFragSetID = \
+         binary_to_base58(SecureBinaryData().GenerateRandom(7).toBinStr())
       insecureData = SplitSecret(self.securePrint, M, self.maxmaxN)
       for x, y in insecureData:
          self.secureMtrx.append([SecureBinaryData(x), SecureBinaryData(y)])
@@ -10765,7 +10771,7 @@ class DlgFragBackup(ArmoryDialog):
       #####
 
       self.M, self.N = M, N
-      self.fragPrefixStr = ComputeFragIDBase58(self.M, self.wlt.uniqueIDBin)
+      self.fragPrefixStr = ComputeFragIDBase58(self.M, self.uniqueFragSetID)
       self.fragPixmapFn = ':/frag%df.png' % M
 
 
@@ -11758,11 +11764,10 @@ class DlgRestoreFragged(ArmoryDialog):
          '<b>Start entering fragments into the table to left...</b>'))
       for row, data in self.fragDataMap.iteritems():
          showRightFrm = True
-         M, fnum, wltIDBin, doMask, idBase58 = ReadFragIDLineBin(data[0])
+         M, fnum, setIDBin, doMask, idBase58 = ReadFragIDLineBin(data[0])
          self.lblRightFrm.setText(self.tr('<b><u>Wallet Being Restored:</u></b>'))
          self.imgPie.setPixmap(QPixmap(':/frag%df.png' % M).scaled(96,96))
          self.lblReqd.setText(self.tr('<b>Frags Needed:</b> %1').arg(M))
-         self.lblWltID.setText(self.tr('<b>Wallet:</b> %1').arg(binary_to_base58(wltIDBin)))
          self.lblFragID.setText(self.tr('<b>Fragments:</b> %1').arg(idBase58.split('-')[0]))
          self.btnRestore.setEnabled(len(self.fragDataMap) >= M)
          break
