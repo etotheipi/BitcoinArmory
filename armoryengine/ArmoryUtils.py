@@ -2623,7 +2623,7 @@ def SplitSecret(secret, needed, pieces, nbytes=None):
    # We use randomized coefficients so as to respect SSS security parameters
    othernum = []
    for i in range(pieces+needed-1):
-      othernum.append(binary_to_int(SecureBinaryData().GenerateRandom(32).toBinStr()))
+      othernum.append(binary_to_int(SecureBinaryData().GenerateRandom(nbytes).toBinStr()))
 
    def poly(x):
       polyout = ff.mult(a, ff.power(x,needed-1))
