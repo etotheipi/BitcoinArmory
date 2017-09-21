@@ -1,13 +1,13 @@
 # macOS (OS X) BUILD NOTES
-These notes describe what had to be done on fresh installs of OS X 10.7 - 10.12 in order to compile Armory.
+These notes describe what had to be done on fresh installs of macOS 10.8 - 10.13 in order to compile Armory.
 
 ## Requirements / Caveats
-At the present time, **it is highly recommended that Armory be compiled on OS X 10.11 with Xcode 7.3.1**. This is due to issues with C++11 support under OS X 10.7, which Armory still supports (although this will change eventually). When compiling using Xcode 8, Xcode forces the minimum supported version to be 10.8. When compiling using Xcode 7 and OS X 10.12, other issues come up. Xcode 7 and OS X 10.11 is the only combo known to produce binaries that run without issues.
+Armory is designed to run only on OS X 10.8 or later. Running on 10.7 may be possible with proper code editing. However, this isn't recommended due to issues with C++11 support under OS X 10.7. The latest versions of OS X and Xcode that can compile 10.7-compatible binaries are OS X 10.11 and Xcode 7.3.1. (The binaries are also compatible with macOS 10.12 and beyond.) An [Apple developer account](https://developer.apple.com/) may be used to obtain Xcode 7.3.1.
 
-Because C++11 support is shaky on OS X 10.7, *Armory developers may not fix bugs found under 10.7*. If a bug is found, please consult the [Bitcoin Forum](https://bitcointalk.org/index.php?board=97.0) or *bitcoin-armory* IRC channel on Freenode for further instructions.
+If a bug is found, please consult the [Bitcoin Forum](https://bitcointalk.org/index.php?board=97.0) or *bitcoin-armory* IRC channel on Freenode for further instructions.
 
 ## Instructions
- 1. Install the latest version of [Xcode](https://itunes.apple.com/us/app/xcode/id497799835). Due to the XCode 8 issue, you may need to get an [Apple developer account](https://developer.apple.com/) and download the latest XCode 7 version via developer-specific downloads.
+ 1. Install the latest version of [Xcode](https://itunes.apple.com/us/app/xcode/id497799835). As a space-saving alternative, get an Apple developer account, log in, and download the latest version of Command Line Tools for Xcode.
 
  2. Open a terminal and install the Xcode commandline tools. Follow any prompts that appear.
 
@@ -34,16 +34,23 @@ Because C++11 support is shaky on OS X 10.7, *Armory developers may not fix bugs
 
         sudo ln -s /usr/local/bin/glibtoolize /usr/local/bin/libtoolize
 
- 7. Compile Armory.
+ 7. Download Armory [here](https://github.com/goatpig/BitcoinArmory), either as a static zip file or via Git version control. If downloading a zip file, unzip the zip file.
 
-        cd osxbuild
+ 8. (*OPTIONAL*) If compiling on a pre-10.12 macOS version, change the minimum version to 10.7 from 10.8 in osxbuild/build-app.py, osxbuild/objc\_armory/ArmoryMac.pro, and osxbuild/qmake\_LFLAGS.patch by searching for instances of 10.8 and changing them to 10.7.
+
+ 9. Compile Armory.
+
+        cd *Location of Armory source code*  (An example would be ~/Projects/BitcoinArmory)
+		git submodule init  (Required only if using Git version control, as discussed in Step 7.)
+		git submodule update  (Required only if using Git version control, as discussed in Step 7.)
+		cd osxbuild
         python build-app.py > /dev/null
 
-The "> /dev/null" line in step 7 is optional. All this does is prevent the command line from being overwhelmed with build output. The output will automatically be saved to osxbuild/build-app.log.txt no matter what.
+The "> /dev/null" line in step 9 is optional. All this does is prevent the command line from being overwhelmed with build output. The output will automatically be saved to osxbuild/build-app.log.txt no matter what.
 
 Armory.app will be found under the "workspace" subdirectory. It can be moved anywhere on the system, including under `/Applications`.
 
-To avoid runtime issues (e.g. "*ImportError: No module named pkg_resources*") when attempting to run builds on other machines/VMs, make sure $PYTHONPATH is empty. In addition, try not to have any "brew"ed libpng, Python or Qt modules installed. Any of the above could lead to unpredictable behavior.
+To avoid runtime issues (e.g. *ImportError: No module named pkg_resources*) when attempting to run builds on other machines/VMs, make sure $PYTHONPATH is empty. In addition, try not to have any "brew"ed libpng, Python or Qt modules installed. Any of the above could lead to unpredictable behavior.
 
 If you're running a beta version of Xcode, the build tools will need to point to the beta. Open a terminal and run
 
