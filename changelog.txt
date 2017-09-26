@@ -1,3 +1,29 @@
+v0.96.3 released September 21st 2017
+== Vulnerability Fix ==
+   - Fragmented backups were using a faulty implementation of Shamir's Secret Sharing (SSS).
+     One of the requirement of SSS security parameters is that the coefficients of the curve are chozen randomly. The implementation
+     up to this point was deriving these coefficients deterministically.
+
+   - While it is hard to determine how far the deterministic coefficient generation erodes the security of SSS, and how exploitable
+     the vulnerability is, the recommendation for users of fragmented backups is to treat the wallets backed up in this fashion as 
+     compromised and to migrate all funds to a new wallet. 
+
+   - The fragmented backup code now properly randomizes the SSS coefficients. Fragmented backups created with version 0.96.3 and later
+     are safe to use.
+
+   - The result of this change is that fragmented backups will no longer be deterministic. The previous behavior guaranteed a given 
+     wallet will always return the same set of fragments for a given M-of-N scheme. Since it deteriorates SSS security properties, 
+     the behavior has to be rolled back.
+   - Fragment sets are now generated randomly, therefor an unique ID has been added to each set to identify them. You cannot mix 
+     and match sets.
+   - While Armory can no longer generate deterministic fragments, it can still restore wallets from deterministic fragments.
+
+   - Many thanks to Gregory Maxwell (greg@xiph.org) for identifying and reporting the vulnerability as well as reviewing the fix.
+
+== Fixed ==
+   - Fixed faulty version packet deserialization revealed by Core 0.15.0.1
+ 
+
 v0.96.2, released August 27th 2017
 == Added ==
    - Enabled SegWit on the mainnet. Running against a node with WITNESS service bit flagged will allow you to create SegWit addresses.

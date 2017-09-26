@@ -68,7 +68,7 @@ LEVELDB_BLKDATA = 'leveldb_blkdata'
 LEVELDB_HEADERS = 'leveldb_headers'
 
 # Version Numbers
-BTCARMORY_VERSION    = (0, 96,  2, 0)  # (Major, Minor, Bugfix, AutoIncrement)
+BTCARMORY_VERSION    = (0, 96,  3, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 # ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -2594,7 +2594,7 @@ class FiniteField(object):
 
 
 ################################################################################
-def SplitSecret(secret, needed, pieces, nbytes=None, use_random_x=False):
+def SplitSecret(secret, needed, pieces, nbytes=None):
    if not isinstance(secret, basestring):
       secret = secret.toBinStr()
 
@@ -2621,13 +2621,10 @@ def SplitSecret(secret, needed, pieces, nbytes=None, use_random_x=False):
       raise FiniteFieldError
 
 
-   # We deterministically produce the coefficients so that we always use the
-   # same polynomial for a given secret
-   lasthmac = secret[:]
+   # We use randomized coefficients so as to respect SSS security parameters
    othernum = []
    for i in range(pieces+needed-1):
-      lasthmac = HMAC512(lasthmac, 'splitsecrets')[:nbytes]
-      othernum.append(binary_to_int(lasthmac))
+      othernum.append(binary_to_int(SecureBinaryData().GenerateRandom(nbytes).toBinStr()))
 
    def poly(x):
       polyout = ff.mult(a, ff.power(x,needed-1))
@@ -2637,7 +2634,7 @@ def SplitSecret(secret, needed, pieces, nbytes=None, use_random_x=False):
       return polyout
 
    for i in range(pieces):
-      x = othernum[i+2] if use_random_x else i+1
+      x = i+1
       fragments.append( [x, poly(x)] )
 
    secret,a = None,None
