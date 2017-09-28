@@ -181,8 +181,8 @@ class BlockDataManager(object):
          return
       
       socketType = Cpp.SocketFcgi
-      if self.remoteDB:
-         socketType = Cpp.SocketHttp 
+      #if self.remoteDB:
+       #  socketType = Cpp.SocketHttp 
 
       self.bdv_ = Cpp.BlockDataViewer_getNewBDV(\
                      str(ARMORYDB_IP), str(port), socketType)   

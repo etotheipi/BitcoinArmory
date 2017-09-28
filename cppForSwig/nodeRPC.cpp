@@ -105,7 +105,7 @@ RpcStatus NodeRPC::testConnection()
             }
          }
       }
-      catch (SocketError &e)
+      catch (SocketError&)
       {
          state = RpcStatus_Disabled;
       }

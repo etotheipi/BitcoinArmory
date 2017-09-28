@@ -3749,6 +3749,8 @@ class ArmoryMainWindow(QMainWindow):
 
       # Will switch this to array/matrix of widgets if I get more than 2 rows
       self.lblDashModeSync    = QRichLabel('',doWrap=False)
+      self.lblDashModeSync.setText( self.tr('Node Status'), \
+                                        size=4, bold=True, color='Foreground')
       self.lblDashModeBuild   = QRichLabel('',doWrap=False)
       self.lblDashModeScan    = QRichLabel('',doWrap=False)
 
@@ -4090,8 +4092,9 @@ class ArmoryMainWindow(QMainWindow):
 
          
          if sdmStr == 'NodeStatus_Syncing':
-            sdmPercent = sdmState.chainState_.getProgressPct()
-            self.lblTimeLeftSync.setText(sdmState.chainState_.getETA())
+            sdmPercent = sdmState.chainState_.getProgressPct() * 100
+            self.lblTimeLeftSync.setText(\
+               "%d blocks remaining" % sdmState.chainState_.getBlocksLeft())
 
          elif sdmStr == 'NodeStatus_Initializing':
             sdmPercent = 0
@@ -5057,26 +5060,32 @@ class ArmoryMainWindow(QMainWindow):
                self.lbDialog.resetLBSelection()
                self.lbDialog.changeLBFilter()
                
-      elif action == NODESTATUS_UPDATE:        
-         self.nodeStatus = args[0]
-
-         TheSDM.updateState(self.nodeStatus)
-
-         armoryengine.ArmoryUtils.WITNESS = self.nodeStatus.SegWitEnabled_
+      elif action == NODESTATUS_UPDATE:    
          
-         if self.nodeStatus.status_ == Cpp.NodeStatus_Offline:
-            self.showTrayMsg(self.tr('Disconnected'), self.tr('Connection to Bitcoin Core '
-                             'client lost!  Armory cannot send nor '
-                             'receive bitcoins until connection is '
-                             're-established.'), QSystemTrayIcon.Critical,
-                             10000)
-         elif self.nodeStatus.status_ == Cpp.NodeStatus_Online:
-            self.showTrayMsg(self.tr('Connected'), self.tr('Connection to Bitcoin Core '
-                                   're-established'), \
-                                   QSystemTrayIcon.Information, 10000)
+         prevStatus = None
+         if self.nodeStatus != None:
+            prevStatus = self.nodeStatus.status_
+         
+         self.nodeStatus = args[0]
+         TheSDM.updateState(self.nodeStatus)
+         
+         if prevStatus != self.nodeStatus.status_:
+            armoryengine.ArmoryUtils.WITNESS = self.nodeStatus.SegWitEnabled_
+            
+            if self.nodeStatus.status_ == Cpp.NodeStatus_Offline:
+               self.showTrayMsg(self.tr('Disconnected'), self.tr('Connection to Bitcoin Core '
+                                'client lost!  Armory cannot send nor '
+                                'receive bitcoins until connection is '
+                                're-established.'), QSystemTrayIcon.Critical,
+                                10000)
+            elif self.nodeStatus.status_ == Cpp.NodeStatus_Online:
+               self.showTrayMsg(self.tr('Connected'), self.tr('Connection to Bitcoin Core '
+                                      're-established'), \
+                                      QSystemTrayIcon.Information, 10000)
+            self.updateStatusBarText()
          
          self.updateSyncProgress()   
-         self.updateStatusBarText()
+
          
       elif action == BDM_SCAN_PROGRESS:
          self.setDashboardDetails()

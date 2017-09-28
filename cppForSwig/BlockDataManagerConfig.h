@@ -163,6 +163,9 @@ private:
    float blockSpeed_ = 0.0f;
    uint64_t eta_ = 0;
    float pct_ = 0.0f;
+   unsigned blocksLeft_ = 0;
+
+   unsigned prev_pct_int_ = 0;
 
 private:
    //so that SWIG 2.0 doesn't try to parse a shared_ptr object (and choke)
@@ -181,6 +184,7 @@ public:
    
    float getProgressPct(void) const { return pct_; }
    uint64_t getETA(void) const { return eta_; }
+   unsigned getBlocksLeft(void) const { return blocksLeft_; }
 };
 
 ////////////////////////////////////////////////////////////////////////////////
