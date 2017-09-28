@@ -123,6 +123,7 @@ parser.add_option("--disable-detsign", dest="enableDetSign", action="store_false
 parser.add_option("--enable-detsign", dest="enableDetSign", action="store_true", help="Enable Transaction Deterministic Signing (RFC 6979) - Enabled by default")
 parser.add_option("--armorydb-ip", dest="armorydb_ip", default=ARMORYDB_DEFAULT_IP, type="str", help="Set remote DB IP (default: 127.0.0.1)")
 parser.add_option("--armorydb-port", dest="armorydb_port", default=ARMORYDB_DEFAULT_PORT, type="str", help="Set remote DB port (default: 9001)")
+parser.add_option("--force-fcgi", dest="force_fcgi", default=False, action="store_true", help="Force the use of fcgi sockets when pointing to a custom DB IP")
 parser.add_option("--ram-usage", dest="ram_usage", default=-1, type="int", help="Set maximum ram during scans, as 128MB increments. Defaults to 4")
 parser.add_option("--thread-count", dest="thread_count", default=-1, type="int", help="Set max thread count during builds and scans. Defaults to CPU total thread count")
 parser.add_option("--db-type", dest="db_type", default="DB_FULL", type="str", help="Set db mode, defaults to DB_FULL")
@@ -297,6 +298,7 @@ IGNOREZC  = CLI_OPTIONS.ignoreAllZC
 
 #db address
 ARMORYDB_IP = CLI_OPTIONS.armorydb_ip
+FORCE_FCGI = CLI_OPTIONS.force_fcgi
 
 usesDefaultDbPort = True
 ARMORYDB_PORT = CLI_OPTIONS.armorydb_port
