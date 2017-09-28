@@ -5905,7 +5905,7 @@ class ArmoryMainWindow(QMainWindow):
          script = txout.getScript()
          scrAddr = BtcUtils().getScrAddrForScript(script)
          prefix, h160 = scrAddr_to_hash160(scrAddr)
-         addrComment = wlt.getCommentForAddress(h160)
+         addrComment = wlt.getCommentForAddress(scrAddr)
          
          b58Addr = scrAddr_to_addrStr(scrAddr)
          
