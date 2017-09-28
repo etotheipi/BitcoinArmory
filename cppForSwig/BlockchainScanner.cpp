@@ -90,6 +90,7 @@ void BlockchainScanner::scan_nocheck(int32_t scanFrom)
 
    vector<future<bool>> completedFutures;
    unsigned _count = 0;
+   completedBatches_.store(0, memory_order_relaxed);
 
    //loop until there are no more blocks available
    try
@@ -157,11 +158,16 @@ void BlockchainScanner::scan_nocheck(int32_t scanFrom)
 
          completedFutures.push_back(batch->completedPromise_.get_future());
          batch->count_ = _count;
-         if (_count >= writeQueueDepth_)
+         
+         //post for txout parsing
+         outputQueue_.push_back(move(batch));
+         if (_count - completedBatches_.load(memory_order_relaxed) >= 
+            writeQueueDepth_)
          {
             try
             {
-               auto futIter = completedFutures.begin() + (_count - writeQueueDepth_);
+               auto futIter = completedFutures.begin() + 
+                  (_count - writeQueueDepth_);
                futIter->wait();
             }
             catch (future_error &e)
@@ -172,12 +178,6 @@ void BlockchainScanner::scan_nocheck(int32_t scanFrom)
          }
 
          ++_count;
-
-         //post for txout parsing
-         outputQueue_.push_back(move(batch));
-
-         //push scanned batch to write thread
-
          startHeight = endHeight + 1;
       }
    }
@@ -865,6 +865,8 @@ void BlockchainScanner::writeBlockData()
          progVal);
 
       topScannedBlockHash_ = topheader->getThisHash();
+
+      completedBatches_.fetch_add(1, memory_order_relaxed);
       batch->completedPromise_.set_value(true);
 
       TIMER_STOP("write");

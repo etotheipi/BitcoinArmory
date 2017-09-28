@@ -66,7 +66,7 @@ void BlockchainScanner_Super::scan()
 
    auto startHeight = scanFrom;
    unsigned endHeight = 0;
-
+   completedBatches_.store(0, memory_order_relaxed);
 
    //loop until there are no more blocks available
    try
@@ -135,11 +135,16 @@ void BlockchainScanner_Super::scan()
 
          completedFutures.push_back(batch->completedPromise_.get_future());
          batch->count_ = _count;
-         if (_count >= writeQueueDepth_)
+
+         //post for txout parsing
+         outputQueue_.push_back(move(batch));
+         if (_count - completedBatches_.load(memory_order_relaxed) >= 
+            writeQueueDepth_)
          {
             try
             {
-               auto futIter = completedFutures.begin() + (_count - writeQueueDepth_);
+               auto futIter = completedFutures.begin() + 
+                  (_count - writeQueueDepth_);
                futIter->wait();
             }
             catch (future_error &e)
@@ -150,10 +155,6 @@ void BlockchainScanner_Super::scan()
          }
 
          ++_count;
-
-         //post for txout parsing
-         outputQueue_.push_back(move(batch));
-
          startHeight = endHeight + 1;
       }
    }
