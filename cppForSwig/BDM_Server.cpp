@@ -1247,10 +1247,10 @@ void FCGI_Server::init()
 {
    stringstream ss;
 #ifdef _WIN32
-   if(ip_ == "127.0.0.1" || ip_ == "localhost")
+   if (ip_ == "127.0.0.1" || ip_ == "localhost")
       ss << "localhost:" << port_;
    else
-      throw runtime_error("will not bind on anything but localhost");
+      ss << ip_ << ":" << port_;
 #else
    ss << ip_ << ":" << port_;
 #endif

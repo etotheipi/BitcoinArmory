@@ -41,7 +41,7 @@ int main(int argc, char* argv[])
    bdmThread.start(bdmConfig.initMode_);
 
    //init listen loop
-   FCGI_Server server(&bdmThread, bdmConfig.fcgiPort_);
+   FCGI_Server server(&bdmThread, bdmConfig.fcgiPort_, bdmConfig.listen_all_);
    
    if (!bdmConfig.checkChain_)
    {

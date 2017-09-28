@@ -256,11 +256,14 @@ private:
    }
 
 public:
-   FCGI_Server(BlockDataManagerThread* bdmT, string port) :
+   FCGI_Server(BlockDataManagerThread* bdmT, string port, bool listen_all) :
       clients_(bdmT, getShutdownCallback()),
-      ip_("127.0.0.1"), port_(port)
+      ip_(listen_all ? "" : "127.0.0.1"), port_(port)
    {
       LOGINFO << "Listening on port " << port;
+      if (listen_all)
+         LOGWARN << "Listening to all incoming connections";
+
       liveThreads_.store(0, memory_order_relaxed);
    }
 

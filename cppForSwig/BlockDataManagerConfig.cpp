@@ -220,6 +220,8 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
 
    --satoshirpc-port: set node rpc port
 
+   --listen-all: listen to all incoming IPs (not just localhost)
+
    ***/
 
    try
@@ -377,7 +379,7 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
 void BlockDataManagerConfig::processArgs(const map<string, string>& args, 
    bool onlyDetectNetwork)
 {
-   //server port
+   //server networking
    auto iter = args.find("fcgi-port");
    if (iter != args.end())
    {
@@ -395,6 +397,12 @@ void BlockDataManagerConfig::processArgs(const map<string, string>& args,
       {
          customFcgiPort_ = true;
       }
+   }
+
+   iter = args.find("listen-all");
+   if (iter != args.end())
+   {
+      listen_all_ = true;
    }
 
    //network type
