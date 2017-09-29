@@ -129,6 +129,7 @@ parser.add_option("--thread-count", dest="thread_count", default=-1, type="int",
 parser.add_option("--db-type", dest="db_type", default="DB_FULL", type="str", help="Set db mode, defaults to DB_FULL")
 parser.add_option("--language", dest="language", default="en", type="str", help="""Set the language for the client to display in. Use the ISO 639-1 language code to choose a language. 
                                                                                  Options are da, de, en, es, el, fr, he, hr, id, ru, sv. Default is en. """)
+parser.add_option("--force-enable-segwit", dest="force_segwit", default=False, action="store_true", help="Allow SegWit address generation in offline mode")
 
 parser.set_defaults(enableDetSign=True)
 
@@ -251,7 +252,6 @@ class isMSWallet(Exception): pass
 class SignerException(Exception): pass
 
 # Witness variables and constants
-WITNESS = False
 NODE_WITNESS = 1 << 3
 WITNESS_MARKER = 0
 WITNESS_FLAG = 1
@@ -293,8 +293,9 @@ if CLI_OPTIONS.interport < 0:
 # all zero-conf UTXOs as unspendable, including sent-to-self (change)
 IGNOREZC  = CLI_OPTIONS.ignoreAllZC
 
-#supernode
-#ENABLE_SUPERNODE = CLI_OPTIONS.enableSupernode
+FORCE_SEGWIT = False
+if CLI_OPTIONS.offline:
+   FORCE_SEGWIT = CLI_OPTIONS.force_segwit
 
 #db address
 ARMORYDB_IP = CLI_OPTIONS.armorydb_ip

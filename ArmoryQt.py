@@ -4908,7 +4908,7 @@ class ArmoryMainWindow(QMainWindow):
          #ledgers
          
          self.nodeStatus = TheBDM.bdv().getNodeStatus()
-         armoryengine.ArmoryUtils.WITNESS = self.nodeStatus.SegWitEnabled_
+         TheBDM.setWitness(self.nodeStatus.SegWitEnabled_)
 
          self.updateWalletData()
 
@@ -5070,7 +5070,7 @@ class ArmoryMainWindow(QMainWindow):
          TheSDM.updateState(self.nodeStatus)
          
          if prevStatus != self.nodeStatus.status_:
-            armoryengine.ArmoryUtils.WITNESS = self.nodeStatus.SegWitEnabled_
+            TheBDM.setWitness(self.nodeStatus.SegWitEnabled_)
             
             if self.nodeStatus.status_ == Cpp.NodeStatus_Offline:
                self.showTrayMsg(self.tr('Disconnected'), self.tr('Connection to Bitcoin Core '

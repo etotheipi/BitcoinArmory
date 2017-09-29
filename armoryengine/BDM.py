@@ -174,6 +174,8 @@ class BlockDataManager(object):
                
       self.exception = ""
       self.cookie = None
+      
+      self.witness = False
    
    #############################################################################  
    def instantiateBDV(self, port):
@@ -334,6 +336,14 @@ class BlockDataManager(object):
          if bdmSignal == signal:
             func(args)
       self.registerCppNotification(bdmCallback)
+   
+   #############################################################################
+   def setWitness(self, wit):
+      self.witness = wit   
+   
+   #############################################################################
+   def isSegWitEnabled(self):
+      return self.witness or FORCE_SEGWIT
       
    
 ################################################################################

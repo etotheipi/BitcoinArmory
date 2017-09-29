@@ -988,7 +988,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          return getAddr(newAddr, 'P2PKH')
       
       #is our Tx SW?
-      if WITNESS == True and self.coinSelection.isSW():
+      if TheBDM.isSegWitEnabled() == True and self.coinSelection.isSW():
          return getAddr(newAddr, 'P2SH-P2WPKH')
       else:
          return getAddr(newAddr, 'P2SH-P2PK')

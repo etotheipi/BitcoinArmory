@@ -10,6 +10,7 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
 from qtdefines import ArmoryDialog, STYLE_RAISED, QLabelButton
+from armoryengine.BDM import TheBDM
 
 class AddressTypeSelectDialog(ArmoryDialog):
    
@@ -47,9 +48,8 @@ class AddressTypeSelectDialog(ArmoryDialog):
       swLayout.addWidget(self.radioSW, 0, 0, 1, 1)
       swLayout.addWidget(swDescr, 1, 0, 1, 1)
       frmSW.setLayout(swLayout)
-      
-      from armoryengine.ArmoryUtils import WITNESS
-      if WITNESS == False:
+
+      if TheBDM.isSegWitEnabled() == False:
          frmSW.setDisabled(True)
       
       def setSW():
