@@ -2755,10 +2755,10 @@ def ReadFragIDLineBin(binLine):
    doMask = binary_to_int(binLine[0]) > 127
    M      = binary_to_int(binLine[0]) & 0x7f
    fnum   = binary_to_int(binLine[1])
-   wltID  = binLine[2:]
+   fragID  = binLine[2:]
 
-   idBase58 = ComputeFragIDBase58(M, wltID) + '-#' + str(fnum)
-   return (M, fnum, wltID, doMask, idBase58)
+   idBase58 = ComputeFragIDBase58(M, fragID) + '-#' + str(fnum)
+   return (M, fnum, fragID, doMask, idBase58)
 
 
 ################################################################################

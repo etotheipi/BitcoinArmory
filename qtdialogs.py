@@ -10752,7 +10752,7 @@ class DlgFragBackup(ArmoryDialog):
       # Make sure only local variables contain non-SBD data
       self.destroyFrags()
       self.uniqueFragSetID = \
-         binary_to_base58(SecureBinaryData().GenerateRandom(7).toBinStr())
+         binary_to_base58(SecureBinaryData().GenerateRandom(6).toBinStr())
       insecureData = SplitSecret(self.securePrint, M, self.maxmaxN)
       for x, y in insecureData:
          self.secureMtrx.append([SecureBinaryData(x), SecureBinaryData(y)])
@@ -10771,7 +10771,8 @@ class DlgFragBackup(ArmoryDialog):
       #####
 
       self.M, self.N = M, N
-      self.fragPrefixStr = ComputeFragIDBase58(self.M, self.uniqueFragSetID)
+      self.fragPrefixStr = ComputeFragIDBase58(self.M, \
+                              base58_to_binary(self.uniqueFragSetID))
       self.fragPixmapFn = ':/frag%df.png' % M
 
 
