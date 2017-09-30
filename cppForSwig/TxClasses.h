@@ -21,6 +21,31 @@
 #define ADJUST_FEE            2
 #define SHUFFLE_ENTRIES       4
 
+////
+class RecipientReuseException
+{
+private:
+   vector<string> addrVec_;
+   uint64_t total_;
+   uint64_t value_;
+
+public:
+   RecipientReuseException(
+      const vector<BinaryData>& scrAddrVec, uint64_t total, uint64_t val) :
+      total_(total), value_(val)
+   {
+      for (auto& scrAddr : scrAddrVec)
+      {
+         auto&& addr58 = BtcUtils::scrAddrToBase58(scrAddr);
+         addrVec_.push_back(string(addr58.getCharPtr(), addr58.getSize()));
+      }
+   }
+
+   const vector<string>& getAddresses(void) const { return addrVec_; }
+   uint64_t total(void) const { return total_; }
+   uint64_t value(void) const { return value_; }
+};
+
 ////////////////////////////////////////////////////////////////////////////////
 // OutPoint is just a reference to a TxOut
 class OutPoint
@@ -551,7 +576,7 @@ public:
    const BinaryData& getScrAddr(void) { return scrAddr_; }
 
    /////
-   vector<BinaryData> getTxHashList(void)
+   vector<BinaryData> getTxHashList(void) const
    {
       return txHashList_;
    }

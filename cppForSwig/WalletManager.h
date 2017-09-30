@@ -64,7 +64,8 @@ private:
    
    void selectUTXOs(vector<UTXO>&, uint64_t fee, float fee_byte, unsigned flags);
 public:
-   CoinSelectionInstance(WalletContainer* const walletContainer);
+   CoinSelectionInstance(WalletContainer* const walletContainer,
+      const vector<AddressBookEntry>& addrBook);
    CoinSelectionInstance(SwigClient::Lockbox* const, 
       unsigned M, unsigned N,
       unsigned blockHeight, uint64_t balance);
@@ -92,6 +93,8 @@ public:
    float getFeeByte(void) const { return selection_.fee_byte_; }
 
    bool isSW(void) const { return selection_.witnessSize_ != 0; }
+
+   void rethrow(void) { cs_.rethrow(); }
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -366,7 +369,8 @@ public:
 
    CoinSelectionInstance getCoinSelectionInstance(void)
    {
-      return CoinSelectionInstance(this);
+      auto&& addrBookVector = createAddressBook();
+      return CoinSelectionInstance(this, addrBookVector);
    }
 
    unsigned getTopBlock(void);

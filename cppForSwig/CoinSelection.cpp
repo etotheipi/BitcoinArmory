@@ -13,9 +13,92 @@
 // CoinSelection                                                              //
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
+vector<UTXO> CoinSelection::checkForRecipientReuse(
+   PaymentStruct& payStruct, const vector<UTXO>& utxoVec)
+{
+   //look for recipient reuse
+   auto getUtxoLambda = getUTXOsForVal_;
+   if (utxoVec.size() > 0)
+   {
+      auto getUtxoLBD = [&utxoVec](uint64_t)->vector<UTXO>
+      {
+         return utxoVec;
+      };
+
+      getUtxoLambda = getUtxoLBD;
+   }
+
+   RestrictedUtxoSet r_utxos(getUtxoLambda);
+   set<BinaryData> addrSet;
+   uint64_t spendSum = 0;
+
+   for (auto& recipient : payStruct.recipients_)
+   {
+      auto& output = recipient.second->getSerializedScript();
+      if (output.getSize() < 9)
+         continue;
+
+      BinaryRefReader brr(output.getRef());
+      brr.advance(8);
+      auto scriptLen = brr.get_var_int();
+      auto script = brr.get_BinaryDataRef(scriptLen);
+
+      auto&& scrAddr = BtcUtils::getScrAddrForScript(script);
+
+      auto addrBookIter = addrBook_.find(scrAddr);
+      if (addrBookIter == addrBook_.end())
+         continue;
+
+      //log recipient
+      addrSet.insert(scrAddr);
+      spendSum += recipient.second->getValue();
+
+      //round up utxos
+      auto&& txHashVec = addrBookIter->getTxHashList();
+      for (auto& txhash : txHashVec)
+         r_utxos.filterUtxos(txhash);
+   }
+
+   auto available_balance = r_utxos.getBalance();
+   auto balance_and_fee = available_balance;
+   if (payStruct.fee_ > 0)
+   {
+      balance_and_fee += payStruct.fee_;
+   }
+   else
+   {
+      balance_and_fee += r_utxos.getFeeSum(payStruct.fee_byte_);
+      balance_and_fee += uint64_t(payStruct.fee_byte_ * payStruct.size_);
+   }
+
+   if (spendSum > 0 && balance_and_fee < spendSum)
+   {
+      vector<BinaryData> addrVec;
+      for (auto& addr : addrSet)
+         addrVec.push_back(addr);
+      throw RecipientReuseException(addrVec, spendSum, available_balance);
+   }
+
+   return r_utxos.getUtxoSelection();
+}
+
+////////////////////////////////////////////////////////////////////////////////
 UtxoSelection CoinSelection::getUtxoSelectionForRecipients(
    PaymentStruct& payStruct, const vector<UTXO>& utxoVec)
 {
+   try
+   {
+      auto&& utxoSelection = checkForRecipientReuse(payStruct, utxoVec);
+      except_ptr_ = nullptr;
+
+      if (utxoSelection.size() > 0)
+         return getUtxoSelection(payStruct, utxoSelection);
+   }
+   catch (...)
+   {
+      except_ptr_ = current_exception();
+   }
+
    if (utxoVec.size() == 0)
    {
       updateUtxoVector(payStruct.spendVal_);

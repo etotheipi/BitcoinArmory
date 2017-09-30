@@ -31,11 +31,85 @@ using namespace std;
 #define WEIGHT_TXSIZE   100.0f
 #define WEIGHT_OUTANON  30.0f
 
+////
 class CoinSelectionException : public runtime_error
 {
 public:
    CoinSelectionException(const string& err) : runtime_error(err)
    {}
+};
+
+////////////////////////////////////////////////////////////////////////////////
+struct RestrictedUtxoSet
+{
+   vector<UTXO> allUtxos_;
+   bool haveAll_ = false;
+   set<UTXO> selection_;
+   function<vector<UTXO>(uint64_t val)> getUtxoLbd_;
+
+   RestrictedUtxoSet(function<vector<UTXO>(uint64_t val)> lbd) :
+      getUtxoLbd_(lbd)
+   {}
+
+   const vector<UTXO>& getAllUtxos(void)
+   {
+      if (!haveAll_)
+      {
+         allUtxos_ = getUtxoLbd_(UINT64_MAX);
+         haveAll_ = true;
+      }
+
+      return allUtxos_;
+   }
+
+   void filterUtxos(const BinaryData& txhash)
+   {
+      getAllUtxos();
+
+      for (auto& utxo : allUtxos_)
+      {
+         if (utxo.getTxHash() == txhash)
+            selection_.insert(utxo);
+      }
+   }
+
+   uint64_t getBalance(void) const
+   {
+      uint64_t bal = 0;
+      for (auto& utxo : selection_)
+         bal += utxo.getValue();
+
+      return bal;
+   }
+
+   uint64_t getFeeSum(float fee_byte)
+   {
+      uint64_t fee = 0;
+      for (auto& utxo : selection_)
+      {
+         fee += uint64_t(utxo.getInputRedeemSize() * fee_byte);
+
+         try
+         {
+            fee += uint64_t(utxo.getWitnessDataSize() * fee_byte);
+         }
+         catch (exception&)
+         {
+         }
+      }
+
+      return fee;
+   }
+
+   vector<UTXO> getUtxoSelection(void) const
+   {
+      vector<UTXO> utxoVec;
+
+      for (auto& utxo : selection_)
+         utxoVec.push_back(utxo);
+
+      return utxoVec;
+   }
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -99,6 +173,9 @@ private:
    unsigned topHeight_ = UINT32_MAX;
 
    function<vector<UTXO>(uint64_t val)> getUTXOsForVal_;
+   set<AddressBookEntry> addrBook_;
+
+   exception_ptr except_ptr_ = nullptr;
 
 protected:
    UtxoSelection getUtxoSelection(
@@ -110,14 +187,19 @@ protected:
    void updateUtxoVector(uint64_t value);
    static uint64_t tallyValue(const vector<UTXO>&);
 
+   vector<UTXO> checkForRecipientReuse(PaymentStruct&, const vector<UTXO>&);
+
 public:
    CoinSelection(function<vector<UTXO>(uint64_t val)> func, 
-      unsigned topHeight, uint64_t spendableValue)
-      : getUTXOsForVal_(func), topHeight_(topHeight), 
+      const vector<AddressBookEntry>& addrBook,
+      unsigned topHeight, uint64_t spendableValue) :
+      getUTXOsForVal_(func), topHeight_(topHeight), 
       spendableValue_(spendableValue)
    {
       //for random shuffling
       srand(time(0));
+      for (auto& entry : addrBook)
+         addrBook_.insert(entry);
    }
 
    UtxoSelection getUtxoSelectionForRecipients(
@@ -125,6 +207,12 @@ public:
 
    uint64_t getFeeForMaxVal(
       size_t txOutSize, float fee_byte, const vector<UTXO>&);
+
+   void rethrow(void) 
+   { 
+      if (except_ptr_ != nullptr)
+         rethrow_exception(except_ptr_); 
+   }
 };
 
 ////////////////////////////////////////////////////////////////////////////////

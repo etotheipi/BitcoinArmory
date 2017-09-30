@@ -102,6 +102,15 @@ namespace std
 			"DbErrorMsg", SWIGTYPE_p_DbErrorMsg);
 		SWIG_fail;
 	}
+	catch (RecipientReuseException& e)
+	{
+		SWIG_Python_Raise(SWIG_NewPointerObj(
+			(new RecipientReuseException(static_cast<const RecipientReuseException&>(e))),
+			SWIGTYPE_p_RecipientReuseException, SWIG_POINTER_OWN),
+			"RecipientReuseException", SWIGTYPE_p_RecipientReuseException);
+		SWIG_fail;
+	}
+
 }
 
 

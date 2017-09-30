@@ -270,9 +270,10 @@ vector<BinaryData> WalletContainer::getScriptHashVectorForIndex(int index) const
 ////
 ////////////////////////////////////////////////////////////////////////////////
 CoinSelectionInstance::CoinSelectionInstance(
-   WalletContainer* const walletContainer) :
+   WalletContainer* const walletContainer, 
+   const vector<AddressBookEntry>& addrBook) :
    walletContainer_(walletContainer),
-   cs_(getFetchLambdaFromWalletContainer(walletContainer), 
+   cs_(getFetchLambdaFromWalletContainer(walletContainer), addrBook,
       walletContainer->getTopBlock(), walletContainer->spendableBalance_),
    spendableBalance_(walletContainer->spendableBalance_)
 {}
@@ -283,7 +284,9 @@ CoinSelectionInstance::CoinSelectionInstance(
    unsigned M, unsigned N,
    unsigned blockHeight, uint64_t balance) :
    walletContainer_(nullptr),
-   cs_(getFetchLambdaFromLockbox(lockbox, M, N), blockHeight, balance),
+   cs_(getFetchLambdaFromLockbox(lockbox, M, N), 
+      vector<AddressBookEntry>(),
+      blockHeight, balance),
    spendableBalance_(balance)
 {}
 

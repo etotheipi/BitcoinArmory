@@ -21,7 +21,7 @@ from armoryengine.MultiSigUtils import \
    isP2SHLockbox
 from armoryengine.ArmoryUtils import MAX_COMMENT_LENGTH, getAddrByte
 from FeeSelectUI import FeeSelectionDialog
-from CppBlockUtils import TXOUT_SCRIPT_P2SH, TransactionBatch, SecureBinaryData
+from CppBlockUtils import TXOUT_SCRIPT_P2SH, TransactionBatch, SecureBinaryData, RecipientReuseException
 from armoryengine.SignerWrapper import SIGNER_DEFAULT
 
 class SendBitcoinsFrame(ArmoryFrame):
@@ -458,7 +458,7 @@ class SendBitcoinsFrame(ArmoryFrame):
                prefix, h160 = addrStr_to_hash160(addrStr)
             except:
                #recipient input is not an address, is it a locator instead?
-               scriptDict = getScriptForUserString(\
+               scriptDict = self.main.getScriptForUserString(\
                   addrStr, self.main.walletMap, self.main.allLockboxes)
                
                if scriptDict['Script'] == None:
@@ -467,7 +467,6 @@ class SendBitcoinsFrame(ArmoryFrame):
                scraddr = script_to_scrAddr(scriptDict['Script']) 
                prefix = scraddr[0]
                h160 = scraddr[1:]   
-               abc=0
                
             scrAddr = prefix + h160
             valueStr = str(coinSelRow['QLE_AMT'].text()).strip()
@@ -567,6 +566,37 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.altBalance = altBalance
       
       self.resolveCoinSelection()
+
+   #############################################################################
+   def handleCppCoinSelectionExceptions(self):      
+      try:
+         self.coinSelection.rethrow()
+      except RecipientReuseException as e:
+         addrList = e.getAddresses()
+         addrParagraph = '<br>'
+         for addrEntry in addrList:
+            addrParagraph = addrParagraph + ' - ' + addrEntry + '<br>'
+         
+         result = MsgBoxCustom(MSGBOX.Warning, self.tr('Recipient reuse'), \
+            self.tr(
+               'The transaction you crafted <b>reuses</b> the following recipient address(es):<br>'
+               '%1<br>'
+               ' The sum of values for this leg of the transaction amounts to %2 BTC. There is only'
+               ' a total of %3 BTC available in UTXOs to fund this leg of the'
+               ' transaction without <b>damaging your privacy.</b>'
+               '<br><br>In order to meet the full payment, Armory has to make use of extra '
+               ' UTXOs, <u>and this will result in privacy loss on chain.</u> <br><br>'
+               'To progress beyond this warning, choose Ignore. Otherwise'
+               ' the operation will be cancelled.'
+               ).arg(addrParagraph, \
+                     coin2str(e.total(), 5, maxZeros=0), \
+                     coin2str(e.value(), 5, maxZeros=0)), \
+            wCancel=True, yesStr=self.tr('Ignore'), noStr=self.tr('Cancel'))
+         
+         if not result:
+            return False
+         
+      return True;
         
    #############################################################################
    def validateInputsGetUSTX(self, peek=False):
@@ -575,6 +605,9 @@ class SendBitcoinsFrame(ArmoryFrame):
       scripts = []
       addrList = []
       self.comments = []
+      
+      if self.handleCppCoinSelectionExceptions() == False:
+         return
 
       for row in range(len(self.widgetTable)):
          # Verify validity of address strings
