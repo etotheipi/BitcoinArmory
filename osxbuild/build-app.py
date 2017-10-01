@@ -18,7 +18,7 @@ from subprocess import Popen, PIPE
 from tempfile import mkstemp
 
 # Set some constants up front
-minOSXVer     = '10.7'
+minOSXVer     = '10.8'
 pythonVer     = '2.7.13' # NB: ArmoryMac.pro must also be kept up to date!!!
 pyMajorVer    = '2.7'
 setToolVer    = '35.0.2'
@@ -27,7 +27,7 @@ pipVer        = '9.0.1'
 pipSubdir     = '11/b6/abcb525026a4be042b486df43905d6893fb04f05aac21c32c638e939e447'
 psutilVer     = '5.2.2'
 psutilSubdir  = '57/93/47a2e3befaf194ccc3d05ffbcba2cdcdd22a231100ef7e4cf63f085c900b'
-libpngVer     = '1.6.31'
+libpngVer     = '1.6.32'
 qtVer         = '4.8.7'  # NB: ArmoryMac.pro must also be kept up to date!!!
                          # Possibly "sipFlags" below too.
 sipVer        = '4.19.2' # NB: ArmoryMac.pro must also be kept up to date!!!
@@ -348,7 +348,7 @@ distfiles.append( [ "psutil", \
 distfiles.append( [ 'libpng', \
                     "libpng-%s.tar.xz" % libpngVer, \
                     "https://sourceforge.net/projects/libpng/files/libpng16/%s/libpng-%s.tar.xz" % (libpngVer, libpngVer), \
-                    "de695064363df331734466981ef7f6546ef516bf" ] )
+                    "161d91d15cfd739773e0a73b41032b9f27322914" ] )
 
 # When we upgrade to Qt5....
 #distfiles.append( [ "Qt", \
@@ -495,11 +495,13 @@ def compile_qt():
 
    # Qt Patches
    # Partial bug fixes for modal windows.
-   execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'QTBUG-37699.patch'), cwd=qtBuildDir)
+   execAndWait('patch -p1 < %s' % path.join(os.getcwd(), 'QTBUG-37699.patch'), cwd=qtBuildDir)
    # Completed bug fixes for modal windows.
-   execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'QTBUG-40585.patch'), cwd=qtBuildDir)
-   # This API is deprecated
-   execAndWait('patch -p0 < %s' % path.join(os.getcwd(), 'qpaintengine_mac.patch'), cwd=qtBuildDir)
+   execAndWait('patch -p1 < %s' % path.join(os.getcwd(), 'QTBUG-40585.patch'), cwd=qtBuildDir)
+   # This API is deprecated.
+   execAndWait('patch -p1 < %s' % path.join(os.getcwd(), 'qpaintengine_mac.patch'), cwd=qtBuildDir)
+   # macOS 10.13 errors on unused code.
+   execAndWait('patch -p1 < %s' % path.join(os.getcwd(), 'qt_cocoa_helpers_mac.patch'), cwd=qtBuildDir)
 
    # Configure Qt. http://wiki.phisys.com/index.php/Compiling_Phi has an example
    # that can be checked for ideas.
