@@ -2010,6 +2010,7 @@ public:
    static SecureBinaryData computeChainCode_Armory135(
       const SecureBinaryData& privateRoot);
 
+   /////////////////////////////////////////////////////////////////////////////
    static BinaryData getP2WPKHScript(const BinaryData& scriptHash)
    {
       if (scriptHash.getSize() != 20)
@@ -2026,6 +2027,7 @@ public:
       return bw.getData();
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    static BinaryData getP2WSHScript(const BinaryData& scriptHash)
    {
       if (scriptHash.getSize() != 32)
@@ -2042,6 +2044,42 @@ public:
 
    static string base64_encode(const string&);
    static string base64_decode(const string&);
+
+   /////////////////////////////////////////////////////////////////////////////
+   static BinaryData getHash256_RunTwice(const BinaryData& data)
+   {
+      auto&& hash1 = getHash256(data);
+      auto&& hash2 = getHash256(data);
+
+      if (hash1 != hash2)
+         throw runtime_error("hash256 failure");
+
+      return hash1;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   static BinaryData getSha256_RunTwice(const BinaryData& data)
+   {
+      auto&& hash1 = getSha256(data);
+      auto&& hash2 = getSha256(data);
+
+      if (hash1 != hash2)
+         throw runtime_error("sha256 failure");
+
+      return hash1;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   static BinaryData getHash160_RunTwice(const BinaryData& data)
+   {
+      auto&& hash1 = getHash160(data);
+      auto&& hash2 = getHash160(data);
+
+      if (hash1 != hash2)
+         throw runtime_error("hash160 failure");
+
+      return hash1;
+   }
 };
    
 static inline void suppressUnusedFunctionWarning()

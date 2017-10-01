@@ -2628,7 +2628,7 @@ const BinaryData& AssetEntry_Single::getHash160Uncompressed() const
 {
    if (h160Uncompressed_.getSize() == 0)
       h160Uncompressed_ = 
-         move(BtcUtils::getHash160(pubkey_->getUncompressedKey()));
+         move(BtcUtils::getHash160_RunTwice(pubkey_->getUncompressedKey()));
 
    return h160Uncompressed_;
 }
@@ -2638,7 +2638,7 @@ const BinaryData& AssetEntry_Single::getHash160Compressed() const
 {
    if (h160Compressed_.getSize() == 0)
       h160Compressed_ =
-         move(BtcUtils::getHash160(pubkey_->getCompressedKey()));
+         move(BtcUtils::getHash160_RunTwice(pubkey_->getCompressedKey()));
 
    return h160Compressed_;
 }
@@ -2664,7 +2664,7 @@ const BinaryData& AssetEntry_Single::getWitnessScriptH160() const
 {
    if (witnessScriptH160_.getSize() == 0)
       witnessScriptH160_ =
-         move(BtcUtils::getHash160(getWitnessScript()));
+         move(BtcUtils::getHash160_RunTwice(getWitnessScript()));
 
    return witnessScriptH160_;
 }
@@ -2687,7 +2687,7 @@ const BinaryData& AssetEntry_Single::getP2PKScriptH160() const
 {
    if (p2pkScriptH160_.getSize() == 0)
       p2pkScriptH160_ =
-         move(BtcUtils::getHash160(getP2PKScript()));
+         move(BtcUtils::getHash160_RunTwice(getP2PKScript()));
 
    return p2pkScriptH160_;
 }
@@ -2696,7 +2696,7 @@ const BinaryData& AssetEntry_Single::getP2PKScriptH160() const
 AddressEntryType AssetEntry_Single::getAddressTypeForHash(
    BinaryDataRef hashRef) const
 {
-      auto& h160Unc = getHash160Uncompressed();
+   auto& h160Unc = getHash160Uncompressed();
    if (hashRef == h160Unc)
       return AddressEntryType_P2PKH;
    
@@ -2785,7 +2785,7 @@ const BinaryData& AssetEntry_Multisig::getHash160() const
    if (h160_.getSize() == 0)
    {
       auto& msScript = getScript();
-      h160_ = move(BtcUtils::getHash160(msScript));
+      h160_ = move(BtcUtils::getHash160_RunTwice(msScript));
    }
 
    return h160_;
@@ -2800,7 +2800,7 @@ const BinaryData& AssetEntry_Multisig::getHash256() const
    if (h256_.getSize() == 0)
    {
       auto& msScript = getScript();
-      h256_ = move(BtcUtils::getSha256(msScript));
+      h256_ = move(BtcUtils::getSha256_RunTwice(msScript));
    }
 
    return h256_;
@@ -2829,7 +2829,7 @@ const BinaryData& AssetEntry_Multisig::getP2WSHScriptH160() const
    {
       auto& script = getP2WSHScript();
 
-      p2wshScriptH160_ = move(BtcUtils::getHash160(script));
+      p2wshScriptH160_ = move(BtcUtils::getHash160_RunTwice(script));
    }
 
    return p2wshScriptH160_;
