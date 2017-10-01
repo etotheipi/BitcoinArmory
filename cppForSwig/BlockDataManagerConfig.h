@@ -65,7 +65,7 @@ struct BlockDataManagerConfig
    bool customFcgiPort_ = false;
 
 
-   unsigned ramUsage_ = 4;
+   unsigned ramUsage_ = 50;
    unsigned threadCount_ = thread::hardware_concurrency();
    unsigned zcThreadCount_ = DEFAULT_ZCTHREAD_COUNT;
 

@@ -190,7 +190,7 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
    --satoshi-datadir: path to blockchain data folder (blkXXXXX.dat files)
 
    --ram_usage: defines the ram use during scan operations. 1 level averages
-   128MB of ram (without accounting the base amount, ~400MB). Defaults at 4.
+   128MB of ram (without accounting the base amount, ~400MB). Defaults at 50.
    Can't be lower than 1. Can be changed in between processes
 
    --thread-count: defines how many processing threads can be used during db
