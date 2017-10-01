@@ -1252,8 +1252,6 @@ shared_ptr<SigHashData> Signer_BCH::getSigHashDataForSpender(bool sw) const
       sigHashDataObject_ = make_shared<SigHashData_BCH>();
 
    SHD = sigHashDataObject_;
-   isSegWit_ = true;
-
    return SHD;
 }
 
