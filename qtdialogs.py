@@ -5617,7 +5617,7 @@ class DlgDispTxInfo(ArmoryDialog):
       self.txInView.verticalHeader().hide()
       w, h = tightSizeNChar(self.txInView, 1)
       self.txInView.setMinimumHeight(2 * (1.4 * h))
-      self.txInView.setMaximumHeight(5 * (1.4 * h))
+      #self.txInView.setMaximumHeight(5 * (1.4 * h))
       self.txInView.hideColumn(TXINCOLS.OutPt)
       self.txInView.hideColumn(TXINCOLS.OutIdx)
       self.txInView.hideColumn(TXINCOLS.Script)
@@ -5651,7 +5651,7 @@ class DlgDispTxInfo(ArmoryDialog):
       self.txOutView.verticalHeader().setDefaultSectionSize(20)
       self.txOutView.verticalHeader().hide()
       self.txOutView.setMinimumHeight(2 * (1.3 * h))
-      self.txOutView.setMaximumHeight(5 * (1.3 * h))
+      #self.txOutView.setMaximumHeight(5 * (1.3 * h))
       initialColResize(self.txOutView, [wWlt, 0.8 * wAddr, wAmt, 0.25, 0])
       self.txOutView.hideColumn(TXOUTCOLS.Script)
       self.txOutView.hideColumn(TXOUTCOLS.AddrStr)
@@ -5769,7 +5769,7 @@ class DlgDispTxInfo(ArmoryDialog):
       # layout.addWidget(bbox, 6,0, 1,1)
 
       self.setLayout(layout)
-      self.layout().setSizeConstraint(QLayout.SetFixedSize)
+      #self.layout().setSizeConstraint(QLayout.SetFixedSize)
       self.setWindowTitle(self.tr('Transaction Info'))
 
 
