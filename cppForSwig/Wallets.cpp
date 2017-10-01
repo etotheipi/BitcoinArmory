@@ -1954,6 +1954,12 @@ vector<shared_ptr<AssetEntry>> DerivationScheme_ArmoryLegacy::extendChain(
       auto&& nextPubkey = CryptoECDSA().ComputeChainedPublicKey(
          pubkeyData, chainCode_, nullptr);
 
+      auto&& nextPubKey_2 = CryptoECDSA().ComputeChainedPublicKey(
+         pubkeyData, chainCode_, nullptr);
+
+      if (nextPubkey != nextPubKey_2)
+         throw runtime_error("failed pubkey derivation");
+
       //try to get priv key
       auto privkey = assetSingle->getPrivKey();
       SecureBinaryData nextPrivkey;
@@ -1963,6 +1969,9 @@ vector<shared_ptr<AssetEntry>> DerivationScheme_ArmoryLegacy::extendChain(
 
          nextPrivkey = move(CryptoECDSA().ComputeChainedPrivateKey(
             privkeyData, chainCode_, pubkeyData, nullptr));
+
+         if (!CryptoECDSA().CheckPubPrivKeyMatch(nextPrivkey, nextPubkey))
+            throw runtime_error("failed privkey derivation");
       }
       catch (AssetUnavailableException&)
       {
