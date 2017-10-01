@@ -1,3 +1,30 @@
+v0.96.4
+== Added ==
+   - SegWit lockbox creation.
+   - BCH lockbox spending.
+   - Coin selection will now limit itself to change outputs when spending to external addresses you've spent to in the past.
+   - You will receive a warning about privacy loss if coin selection fails to satisfy the previous condition.
+   - Added the following CLI args:
+      - Client side:
+         --force-enable-segwit: when paired with --offline, allows the creation of SegWit types recipient addresses.
+         --force-fcgi: forces the client to use FCGI socketing when connecting to a remote DB IP.
+      - Server side:
+         --listen-all: FCGI server will listen on :80 instead of 127.0.0.1:80
+   
+== Fixed ==
+   - Fixed ledger based fee bumping.
+   - Fixed RBF control dialog spawning.
+   - Fixed node sync progress bar.
+   - Fixed node status notification flicker during node sync.
+   - Fixed fragment ID generation mismatching the fragment on backup when restoring non deterministic fragments. This fix only
+     applies to fragments generated with versions 0.96.4 and later.
+   - When in offline mode, the default signer option will now pick the proper signer for SegWit transactions.
+   - Fixed --ram-usage control. --ram-usage=1 will no longer hang the DB during bootstrap scans.
+   - As a result, --ram-usage defaults to 50 no instead of 4.
+
+== Minor ==
+   - You can now resize the Transaction Info dialog.
+
 v0.96.3 released September 21st 2017
 == Vulnerability Fix ==
    - Fragmented backups were using a faulty implementation of Shamir's Secret Sharing (SSS).
