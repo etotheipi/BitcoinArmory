@@ -58,7 +58,7 @@ class PythonSignerDirector_BCH(Cpp.PythonSigner_BCH):
             
 class UniversalSignerDirector(Cpp.UniversalSigner):
    def __init__(self, signerType):
-      Cpp.UniversalSigner.__init__(self, signerType)
+      Cpp.UniversalSigner.__init__(self, str(signerType))
 
       self.pubData = {}
       self.privData = {}      
