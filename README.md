@@ -16,10 +16,9 @@ Multi-signature transactions are accommodated under-the-hood about 80%, and will
 
 ## Building Armory From Source
 
-[Instructions for Windows](windowsbuild/Windows_build_notes.md)  
-[Instructions for Mac OS X](osxbuild/OSX_build_notes.md)  
+[Instructions for Windows](windowsbuild/Windows_build_notes.md)
+[Instructions for macOS](osxbuild/OSX_build_notes.md)
 [Instructions for Ubuntu and Arch Linux](linuxbuild/Linux_build_notes.md)
-
 
 ### Dependencies
 
@@ -59,6 +58,9 @@ Multi-signature transactions are accommodated under-the-hood about 80%, and will
 
 * LMDB - database engine, modified to suit Armory's use cases
 [LMDB page](http://symas.com/mdb/)
+
+* macOS
+ [Instructions for downloading, verifying, and running Armory on macOS](README_OSX.md).
 
 ## Sample Code
 
