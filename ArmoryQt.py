@@ -142,8 +142,8 @@ class ArmoryMainWindow(QMainWindow):
       else:
          if USE_TESTNET or USE_REGTEST:
             self.iconfile = ':/armory_icon_green_fullres.png'
-            ArmoryMac.MacDockIconHandler.instance().setMainWindow(self)
-            ArmoryMac.MacDockIconHandler.instance().setIcon(QIcon(self.iconfile))
+         ArmoryMac.MacDockIconHandler.instance().setMainWindow(self)
+         ArmoryMac.MacDockIconHandler.instance().setIcon(QIcon(self.iconfile))
       self.lblLogoIcon.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
       self.netMode     = NETWORKMODE.Offline
