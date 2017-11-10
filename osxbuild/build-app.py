@@ -19,19 +19,19 @@ from tempfile import mkstemp
 
 # Set some constants up front
 minOSXVer     = '10.8'
-pythonVer     = '2.7.13' # NB: ArmoryMac.pro must also be kept up to date!!!
+pythonVer     = '2.7.14' # NB: ArmoryMac.pro must also be kept up to date!!!
 pyMajorVer    = '2.7'
-setToolVer    = '35.0.2'
-setToolSubdir = '88/13/7d560b75334a8e4b4903f537b7e5a1ad9f1a2f1216e2587aaaf91b38c991'
+setToolVer    = '38.2.3'
+setToolSubdir = '41/80/268fda78a53c2629128f8174d2952c7f902c93ebaa2062b64f27aa101b07'
 pipVer        = '9.0.1'
 pipSubdir     = '11/b6/abcb525026a4be042b486df43905d6893fb04f05aac21c32c638e939e447'
-psutilVer     = '5.2.2'
-psutilSubdir  = '57/93/47a2e3befaf194ccc3d05ffbcba2cdcdd22a231100ef7e4cf63f085c900b'
-libpngVer     = '1.6.32'
+psutilVer     = '5.4.1'
+psutilSubdir  = 'fe/17/0f0bf5792b2dfe6003efc5175c76225f7d3426f88e2bf8d360cfab870cd8'
+libpngVer     = '1.6.34'
 qtVer         = '4.8.7'  # NB: ArmoryMac.pro must also be kept up to date!!!
                          # Possibly "sipFlags" below too.
-sipVer        = '4.19.2' # NB: ArmoryMac.pro must also be kept up to date!!!
-pyQtVer       = '4.12'   # NB: When I'm upgraded, SIP usually has to be upgraded too.
+sipVer        = '4.19.6' # NB: ArmoryMac.pro must also be kept up to date!!!
+pyQtVer       = '4.12.1' # NB: When I'm upgraded, SIP usually has to be upgraded too.
 
 LOGFILE       = 'build-app.log.txt'
 LOGPATH       = path.abspath( path.join(os.getcwd(), LOGFILE))
@@ -55,12 +55,6 @@ MAKEFLAGS     = '-j4'
 CONFIGFLAGS   = '--with-macosx-version-min=%s LIBS=\"-L%s\" PYTHON=\"%s\" PYTHON_LDFLAGS=\"-L%s\" PYTHON_CPPFLAGS=\"-I%s\" PYTHON_EXTRA_LIBS=\"-u _PyMac_Error %s/Python\"' % (minOSXVer, PYLIBPREFIX, PYBINARY, PYLIBPREFIX, PYINCPREFIX, PYPREFIX)
 
 QTBUILTFLAG   = path.join(UNPACKDIR, 'qt/qt_install_success.txt')
-
-pypathData  =   'PYTHON_INCLUDE=%s' % PYINCPREFIX
-pypathData += '\nPYTHON_LDFLAGS=%s' % PYLIBPREFIX
-pypathData += '\nPYTHON_LIB=%s/python%s/config/libpython%s.a' % (PYLIBPREFIX, pyMajorVer, pyMajorVer)
-pypathData += '\nPYTHON_LIB_DIR=%s/python%s/config/' % (PYLIBPREFIX, pyMajorVer)
-pypathData += '\nPYVER=python%s' % pyMajorVer
 
 # If no arguments specified, then do the minimal amount of work necessary
 # Assume that only one flag is specified.  These should be
@@ -145,6 +139,9 @@ def main():
    # Force Finder to update the Icon
    execAndWait("touch " + APPDIR)
    make_targz()
+
+   # Show the final app size.
+   show_app_size()
 
 ################################################################################
 def getRightNowStr():
@@ -328,12 +325,12 @@ distfiles = []
 distfiles.append( [ 'Python', \
                     "Python-%s.tar.xz" % pythonVer, \
                     "http://python.org/ftp/python/%s/Python-%s.tar.xz" % (pythonVer, pythonVer), \
-                    "18a8f30a0356c751b8d0ea6f76e764cab13ee046" ] )
+                    "cf146474fc988b4b6b53fdd81b71c2815873b469" ] )
 
 distfiles.append( [ 'setuptools', \
                     "setuptools-%s.zip" % setToolVer, \
                     "https://pypi.python.org/packages/%s/setuptools-%s.zip" % (setToolSubdir, setToolVer), \
-                    "ee184d62ef18ee5cfdf911b74d8540a01066c26a" ] )
+                    "a1044deb1f2c42f037003f02704557fb4ee55694" ] )
 
 distfiles.append( [ 'Pip', \
                     "pip-%s.tar.gz" % pipVer, \
@@ -343,12 +340,12 @@ distfiles.append( [ 'Pip', \
 distfiles.append( [ "psutil", \
                     "psutil-%s.tar.gz" % psutilVer, \
                     "https://pypi.python.org/packages/%s/psutil-%s.tar.gz" % (psutilSubdir, psutilVer), \
-                    "6c48c1ac06fb4d2796dc0157a95d85689466a60f" ] )
+                    "6305bc320d7b9d37967e5e004e2404beefa71a34" ] )
 
 distfiles.append( [ 'libpng', \
                     "libpng-%s.tar.xz" % libpngVer, \
                     "https://sourceforge.net/projects/libpng/files/libpng16/%s/libpng-%s.tar.xz" % (libpngVer, libpngVer), \
-                    "161d91d15cfd739773e0a73b41032b9f27322914" ] )
+                    "45de4ec996ffcc3e18037e7c128abe95f4d0292a" ] )
 
 # When we upgrade to Qt5....
 #distfiles.append( [ "Qt", \
@@ -364,7 +361,7 @@ distfiles.append( [ "Qt", \
 distfiles.append( [ "sip", \
                     "sip-%s.tar.gz" % sipVer, \
                     "https://sourceforge.net/projects/pyqt/files/sip/sip-%s/sip-%s.tar.gz" % (sipVer, sipVer), \
-                    '2ae8c5aceec870f7b775a77b6e6036e8dbbf052b' ] )
+                    '61ff744c67642f10a352f3e076cbe89c79e6387b' ] )
 
 # When we upgrade to Qt5....
 #distfiles.append( [ "pyqt", \
@@ -374,8 +371,8 @@ distfiles.append( [ "sip", \
 
 distfiles.append( [ "pyqt", \
                     "PyQt4_gpl_mac-%s.tar.gz" % pyQtVer, \
-                    "http://downloads.sf.net/project/pyqt/PyQt4/PyQt-%s/PyQt4_gpl_mac-%s.tar.gz" % (pyQtVer, pyQtVer), \
-                    '625c80addf7ac2429c3e1af3db81793628452f81' ] )
+                    "https://sourceforge.net/projects/pyqt/files/PyQt4/PyQt-%s/PyQt4_gpl_mac-%s.tar.gz" % (pyQtVer, pyQtVer), \
+                    '028f3fc979428687e8e8fd78288b41f1b5735a7c' ] )
 
 # Now repack the information in distfiles
 tarfilesToDL = {}
@@ -600,11 +597,6 @@ def compile_psutil():
 def compile_armory():
    logprint('Compiling and installing Armory')
    # Always compile - even if already in app
-   pypathpath = path.join(ARMORYDIR, 'cppForSwig/pypaths.txt')
-   logprint('Writing ' + pypathpath)
-   with open(pypathpath, 'w') as f:
-      f.write(pypathData)
-
    armoryAppScript = path.join(APPDIR, 'Contents/MacOS/Armory')
    armorydAppScript = path.join(APPDIR, 'Contents/MacOS/armoryd')
    armoryDB = path.join(APPDIR, 'Contents/MacOS/ArmoryDB')
@@ -654,7 +646,6 @@ def make_resources():
 ########################################################
 def cleanup_app():
    "Try to remove as much unnecessary junk as possible."
-   show_app_size()
    print "Removing Python test-suite."
    testdir = path.join(PYPREFIX, "lib/python%s/test" % pyMajorVer)
    if path.exists(testdir):
@@ -665,7 +656,6 @@ def cleanup_app():
    else:
       remove_python_files(PYPREFIX)
    remove_python_files(PREFIXBASEDIR, False)
-   show_app_size()
 
 ########################################################
 def make_targz():
@@ -690,10 +680,13 @@ def getVersionStr():
 
 ########################################################
 def show_app_size():
+   # Macs are very peculiar about getting the sizes of things from the terminal.
+   # Some commands (e.g., "find") are also really slow when piped around. The
+   # following command is fast *and* accurate. Don't touch without good reasons!
    "Show the size of the app."
-   logprint("Size of application: ")
+   execAndWait('ls -lR %s | grep -v \'^d\' | awk \'{total += $5} END ' \
+               '{print \"Total size of Armory:\", total, \"bytes\"}\'' % APPDIR)
    sys.stdout.flush()
-   execAndWait('du -hs "%s"' % APPDIR)
 
 ########################################################
 def remove_python_files(top, removePy=True):
