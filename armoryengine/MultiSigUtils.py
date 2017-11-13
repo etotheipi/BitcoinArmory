@@ -639,7 +639,7 @@ class MultiSigLockbox(AsciiSerializable):
 
       outjson['txoutscript'] = binary_to_hex(self.binScript)
       outjson['p2shscript']  = binary_to_hex(self.addrStruct.getScript(LBTYPE_P2SH))
-      outjson['p2shaddr']    = self.addrStruct.getAddr(LBTYPE_P2SH)
+      outjson['p2shaddr']    = scrAddr_to_addrStr(self.addrStruct.getAddr(LBTYPE_P2SH))
       outjson['createdate']  = self.createDate
 
       return outjson
@@ -684,7 +684,7 @@ class MultiSigLockbox(AsciiSerializable):
       print '   Unique ID:  ', self.uniqueIDB58
       print '   Created:    ', unixTimeToFormatStr(self.createDate)
       print '   LBox Name:  ', self.shortName
-      print '   P2SHAddr:   ', self.addrStruct.getAddr(LBTYPE_P2SH)
+      print '   P2SHAddr:   ', scrAddr_to_addrStr(self.addrStruct.getAddr(LBTYPE_P2SH))
       print '   Box Desc:   '
       print '     ', self.longDescr[:70]
       print '   Key List:   '
