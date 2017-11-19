@@ -260,3 +260,9 @@ class FeeSelectionDialog(ArmoryDialog):
       adjust_fee = self.checkBoxAdjust.isChecked()
          
       return fee, fee_byte, adjust_fee    
+   
+   #############################################################################
+   def setZeroFee(self):
+      self.edtFeeAmt.setText('0')
+      self.selectType('FlatFee')
+      

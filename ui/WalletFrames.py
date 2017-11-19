@@ -299,11 +299,15 @@ class SelectWalletFrame(ArmoryFrame):
       #no outputs selected is treated as a cancellation
       if nUtxo == 0:
          return
+           
+      self.updateRBFLabel()
+      self.updateOnRBF()
       
+   def updateRBFLabel(self):
       #reset coin control label to signify RBF and coin control are mutually exclusive
       self.lblCoinCtrl.setText(self.tr('Source: N/A'))
       
-      #update RBF label
+      nUtxo = len(self.customUtxoList)
       if nUtxo == 1:
          utxo = self.customUtxoList[0]
          binAddr = utxo.getRecipientScrAddr()
@@ -311,8 +315,6 @@ class SelectWalletFrame(ArmoryFrame):
          self.lblRBF.setText(self.tr('Source: %1...').arg(aStr[:12]))
       else:
          self.lblRBF.setText(self.tr("Source: %1 Outputs").arg(unicode(nUtxo)))    
-      
-      self.updateOnRBF()
       
    def updateOnWalletChange(self, ignoredInt=None):
       """
@@ -389,6 +391,8 @@ class SelectWalletFrame(ArmoryFrame):
    def updateOnRBF(self):
       self.dispDescr.setText(self.tr('*RBF subset*'), color='optInRBF', bold=True)
       self.dispBal.setText(coin2str(self.altBalance, maxZeros=0), color='TextRed')
+      
+      self.updateRBFLabel()
 
       if not TheBDM.getState() == BDM_BLOCKCHAIN_READY:
          self.dispBal.setText(self.tr('(available when online)'), color='DisableFG')

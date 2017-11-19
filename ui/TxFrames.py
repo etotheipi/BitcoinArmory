@@ -564,8 +564,34 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.customUtxoList = rbfList
       self.useCustomListInFull = True
       self.altBalance = altBalance
-      
-      self.resolveCoinSelection()
+         
+      try:         
+         self.resolveCoinSelection()
+      except:
+         #failed to setup rbf send dialog, maybe the setup cannot cover for 
+         #auto fee. let's force the fee to 0 and warn the user
+         self.feeDialog.setZeroFee()
+         
+         try:
+            self.resolveCoinSelection()
+            MsgBoxCustom(MSGBOX.Warning, self.tr('RBF value error'), \
+            self.tr(
+               'You are trying to bump the fee of a broadcasted unconfirmed transaction. '
+               'Unfortunately, your transaction lacks the funds to cover the default fee. '
+               'Therefore, <b><u>the default fee has currently been set to 0</b></u>.<br><br>'
+               'You will have to set the appropriate fee and arrange the transaction spend ' 
+               'value manually to successfully double spend this transaction.'
+               ), \
+            yesStr=self.tr('Ok'))
+            
+         except:
+            MsgBoxCustom(MSGBOX.Error, self.tr('RBF failure'), \
+            self.tr(
+               'You are trying to bump the fee of a broadcasted unconfirmed transaction. '
+               'The process failed unexpectedly. To double spend your transaction, pick '
+               'the relevant output from the RBF Control dialog, found in the Send dialog '
+               'in Expert User Mode.') , \
+               yesStr=self.tr('Ok'))
 
    #############################################################################
    def handleCppCoinSelectionExceptions(self):      
