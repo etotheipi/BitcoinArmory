@@ -388,7 +388,7 @@ class SelectWalletFrame(ArmoryFrame):
          self.coinControlCallback(\
             self.customUtxoList, self.altBalance, self.useAllCCList)
 
-   def updateOnRBF(self):
+   def updateOnRBF(self, verbose=False):
       self.dispDescr.setText(self.tr('*RBF subset*'), color='optInRBF', bold=True)
       self.dispBal.setText(coin2str(self.altBalance, maxZeros=0), color='TextRed')
       
@@ -399,7 +399,7 @@ class SelectWalletFrame(ArmoryFrame):
 
       self.repaint()
       if self.RBFcallback:
-         self.RBFcallback(self.customUtxoList, self.altBalance)
+         self.RBFcallback(self.customUtxoList, self.altBalance, verbose)
 
 # Container for controls used in configuring a wallet to be added to any
 # dialog or wizard. Currently it is only used the create wallet wizard.

@@ -560,7 +560,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          pass
       
    #############################################################################
-   def RBFupdate(self, rbfList, altBalance):
+   def RBFupdate(self, rbfList, altBalance, forceVerbose=False):
       self.customUtxoList = rbfList
       self.useCustomListInFull = True
       self.altBalance = altBalance
@@ -568,6 +568,10 @@ class SendBitcoinsFrame(ArmoryFrame):
       try:         
          self.resolveCoinSelection()
       except:
+         
+         if forceVerbose == False:
+            return
+         
          #failed to setup rbf send dialog, maybe the setup cannot cover for 
          #auto fee. let's force the fee to 0 and warn the user
          self.feeDialog.setZeroFee()
@@ -1591,7 +1595,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          utxolist, balance = findUtxo(self.wlt.getRBFTxOutList())
          self.frmSelectedWlt.customUtxoList = utxolist
          self.frmSelectedWlt.altBalance = balance
-         self.frmSelectedWlt.updateOnRBF() 
+         self.frmSelectedWlt.updateOnRBF(True) 
       
          
 
