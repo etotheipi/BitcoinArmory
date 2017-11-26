@@ -503,7 +503,12 @@ void CoinSelectionInstance::checkSpendVal() const
 {
    auto total = getSpendVal();
    if (total == 0 || total > spendableBalance_)
-      throw CoinSelectionException("Invalid spend value");
+   {
+      stringstream ss;
+      ss << "Invalid spend value. total: " << 
+         total << ", spendable: " << spendableBalance_;
+      throw CoinSelectionException(ss.str());
+   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
