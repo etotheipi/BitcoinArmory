@@ -370,8 +370,12 @@ void CoinSelectionInstance::decorateUTXOs(
 void CoinSelectionInstance::selectUTXOs(vector<UTXO>& vecUtxo, 
    uint64_t fee, float fee_byte, unsigned flags)
 {
+   uint64_t spendableVal = 0;
+   for (auto& utxo : vecUtxo)
+      spendableVal = utxo.getValue();
+
    //sanity check
-   checkSpendVal();
+   checkSpendVal(spendableVal);
 
    //decorate coin control selection
    decorateUTXOs(walletContainer_, vecUtxo);
@@ -388,7 +392,7 @@ void CoinSelectionInstance::selectUTXOs(uint64_t fee, float fee_byte,
    unsigned flags)
 {
    //sanity check
-   checkSpendVal();
+   checkSpendVal(spendableBalance_);
 
    state_utxoVec_.clear();
    PaymentStruct payStruct(recipients_, fee, fee_byte, flags);
@@ -499,15 +503,12 @@ uint64_t CoinSelectionInstance::getSpendVal() const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void CoinSelectionInstance::checkSpendVal() const
+void CoinSelectionInstance::checkSpendVal(uint64_t spendableBalance) const
 {
    auto total = getSpendVal();
-   if (total == 0 || total > spendableBalance_)
+   if (total == 0 || total > spendableBalance)
    {
-      stringstream ss;
-      ss << "Invalid spend value. total: " << 
-         total << ", spendable: " << spendableBalance_;
-      throw CoinSelectionException(ss.str());
+      throw CoinSelectionException("Invalid spend value");
    }
 }
 
@@ -516,6 +517,9 @@ void CoinSelectionInstance::processCustomUtxoList(
    const vector<BinaryData>& serializedUtxos,
    uint64_t fee, float fee_byte, unsigned flags)
 {
+   if (serializedUtxos.size() == 0)
+      throw CoinSelectionException("empty custom utxo list!");
+
    vector<UTXO> utxoVec;
 
    for (auto& serializedUtxo : serializedUtxos)
@@ -524,7 +528,7 @@ void CoinSelectionInstance::processCustomUtxoList(
       utxo.unserialize(serializedUtxo);
       utxoVec.push_back(move(utxo));
    }
-
+   
    selectUTXOs(utxoVec, fee, fee_byte, flags);
 }
 

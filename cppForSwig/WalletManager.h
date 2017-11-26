@@ -46,7 +46,7 @@ private:
    WalletContainer* const walletContainer_;
 
    vector<UTXO> state_utxoVec_;
-   const uint64_t spendableBalance_;
+   uint64_t spendableBalance_;
 
 private:
    static void decorateUTXOs(WalletContainer* const, vector<UTXO>&);
@@ -57,7 +57,7 @@ private:
       SwigClient::Lockbox* const, unsigned M, unsigned N);
 
    uint64_t getSpendVal(void) const;
-   void checkSpendVal(void) const;
+   void checkSpendVal(uint64_t) const;
    void addRecipient(unsigned, const BinaryData&, uint64_t);
 
    static shared_ptr<ScriptRecipient> createRecipient(const BinaryData&, uint64_t);

@@ -293,7 +293,7 @@ public:
       if (*objectTypePtr == ERRTYPE_CODE)
       {
          auto errObj = ErrorType::deserialize(rawRefReader_);
-         LOGERR << "returned ErrorType: " << errObj.what();
+         //LOGERR << "returned ErrorType: " << errObj.what();
          throw DbErrorMsg(errObj.what());
       }
 
