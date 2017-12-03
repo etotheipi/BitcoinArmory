@@ -1603,7 +1603,11 @@ class UnsignedTxInput(AsciiSerializable):
       outjson['version']      = self.version
       outjson['magicbytes']   = binary_to_hex(MAGIC_BYTES)
       outjson['outpoint']     = binary_to_hex(self.outpoint.serialize())
-      outjson['p2shscript']   = binary_to_hex(self.p2shScript)
+      if BASE_SCRIPT in self.p2shMap:
+         outjson['p2shscript']   = binary_to_hex(self.p2shMap[BASE_SCRIPT])
+      else:
+         outjson['p2shscript'] = "N/A"
+
       outjson['contribid']    = self.contribID
       outjson['contriblabel'] = self.contribLabel
       outjson['sequence']     = self.sequence
