@@ -79,10 +79,6 @@ class PySide_CallBack(Cpp.PythonCallback):
             act = BDV_ERROR
             argBdvError = Cpp.BDV_Error_Struct_cast_to_BDVErrorStruct(arg)
             arglist.append(argBdvError)
-         elif action == Cpp.BDMAction_StartedWalletScan:
-            act = SCAN_ACTION
-            argstr = Cpp.BtcUtils_cast_to_string_vec(arg)
-            arglist.append(argstr)
          elif action == Cpp.BDMAction_NodeStatus:
             act = NODESTATUS_UPDATE
             argNodeStatus = Cpp.NodeStatusStruct_cast_to_NodeStatusStruct(arg)

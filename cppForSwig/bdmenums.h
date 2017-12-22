@@ -45,7 +45,6 @@ enum BDMAction
    BDMAction_Refresh,
    BDMAction_Exited,
    BDMAction_ErrorMsg,
-   BDMAction_StartedWalletScan,
    BDMAction_NodeStatus,
    BDMAction_BDV_Error
 };

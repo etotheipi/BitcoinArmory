@@ -4910,7 +4910,11 @@ class ArmoryMainWindow(QMainWindow):
          self.nodeStatus = TheBDM.bdv().getNodeStatus()
          TheBDM.setWitness(self.nodeStatus.SegWitEnabled_)
 
-         self.updateWalletData()
+         try:
+            self.updateWalletData()
+         except Exception as e:
+            LOGERROR("Failed update wallet data with error: %s" % e)
+            return
 
          for wltid in self.walletMap:
             self.walletMap[wltid].detectHighestUsedIndex()
@@ -4928,8 +4932,12 @@ class ArmoryMainWindow(QMainWindow):
          #A zero conf Tx conerns one of the address Armory is tracking, pull the
          #updated ledgers from the BDM and create the related notifications.
 
-         self.updateWalletData()
-         
+         try:
+            self.updateWalletData()
+         except Exception as e:
+            LOGERROR("Failed update wallet data with error: %s" % e)
+            return
+
          self.notifyNewZeroConf(args)
          self.createCombinedLedger()
 
@@ -4937,7 +4945,12 @@ class ArmoryMainWindow(QMainWindow):
          #A new block has appeared, pull updated ledgers from the BDM, display
          #the new block height in the status bar and note the block received time
 
-         self.updateWalletData()
+         try:
+            self.updateWalletData()
+         except Exception as e:
+            LOGERROR("Failed update wallet data with error: %s" % e)
+            return
+
          newBlocks = args[0]
          if newBlocks>0:
             print 'New Block: ', TheBDM.getTopBlockHeight()
@@ -4963,7 +4976,13 @@ class ArmoryMainWindow(QMainWindow):
          #The wallet ledgers have been updated from an event outside of new ZC
          #or new blocks (usually a wallet or address was imported, or the
          #wallet filter was modified)
-         self.updateWalletData()
+
+         try:
+            self.updateWalletData()
+         except Exception as e:
+            LOGERROR("Failed update wallet data with error: %s" % e)
+            return
+
          reset  = False
          if len(args) == 0:
             self.createCombinedLedger()
@@ -5048,6 +5067,8 @@ class ArmoryMainWindow(QMainWindow):
                   lbID = self.lockboxIDMap[wltID]
                   self.allLockboxes[lbID].isEnabled = False
                   hasLockbox = True
+
+               self.walletModel.reset()
 
          if hasWallet:
             self.changeWltFilter()

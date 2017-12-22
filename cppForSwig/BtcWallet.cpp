@@ -943,7 +943,7 @@ void BtcWallet::needsRefresh(bool refresh)
 
    //notify BDV
    if (refresh && isRegistered_)
-      bdvPtr_->flagRefresh(BDV_refreshAndRescan, walletID_); 
+      bdvPtr_->flagRefresh(BDV_refreshAndRescan, walletID_);
 
    //call custom callback
    doneRegisteringCallback_();

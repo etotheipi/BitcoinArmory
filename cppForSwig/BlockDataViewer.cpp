@@ -895,8 +895,8 @@ bool WalletGroup::registerAddresses(const vector<BinaryData>& saVec,
       if (removeAddrVec.size() > 0)
          theWallet->scrAddrMap_.erase(removeAddrVec);
 
-      theWallet->needsRefresh(refresh);
       theWallet->setRegistered();
+      theWallet->needsRefresh(refresh);
    };
 
    return saf_->registerAddresses(saSet, IDstr, areNew, callback);
@@ -1043,8 +1043,15 @@ vector<LedgerEntry> WalletGroup::getHistoryPage(uint32_t pageId,
 void WalletGroup::updateLedgerFilter(const vector<BinaryData>& walletsList)
 {
    ReadWriteLock::ReadLock rl(lock_);
-   for (auto& wlt : values(wallets_))
-      wlt->uiFilter_ = false;
+
+   vector<BinaryData> enabledIDs;
+   for (auto& wlt_pair : wallets_)
+   {
+      if (wlt_pair.second->uiFilter_)
+         enabledIDs.push_back(wlt_pair.first);
+      wlt_pair.second->uiFilter_ = false;
+   }
+
 
    for (auto walletID : walletsList)
    {
@@ -1054,6 +1061,13 @@ void WalletGroup::updateLedgerFilter(const vector<BinaryData>& walletsList)
 
       iter->second->uiFilter_ = true;
    }
+   
+   auto vec_copy = walletsList;
+   sort(vec_copy.begin(), vec_copy.end());
+   sort(enabledIDs.begin(), enabledIDs.end());
+
+   if (vec_copy == enabledIDs)
+      return;
 
    pageHistory(false, true);
    bdvPtr_->flagRefresh(BDV_filterChanged, BinaryData());
