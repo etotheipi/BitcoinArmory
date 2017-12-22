@@ -1245,28 +1245,10 @@ shared_ptr<SigHashData> Signer::getSigHashDataForSpender(bool sw) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-shared_ptr<SigHashData> Signer_BCH::getSigHashDataForSpender(bool sw) const
-{
-   shared_ptr<SigHashData> SHD;
-   if (sigHashDataObject_ == nullptr)
-      sigHashDataObject_ = make_shared<SigHashData_BCH>();
-
-   SHD = sigHashDataObject_;
-   return SHD;
-}
-
-////////////////////////////////////////////////////////////////////////////////
 unique_ptr<TransactionVerifier> Signer::getVerifier(shared_ptr<BCTX> bctx,
    map<BinaryData, map<unsigned, UTXO>>& utxoMap) const
 {
    return move(make_unique<TransactionVerifier>(*bctx, utxoMap));
-}
-
-////////////////////////////////////////////////////////////////////////////////
-unique_ptr<TransactionVerifier> Signer_BCH::getVerifier(shared_ptr<BCTX> bctx,
-   map<BinaryData, map<unsigned, UTXO>>& utxoMap) const
-{
-   return move(make_unique<TransactionVerifier_BCH>(*bctx, utxoMap));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1452,11 +1434,12 @@ void Signer::deserializeState(
    //merge spender
    for (auto& spender : new_signer.spenders_)
    {
-      auto local_spender = find_spender(spender);
+      auto spender_converted = convertSpender(spender);
+      auto local_spender = find_spender(spender_converted);
       if (local_spender != nullptr)
-         local_spender->merge(*spender);
+         local_spender->merge(*spender_converted);
       else
-         spenders_.push_back(spender);
+         spenders_.push_back(spender_converted);
    }
 
 
@@ -1568,6 +1551,65 @@ BinaryData Signer::getTxId()
 
    //hash and return
    return BtcUtils::getHash256(bw.getDataRef());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void Signer::addSpender_ByOutpoint(
+   const BinaryData& hash, unsigned index, unsigned sequence, uint64_t value)
+{
+   auto spender = make_shared<ScriptSpender>(hash, index, value);
+   spender->setSequence(sequence);
+
+   addSpender(spender);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+shared_ptr<ScriptSpender> Signer::convertSpender(
+   shared_ptr<ScriptSpender> spender_base) const
+{
+   //only useful for signers that deviate from the standard code
+   return spender_base;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+//// Signer_BCH
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+shared_ptr<SigHashData> Signer_BCH::getSigHashDataForSpender(bool sw) const
+{
+   shared_ptr<SigHashData> SHD;
+   if (sigHashDataObject_ == nullptr)
+      sigHashDataObject_ = make_shared<SigHashData_BCH>();
+
+   SHD = sigHashDataObject_;
+   return SHD;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+unique_ptr<TransactionVerifier> Signer_BCH::getVerifier(shared_ptr<BCTX> bctx,
+   map<BinaryData, map<unsigned, UTXO>>& utxoMap) const
+{
+   return move(make_unique<TransactionVerifier_BCH>(*bctx, utxoMap));
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void Signer_BCH::addSpender_ByOutpoint(
+   const BinaryData& hash, unsigned index, unsigned sequence, uint64_t value)
+{
+   auto spender = make_shared<ScriptSpender_BCH>(hash, index, value);
+   spender->setSequence(sequence);
+
+   addSpender(spender);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+shared_ptr<ScriptSpender> Signer_BCH::convertSpender(
+   shared_ptr<ScriptSpender> spender_base) const
+{
+   //convert to BCH script spender to get the proper sighash byte at 
+   //signature serialization
+   return make_shared<ScriptSpender_BCH>(*spender_base);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

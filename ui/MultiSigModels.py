@@ -89,6 +89,8 @@ class LockboxDisplayModel(QAbstractTableModel):
                return QVariant('(...)') 
             
             if lbox.isEnabled == True:
+               if isinstance(bal, str):
+                  return QVariant(bal)
                return QVariant(coin2str(bal, maxZeros=2))
             
             scanStr = self.tr('Scanning: %1%%').arg(self.main.walletSideScanProgress[lbID])

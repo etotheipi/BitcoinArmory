@@ -566,10 +566,7 @@ public:
    void addSpenderByOutpoint(
       const BinaryData& hash, unsigned index, unsigned sequence, uint64_t value)
    {
-      auto spender = make_shared<ScriptSpender>(hash, index, value);
-      spender->setSequence(sequence);
-
-      signer_->addSpender(spender);
+      signer_->addSpender_ByOutpoint(hash, index, sequence, value);
    }
 
    void addRecipient(uint64_t value, const BinaryData& script)

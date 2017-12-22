@@ -215,6 +215,10 @@ public:
       ScriptSpender(utxo, feed)
    {}
 
+   ScriptSpender_BCH(const ScriptSpender& scriptSpender) :
+      ScriptSpender(scriptSpender)
+   {}
+
    virtual uint8_t getSigHashByte(void) const
    {
       uint8_t hashbyte;
@@ -267,9 +271,14 @@ protected:
    TxEvalState verify(const BinaryData& rawTx, 
       map<BinaryData, map<unsigned, UTXO>>&, unsigned flags) const;
 
+   virtual shared_ptr<ScriptSpender> convertSpender(shared_ptr<ScriptSpender>) const;
+
 public:
    void addSpender(shared_ptr<ScriptSpender> spender) 
    { spenders_.push_back(spender); }
+
+   virtual void addSpender_ByOutpoint(
+      const BinaryData& hash, unsigned index, unsigned sequence, uint64_t value);
    
    void addRecipient(shared_ptr<ScriptRecipient> recipient) 
    { recipients_.push_back(recipient); }
@@ -341,6 +350,11 @@ protected:
    shared_ptr<SigHashData> getSigHashDataForSpender(bool) const;
    unique_ptr<TransactionVerifier> getVerifier(shared_ptr<BCTX>,
       map<BinaryData, map<unsigned, UTXO>>&) const;
+   shared_ptr<ScriptSpender> convertSpender(shared_ptr<ScriptSpender>) const;
+
+public:
+   void addSpender_ByOutpoint(
+      const BinaryData& hash, unsigned index, unsigned sequence, uint64_t value);
 };
 
 ////////////////////////////////////////////////////////////////////////////////

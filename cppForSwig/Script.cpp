@@ -833,7 +833,8 @@ void StackInterpreter::op_checkmultisig()
       sdata.sig_ = sig.getSliceCopy(0, sig.getSize() - 1);
 
       //grab hash type
-      sdata.hashType_ = (SIGHASH_TYPE)*(sig.getPtr() + sig.getSize() - 1);
+      sdata.hashType_ = 
+         getSigHashSingleByte(*(sig.getPtr() + sig.getSize() - 1));
 
       //push to vector
       sigVec.push_back(move(sdata));

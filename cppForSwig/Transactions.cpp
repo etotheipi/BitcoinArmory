@@ -316,6 +316,7 @@ BinaryData SigHashData::getDataForSigHash(SIGHASH_TYPE hashType, const
       return getDataForSigHashAll(stub, subScript, inputIndex);
 
    default:
+      LOGERR << "unknown sighash type: " << (int)hashType;
       throw UnsupportedSigHashTypeException("unhandled sighash type");
    }
 }
