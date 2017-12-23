@@ -1,4 +1,4 @@
-# macOS (OS X) README
+# macOS README
 ## Requirements
 Armory will run on macOS 10.8 and beyond. It is highly recommended to install Armory on the newest version of macOS that is feasible, as Apple often introduces changes to newer versions that make support of older versions difficult, if not impossible.
 
@@ -60,6 +60,9 @@ Once the builds are verified, the following steps should be followed. (Note that
 
 ## Compiling Armory
 See the [macOS build README](osxbuild/OSX_build_notes.md) for more info.
+
+## Running armoryd
+As of 2017, armoryd (a JSON-RPC daemon for Armory) is [in its own repo](https://github.com/goatpig/armoryd), separate from Armory. If users wish to run armoryd under macOS, the easiest solution is to open up Armory.app and place armoryd.py alongside the Armory codebase (Contents/MacOS/py/usr/local/lib/armory). The user can then execute the script that kicks off armoryd (`Contents/MacOS/armoryd`).
 
 ## macOS-specific Bugs
 Armory developers make a best effort to ensure that all Armory features are available on all versions of Armory. Unfortunately, there are rare cases where the macOS version is missing features or has bugs not found elsewhere. The following is a list of known bugs/issues. Please report any other bugs on the [Bitcoin Forum](https://bitcointalk.org/index.php?board=97.0) or on the *bitcoin-armory* IRC channel on Freenode.
