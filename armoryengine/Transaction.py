@@ -1396,7 +1396,7 @@ class UnsignedTxInput(AsciiSerializable):
       # If P2SH, the script type already identifies the subscript.  But we
       # can tell because the p2shScript var will be non-empty.  All we do
       # for these types of script is append the raw p2sh script to the end
-      if len(self.p2shMap) >= 2:
+      if BASE_SCRIPT in self.p2shMap:
          outScript += scriptPushData(self.p2shMap[BASE_SCRIPT])
 
       return outScript
@@ -1460,7 +1460,7 @@ class UnsignedTxInput(AsciiSerializable):
          cppSigner.deserializeState(pytx.signerState)
          
          #populate signer with data to resolve
-         cppSigner.updatePubDataDict(self.p2shMap)
+         cppSigner.updatePubDataDict(self.getP2shMapForSigner())
                  
          privDataDict = {}
          privDataDict[binary_to_hex(computedPub)] = sbdPrivKey
@@ -1834,7 +1834,7 @@ class UnsignedTxInput(AsciiSerializable):
          #get the sig state from the c++ signer
          cppSigner = UniversalSignerDirector(self.signerType)
          cppSigner.deserializeState(pytx.signerState)
-         cppSigner.updatePubDataDict(self.p2shMap)
+         cppSigner.updatePubDataDict(self.getP2shMapForSigner())
          
          cpp_signStatus = cppSigner.getSignedState()
          input_signStatus = cpp_signStatus.getSignedStateForInput(self.inputID)
@@ -1890,6 +1890,35 @@ class UnsignedTxInput(AsciiSerializable):
             txoIdx = self.outpoint.txOutIndex,
             val=self.value,
             fullScript=self.txoScript)
+   
+   #############################################################################
+   def getP2shMapForSigner(self):
+      p2sh_map = {}
+
+      if not isinstance(self.p2shMap, dict):
+         return p2sh_map
+
+      if len(self.p2shMap) == 0:
+         return p2sh_map
+
+      txoScrAddr = binary_to_hex(script_to_scrAddr(self.txoScript)[1:])
+      for key, val in self.p2shMap.iteritems():
+         if key == BASE_SCRIPT:
+            p2sh_map[txoScrAddr] = val
+            continue
+         p2sh_map[key] = val
+
+         #special case for p2wsh
+         if len(key) == 34 and key[0] == '\x00' and key[1] == '\x20':
+            try:
+               key_hex = binary_to_hex(key[2:])
+               p2sh_map[key_hex] = val
+            except:
+               continue
+
+      return p2sh_map
+
+
 
 
 ################################################################################
