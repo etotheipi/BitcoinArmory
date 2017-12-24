@@ -115,8 +115,10 @@ parser.add_option("--rebuild",         dest="rebuild",     default=False,     ac
 parser.add_option("--rescan",          dest="rescan",      default=False,     action="store_true", help="Rescan existing blockchain DB")
 parser.add_option("--rescanBalance",   dest="rescanBalance", default=False,     action="store_true", help="Rescan balance")
 parser.add_option("--nospendzeroconfchange",dest="ignoreAllZC",default=False, action="store_true", help="All zero-conf funds will be unspendable, including sent-to-self coins")
+parser.add_option("--ignore-new-zeroconf",dest="ignoreZC",default=False, action="store_true", help="Do not update wallet balances on zero-conf transactions")
 parser.add_option("--multisigfile",  dest="multisigFile",  default=DEFAULT, type='str',          help="File to store information about multi-signature transactions")
 parser.add_option("--force-wallet-check", dest="forceWalletCheck", default=False, action="store_true", help="Force the wallet sanity check on startup")
+parser.add_option("--disable-wallet-check", dest="disableWalletCheck", default=False, action="store_true", help="Disable the wallet sanity check on startup")
 parser.add_option("--disable-modules", dest="disableModules", default=False, action="store_true", help="Disable looking for modules in the execution directory")
 parser.add_option("--disable-conf-permis", dest="disableConfPermis", default=False, action="store_true", help="Disable forcing permissions on bitcoin.conf")
 parser.add_option("--disable-detsign", dest="enableDetSign", action="store_false", help="Disable Transaction Deterministic Signing (RFC 6979)")
@@ -392,7 +394,8 @@ NETWORKS['\x34'] = "Namecoin Network"
 
 # We disable wallet checks on ARM for the sake of resources (unless forced)
 DO_WALLET_CHECK = CLI_OPTIONS.forceWalletCheck or \
-                  not platform.machine().lower().startswith('arm')
+                  not platform.machine().lower().startswith('arm') and \
+                  not CLI_OPTIONS.disableWalletCheck
 
 # Version Handling Code
 def getVersionString(vquad, numPieces=4):

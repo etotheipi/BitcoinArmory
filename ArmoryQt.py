@@ -4928,7 +4928,7 @@ class ArmoryMainWindow(QMainWindow):
          
          self.updateStatusBarText()
          
-      elif action == NEW_ZC_ACTION:
+      elif action == NEW_ZC_ACTION and not CLI_OPTIONS.ignoreZC:
          #A zero conf Tx conerns one of the address Armory is tracking, pull the
          #updated ledgers from the BDM and create the related notifications.
 
