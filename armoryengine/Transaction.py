@@ -1229,7 +1229,8 @@ class UnsignedTxInput(AsciiSerializable):
       else:
          #new nested single sig types
          scrType = self.scriptType
-         if scrType in CPP_TXOUT_NESTED_SINGLESIG and len(self.p2shMap) >= 2:
+         if scrType in CPP_TXOUT_NESTED_SINGLESIG and \
+            BASE_SCRIPT in self.p2shMap:
             scrAddr = P2SHBYTE + hash160(self.p2shMap[BASE_SCRIPT])
             self.sigsNeeded  = 1
             self.keysListed  = 1
@@ -2380,12 +2381,17 @@ class UnsignedTransaction(AsciiSerializable):
          txoScrAddr = script_to_scrAddr(txoScript)
          txoType = getTxOutScriptType(txoScript)
          
-         p2shMap_copy = copy.deepcopy(p2shMap)
+         p2shMap_copy = {}
          if txoType==CPP_TXOUT_P2SH:
-            p2sh = p2shMap_copy.get(binary_to_hex(txoScrAddr))
+            p2sh = p2shMap.get(binary_to_hex(txoScrAddr))
             if not p2sh:
                raise InvalidHashError('P2SH script not supplied')
             p2shMap_copy[BASE_SCRIPT] = p2sh
+            script_key = p2sh
+            while script_key in p2shMap:
+               val = p2shMap[script_key]
+               p2shMap_copy[script_key] = val
+               script_key = val
             
          ustxiList.append(UnsignedTxInput(pyPrevTx.serializeWithoutWitness(),
                                           txoIdx, 
