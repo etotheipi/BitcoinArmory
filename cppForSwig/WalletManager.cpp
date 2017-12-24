@@ -372,7 +372,7 @@ void CoinSelectionInstance::selectUTXOs(vector<UTXO>& vecUtxo,
 {
    uint64_t spendableVal = 0;
    for (auto& utxo : vecUtxo)
-      spendableVal = utxo.getValue();
+      spendableVal += utxo.getValue();
 
    //sanity check
    checkSpendVal(spendableVal);
