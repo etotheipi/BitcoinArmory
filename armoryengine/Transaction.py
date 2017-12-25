@@ -2897,7 +2897,7 @@ class UnsignedTransaction(AsciiSerializable):
    #############################################################################
    def getPyTxSignedIfPossible(self, doVerifySigs=True, signer=SIGNER_DEFAULT):
       if self.evaluateSigningStatus().canBroadcast:
-         return self.getSignedPyTx(signer=signer)
+         return self.getSignedPyTx(doVerifySigs=doVerifySigs, signer=signer)
       else:
          return self.getUnsignedPyTx()
 

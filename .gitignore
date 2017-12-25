@@ -38,6 +38,7 @@ stamp-h1
 .dirstamp
 1
 
+Makefile
 ArmoryDB
 /armoryengine/ArmoryBuild.py
 
