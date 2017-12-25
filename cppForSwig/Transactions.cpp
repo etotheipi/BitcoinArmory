@@ -457,7 +457,7 @@ BinaryData SigHashDataSegWit::getDataForSigHashAll(const TransactionStub& stub,
    hashdata.put_BinaryDataRef(stub.getOutpoint(inputIndex));
 
    //script code
-   hashdata.put_uint8_t(subScriptLen);
+   hashdata.put_var_int(subScriptLen);
    hashdata.put_BinaryDataRef(subscript);
 
    //value
