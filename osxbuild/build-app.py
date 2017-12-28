@@ -1,4 +1,4 @@
-#!/usr/env python
+#!/usr/bin/env python
 """Build Armory as a Mac OS X Application."""
 
 import os
