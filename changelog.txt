@@ -1,5 +1,10 @@
 v0.96.4
 == Added ==
+   - Updated fee estimate query from node to improve estimateSmartFee call introduced in Bitcoin Core 0.15.
+   - The block confirmation target slider now spans from 2 to 100 blocks (previously 2 to 6).
+   - You can now pick between 2 fee estimation profiles: conservative and economical. Refer to the estimateRawFee section of
+     the Core 0.15 changelog for more information. A tooltip has been added to the GUI with a quick description.
+   - If your node does not support the estimateSmartFee method, the code will fallback to the previous estimateFee method.
    - SegWit lockbox creation.
    - BCH lockbox spending.
    - Coin selection will now limit itself to change outputs when spending to external addresses you've spent to in the past.
@@ -12,6 +17,10 @@ v0.96.4
          --listen-all: FCGI server will listen on :80 instead of 127.0.0.1:80
    
 == Fixed ==
+   - Fixed creating offline transactions that mix P2SH and P2PKH UTXOs.
+   - Fixed importing wallets progress report and scan resolution in the GUI.
+   - Fixed SegWit sighash data serialization with scripts of length > 256 bytes.
+   - Fixed multiple RBF transaction bumping issues.
    - Fixed ledger based fee bumping.
    - Fixed RBF control dialog spawning.
    - Fixed node sync progress bar.
