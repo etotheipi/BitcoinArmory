@@ -383,7 +383,8 @@ NodeStatusStruct BlockDataViewer::getNodeStatus()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-float BlockDataViewer::estimateFee(unsigned blocksToConfirm)
+FeeEstimateStruct BlockDataViewer::estimateFee(
+   unsigned blocksToConfirm, const string& strategy)
 {
    Command cmd;
 
@@ -391,17 +392,31 @@ float BlockDataViewer::estimateFee(unsigned blocksToConfirm)
    cmd.ids_.push_back(bdvID_);
 
    IntType inttype(blocksToConfirm);
+   BinaryDataObject bdo(strategy);
 
    cmd.args_.push_back(move(inttype));
+   cmd.args_.push_back(move(bdo));
    cmd.serialize();
 
    auto&& result = sock_->writeAndRead(cmd.command_);
    Arguments args(result);
-   auto serData = args.get<BinaryDataObject>();
 
+   //fee/byte
+   auto serData = args.get<BinaryDataObject>();
    BinaryRefReader brr(serData.get().getRef());
-   
-   return float(brr.get_double());
+   auto val = brr.get_double();
+
+   //issmart
+   auto boolObj = args.get<IntType>();
+   auto boolVal = bool(boolObj.getVal());
+
+   //error msg
+   string error;
+   auto errorData = args.get<BinaryDataObject>().get();
+   if (errorData.getSize() > 0)
+      error = move(string(errorData.getCharPtr(), errorData.getSize()));
+
+   return FeeEstimateStruct(val, boolVal, error);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

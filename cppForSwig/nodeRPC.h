@@ -24,6 +24,15 @@
 #include "ReentrantLock.h"
 
 ////////////////////////////////////////////////////////////////////////////////
+struct FeeEstimateResult
+{
+   bool smartFee_ = false;
+   float feeByte_ = 0;
+
+   string error_;
+};
+
+////////////////////////////////////////////////////////////////////////////////
 class NodeRPC : protected Lockable
 {
 private:
@@ -55,6 +64,8 @@ public:
    RpcStatus testConnection();
    RpcStatus setupConnection(void);
    float getFeeByte(unsigned);
+   FeeEstimateResult getFeeByteSmart(
+      unsigned confTarget, string& strategy);
    void shutdown(void);
 
    bool updateChainStatus(void);

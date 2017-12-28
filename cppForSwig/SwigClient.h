@@ -37,6 +37,7 @@ namespace SwigClient
 
    class BlockDataViewer;
 
+   ///////////////////////////////////////////////////////////////////////////////
    struct NoArmoryDBExcept : public runtime_error
    {
       NoArmoryDBExcept(void) : runtime_error("")
@@ -46,6 +47,18 @@ namespace SwigClient
    struct BDVAlreadyRegistered : public runtime_error
    {
       BDVAlreadyRegistered(void) : runtime_error("")
+      {}
+   };
+
+   ///////////////////////////////////////////////////////////////////////////////
+   struct FeeEstimateStruct
+   {
+      const string error_;
+      const float val_;
+      const bool isSmart_;
+
+      FeeEstimateStruct(float val, bool isSmart, const string& error) :
+         val_(val), isSmart_(isSmart), error_(error)
       {}
    };
 
@@ -369,7 +382,7 @@ namespace SwigClient
 
       NodeStatusStruct getNodeStatus(void);
       unsigned getTopBlock(void) const { return topBlock_; }
-      float estimateFee(unsigned);
+      FeeEstimateStruct estimateFee(unsigned, const string&);
 
       vector<LedgerEntryData> getHistoryForWalletSelection(
          const vector<string>& wldIDs, const string& orderingStr);

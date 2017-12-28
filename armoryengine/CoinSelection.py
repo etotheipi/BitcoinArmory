@@ -751,21 +751,17 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=10, margin=C
    return finalSelection
 
 NBLOCKS_TO_CONFIRM = 3
+FEEBYTE_CONSERVATIVE = "CONSERVATIVE"
+FEEBYTE_ECONOMICAL = "ECONOMICAL"
 # ONE_BTC * 144 / 250
 DEFAULT_PRIORITY = 57600000
 
 ################################################################################
 # Call bitcoin core to get the fee estimate per KB
-def estimateFee(nblocksToConfirm):
+def estimateFee(nblocksToConfirm, strategy):
    # See https://bitcoin.org/en/developer-reference#estimatefee for
    # documentation about this RPC call
-   fee = TheBDM.bdv().estimateFee(nblocksToConfirm)
-   # -1 is returned if BitcoinD does not have enough data to estimate fee.
-   if fee > 0:
-      return int(fee * ONE_BTC)
-   
-   raise Exception("could not get fee/byte from node")
-
+   return TheBDM.bdv().estimateFee(nblocksToConfirm, strategy)
    
 ################################################################################
 # Call bitcoin core to get the priority estimate

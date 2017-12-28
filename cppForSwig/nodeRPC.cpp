@@ -229,6 +229,85 @@ float NodeRPC::getFeeByte(unsigned blocksToConfirm)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+FeeEstimateResult NodeRPC::getFeeByteSmart(
+   unsigned confTarget, string& strategy)
+{
+   auto fallback = [this, &confTarget](void)->FeeEstimateResult
+   {
+      FeeEstimateResult fer;
+      fer.smartFee_ = false;
+      auto feeByteSimple = getFeeByte(confTarget);
+      if (feeByteSimple == -1.0f)
+         fer.error_ = "error";
+      else
+         fer.feeByte_ = feeByteSimple;
+
+      return fer;
+   };
+
+   FeeEstimateResult fer;
+
+   ReentrantLock lock(this);
+
+   JSON_object json_obj;
+   json_obj.add_pair("method", "estimatesmartfee");
+
+   auto json_array = make_shared<JSON_array>();
+   json_array->add_value(confTarget);
+   if(strategy == FEE_STRAT_CONSERVATIVE || strategy == FEE_STRAT_ECONOMICAL)
+      json_array->add_value(strategy);
+
+   json_obj.add_pair("params", json_array);
+
+   auto&& response = socket_->writeAndRead(JSON_encode(json_obj));
+   auto&& response_obj = JSON_decode(response);
+
+   if (!response_obj.isResponseValid(json_obj.id_))
+      return fallback();
+
+   auto resultPairObj = response_obj.getValForKey("result");
+   auto resultPairPtr = dynamic_pointer_cast<JSON_object>(resultPairObj);
+
+   if (resultPairPtr != nullptr)
+   {
+      auto feeByteObj = resultPairPtr->getValForKey("feerate");
+      auto feeBytePtr = dynamic_pointer_cast<JSON_number>(feeByteObj);
+      if (feeBytePtr != nullptr)
+      {
+         fer.feeByte_ = feeBytePtr->val_;
+         fer.smartFee_ = true;
+
+         auto blocksObj = resultPairPtr->getValForKey("blocks");
+         auto blocksPtr = dynamic_pointer_cast<JSON_number>(blocksObj);
+
+         if (blocksPtr != nullptr)
+            if (blocksPtr->val_ != confTarget)
+               throw JSON_Exception("conf_target mismatch");
+      }
+   }
+
+   auto errorObj = response_obj.getValForKey("error");
+   auto errorPtr = dynamic_pointer_cast<JSON_string>(errorObj);
+
+   if (errorPtr != nullptr)
+   {
+      if (resultPairPtr == nullptr)
+      {
+         //fallback to the estimatefee is the method is missing
+         return fallback();
+      }
+      else
+      {
+         //report smartfee error msg
+         fer.error_ = errorPtr->val_;
+         fer.smartFee_ = true;
+      }
+   }
+
+   return fer;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 bool NodeRPC::updateChainStatus(void)
 {
    ReentrantLock lock(this);

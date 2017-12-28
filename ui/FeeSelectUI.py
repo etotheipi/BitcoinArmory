@@ -7,13 +7,14 @@
 ##############################################################################
 
 from PyQt4.QtGui import QFrame, QRadioButton, QLineEdit, QGridLayout, \
-   QLabel, QPushButton, QCheckBox, QSlider
+   QLabel, QPushButton, QCheckBox, QSlider, QComboBox
 from PyQt4.QtCore import Qt, SIGNAL
 
 from qtdefines import ArmoryDialog, STYLE_RAISED, GETFONT, tightSizeNChar, \
    QLabelButton, makeHorizFrame, STYLE_NONE
 from armoryengine.ArmoryUtils import str2coin, coin2str
-from armoryengine.CoinSelection import estimateFee, NBLOCKS_TO_CONFIRM
+from armoryengine.CoinSelection import estimateFee, NBLOCKS_TO_CONFIRM, \
+   FEEBYTE_CONSERVATIVE, FEEBYTE_ECONOMICAL
 from armoryengine.ArmoryUtils import MIN_TX_FEE, MIN_FEE_BYTE, DEFAULT_FEE_TYPE
 
 class FeeSelectionDialog(ArmoryDialog):
@@ -31,14 +32,18 @@ class FeeSelectionDialog(ArmoryDialog):
       fee_byte = str(self.main.getSettingOrSetDefault("Default_FeeByte", MIN_FEE_BYTE))
       blocksToConfirm = self.main.getSettingOrSetDefault(\
          "Default_FeeByte_BlocksToConfirm", NBLOCKS_TO_CONFIRM)
+      feeStrategy = str(self.main.getSettingOrSetDefault(\
+         "Default_FeeByte_Strategy", FEEBYTE_CONSERVATIVE))
       
       self.coinSelectionCallback = cs_callback
       self.getCoinSelectionState = get_csstate
       self.validAutoFee = True
+
+      isSmartFee = True
       try:
-         autoFee_byte = str(estimateFee(blocksToConfirm) / 1000.0)
+         feeEstimate, isSmartFee, errorMsg = self.getFeeByteFromNode(blocksToConfirm, feeStrategy)
       except:
-         autoFee_byte = "N/A"
+         feeEstimate = "N/A"
          self.validAutoFee = False
          
       defaultCheckState = \
@@ -92,60 +97,12 @@ class FeeSelectionDialog(ArmoryDialog):
       frmFeeByte.setLayout(layoutFeeByte)
       
       #auto fee/byte
-      def setAutoFeeByte():
-         def callbck():
-            return self.selectType('Auto')
-         return callbck      
-      
-      radioButtonTxt = self.tr("Fee rate from node (sat/Byte): ")
-      if not self.validAutoFee:      
-         radioButtonTxt = self.tr("Failed to fetch fee/byte from node")
-         
-      self.radioAutoFeeByte = QRadioButton(radioButtonTxt)
-      self.lblAutoFeeByte = QLabel(autoFee_byte)
-      self.lblAutoFeeByte.setFont(GETFONT('Fixed'))
-      self.lblAutoFeeByte.setMinimumWidth(tightSizeNChar(self.lblAutoFeeByte, 6)[0])
-      self.lblAutoFeeByte.setMaximumWidth(tightSizeNChar(self.lblAutoFeeByte, 12)[0])
-      
-      self.sliderAutoFeeByte = QSlider(Qt.Horizontal, self)
-      self.sliderAutoFeeByte.setMinimum(2)
-      self.sliderAutoFeeByte.setMaximum(6)
-      self.sliderAutoFeeByte.setValue(blocksToConfirm)
-      self.lblSlider = QLabel()
-      
-      def getSliderLabelTxt():
-         return self.tr("Blocks to confirm: %1").arg(\
-               unicode(self.sliderAutoFeeByte.value()))
-         
-      def updateAutoFeeByte():
-         blocksToConfirm = self.sliderAutoFeeByte.value()
-         try:
-            autoFee_byte = str(estimateFee(blocksToConfirm) / 1000.0)
-
-         except:
-            autoFee_byte = "N/A"
-         
-         self.lblSlider.setText(getSliderLabelTxt())         
-         self.lblAutoFeeByte.setText(autoFee_byte)
-         updateLbl()
-         
-      self.lblSlider.setText(getSliderLabelTxt())
-      
-      self.connect(self.radioAutoFeeByte, SIGNAL('clicked()'), setAutoFeeByte())
-      self.sliderAutoFeeByte.valueChanged.connect(updateAutoFeeByte)
-      self.sliderAutoFeeByte.setEnabled(False)
-            
-      frmAutoFeeByte = QFrame()
-      frmAutoFeeByte.setFrameStyle(STYLE_RAISED)
-      layoutAutoFeeByte = QGridLayout()
-      layoutAutoFeeByte.addWidget(self.radioAutoFeeByte, 0, 0, 1, 1)
-      layoutAutoFeeByte.addWidget(self.lblAutoFeeByte, 0, 1, 1, 1)  
-      layoutAutoFeeByte.addWidget(self.lblSlider, 1, 0, 1, 2)
-      layoutAutoFeeByte.addWidget(self.sliderAutoFeeByte, 2, 0, 1, 2)
-      frmAutoFeeByte.setLayout(layoutAutoFeeByte)
-      
-      if not self.validAutoFee:
-         frmAutoFeeByte.setEnabled(False)
+      if isSmartFee:
+         frmAutoFeeByte = self.setupSmartAutoFeeByteUI(\
+            feeEstimate, blocksToConfirm, feeStrategy)
+      else:
+         frmAutoFeeByte = self.setupLegacyAutoFeeByteUI(\
+            feeEstimate, blocksToConfirm)
       
       #adjust and close
       self.btnClose = QPushButton(self.tr('Close'))
@@ -173,7 +130,207 @@ class FeeSelectionDialog(ArmoryDialog):
       self.selectType(defaultCheckState)
 
       self.setFocus()  
-   
+
+   #############################################################################   
+   def setupLegacyAutoFeeByteUI(self, feeEstimate, blocksToConfirm):
+      def setAutoFeeByte():
+         def callbck():
+            return self.selectType('Auto')
+         return callbck      
+ 
+      def updateLbl():
+         self.updateCoinSelection()
+
+      def feeByteToStr(feeByte):
+         try:
+            self.feeByte = feeByte
+            return "<u>%.1f</u>" % feeByte
+         except:
+            self.feeByte = -1
+            if isinstance(feeByte, str):
+               return feeByte
+            else:
+               return "N/A"
+
+      radioButtonTxt = self.tr("Fee rate from node (sat/Byte): ")
+      if not self.validAutoFee:      
+         radioButtonTxt = self.tr("Failed to fetch fee/byte from node")
+         
+      self.radioAutoFeeByte = QRadioButton(radioButtonTxt)
+      self.lblAutoFeeByte = QLabel(feeByteToStr(feeEstimate))
+      self.lblAutoFeeByte.setFont(GETFONT('Fixed'))
+      self.lblAutoFeeByte.setMinimumWidth(tightSizeNChar(self.lblAutoFeeByte, 6)[0])
+      self.lblAutoFeeByte.setMaximumWidth(tightSizeNChar(self.lblAutoFeeByte, 12)[0])
+      
+      self.sliderAutoFeeByte = QSlider(Qt.Horizontal, self)
+      self.sliderAutoFeeByte.setMinimum(2)
+      self.sliderAutoFeeByte.setMaximum(6)
+      self.sliderAutoFeeByte.setValue(blocksToConfirm)
+      self.lblSlider = QLabel()
+      
+      def getSliderLabelTxt():
+         return self.tr("Blocks to confirm: %1").arg(\
+            unicode(self.sliderAutoFeeByte.value()))
+         
+      def updateAutoFeeByte():
+         blocksToConfirm = self.sliderAutoFeeByte.value()
+         try:
+            feeEstimate, version, err = \
+               self.getFeeByteFromNode(blocksToConfirm, FEEBYTE_CONSERVATIVE)
+         except:
+            feeEstimate = "N/A"
+         
+         self.lblSlider.setText(getSliderLabelTxt())         
+         self.lblAutoFeeByte.setText(feeByteToStr(feeEstimate))
+         updateLbl()
+         
+      self.lblSlider.setText(getSliderLabelTxt())
+      
+      self.connect(self.radioAutoFeeByte, SIGNAL('clicked()'), setAutoFeeByte())
+      self.sliderAutoFeeByte.valueChanged.connect(updateAutoFeeByte)
+      self.sliderAutoFeeByte.setEnabled(False)
+            
+      frmAutoFeeByte = QFrame()
+      frmAutoFeeByte.setFrameStyle(STYLE_RAISED)
+      layoutAutoFeeByte = QGridLayout()
+      layoutAutoFeeByte.addWidget(self.radioAutoFeeByte, 0, 0, 1, 1)
+      layoutAutoFeeByte.addWidget(self.lblAutoFeeByte, 0, 1, 1, 1)  
+      layoutAutoFeeByte.addWidget(self.lblSlider, 1, 0, 1, 2)
+      layoutAutoFeeByte.addWidget(self.sliderAutoFeeByte, 2, 0, 1, 2)
+      frmAutoFeeByte.setLayout(layoutAutoFeeByte)
+      
+      if not self.validAutoFee:
+         frmAutoFeeByte.setEnabled(False)
+
+      return frmAutoFeeByte
+
+   #############################################################################   
+   def setupSmartAutoFeeByteUI(self, feeEstimate, blocksToConfirm, strat):
+      def setAutoFeeByte():
+         def callbck():
+            return self.selectType('Auto')
+         return callbck      
+               
+      stratList = [FEEBYTE_CONSERVATIVE, FEEBYTE_ECONOMICAL]
+
+      def updateLbl():
+         self.updateCoinSelection()
+
+      def getStrategyString():
+         try:
+            cbIndex = self.comboStrat.currentIndex()
+            return stratList[cbIndex]
+         except:
+            return FEEBYTE_CONSERVATIVE
+
+      def feeByteToStr(feeByte):
+         try:
+            self.feeByte = feeByte
+            return "<u>%.1f</u>" % feeByte
+         except:
+            self.feeByte = -1
+            if isinstance(feeByte, str):
+               return feeByte
+            else:
+               return "N/A"
+      
+      radioButtonTxt = self.tr("Fee rate from node (sat/Byte): ")
+      if not self.validAutoFee:      
+         radioButtonTxt = self.tr("Failed to fetch fee/byte from node")
+         
+      self.radioAutoFeeByte = QRadioButton(radioButtonTxt)
+      self.lblAutoFeeByte = QLabel(feeByteToStr(feeEstimate))
+      self.lblAutoFeeByte.setFont(GETFONT('Fixed'))
+      self.lblAutoFeeByte.setMinimumWidth(tightSizeNChar(self.lblAutoFeeByte, 6)[0])
+      self.lblAutoFeeByte.setMaximumWidth(tightSizeNChar(self.lblAutoFeeByte, 12)[0])
+      
+      self.sliderAutoFeeByte = QSlider(Qt.Horizontal, self)
+      self.sliderAutoFeeByte.setMinimum(2)
+      self.sliderAutoFeeByte.setMaximum(100)
+      self.sliderAutoFeeByte.setValue(blocksToConfirm)
+      self.lblSlider = QLabel()
+
+      self.lblStrat = QLabel(self.tr("Profile:"))
+      self.ttStart = self.main.createToolTipWidget(self.tr(
+         '''
+         <u>Fee Estimation Profiles:</u><br><br>
+         <b>CONSERVATIVE:</b> Short term estimate. More reactive to current 
+         changes in the mempool. Use this estimate if you want a high probability 
+         of getting your transaction mined quickly. <br><br>
+         <b>ECONOMICAL:</b> Long term estimate. Ignores short term changes to the 
+         mempool. Use this profile if you want low fees and can tolerate swings 
+         in the projected confirmation window. <br><br>
+
+         The estimate profiles may not diverge until your node has gathered 
+         enough data from the network to refine its predictions. Refer to the
+         \"estimatesmartfee\" section in the Bitcoin Core 0.15 changelog for more
+         informations.
+         '''))
+      self.comboStrat = QComboBox()
+      currentIndex = 0
+      for i in range(len(stratList)):
+         self.comboStrat.addItem(stratList[i])
+         if stratList[i] == strat:
+            currentIndex = i
+      self.comboStrat.setCurrentIndex(currentIndex)
+
+      def getSliderLabelTxt():
+         return self.tr("Blocks to confirm: %1").arg(\
+               unicode(self.sliderAutoFeeByte.value()))
+         
+      def updateAutoFeeByte():
+         blocksToConfirm = self.sliderAutoFeeByte.value()
+         strategy = getStrategyString()
+         try:
+            feeEstimate, version, err = \
+               self.getFeeByteFromNode(blocksToConfirm, strategy)
+         except:
+            feeEstimate = "N/A"
+         
+         self.lblSlider.setText(getSliderLabelTxt())         
+         self.lblAutoFeeByte.setText(feeByteToStr(feeEstimate))
+         updateLbl()
+
+      def stratComboChange():
+         updateAutoFeeByte()
+
+      self.lblSlider.setText(getSliderLabelTxt())
+     
+      self.connect(self.radioAutoFeeByte, SIGNAL('clicked()'), setAutoFeeByte())
+      self.sliderAutoFeeByte.valueChanged.connect(updateAutoFeeByte)
+      self.sliderAutoFeeByte.setEnabled(False)
+
+      self.connect(self.comboStrat, SIGNAL('currentIndexChanged(int)'), stratComboChange)
+            
+      frmAutoFeeByte = QFrame()
+      frmAutoFeeByte.setFrameStyle(STYLE_RAISED)
+      layoutAutoFeeByte = QGridLayout()
+      layoutAutoFeeByte.addWidget(self.radioAutoFeeByte, 0, 0, 1, 2)
+      layoutAutoFeeByte.addWidget(self.lblAutoFeeByte, 0, 2, 1, 2)  
+      layoutAutoFeeByte.addWidget(self.lblSlider, 1, 0, 1, 1)
+      layoutAutoFeeByte.addWidget(self.sliderAutoFeeByte, 2, 0, 1, 4)
+      layoutAutoFeeByte.addWidget(self.lblStrat, 3, 0, 1, 1)
+      layoutAutoFeeByte.addWidget(self.comboStrat, 3, 1, 1, 2)
+      layoutAutoFeeByte.addWidget(self.ttStart, 3, 3, 1, 1)
+
+      frmAutoFeeByte.setLayout(layoutAutoFeeByte)
+      
+      if not self.validAutoFee:
+         frmAutoFeeByte.setEnabled(False)
+
+      return frmAutoFeeByte
+
+   #############################################################################   
+   def getFeeByteFromNode(self, blocksToConfirm, strategy):
+      try:
+         feeEstimateResult = estimateFee(blocksToConfirm, strategy)
+         return feeEstimateResult.val_ * 100000, \
+            feeEstimateResult.isSmart_, \
+            feeEstimateResult.error_
+      except:
+         self.validAutoFee = False
+         return "N/A", False, ""
+
    #############################################################################   
    def selectType(self, strType):
       self.radioFlatFee.setChecked(False)
@@ -254,8 +411,7 @@ class FeeSelectionDialog(ArmoryDialog):
          fee_byte = float(fee_byteText)
                  
       elif self.radioAutoFeeByte.isChecked():
-         fee_byteText = str(self.lblAutoFeeByte.text())
-         fee_byte = float(fee_byteText)
+         fee_byte = self.feeByte
          
       adjust_fee = self.checkBoxAdjust.isChecked()
          
