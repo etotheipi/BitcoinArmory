@@ -2,7 +2,7 @@
 //                                                                            //
 //  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
-//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//  See LICENSE-ATI or http://www.gnu.org/licenses/agpl.html                  //
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -194,7 +194,8 @@ BinaryData BinaryData::getSliceCopy(ssize_t start_pos, uint32_t nChar) const
 uint64_t BinaryReader::get_var_int(uint8_t* nRead)
 {
    uint32_t nBytes;
-   uint64_t varInt = BtcUtils::readVarInt( bdStr_.getPtr() + pos_, &nBytes);
+   uint64_t varInt = BtcUtils::readVarInt( 
+      bdStr_.getPtr() + pos_, bdStr_.getSize() - pos_, &nBytes);
    if(nRead != NULL)
       *nRead = nBytes;
    pos_ += nBytes;
@@ -222,5 +223,18 @@ bool BinaryData::operator==(BinaryDataRef const & bd2) const
    return (memcmp(getPtr(), bd2.getPtr(), getSize()) == 0);
 }
 
+/////////////////////////////////////////////////////////////////////////////
+bool BinaryData::operator<(BinaryDataRef const & bd2) const
+{
+   size_t minLen = min(getSize(), bd2.getSize());
+   auto ref_ptr = bd2.getPtr();
+   for (size_t i = 0; i<minLen; i++)
+   {
+      if (data_[i] == ref_ptr[i])
+         continue;
+      return data_[i] < ref_ptr[i];
+   }
+   return (getSize() < bd2.getSize());
+}
 
 

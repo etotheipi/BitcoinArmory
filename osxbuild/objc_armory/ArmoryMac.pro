@@ -19,9 +19,9 @@
 # also has extra flags to enable C++11 support, as SIP doesn't have a
 # macx-clang-libc++ option like Qt. (macx-g++ is all it can muster for now.)
 # NB: The "version" values must be updated alongside build-app.py!!!
-QTVER = 4.8.6
-SIPVER = 4.16.5
-PYVER = 2.7.9
+QTVER = 4.8.7
+SIPVER = 4.19.2
+PYVER = 2.7.13
 QT_UNPACK_BASE = ../workspace/unpackandbuild/qt-everywhere-opensource-src-$${QTVER}
 SIP_UNPACK_BASE = ../workspace/unpackandbuild/sip-$${SIPVER}
 PYTHON_UNPACK_BASE = ../workspace/unpackandbuild/Python-$${PYVER}
@@ -72,7 +72,7 @@ LIBS += -framework Foundation
 # Source: src/gui/Makefile.release for Qt
 # Source: QtCore/QtCore.pro for PyQt
 ARMORYNAME = ArmoryMac
-DESTDIR = ../workspace/Armory.app/Contents/MacOS/py/usr/lib/armory
+DESTDIR = ../workspace/Armory.app/Contents/MacOS/py/usr/local/lib/armory
 SOURCES = ./sip$${ARMORYNAME}DockIconClickEventHandler.cpp ./sip$${ARMORYNAME}MacDockIconHandler.cpp ./sip$${ARMORYNAME}MacNotificationHandler.cpp ./sip$${ARMORYNAME}MacUtils.cpp ./sip$${ARMORYNAME}cmodule.cpp
 LIBS += -L$$QT_UNPACK_BASE/lib -framework QtCore -framework QtGui -L$$QT_UNPACK_BASE/lib -framework Carbon -lz -framework AppKit -framework Python
 QMAKE_CXXFLAGS += $$QMAKE_OBJECTIVE_CFLAGS

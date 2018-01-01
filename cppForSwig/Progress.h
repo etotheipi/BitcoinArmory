@@ -2,14 +2,18 @@
 //                                                                            //
 //  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
-//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//  See LICENSE-ATI or http://www.gnu.org/licenses/agpl.html                  //
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 #ifndef PROGRESS_H
 #define PROGRESS_H
 
 #include <cstdint>
-#include <time.h>
+#include <chrono>
+#include <functional>
+#include "bdmenums.h"
+
+typedef std::function<void(BDMPhase, double, unsigned, unsigned)> ProgressCallback;
 
 class ProgressReporter
 {
@@ -34,7 +38,7 @@ class ProgressCalculator
 {
    const uint64_t total_;
    
-   time_t then_;
+   std::chrono::milliseconds then_;
    uint64_t lastSample_=0;
    
    double avgSpeed_=0.0;
@@ -43,15 +47,26 @@ class ProgressCalculator
 public:
    ProgressCalculator(uint64_t total);
    
+   void init(uint64_t to);
    void advance(uint64_t to);
+
    uint64_t total() const { return total_; }
 
-   double fractionCompleted() const { return lastSample_/double(total_); }
+   double fractionCompleted() const 
+   { 
+      if (lastSample_ > total_)
+         return 1.0;
+
+      return lastSample_/double(total_); 
+   }
    
    double unitsPerSecond() const { return avgSpeed_; }
    
-   time_t remainingSeconds() const
+   uint64_t remainingSeconds() const
    {
+      if (lastSample_ > total_)
+         return UINT32_MAX;
+
       return (total_-lastSample_)/unitsPerSecond();
    }
 };

@@ -2,7 +2,12 @@
 //                                                                            //
 //  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
-//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//  See LICENSE-ATI or http://www.gnu.org/licenses/agpl.html                  //
+//                                                                            //
+//                                                                            //
+//  Copyright (C) 2016, goatpig                                               //            
+//  Distributed under the MIT license                                         //
+//  See LICENSE-MIT or https://opensource.org/licenses/MIT                    //                                   
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -13,6 +18,7 @@
 
 #include <iostream>
 #include <vector>
+#include <deque>
 #include <list>
 #include <string>
 #include <sstream>
@@ -25,11 +31,12 @@
 #include "BinaryData.h"
 #include "cryptlib.h"
 #include "sha.h"
+#include "integer.h"
 #include "ripemd.h"
 #include "UniversalTimer.h"
 #include "log.h"
 
-class LedgerEntry;
+class LedgerEntryData;
 
 #define HEADER_SIZE 80
 #define COIN 100000000ULL
@@ -63,6 +70,10 @@ class LedgerEntry;
 #define TESTNET_GENESIS_HASH_HEX    "43497fd7f826957108f4a30fd9cec3aeba79972084e90ead01ea330900000000"
 #define TESTNET_GENESIS_TX_HASH_HEX "3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a"
 
+#define REGTEST_MAGIC_BYTES "fabfb5da"
+#define REGTEST_GENESIS_HASH_HEX    "06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f"
+#define REGTEST_GENESIS_TX_HASH_HEX "3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a"
+
 #define MAINNET_MAGIC_BYTES "f9beb4d9"
 #define MAINNET_GENESIS_HASH_HEX    "6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000"
 #define MAINNET_GENESIS_TX_HASH_HEX "3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a"
@@ -84,6 +95,7 @@ class LedgerEntry;
 
 class BinaryData;
 class BinaryDataRef;
+class SecureBinaryData;
 
 typedef enum
 {
@@ -93,6 +105,9 @@ typedef enum
    TXOUT_SCRIPT_MULTISIG,
    TXOUT_SCRIPT_P2SH,
    TXOUT_SCRIPT_NONSTANDARD,
+   TXOUT_SCRIPT_P2WPKH,
+   TXOUT_SCRIPT_P2WSH,
+   TXOUT_SCRIPT_OPRETURN
 }  TXOUT_SCRIPT_TYPE;
 
 typedef enum
@@ -103,7 +118,10 @@ typedef enum
    TXIN_SCRIPT_SPENDPUBKEY,
    TXIN_SCRIPT_SPENDMULTI,
    TXIN_SCRIPT_SPENDP2SH,
-   TXIN_SCRIPT_NONSTANDARD
+   TXIN_SCRIPT_NONSTANDARD,
+   TXIN_SCRIPT_WITNESS,
+   TXIN_SCRIPT_P2WPKH_P2SH,
+   TXIN_SCRIPT_P2WSH_P2SH
 }  TXIN_SCRIPT_TYPE;
 
 
@@ -111,8 +129,11 @@ typedef enum
 {
   SCRIPT_PREFIX_HASH160=0x00,
   SCRIPT_PREFIX_P2SH=0x05,
+  SCRIPT_PREFIX_HASH160_TESTNET=0x6f,
+  SCRIPT_PREFIX_P2SH_TESTNET=0xc4,
   SCRIPT_PREFIX_MULTISIG=0xfe,
   SCRIPT_PREFIX_NONSTD=0xff,
+  SCRIPT_PREFIX_OPRETURN=0x6a
 } SCRIPT_PREFIX;
 
 
@@ -257,12 +278,22 @@ enum OPCODETYPE
 };
 
 
+#include "TxOutScrRef.h"
+
 class BlockDeserializingException : public runtime_error
 {
 public:
    BlockDeserializingException(const string &what="")
       : runtime_error(what)
    { }
+};
+
+class DERException : public runtime_error
+{
+public:
+   DERException(const string& what = "") :
+      runtime_error(what)
+   {}
 };
 
 
@@ -272,6 +303,8 @@ public:
 class BtcUtils
 {
    static const BinaryData        BadAddress_;
+   static const string base58Chars_;
+   static const map<char, uint8_t> base58Vals_;
 
 public:
    static const BinaryData        EmptyHash_;
@@ -286,51 +319,11 @@ public:
    static const BinaryData& EmptyHash() { return EmptyHash_;  }
 
    /////////////////////////////////////////////////////////////////////////////
-   static pair<uint64_t, uint8_t> readVarInt(BinaryRefReader & brr)
-   {
-      uint64_t outVal;
-      uint32_t outLen;
-      outVal = readVarInt(brr.getCurrPtr(), &outLen);
-      brr.advance(outLen);
-      return pair<uint64_t, uint8_t>(outVal, (uint8_t)outLen);
-   }
-
-   /////////////////////////////////////////////////////////////////////////////
-   static uint64_t readVarInt(uint8_t const * strmPtr, uint32_t* lenOutPtr=NULL)
-   {
-      uint8_t firstByte = strmPtr[0];
-
-      if(firstByte < 0xfd)
-      {
-         if(lenOutPtr != NULL) 
-            *lenOutPtr = 1;
-         return firstByte;
-      }
-      if(firstByte == 0xfd)
-      {
-         if(lenOutPtr != NULL) 
-            *lenOutPtr = 3;
-         return READ_UINT16_LE(strmPtr+1);
-         
-      }
-      else if(firstByte == 0xfe)
-      {
-         if(lenOutPtr != NULL) 
-            *lenOutPtr = 5;
-         return READ_UINT32_LE(strmPtr+1);
-      }
-      else //if(firstByte == 0xff)
-      {
-         if(lenOutPtr != NULL) 
-            *lenOutPtr = 9;
-         return READ_UINT64_LE(strmPtr+1);
-      }
-   }
-   /////////////////////////////////////////////////////////////////////////////
-   static uint64_t readVarInt(uint8_t const * strmPtr, size_t remaining, uint32_t* lenOutPtr=NULL)
+   static uint64_t readVarInt(uint8_t const * strmPtr, size_t remaining, 
+      uint32_t* lenOutPtr=NULL)
    {
       if (remaining < 1)
-         throw BlockDeserializingException();
+         throw BlockDeserializingException("invalid varint");
       uint8_t firstByte = strmPtr[0];
 
       if(firstByte < 0xfd)
@@ -342,7 +335,7 @@ public:
       if(firstByte == 0xfd)
       {
          if (remaining < 3)
-            throw BlockDeserializingException();
+            throw BlockDeserializingException("invalid varint");
          if(lenOutPtr != NULL) 
             *lenOutPtr = 3;
          return READ_UINT16_LE(strmPtr+1);
@@ -351,7 +344,7 @@ public:
       else if(firstByte == 0xfe)
       {
          if (remaining < 5)
-            throw BlockDeserializingException();
+            throw BlockDeserializingException("invalid varint");
          if(lenOutPtr != NULL) 
             *lenOutPtr = 5;
          return READ_UINT32_LE(strmPtr+1);
@@ -359,13 +352,22 @@ public:
       else //if(firstByte == 0xff)
       {
          if (remaining < 9)
-            throw BlockDeserializingException();
+            throw BlockDeserializingException("invalid varint");
          if(lenOutPtr != NULL) 
             *lenOutPtr = 9;
          return READ_UINT64_LE(strmPtr+1);
       }
    }
 
+   /////////////////////////////////////////////////////////////////////////////
+   static pair<uint64_t, uint8_t> readVarInt(BinaryRefReader & brr)
+   {
+      uint64_t outVal;
+      uint32_t outLen;
+      outVal = readVarInt(brr.getCurrPtr(), brr.getSizeRemaining(), &outLen);
+      brr.advance(outLen);
+      return pair<uint64_t, uint8_t>(outVal, (uint8_t)outLen);
+   }
    
    /////////////////////////////////////////////////////////////////////////////
    static inline uint32_t readVarIntLength(uint8_t const * strmPtr)
@@ -481,6 +483,25 @@ public:
       return out;
    }
 
+   /////////////////////////////////////////////////////////////////////////////
+   static void getSha256(const uint8_t* data, 
+                         size_t len, 
+                         BinaryData& hashOutput)
+   {
+      CryptoPP::SHA256 sha256_;
+      if (hashOutput.getSize() != 32)
+         hashOutput.resize(32);
+
+      sha256_.CalculateDigest(hashOutput.getPtr(), data, len);
+   }
+   
+   /////////////////////////////////////////////////////////////////////////////
+   static BinaryData getSha256(const BinaryData& bd)
+   {
+      BinaryData hashOutput;
+      BtcUtils::getSha256(bd.getPtr(), bd.getSize(), hashOutput);
+      return hashOutput;
+   }
 
    /////////////////////////////////////////////////////////////////////////////
    static void getHash256(uint8_t const * strToHash,
@@ -695,13 +716,6 @@ public:
    // The point of these methods is to calculate the length of the object,
    // hence we don't know in advance how big the object actually will be, so
    // we can't provide it as an input for safety checking...
-   static uint32_t TxInCalcLength(uint8_t const * ptr)
-   {
-      uint32_t viLen;
-      uint32_t scrLen = (uint32_t)readVarInt(ptr+36, &viLen);
-      return (36 + viLen + scrLen + 4);
-   }
-
    static void TxInCalcLength(uint8_t const * ptr, size_t size, 
                        vector<size_t> * offsetsIn)
    {
@@ -734,14 +748,6 @@ public:
       uint32_t scrLen = (uint32_t)readVarInt(ptr+36, size-36, &viLen);
       return (36 + viLen + scrLen + 4);
    }
-
-   /////////////////////////////////////////////////////////////////////////////
-   static uint32_t TxOutCalcLength(uint8_t const * ptr)
-   {
-      uint32_t viLen;
-      uint32_t scrLen = (uint32_t)readVarInt(ptr+8, &viLen);
-      return (8 + viLen + scrLen);
-   }
    
    /////////////////////////////////////////////////////////////////////////////
    static size_t TxOutCalcLength(uint8_t const * ptr, size_t size)
@@ -753,11 +759,33 @@ public:
       return (8 + viLen + scrLen);
    }
 
+   static size_t TxWitnessCalcLength(uint8_t const * ptr, size_t size)
+   {
+       if (size < 1)
+         throw BlockDeserializingException();
+       uint32_t witLen = 0;
+       uint32_t viStackLen;
+       uint32_t stackLen = (uint32_t)readVarInt(ptr, size, &viStackLen);
+       witLen += viStackLen;
+       for (uint32_t i = 0; i < stackLen; i++)
+       {
+          if (size - witLen < 1)
+             throw BlockDeserializingException();
+          uint32_t viLen;
+          witLen += (uint32_t)readVarInt(ptr + witLen, size - witLen, &viLen);
+          witLen += viLen;
+          if (witLen > size)
+             throw BlockDeserializingException();
+       }
+       return witLen;
+   }
+
    /////////////////////////////////////////////////////////////////////////////
    static size_t TxCalcLength(uint8_t const * ptr,
                                 size_t size,
-                                vector<size_t> * offsetsIn=NULL,
-                                vector<size_t> * offsetsOut=NULL)
+                                vector<size_t> * offsetsIn,
+                                vector<size_t> * offsetsOut,
+                                vector<size_t> * offsetsWitness)
    {
       BinaryRefReader brr(ptr, size);  
       
@@ -766,9 +794,18 @@ public:
       // Tx Version;
       brr.advance(4);
 
+      // Get marker and flag if transaction uses segwit
+      bool usesWitness = false;
+      auto marker = (const uint16_t*)brr.getCurrPtr();
+      if (*marker == 0x0100)
+      {
+         usesWitness = true;
+         brr.advance(2);
+      }
+
       // TxIn List
       uint32_t nIn = (uint32_t)brr.get_var_int();
-      if(offsetsIn != NULL)
+      if (offsetsIn != nullptr)
       {
          offsetsIn->resize(nIn+1);
          for(uint32_t i=0; i<nIn; i++)
@@ -787,7 +824,7 @@ public:
 
       // Now extract the TxOut list
       uint32_t nOut = (uint32_t)brr.get_var_int();
-      if(offsetsOut != NULL)
+      if (offsetsOut != nullptr)
       {
          offsetsOut->resize(nOut+1);
          for(uint32_t i=0; i<nOut; i++)
@@ -802,6 +839,35 @@ public:
          for(uint32_t i=0; i<nOut; i++)
             brr.advance( TxOutCalcLength(brr.getCurrPtr(), brr.getSizeRemaining()) );
       }
+
+      // Now extract the witnesses
+      if(usesWitness)
+      {
+         if (offsetsWitness != nullptr)
+         {
+            offsetsWitness->resize(nIn + 1);
+            for (uint32_t i = 0; i < nIn; i++) {
+               (*offsetsWitness)[i] = brr.getPosition();
+               brr.advance(TxWitnessCalcLength(brr.getCurrPtr(), brr.getSizeRemaining()));
+            }
+            (*offsetsWitness)[nIn] = brr.getPosition();
+         }
+         else
+         {
+            for (uint32_t i = 0; i < nIn; i++) {
+               brr.advance(TxWitnessCalcLength(brr.getCurrPtr(), brr.getSizeRemaining()));
+            }
+         }
+      }
+      else
+      {
+         if (offsetsWitness != nullptr)
+         {
+            offsetsWitness->resize(1);
+            (*offsetsWitness)[0] = brr.getPosition();
+         }
+      }
+
       brr.advance(4);
 
       return brr.getPosition();
@@ -809,27 +875,39 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   static size_t StoredTxCalcLength( 
-                                uint8_t const * ptr,
-                                bool fragged,
-                                vector<size_t> * offsetsIn=NULL,
-                                vector<size_t> * offsetsOut=NULL)
+   static size_t StoredTxCalcLength(
+      uint8_t const * ptr,
+      size_t len,
+      bool fragged,
+      vector<size_t> * offsetsIn,
+      vector<size_t> * offsetsOut,
+      vector<size_t> * offsetsWitness)
    {
-      BinaryRefReader brr(ptr);  
+      BinaryRefReader brr(ptr, len);  
 
       
       // Tx Version;
       brr.advance(4);
 
+      // Get marker and flag if transaction uses segwit
+      bool usesWitness = false;
+      auto marker = (const uint16_t*)brr.getCurrPtr();
+      if (*marker == 0x0100)
+      {
+         usesWitness = true;
+         brr.advance(2);
+      }
+
       // TxIn List
       uint32_t nIn = (uint32_t)brr.get_var_int();
-      if(offsetsIn != NULL)
+      if (offsetsIn != nullptr)
       {
          offsetsIn->resize(nIn+1);
          for(uint32_t i=0; i<nIn; i++)
          {
             (*offsetsIn)[i] = brr.getPosition();
-            brr.advance( TxInCalcLength(brr.getCurrPtr()) );
+            brr.advance(
+               TxInCalcLength(brr.getCurrPtr(), brr.getSizeRemaining()));
          }
          (*offsetsIn)[nIn] = brr.getPosition(); // Get the end of the last
       }
@@ -837,7 +915,8 @@ public:
       {
          // Don't need to track the offsets, just leap over everything
          for(uint32_t i=0; i<nIn; i++)
-            brr.advance( TxInCalcLength(brr.getCurrPtr()) );
+            brr.advance(
+               TxInCalcLength(brr.getCurrPtr(), brr.getSizeRemaining()));
       }
 
       // Now extract the TxOut list
@@ -852,22 +931,53 @@ public:
       else
       {
          // Now extract the TxOut list
-         if(offsetsOut != NULL)
+         if (offsetsOut != nullptr)
          {
             offsetsOut->resize(nOut+1);
             for(uint32_t i=0; i<nOut; i++)
             {
                (*offsetsOut)[i] = brr.getPosition();
-               brr.advance( TxOutCalcLength(brr.getCurrPtr()) );
+               brr.advance( 
+                  TxOutCalcLength(brr.getCurrPtr(), brr.getSizeRemaining()));
             }
             (*offsetsOut)[nOut] = brr.getPosition();
          }
          else
          {
             for(uint32_t i=0; i<nOut; i++)
-               brr.advance( TxOutCalcLength(brr.getCurrPtr()) );
+               brr.advance( 
+                  TxOutCalcLength(brr.getCurrPtr(), brr.getSizeRemaining()));
          }
       }
+
+      // Now extract the witnesses
+      if(usesWitness)
+      {
+         if (offsetsWitness != nullptr)
+         {
+            offsetsWitness->resize(nIn + 1);
+            for (uint32_t i = 0; i < nIn; i++) {
+               (*offsetsWitness)[i] = brr.getPosition();
+               brr.advance(TxWitnessCalcLength(brr.getCurrPtr(), brr.getSizeRemaining()));
+			}
+			(*offsetsWitness)[nIn] = brr.getPosition();
+         }
+         else
+         {
+            for (uint32_t i = 0; i < nIn; i++) {
+               brr.advance(TxWitnessCalcLength(brr.getCurrPtr(), brr.getSizeRemaining()));
+            }
+         }
+      }
+      else
+      {
+         if (offsetsWitness != nullptr)
+         {
+            offsetsWitness->resize(1);
+            (*offsetsWitness)[0] = brr.getPosition();
+         }
+      }
+
       brr.advance(4);
 
       return brr.getPosition();
@@ -881,11 +991,24 @@ public:
    // TXOUT_SCRIPT_MULTISIG,
    // TXOUT_SCRIPT_P2SH,
    // TXOUT_SCRIPT_NONSTANDARD,
+   // TXOUT_SCRIPT_P2WPKH,
+   // TXOUT_SCRIPT_P2WSH,
+   // TXOUT_SCRIPT_OPRETURN
    static TXOUT_SCRIPT_TYPE getTxOutScriptType(BinaryDataRef s)
    {
       size_t sz = s.getSize();
-      if (sz < 23)
+      if (sz > 0 && sz < 81 && s[0] == 0x6a)
+         return TXOUT_SCRIPT_OPRETURN;
+      else if (sz < 21)
          return TXOUT_SCRIPT_NONSTANDARD;
+      else if (sz == 22 &&
+         s[0] == 0x00 &&
+		 s[1] == 0x14)
+         return TXOUT_SCRIPT_P2WPKH;
+      else if (sz == 34 &&
+         s[0] == 0x00 &&
+		 s[1] == 0x20)
+         return TXOUT_SCRIPT_P2WSH;
       else if (sz == 25 &&
          s[0] == 0x76 &&
          s[1] == 0xa9 &&
@@ -925,11 +1048,15 @@ public:
    static TXIN_SCRIPT_TYPE getTxInScriptType(BinaryDataRef script,
                                              BinaryDataRef prevTxHash)
    {
-      if(script.getSize() == 0)
-         return TXIN_SCRIPT_NONSTANDARD;
-
       if(prevTxHash == BtcUtils::EmptyHash_)
          return TXIN_SCRIPT_COINBASE;
+      
+      if(script.getSize() == 0)
+         return TXIN_SCRIPT_WITNESS;
+      if(script.getSize() == 23 && script[1] == 0x00 && script[2] == 0x14)
+         return TXIN_SCRIPT_P2WPKH_P2SH;
+      if(script.getSize() == 35 && script[1] == 0x00 && script[2] == 0x20)
+         return TXIN_SCRIPT_P2WSH_P2SH;
 
       // Technically, this doesn't recognize all P2SH spends.  Only 
       // spends of P2SH scripts that are, themselves, standard
@@ -987,6 +1114,8 @@ public:
          case(TXOUT_SCRIPT_STDPUBKEY65): return getHash160(script.getSliceRef(1,65));
          case(TXOUT_SCRIPT_STDPUBKEY33): return getHash160(script.getSliceRef(1,33));
          case(TXOUT_SCRIPT_P2SH):        return script.getSliceCopy(2,20);
+         case(TXOUT_SCRIPT_P2WSH):        return script.getSliceCopy(2,32);
+         case(TXOUT_SCRIPT_P2WPKH):        return script.getSliceCopy(2,20);
          case(TXOUT_SCRIPT_MULTISIG):    return BadAddress_;
          case(TXOUT_SCRIPT_NONSTANDARD): return BadAddress_;
          default:                        return BadAddress_;
@@ -997,42 +1126,11 @@ public:
    // We use this for LevelDB keys, to return same key if the same priv/pub 
    // pair is used, and also saving a few bytes for common script types
    static BinaryData getTxOutScrAddr(BinaryDataRef script,
-      TXOUT_SCRIPT_TYPE type = TXOUT_SCRIPT_NONSTANDARD)
-   {
-      BinaryWriter bw;
-      if (type == TXOUT_SCRIPT_NONSTANDARD)
-         type = getTxOutScriptType(script);
-      switch (type)
-      {
-         case(TXOUT_SCRIPT_STDHASH160) :
-            bw.put_uint8_t(SCRIPT_PREFIX_HASH160);
-            bw.put_BinaryData(script.getSliceCopy(3, 20));
-            return bw.getData();
-         case(TXOUT_SCRIPT_STDPUBKEY65) :
-            bw.put_uint8_t(SCRIPT_PREFIX_HASH160);
-            bw.put_BinaryData(getHash160(script.getSliceRef(1, 65)));
-            return bw.getData();
-         case(TXOUT_SCRIPT_STDPUBKEY33) :
-            bw.put_uint8_t(SCRIPT_PREFIX_HASH160);
-            bw.put_BinaryData(getHash160(script.getSliceRef(1, 33)));
-            return bw.getData();
-         case(TXOUT_SCRIPT_P2SH) :
-            bw.put_uint8_t(SCRIPT_PREFIX_P2SH);
-            bw.put_BinaryData(script.getSliceCopy(2, 20));
-            return bw.getData();
-         case(TXOUT_SCRIPT_NONSTANDARD) :
-            bw.put_uint8_t(SCRIPT_PREFIX_NONSTD);
-            bw.put_BinaryData(getHash160(script));
-            return bw.getData();
-         case(TXOUT_SCRIPT_MULTISIG) :
-            bw.put_uint8_t(SCRIPT_PREFIX_MULTISIG);
-            bw.put_BinaryData(getMultisigUniqueKey(script));
-            return bw.getData();
-         default:
-            LOGERR << "What kind of TxOutScript did we get?";
-            return BinaryData(0);
-      }
-   }
+      TXOUT_SCRIPT_TYPE type = TXOUT_SCRIPT_NONSTANDARD);
+
+   /////////////////////////////////////////////////////////////////////////////
+   //no copy version, the regular one is too slow for scanning operations
+   static TxOutScriptRef getTxOutScrAddrNoCopy(BinaryDataRef script);
 
    /////////////////////////////////////////////////////////////////////////////
    // This is basically just for SWIG to access via python
@@ -1068,7 +1166,7 @@ public:
    //        look like the output of this function operating on a multisig 
    //        script (doesn't matter if it's valid or not)?  In other words, is
    //        there is a hole where someone could mine a script that would be
-   //        forwarded by Bitcoin-Qt to this code, which would then produce
+   //        forwarded by Bitcoin Core to this code, which would then produce
    //        a non-std-unique-key that would be indistinguishable from the 
    //        output of this function?  My guess is, no.  And my guess is that 
    //        it's not a very useful even if it did.  But it would be good to
@@ -1340,7 +1438,7 @@ public:
    }
 
 
-   // This got more complicated when Bitcoin-Qt 0.8 switched from
+   // This got more complicated when Bitcoin Core 0.8 switched from
    // blk0001.dat to blocks/blk00000.dat
    static string getBlkFilename(string dir, uint32_t fblkNum)
    {
@@ -1619,9 +1717,9 @@ public:
       return *(reinterpret_cast<int*>(in));
    }
 
-   static const vector<LedgerEntry>& cast_to_LedgerVector(void* in)
+   static const vector<LedgerEntryData>& cast_to_LedgerVector(void* in)
    {
-      vector<LedgerEntry>* vle = (vector<LedgerEntry>*)in;
+      vector<LedgerEntryData>* vle = (vector<LedgerEntryData>*)in;
       return *vle;
    }
 
@@ -1675,7 +1773,275 @@ public:
       return true;
    }
    */
+   
+   static BinaryData scrAddrToBase58(const BinaryData& scrAddr)
+   {
+      /***
+      make sure the scrAddr is prepended with the version byte
+      ***/
 
+      //hash payload
+      auto&& checksum = getHash256(scrAddr);
+
+      //append first 4 bytes of hash to payload
+      auto scriptNhash = scrAddr;
+      scriptNhash.append(checksum.getSliceRef(0, 4));
+
+      return base58_encode(scriptNhash);
+   }
+
+   static BinaryData base58toScriptAddr(const BinaryData& b58Addr)
+   {
+      //decode
+      auto&& scriptNhash = base58_decode(b58Addr);
+
+      //should be at least 4 bytes checksum + 1 version byte
+      if (scriptNhash.getSize() <= 5) 
+         throw range_error("invalid b58 decoded address length");
+
+      //split last 4 bytes
+      auto len = scriptNhash.getSize();
+      auto scriptRef = 
+         scriptNhash.getSliceRef(0, len - 4);
+
+      auto checksumRef =
+         scriptNhash.getSliceRef(len - 4, 4);
+
+      auto&& scriptHash = getHash256(scriptRef);
+      auto hash4First = scriptHash.getSliceRef(0, 4);
+
+      if (checksumRef != hash4First)
+         throw runtime_error("invalid checksum in b58 address");
+
+      return BinaryData(scriptRef);
+   }
+
+   static BinaryData base58_encode(const BinaryData& payload)
+   {
+      //divide by 58
+      CryptoPP::Integer value, result, zero;
+      value.Decode(payload.getPtr(), payload.getSize(),
+         CryptoPP::Integer::UNSIGNED);
+
+      CryptoPP::word fifty_eight(58);
+      CryptoPP::word remainder(0);
+
+      deque<char> div_output;
+
+      do
+      {
+         CryptoPP::Integer::Divide(remainder, result, value, fifty_eight);
+
+         if (remainder > 58)
+            throw runtime_error("invalid remainder in b58 encode");
+
+         div_output.push_front(base58Chars_[remainder]);
+
+         value.swap(result);
+      } while (value.Compare(CryptoPP::Integer::Zero()));
+
+      //prepend null byte markers
+      unsigned pos = 0;
+      while (payload.getPtr()[pos++] == 0)
+         div_output.push_front('1');
+
+      vector<char> div_vec;
+      div_vec.insert(div_vec.end(), div_output.begin(), div_output.end());
+      BinaryData b58_output((uint8_t*)&div_vec[0], div_vec.size());
+      return b58_output;
+   }
+
+   static BinaryData base58_decode(const BinaryData& b58)
+   {
+      //remove leading 1s
+      if (b58.getSize() == 0)
+         throw range_error("empty BinaryData");
+
+      unsigned zero_count = 0;
+      int offset = 0;
+      auto ptr = b58.getPtr();
+      while (offset < b58.getSize())
+      {
+         if (ptr[offset] != '1')
+            break;
+
+         ++offset;
+         ++zero_count;
+      }
+
+      //decode
+      CryptoPP::Integer exponent = CryptoPP::Integer::One();
+      CryptoPP::Integer five_eight(58);
+      CryptoPP::Integer value = CryptoPP::Integer::Zero();
+      for (int i = b58.getSize() - 1; i >= offset; i--)
+      {
+         auto b58Iter = base58Vals_.find(ptr[i]);
+         if (b58Iter == base58Vals_.end())
+            throw runtime_error("invalid char in b58 string");
+
+         CryptoPP::Integer valAtIndex(b58Iter->second);
+         value = value.Plus(valAtIndex.Times(exponent));
+
+         exponent = exponent.Times(five_eight);
+      }
+
+      auto totallen = value.MinEncodedSize();
+      BinaryData final_value;
+      for (unsigned i = 0; i < zero_count; i++)
+         final_value.append(0);
+      
+      final_value.resize(totallen + zero_count);
+      value.Encode(final_value.getPtr() + zero_count, totallen);
+      return final_value;
+   }
+
+   static BinaryData extractRSFromDERSig(BinaryDataRef bdr)
+   {
+      auto forceTo32Bytes = [](BinaryDataRef data, BinaryWriter& output)->void
+      {
+         auto len = data.getSize();
+
+         if (len > 32)
+         {
+            output.put_BinaryData(data.getSliceRef(len - 32, 32));
+         }
+         else
+         {
+            int zeroCount = 32 - len;
+            while (zeroCount-- > 0)
+               output.put_uint8_t(0);
+            
+            output.put_BinaryData(data);
+         }
+      };
+
+      BinaryWriter output;
+      BinaryRefReader brr(bdr);
+
+      //check code byte
+      auto codeByte = brr.get_uint8_t();
+      if (codeByte != 0x30)
+         throw DERException("unexpected code byte in DER sig");
+
+      auto len = brr.get_uint8_t();
+
+      //onto R, again check code byte
+      codeByte = brr.get_uint8_t();
+      len = brr.get_uint8_t();
+      if (codeByte != 0x02)
+         throw DERException("unexpected code byte in DER sig");
+
+      //grab R
+      auto rRef = brr.get_BinaryDataRef(len);
+
+      //force to 32 bytes length
+      forceTo32Bytes(rRef, output);
+
+      //S
+      codeByte = brr.get_uint8_t();
+      len = brr.get_uint8_t();
+      if (codeByte != 0x02)
+         throw DERException("unexpected code byte in DER sig");
+
+      //grab S
+      auto sRef = brr.get_BinaryDataRef(len);
+
+      //force to 32 bytes length
+      forceTo32Bytes(sRef, output);
+
+      return output.getData();
+   }
+
+   static BinaryData rsToDerSig(BinaryDataRef bdr);
+
+   static BinaryData getPushDataHeader(const BinaryData& data)
+   {
+      BinaryWriter bw;
+
+      if (data.getSize() <= 75)
+      {
+         bw.put_uint8_t((uint8_t)data.getSize());
+      }
+      else if (data.getSize() < UINT8_MAX)
+      {
+         bw.put_uint8_t(OP_PUSHDATA1);
+         bw.put_uint8_t((uint8_t)data.getSize());
+      }
+      else if (data.getSize() < UINT16_MAX)
+      {
+         bw.put_uint8_t(OP_PUSHDATA2);
+         bw.put_uint16_t((uint16_t)data.getSize());
+
+      }
+      else if (data.getSize() < UINT32_MAX)
+      {
+         bw.put_uint8_t(OP_PUSHDATA4);
+         bw.put_uint32_t((uint32_t)data.getSize());
+      }
+      else
+         throw runtime_error("pushdata exceeds size limit");
+
+      return bw.getData();
+   }
+
+   static void throw_type_error(unsigned expected, unsigned current)
+   {
+      stringstream ss;
+      ss << "ser/deser type error: " << endl;
+      ss << "expected type id: " << expected << endl;
+      ss << "got type id: " << current << " instead" << endl;
+
+      throw runtime_error(ss.str());
+   }
+
+   static BinaryData computeID(const SecureBinaryData& pubkey);
+
+   static BinaryData getHMAC256(
+      const SecureBinaryData& key,
+      const SecureBinaryData& message);
+
+   static BinaryData getHMAC256(
+      const BinaryData& key,
+      const string& message);
+
+   static void getHMAC256(const uint8_t* keyptr, size_t keylen,
+      const char* msg, size_t msglen, uint8_t* digest);
+
+   static SecureBinaryData computeChainCode_Armory135(
+      const SecureBinaryData& privateRoot);
+
+   static BinaryData getP2WPKHScript(const BinaryData& scriptHash)
+   {
+      if (scriptHash.getSize() != 20)
+         throw runtime_error("invalid P2WPKH hash size");
+
+      BinaryWriter bw;
+      bw.put_uint8_t(OP_DUP);
+      bw.put_uint8_t(OP_HASH160);
+      bw.put_uint8_t(20);
+      bw.put_BinaryData(scriptHash);
+      bw.put_uint8_t(OP_EQUALVERIFY);
+      bw.put_uint8_t(OP_CHECKSIG);
+
+      return bw.getData();
+   }
+
+   static BinaryData getP2WSHScript(const BinaryData& scriptHash)
+   {
+      if (scriptHash.getSize() != 32)
+         throw runtime_error("invalid P2WPKH hash size");
+
+      BinaryWriter bw;
+      bw.put_uint8_t(OP_SHA256);
+      bw.put_uint8_t(32);
+      bw.put_BinaryData(scriptHash);
+      bw.put_uint8_t(OP_EQUAL);
+
+      return bw.getData();
+   }
+
+   static string base64_encode(const string&);
+   static string base64_decode(const string&);
 };
    
 static inline void suppressUnusedFunctionWarning()

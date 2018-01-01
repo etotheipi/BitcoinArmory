@@ -20,6 +20,7 @@
 #include "UniversalTimer.h"
 #include "bdmenums.h"
 #include "BlockUtils.h"
+#include "BDM_Server.h"
 
 struct BlockDataManagerConfig;
 
@@ -46,65 +47,8 @@ public:
    BDMFailure() { }
 };
 
-class BDM_Inject : public BlockDataManager_LevelDB::Notifier
-{
-   struct BDM_Inject_Impl;
-   BDM_Inject_Impl *pimpl;
-public:
-   
-   BDM_Inject();
-   virtual ~BDM_Inject();
-   
-   virtual void run()=0;
-   
-   // instruct the BDM to wake up and call run() ASAP
-   void notify();
-   
-   // Block for 'ms' milliseconds or until someone
-   // notify()es me
-   void wait(unsigned ms);
-   
-   // once notify() is called, only returns on your
-   // thread after run() is called
-   void waitRun();
-   
-   // the BDM thread will call this if it fails
-   void setFailureFlag();
-};
-
 class BlockDataManager_LevelDB;
 class BlockDataViewer;
-
-class BlockDataManagerThread
-{
-   struct BlockDataManagerThreadImpl;
-   BlockDataManagerThreadImpl *pimpl;
-   
-public:
-   BlockDataManagerThread(const BlockDataManagerConfig &config);
-   ~BlockDataManagerThread();
-   
-   // start the BDM thread
-   void start(int mode, BDM_CallBack *callback, BDM_Inject *inject);
-   
-   BlockDataManager_LevelDB *bdm();
-   BlockDataViewer *bdv();
-   
-   void setConfig(const BlockDataManagerConfig &config);
-
-   // stop the BDM thread 
-   void shutdownAndWait();
-   
-   // return true if the caller is should wait on callback notification
-   bool requestShutdown();
-
-private:
-   static void* thrun(void *);
-   void run();
-
-private:
-   BlockDataManagerThread(const BlockDataManagerThread&);
-};
 
 inline void StartCppLogging(string fname, int lvl) { STARTLOGGING(fname, (LogLevel)lvl); }
 inline void ChangeCppLogLevel(int lvl) { SETLOGLEVEL((LogLevel)lvl); }
