@@ -28,6 +28,7 @@ make
 
 %install
 mkdir -p "%{buildroot}"/usr/share/applications
+export PATH=/usr/lib64/qt4/bin:/usr/lib/qt4/bin:"$PATH"
 %makeinstall
 
 
