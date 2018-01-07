@@ -21,6 +21,7 @@ This is a local full node implementation of an advanced Bitcoin wallet.
 
 
 %build
+export PATH=/usr/lib64/qt4/bin:/usr/lib/qt4/bin:"$PATH"
 %configure
 make
 
