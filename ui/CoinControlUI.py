@@ -44,6 +44,9 @@ class CoinControlDlg(ArmoryDialog):
       self.ccTreeModel = CoinControlTreeModel(self, wlt)
       self.ccView = QTreeView()
       self.ccView.setModel(self.ccTreeModel)
+
+      self.setMinimumWidth(400)
+      self.setMinimumHeight(300)
            
       self.btnAccept = QPushButton(self.tr("Accept"))
       self.btnCancel = QPushButton(self.tr("Cancel"))
@@ -122,8 +125,9 @@ class CoinControlDlg(ArmoryDialog):
       
    #############################################################################
    def saveGeometrySettings(self):
-      self.main.writeSetting('ccDlgGeometry', str(self.saveGeometry().toHex()))
-      self.main.writeSetting('ccDlgAddrCols', saveTableView(self.ccView))  
+      if self.isVisible() == True:
+         self.main.writeSetting('ccDlgGeometry', str(self.saveGeometry().toHex()))
+         self.main.writeSetting('ccDlgAddrCols', saveTableView(self.ccView))  
    
    #############################################################################   
    def exec_(self):
