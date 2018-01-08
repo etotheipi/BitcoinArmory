@@ -74,7 +74,7 @@ if HAVE_GUI
 	sed "s: /usr: $(prefix):g" < dpkgfiles/armory > $(DESTDIR)$(prefix)/bin/armory
 	chmod +x $(DESTDIR)$(prefix)/bin/armory
 	mkdir -p $(DESTDIR)$(datadir)/applications
-	for f in armory.desktop armoryoffline.desktop armorytestnet.desktop ; do sed "s:/usr/local/bin:$(bindir):g" < dpkgfiles/$f > $(DESTDIR)$(datadir)/applications/$f ; chmod 0644 $(DESTDIR)$(datadir)/applications/$f ; done
+	for f in armory.desktop armoryoffline.desktop armorytestnet.desktop ; do sed "s:/usr/local/bin:$(bindir):g" < dpkgfiles/$$f > $(DESTDIR)$(datadir)/applications/$$f ; chmod 0644 $(DESTDIR)$(datadir)/applications/$$f ; done
 endif
 endif
 
