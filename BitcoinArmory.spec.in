@@ -35,6 +35,6 @@ export PATH=/usr/lib64/qt4/bin:/usr/lib/qt4/bin:"$PATH"
 %files
 %defattr(-, root, root)
 %{_datadir}/applications/*.desktop
-%{_prefix}/lib/armory/*
+%{_libdir}/armory/*
 %{_datadir}/armory/*
 %attr(0755, root, root) %{_bindir}/*
