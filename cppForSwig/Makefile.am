@@ -20,7 +20,7 @@ if HAVE_CLANG
 SWIG_FLAGS += -D__CLANG__
 endif
 
-EXTRA_DIST = CppBlockUtils.i
+EXTRA_DIST = CppBlockUtils.i CppBlockUtils.py
 
 INCLUDE_FILES = UniversalTimer.h BinaryData.h lmdb_wrapper.h \
 	BtcUtils.h DBUtils.h BlockObj.h BlockUtils.h EncryptionUtils.h \
@@ -37,7 +37,7 @@ INCLUDE_FILES = UniversalTimer.h BinaryData.h lmdb_wrapper.h \
 	make_unique.h TxOutScrRef.h bdmenums.h DbHeader.h SocketIncludes.h \
 	PartialMerkle.h util.h WalletManager.h SwigClient.h Wallets.h \
 	CoinSelection.h LedgerEntryData.h ThreadSafeClasses.h \
-	Win_TranslatePath.h ScriptRecipient.h
+	Win_TranslatePath.h ScriptRecipient.h CppBlockUtils_wrap.h
 
 DB_SOURCE_FILES = UniversalTimer.cpp BinaryData.cpp lmdb_wrapper.cpp \
 	BtcUtils.cpp DBUtils.cpp BlockObj.cpp BlockUtils.cpp EncryptionUtils.cpp \
@@ -104,10 +104,11 @@ libCppBlockUtils_la_LDFLAGS += -Wl,-rpath,@executable_path/ -Wl,-rpath,@loader_p
 endif
 
 #custom rules
-CppBlockUtils_wrap.cxx: CppBlockUtils.i
-	swig $(SWIG_FLAGS) CppBlockUtils.i 
+CppBlockUtils_wrap.h: CppBlockUtils.i
+	swig $(SWIG_FLAGS) CppBlockUtils.i
 
-.PHONY: CppBlockUtils_wrap.cxx
+CppBlockUtils_wrap.cxx: CppBlockUtils.i
+	swig $(SWIG_FLAGS) CppBlockUtils.i
 
 clean-local:
 	rm -f CppBlockUtils.py
