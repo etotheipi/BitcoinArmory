@@ -69,7 +69,6 @@ if ! BUILD_DARWIN
 # Unfuck broken build system that, upon make install, incorrectly
 # regenerates files with DESTDIR instead of prefix.
 # Who the hell uses autotools in 2017?
-	if [ "x$(DESTDIR)" != "x" ] ; then sed -i "s:$(DESTDIR)::g" $(DESTDIR)$(libdir)/libCppBlockUtils.la ; fi
 if HAVE_GUI
 	rsync -rupE --exclude="img/.DS_Store" img $(DESTDIR)$(prefix)/share/armory/
 	sed "s: /usr: $(prefix):g" < dpkgfiles/armory > $(DESTDIR)$(prefix)/bin/armory
