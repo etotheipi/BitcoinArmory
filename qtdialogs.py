@@ -10388,6 +10388,8 @@ class DlgFragBackup(ArmoryDialog):
       frmDescr = makeVertFrame([lblDescrTitle, self.lblAboveFrags], \
                                                             STYLE_RAISED)
 
+      self.fragDisplayLastN = 0
+      self.fragDisplayLastM = 0
 
       self.maxM = 5 if not self.main.usermode == USERMODE.Expert else 8
       self.maxN = 6 if not self.main.usermode == USERMODE.Expert else 12
@@ -10501,11 +10503,16 @@ class DlgFragBackup(ArmoryDialog):
 
    #############################################################################
    def createFragDisplay(self):
-      self.recomputeFragData()
       M = int(str(self.comboM.currentText()))
       N = int(str(self.comboN.currentText()))
 
+      #only recompute fragments if M or N changed
+      if self.fragDisplayLastN != N or \
+         self.fragDisplayLastM != M:
+         self.recomputeFragData()
 
+      self.fragDisplayLastN = N
+      self.fragDisplayLastM = M
 
       lblAboveM = QRichLabel(self.tr('<u><b>Required Fragments</b></u> '), hAlign=Qt.AlignHCenter, doWrap=False)
       lblAboveN = QRichLabel(self.tr('<u><b>Total Fragments</b></u> '), hAlign=Qt.AlignHCenter)
