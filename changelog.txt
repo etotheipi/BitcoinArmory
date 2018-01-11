@@ -30,6 +30,9 @@ v0.96.4
    - When in offline mode, the default signer option will now pick the proper signer for SegWit transactions.
    - Fixed --ram-usage control. --ram-usage=1 will no longer hang the DB during bootstrap scans.
    - As a result, --ram-usage defaults to 50 no instead of 4.
+   - Fixed fee calculation when checking "MAX" with SegWit UTXOs
+   - The Coin control dialog will no longer spawn invisible
+   - When creating a fragmented backup, fragments will no longer be cycled unecessarily
 
 == Minor ==
    - You can now resize the Transaction Info dialog.
