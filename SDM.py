@@ -93,7 +93,6 @@ def parseLinkList(theData):
 
 
 ################################################################################
-# jgarzik'sjj jsonrpc-bitcoin code -- stupid-easy to talk to bitcoind
 class SatoshiDaemonManager(object):
    """
    Use an existing implementation of bitcoind
@@ -131,11 +130,14 @@ class SatoshiDaemonManager(object):
       if 'testnet' in newDir or 'regtest' in newDir:
          self.satoshiRoot, tail = os.path.split(newDir)
 
-      path = os.path.dirname(os.path.abspath(__file__))
+      execDir = os.path.dirname(inspect.getsourcefile(SatoshiDaemonManager))
+      if execDir.endswith('.zip'):
+         execDir = os.path.dirname(execDir)
+
       if OS_MACOSX:
          # OSX separates binaries/start scripts from the Python code. Back up!
-         path = os.path.join(path, '../../bin/')
-      self.dbExecutable = os.path.join(path, 'ArmoryDB')  
+         execDir = os.path.join(execDir, '../../bin/')
+      self.dbExecutable = os.path.join(execDir, 'ArmoryDB')  
          
       if OS_WINDOWS:
          self.dbExecutable += ".exe"
