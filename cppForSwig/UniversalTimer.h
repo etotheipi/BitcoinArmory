@@ -2,7 +2,7 @@
 //                                                                            //
 //  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
-//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//  See LICENSE-ATI or http://www.gnu.org/licenses/agpl.html                  //
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -34,6 +34,7 @@
 #define TIMER_START(NAME) UniversalTimer::instance().start(NAME)
 #define TIMER_RESTART(NAME) UniversalTimer::instance().restart(NAME)
 #define TIMER_STOP(NAME) UniversalTimer::instance().stop(NAME)
+#define TIMER_RESET(NAME) UniversalTimer::instance().reset(NAME)
 
 /*#define TIMER_START(NAME)
 #define TIMER_RESTART(NAME)
@@ -110,10 +111,6 @@ private:
    public:
       timer(void) :
          isRunning_(false),
-         start_clock_(0),
-         stop_clock_(0),
-         start_time_(0),
-         stop_time_(0),
          accum_time_(0) { }
       void   start(void);
       void   restart(void);
@@ -123,12 +120,9 @@ private:
       double getPrev(void) { return prev_elapsed_; }
    private:
       bool    isRunning_;
-      clock_t start_clock_;
-      clock_t stop_clock_;
-      time_t  start_time_;
-      time_t  stop_time_;
+      chrono::time_point<chrono::system_clock> start_clock_;
       double  prev_elapsed_;
-      double  accum_time_;
+      size_t  accum_time_;
    };
    static UniversalTimer* theUT_;
    map<string, timer> call_timers_;

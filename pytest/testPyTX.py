@@ -6,6 +6,8 @@ Created on Aug 4, 2013
 import sys
 sys.path.append('..')
 import unittest
+from pytest.Tiab import TiabTest
+# Do not put any other imports before TiabTest ################
 from armoryengine.ArmoryUtils import hex_to_binary, binary_to_hex, hex_to_int, \
    ONE_BTC
 from armoryengine.BinaryUnpacker import BinaryUnpacker
@@ -15,7 +17,6 @@ from armoryengine.Script import PyScriptProcessor
 from armoryengine.Transaction import PyTx, PyTxIn, PyOutPoint, PyTxOut, \
    PyCreateAndSignTx, getMultisigScriptInfo, BlockComponent,\
    PyCreateAndSignTx_old
-from pytest.Tiab import TiabTest
 
 
 
@@ -69,6 +70,105 @@ multiTx2raw = hex_to_binary( \
    '981dae08c345588f120fcb4ffffffff02e069f902000000001976a914ad00cf2b893e132c33a79a22ae938d6309c780a488ac80f0fa02000000001976a9143155'
    '18b646ea65ad148ee1e2f0360233617447e288ac00000000')
 
+# has both Multi-SigmultiSig2of3 bare and P2SH
+# First input is bare, and 2nd and 3rd are P2SH
+multiSig2of3 = hex_to_binary((
+   '01000000 036bceb0 631853d2 e9d8597c f91b7339 7e1ad838 fa1f1396 275c5ad3'
+   '32ea0c16 15010000 00920048 30450221 00909e02 1f8d9482 04773a1e e953459f'
+   '96b42247 7e0f11ba b54a4bb8 d1fadea8 0d02202d 1b79dcbc 8e3a2b36 3cc971ae'
+   'f7cacb42 3bef200e ebcbb680 fce6c475 f9175801 47304402 20326f53 d77c049b'
+   '7627fd52 25cf0542 f16e5d84 99714b68 2aa11e9e e389605f 31022007 b9bfac66'
+   '886efdca eef17581 21646c0d 97fbf7f5 639538e0 06aee09e 3c471101 ffffffff'
+   'fdba3759 bac4d06b 9a16e669 96a986fc 13108842 ebbe87fc eadf4752 4b4809dd'
+   '00000000 fd5c0100 47304402 2055c491 84845c1d 92c81ad8 f0085b80 8e00fc58'
+   '6c8c8332 6177213a 5778a35d 2302200d 2bd241fd 8f8c77db 0b12517d 4edbeaed'
+   '47dd21d7 ffd46729 4992fe33 fb1c4201 47304402 201ff20a ce41831b b7902f0c'
+   'a5ecd6cb 3f681f23 47d89cd3 ba2e5cce 1e2e9cc4 f302204d fab13267 729f0290'
+   'a1b22e39 ce951b91 c3102b82 99dc6bb7 4aed7de5 83045a01 4cc95241 04390ad0'
+   '36732b60 991854df d75f2a69 f9c66f05 05d031dd 7883be1d 411dea29 a97c1cb3'
+   'c172344d eea11050 e21d4dd5 647241de f6cdfb30 db27aad5 f63817b7 ac410466'
+   'f9270b58 4c3e0418 277b8bd6 046b609d 77eac38b 6be4384e 589f3335 1976884b'
+   '8944b03d 0f6f6bcd 08aba612 4cae1af1 34514e0e 958064ae 9eaef831 055d6441'
+   '04cfaa15 4390a4fa 244fd064 ec8e61ac 0c3e9ccf 94a4a7f4 d89ac946 b7005080'
+   '82f5a63b 2f25fdfc 3621c94b ead1c378 2793c53f 0734cc18 08ed3b79 5ce94a40'
+   '4c53aeff ffffff2c 94040fe5 d781fb35 d779cf0c 88bae45b d1bd03b5 761bae32'
+   'f8cf4d4c 3c31c400 000000fd 5e010048 30450221 00824183 2fd85b99 4bc54168'
+   '8db9daf5 fb90244c 5f0eb9d5 4142b092 c8dce878 cc022049 67a455d9 852afaea'
+   '15c9f788 7f31db72 368a8393 f6b4b34c 9488b765 618c3b01 48304502 2100b050'
+   '78411f13 42d10495 cb8bc7bd 1ede6748 c327c68f c5e90310 fe11dd7e 2d4c0220'
+   '410346b8 d40c54ed 237f0864 eeee0eb5 fa259026 6a5f1909 21ec973f 13a5bdb4'
+   '014cc952 4104390a d036732b 60991854 dfd75f2a 69f9c66f 0505d031 dd7883be'
+   '1d411dea 29a97c1c b3c17234 4deea110 50e21d4d d5647241 def6cdfb 30db27aa'
+   'd5f63817 b7ac4104 66f9270b 584c3e04 18277b8b d6046b60 9d77eac3 8b6be438'
+   '4e589f33 35197688 4b8944b0 3d0f6f6b cd08aba6 124cae1a f134514e 0e958064'
+   'ae9eaef8 31055d64 4104cfaa 154390a4 fa244fd0 64ec8e61 ac0c3e9c cf94a4a7'
+   'f4d89ac9 46b70050 8082f5a6 3b2f25fd fc3621c9 4bead1c3 782793c5 3f0734cc'
+   '1808ed3b 795ce94a 404c53ae ffffffff 01cfb8a2 09000000 00c95241 04390ad0'
+   '36732b60 991854df d75f2a69 f9c66f05 05d031dd 7883be1d 411dea29 a97c1cb3'
+   'c172344d eea11050 e21d4dd5 647241de f6cdfb30 db27aad5 f63817b7 ac410466'
+   'f9270b58 4c3e0418 277b8bd6 046b609d 77eac38b 6be4384e 589f3335 1976884b'
+   '8944b03d 0f6f6bcd 08aba612 4cae1af1 34514e0e 958064ae 9eaef831 055d6441'
+   '04cfaa15 4390a4fa 244fd064 ec8e61ac 0c3e9ccf 94a4a7f4 d89ac946 b7005080'
+   '82f5a63b 2f25fdfc 3621c94b ead1c378 2793c53f 0734cc18 08ed3b79 5ce94a40'
+   '4c53ae00 000000 ').replace(' ',''))
+
+# has both Multi-Sig bare and P2SH
+# First input is ...
+multiSig7of7 = hex_to_binary((
+   '01000000 02827c86 94a5c3c3 698fee0c 30d8b1e8 7880f47e 4a99e1c5 7a060ffb'
+   'b09ad4ac ad000000 00fdfd01 00473044 02201a85 dde4134c f8491241 f5c33821'
+   '6a0c2771 1b519ef3 122429d7 e0016b21 4e960220 711ae401 457d3aa9 e6fa684f'
+   'e5238cee 54ff7b38 c754a722 2ab32b1d 5a6710d7 01483045 022100ca fad36ad8'
+   '79cd5c7e 3b3a5864 03e6f30d 8bfb8b3c 60c42c3b c3ee1ec1 41639f02 2074e0b8'
+   '2df54cf3 dc966351 4ccbc743 52cda16c f6e9181f 5c9bcbae 4b589d88 36014830'
+   '45022100 bbb047a8 6c75b089 df24b650 1e466db7 7a83cdcd e6a6c29a 7bf7349d'
+   '6a986ffd 02200806 86406105 0c05e797 e5f46b1a 3e0a28bb 65b86617 af2ea010'
+   'b58a1e46 63a20147 30440220 5da1823d e450841b 96f44d15 48ec6165 49dbecd1'
+   'defad45e ea767b88 6665291a 02201e4a 4b5139e3 34200c3f 171ab22c 4fac6e16'
+   '9011c17e cc473750 4c1d3bdb b09f0147 30440220 32a970ec 0d3fd10a e6e47aa3'
+   '388817e6 9c4a40e9 ef37d71c 935106d1 bf5a5f96 02201124 237ce7c9 eef01f1c'
+   'cb6f4c3f 8069b826 a97e999a 5efa150d 2149fe67 fc9f0148 30450221 00d799e6'
+   '2819bba2 691461a8 a5e0bd55 48df3f97 8091760b 437aec57 863ca5b5 9402202c'
+   '791d8949 93ee88f1 c3de2363 fa1c6200 005f2e41 85ed1a49 9a7cd174 1aeb8d01'
+   '48304502 21008f59 02bd3487 1bc920ad e293e08f b57bbdbb bd2127d5 14551866'
+   'b14befef ff620220 35eafa7e 653bffaf e681af7d b1cb86c0 4096f17f ac2edbce'
+   'e654e4b5 7b86e86d 01ffffff ff827c86 94a5c3c3 698fee0c 30d8b1e8 7880f47e'
+   '4a99e1c5 7a060ffb b09ad4ac ad010000 00fdd303 00483045 022100f9 c1bea188'
+   '7991f50e 78c7c67d 4ca5d6db 69254b94 089ec3dc 848e682d 1eb79502 200e564d'
+   'bf74024d e2a89439 726d8efe 522dfc01 587b749c 34a8c22e 98943e81 29014830'
+   '45022100 ebdd6a9a 45ac4be7 0f982a53 c79b9903 68635f0a 9dcb29ec 46845686'
+   '712e9459 02203c77 968795bb 8c360a5c 616c9695 26a56846 17c44635 b85c458a'
+   '76155ca7 528b0148 30450221 00eec14d 4d6cb1da 92e43c93 a3a088a1 7799696f'
+   'f7aa64b7 6e06207b b400b0db a0022068 df74f129 42681229 f5a99c34 f6cbf7bc'
+   'df10e8ff 3da0432a ead01fc6 523cda01 48304502 2100e7f4 c88fd69b 7a00255b'
+   '3e6d48bf 2d6249c0 8669fbc5 cfdd395e 76b0e5c1 cfb10220 27665a72 a75d1762'
+   '7c14589e d6d9f3c7 9b3c1f62 e5ab35cc 18e957b4 fcaa0e43 01483045 022100c6'
+   '73b28b2c 6f5be2dd c04395e3 aaf3d7ba f148e679 8629603c 5dfd7e01 f5b27d02'
+   '203db74e ebd0ebd2 dfb30912 316d0f0c 39e54431 0c2948b8 f1534f9b d31ae4fb'
+   'de014830 45022100 e484209f e5298481 3d6b3c74 ace64bc7 caaedc5e eccc4fb3'
+   '6026c6af 0851b50e 02207a26 d23168b7 31b8d3e8 ac351e17 370eeb33 69c1f684'
+   '6200fee0 5786fdb1 bfe50147 30440220 3636c311 c249013f f55d1987 3c70d003'
+   'eae19ae1 03bc60b6 44173865 2d882c9a 022069a9 c2a30200 d9c62116 ba6e5cb0'
+   '3a6772fc 01687225 dd87127a 87776de6 a2ef014d d1015741 0434fba0 192f2030'
+   '5e3d4c62 0efea962 6d0f9a90 9d2890dc 4101e945 89ea4e68 22b67efc eed5fbab'
+   'c1d994db 8abf9a86 fcc44606 ab76b6a5 d38a9930 0072208d 7e410446 cb30b98f'
+   '7d162fa6 5f8b34f7 6ebb0e46 4903b64d 93eac48a 021db98d 80a1416e 848af76e'
+   '0a2c79dd 2fda9616 2314db83 7863d8d8 1a956949 26cd8e58 2ccb8d41 0449ff69'
+   '21e263ec 2880c9fa 1620f42a 0c2cebf3 bfb78c51 bb462c50 852f0cd3 ab31470a'
+   'f0dc234a c9167da2 d962a25e fde71bb2 0ef53d6d 446c053f b8458399 d1410450'
+   'abee229f 06ca4ed9 cbff65e5 4cfdb562 6c4a707e aa5d40cb a181e56d 59ef36d3'
+   '638c7704 8cb0fbcd 3bf0cf78 39e668df 5401d89a f9075710 9da190c8 f67eec41'
+   '0452f588 273dda31 649aab7b f825c2e2 706962c2 0c17e738 7b3698de 06f7af09'
+   'c8d18a76 1162d510 915a8097 e29dcd5f f3d4de9d cac226da f2e3c61b 81b064be'
+   '82410461 9c4390ca 53825a15 a07ebf6d e2979bc9 c42c4de0 f57f3e83 cd7b5007'
+   '6a413799 6403ec86 2fd5c1d4 13b63683 36c6a2b6 c88bcb61 beb1009e 3a691572'
+   'c2799841 04bbee46 8827e700 4a9c535d c699e33e cf01a521 471738fa 2a25c432'
+   '58d13be5 f0654189 ca5c1a56 880791a6 1039fb65 de1d9056 836a0a7f 139369b2'
+   '46a42b94 ed57aeff ffffff02 007e5603 00000000 17a914ee 5ae7effc dc259821'
+   '70b8a822 978338c1 c3b3c987 e0ba3c00 00000000 17a914ee 5ae7effc dc259821'
+   '70b8a822 978338c1 c3b3c987 00000000 ').replace(' ',''))
+
+
    # Here's a full block, which we should be able to parse and process
 hexBlock = ( \
     '01000000eb10c9a996a2340a4d74eaab41421ed8664aa49d18538bab59010000000000005a2f06efa9f2bd804f17877537f2080030cadbfa1eb50e02338117cc'
@@ -110,42 +210,102 @@ tx2Fake = PyTx().unserialize(hex_to_binary( (
    '00000019 76a914c5 22664fb0 e55cdc5c 0cea73b4 aad97ec8 34323288 ac000000'
    '00'                                                                     ).replace(' ','')))
 
+expectedMultiTxInput1 = hex_to_binary( (
+   '47304402 20796307 d9787b89 2c8b1ada 8511d99e 855ea309 9e1a76ce 0f7aa783' 
+   'ed352a6e 59022003 c72fa282 041ae1d7 3c927ab2 2f233581 d8d2a86e e32c77e3' 
+   '9939563b 64f72f01 4104630a af9d5c8d 757cb575 9428d407 5911a2b2 ff13dd72' 
+   '08ad7ea1 d1682738 a7138be9 3ee526c9 d774e0de a03fa2a5 fbb68043 259ddfb9'
+   '42c0763f 9b636b40 c43f').replace(' ',''))
+
+expectedMultiTxInput2 = hex_to_binary( (
+   '48304502 2100cb42 3b63197e f3cdbfae d69f61aa c59755f0 025bd6d7 a9d3c780'
+   '24d897eb cf940220 0c52eb7f b5c37fbd c7813564 6fac5415 1c9c77cc 35ebf1bc'
+   '6b6755ab 0fa9dcdd 01410464 9694df12 dcd7fdb5 a8c54c37 6b904bd7 337891d8'
+   '65b8d306 beb5d2e5 d8fdf2a5 37d6f9df 65ff44eb 0b6042eb fdf9e338 bff7f4af'
+   'acb359dd 6c71aea7 b9b92d ').replace(' ',''))
+
+txInput0 = hex_to_binary( (
+   '47304402 204f2fa4 58d439f9 57308bca 264689aa 175e3b7c 5f78a901 cb450ebd'
+   '20936b2c 50022071 5c77c5a4 7fed71aa 3639f8f5 59d9b09c a1f91523 cbc8536e'
+   'c9904fb7 7effa701 41044202 550a5a6d 3bb81549 c4a7803b 1ad59cdb ba477043'
+   '9a492362 4a8acfc7 d34900be b54a2418 8f7f0a40 689d905d 4847cc7d 6c8d808a'
+   '457d833c 2d44ef83 f76b').replace(' ',''))
+
+multiSigTx2of3Input0 = hex_to_binary( (
+   '00483045 02210090 9e021f8d 94820477 3a1ee953 459f96b4 22477e0f 11bab54a'
+   '4bb8d1fa dea80d02 202d1b79 dcbc8e3a 2b363cc9 71aef7ca cb423bef 200eebcb'
+   'b680fce6 c475f917 58014730 44022032 6f53d77c 049b7627 fd5225cf 0542f16e'
+   '5d849971 4b682aa1 1e9ee389 605f3102 2007b9bf ac66886e fdcaeef1 75812164'
+   '6c0d97fb f7f56395 38e006ae e09e3c47 1101').replace(' ',''))
+
+multiSigTx2of3Input1 = hex_to_binary( (
+   '00473044 022055c4 9184845c 1d92c81a d8f0085b 808e00fc 586c8c83 32617721'
+   '3a5778a3 5d230220 0d2bd241 fd8f8c77 db0b1251 7d4edbea ed47dd21 d7ffd467'
+   '294992fe 33fb1c42 01473044 02201ff2 0ace4183 1bb7902f 0ca5ecd6 cb3f681f'
+   '2347d89c d3ba2e5c ce1e2e9c c4f30220 4dfab132 67729f02 90a1b22e 39ce951b'
+   '91c3102b 8299dc6b b74aed7d e583045a 014cc952 4104390a d036732b 60991854'
+   'dfd75f2a 69f9c66f 0505d031 dd7883be 1d411dea 29a97c1c b3c17234 4deea110'
+   '50e21d4d d5647241 def6cdfb 30db27aa d5f63817 b7ac4104 66f9270b 584c3e04'
+   '18277b8b d6046b60 9d77eac3 8b6be438 4e589f33 35197688 4b8944b0 3d0f6f6b'
+   'cd08aba6 124cae1a f134514e 0e958064 ae9eaef8 31055d64 4104cfaa 154390a4'
+   'fa244fd0 64ec8e61 ac0c3e9c cf94a4a7 f4d89ac9 46b70050 8082f5a6 3b2f25fd'
+   'fc3621c9 4bead1c3 782793c5 3f0734cc 1808ed3b 795ce94a 404c53ae').replace(' ',''))
+
+multiSigTx7of7Input0 = hex_to_binary( (
+   '00473044 02201a85 dde4134c f8491241 f5c33821 6a0c2771 1b519ef3 122429d7'
+   'e0016b21 4e960220 711ae401 457d3aa9 e6fa684f e5238cee 54ff7b38 c754a722'
+   '2ab32b1d 5a6710d7 01483045 022100ca fad36ad8 79cd5c7e 3b3a5864 03e6f30d'
+   '8bfb8b3c 60c42c3b c3ee1ec1 41639f02 2074e0b8 2df54cf3 dc966351 4ccbc743'
+   '52cda16c f6e9181f 5c9bcbae 4b589d88 36014830 45022100 bbb047a8 6c75b089'
+   'df24b650 1e466db7 7a83cdcd e6a6c29a 7bf7349d 6a986ffd 02200806 86406105'
+   '0c05e797 e5f46b1a 3e0a28bb 65b86617 af2ea010 b58a1e46 63a20147 30440220'
+   '5da1823d e450841b 96f44d15 48ec6165 49dbecd1 defad45e ea767b88 6665291a'
+   '02201e4a 4b5139e3 34200c3f 171ab22c 4fac6e16 9011c17e cc473750 4c1d3bdb'
+   'b09f0147 30440220 32a970ec 0d3fd10a e6e47aa3 388817e6 9c4a40e9 ef37d71c'
+   '935106d1 bf5a5f96 02201124 237ce7c9 eef01f1c cb6f4c3f 8069b826 a97e999a'
+   '5efa150d 2149fe67 fc9f0148 30450221 00d799e6 2819bba2 691461a8 a5e0bd55'
+   '48df3f97 8091760b 437aec57 863ca5b5 9402202c 791d8949 93ee88f1 c3de2363'
+   'fa1c6200 005f2e41 85ed1a49 9a7cd174 1aeb8d01 48304502 21008f59 02bd3487'
+   '1bc920ad e293e08f b57bbdbb bd2127d5 14551866 b14befef ff620220 35eafa7e'
+   '653bffaf e681af7d b1cb86c0 4096f17f ac2edbce e654e4b5 7b86e86d 01').replace(' ',''))
+
+multiSigTx7of7Input1 = hex_to_binary( (
+   '00483045 022100f9 c1bea188 7991f50e 78c7c67d 4ca5d6db 69254b94 089ec3dc'
+   '848e682d 1eb79502 200e564d bf74024d e2a89439 726d8efe 522dfc01 587b749c'
+   '34a8c22e 98943e81 29014830 45022100 ebdd6a9a 45ac4be7 0f982a53 c79b9903'
+   '68635f0a 9dcb29ec 46845686 712e9459 02203c77 968795bb 8c360a5c 616c9695'
+   '26a56846 17c44635 b85c458a 76155ca7 528b0148 30450221 00eec14d 4d6cb1da'
+   '92e43c93 a3a088a1 7799696f f7aa64b7 6e06207b b400b0db a0022068 df74f129'
+   '42681229 f5a99c34 f6cbf7bc df10e8ff 3da0432a ead01fc6 523cda01 48304502'
+   '2100e7f4 c88fd69b 7a00255b 3e6d48bf 2d6249c0 8669fbc5 cfdd395e 76b0e5c1'
+   'cfb10220 27665a72 a75d1762 7c14589e d6d9f3c7 9b3c1f62 e5ab35cc 18e957b4'
+   'fcaa0e43 01483045 022100c6 73b28b2c 6f5be2dd c04395e3 aaf3d7ba f148e679'
+   '8629603c 5dfd7e01 f5b27d02 203db74e ebd0ebd2 dfb30912 316d0f0c 39e54431'
+   '0c2948b8 f1534f9b d31ae4fb de014830 45022100 e484209f e5298481 3d6b3c74'
+   'ace64bc7 caaedc5e eccc4fb3 6026c6af 0851b50e 02207a26 d23168b7 31b8d3e8'
+   'ac351e17 370eeb33 69c1f684 6200fee0 5786fdb1 bfe50147 30440220 3636c311'
+   'c249013f f55d1987 3c70d003 eae19ae1 03bc60b6 44173865 2d882c9a 022069a9'
+   'c2a30200 d9c62116 ba6e5cb0 3a6772fc 01687225 dd87127a 87776de6 a2ef014d'
+   'd1015741 0434fba0 192f2030 5e3d4c62 0efea962 6d0f9a90 9d2890dc 4101e945'
+   '89ea4e68 22b67efc eed5fbab c1d994db 8abf9a86 fcc44606 ab76b6a5 d38a9930'
+   '0072208d 7e410446 cb30b98f 7d162fa6 5f8b34f7 6ebb0e46 4903b64d 93eac48a'
+   '021db98d 80a1416e 848af76e 0a2c79dd 2fda9616 2314db83 7863d8d8 1a956949'
+   '26cd8e58 2ccb8d41 0449ff69 21e263ec 2880c9fa 1620f42a 0c2cebf3 bfb78c51'
+   'bb462c50 852f0cd3 ab31470a f0dc234a c9167da2 d962a25e fde71bb2 0ef53d6d'
+   '446c053f b8458399 d1410450 abee229f 06ca4ed9 cbff65e5 4cfdb562 6c4a707e'
+   'aa5d40cb a181e56d 59ef36d3 638c7704 8cb0fbcd 3bf0cf78 39e668df 5401d89a'
+   'f9075710 9da190c8 f67eec41 0452f588 273dda31 649aab7b f825c2e2 706962c2'
+   '0c17e738 7b3698de 06f7af09 c8d18a76 1162d510 915a8097 e29dcd5f f3d4de9d'
+   'cac226da f2e3c61b 81b064be 82410461 9c4390ca 53825a15 a07ebf6d e2979bc9'
+   'c42c4de0 f57f3e83 cd7b5007 6a413799 6403ec86 2fd5c1d4 13b63683 36c6a2b6'
+   'c88bcb61 beb1009e 3a691572 c2799841 04bbee46 8827e700 4a9c535d c699e33e'
+   'cf01a521 471738fa 2a25c432 58d13be5 f0654189 ca5c1a56 880791a6 1039fb65'
+   'de1d9056 836a0a7f 139369b2 46a42b94 ed57ae ').replace(' ',''))
+
 ALL_ZERO_OUTPOINT = hex_to_binary('00' * 36)
 
 class PyTXTest(TiabTest):
-   
-   def testMinimizeDERSignaturePadding(self):
-      multiTx1  = PyTx().unserialize(multiTx1raw)
-      paddingMinimizedMulti1, newTxMulti1 = multiTx1.minimizeDERSignaturePadding()
-      self.assertEqual(multiTx1.inputs[0].binScript, newTxMulti1.inputs[0].binScript)
-      self.assertEqual(multiTx1.inputs[1].binScript, newTxMulti1.inputs[1].binScript)
-      self.assertEqual(multiTx1.inputs[2].binScript, newTxMulti1.inputs[2].binScript)
-      self.assertEqual(multiTx1.inputs[3].binScript, newTxMulti1.inputs[3].binScript)
-      self.assertFalse(paddingMinimizedMulti1)
-      
-      txString = multiTx1.toString()
-      self.assertTrue(len(txString)> 0)
-      
-      multiTx2  = PyTx().unserialize(multiTx2raw)
-      paddingMinimizedMulti2, newTxMulti2 = multiTx2.minimizeDERSignaturePadding()
-      self.assertEqual(multiTx2.inputs[0].binScript, newTxMulti2.inputs[0].binScript)
-      self.assertEqual(multiTx2.inputs[1].binScript, newTxMulti2.inputs[1].binScript)
-      self.assertEqual(multiTx2.inputs[2].binScript, newTxMulti2.inputs[2].binScript)
-      # Added 1 extra byte of padding
-      self.assertEqual(len(multiTx2.inputs[3].binScript)-1, len(newTxMulti2.inputs[3].binScript))
-      self.assertTrue(paddingMinimizedMulti2)
-      
-      tx1  = PyTx().unserialize(tx1raw)
-      paddingMinimized1, newTx1 = tx1.minimizeDERSignaturePadding()
-      self.assertEqual(tx1.inputs[0].binScript, newTx1.inputs[0].binScript)
-      self.assertFalse(paddingMinimized1)
-      tx2  = PyTx().unserialize(tx2raw)
-      paddingMinimized2, newTx2 = tx2.minimizeDERSignaturePadding()
-      # Old tx had 2 extra bytes of padding one each on the r and s
-      self.assertEqual(len(tx2.inputs[0].binScript)-2, len(newTx2.inputs[0].binScript))
-      self.assertTrue(paddingMinimized2)
-      
-      
+ 
    def testSerializeUnserialize(self):
       tx1 = PyTx().unserialize(tx1raw)
       tx2 = PyTx().unserialize(BinaryUnpacker(tx2raw))

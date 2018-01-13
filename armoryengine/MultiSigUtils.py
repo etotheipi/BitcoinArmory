@@ -65,6 +65,11 @@ PROMIDSIZE = 4
 LBPREFIX, LBSUFFIX = 'Lockbox[Bare:', ']'
 LBP2SHPREFIX = 'Lockbox['
 
+#multisig address types
+LBTYPE_RAW          = "lba_raw"
+LBTYPE_P2SH         = "lba_p2sh"
+LBTYPE_NESTED_P2WSH = "lba_nested_p2wsh"
+
 #############################################################################
 def getRecipStr(decoratedTxOut):
    if decoratedTxOut.scriptType in CPP_TXOUT_HAS_ADDRSTR:
@@ -234,7 +239,184 @@ def isMofNNonStandardToSpend(m, n):
           (n > 4 and m > 2) or \
           (n > 5 and m > 1) or \
            n > 6
-          
+           
+################################################################################
+class LockboxAddresses(object):
+   """
+   feed this class a raw multisig script, get all script hash + address 
+   variations
+   """
+   
+   #############################################################################
+   def __init__(self, script=None, script_compressed=None):
+      self.setupAddressesFromScript(script, script_compressed)
+      
+   #############################################################################
+   def setupAddressesFromScript(self, script, script_compressed):
+      self.script = script
+      
+      if script == None:
+         return
+      
+      self.scrAddr      = script_to_scrAddr(script)
+      self.p2shScript   = script_to_p2sh_script(script)
+      self.p2shScrAddr  = script_to_scrAddr(self.p2shScript)
+      self.p2wsh_base_script = script_compressed
+      
+      self.scriptHash256 = sha256(self.p2wsh_base_script)
+      
+      bp = BinaryPacker()
+      bp.put(UINT8, 0)
+      bp.put(VAR_STR, self.scriptHash256)
+      
+      self.p2wsh_script = bp.getBinaryString()
+      self.p2wsh_nested_script = script_to_p2sh_script(self.p2wsh_script)
+      self.nested_p2wsh_scrAddr = \
+         script_to_scrAddr(self.p2wsh_nested_script)
+         
+      self.defaultScriptType = LBTYPE_P2SH
+         
+   #############################################################################
+   def getAddr(self, _type=None):
+      if _type == None:
+         _type = self.defaultScriptType
+      
+      if _type == LBTYPE_RAW:
+         return self.scrAddr
+      
+      elif _type == LBTYPE_P2SH:
+         return self.p2shScrAddr
+      
+      elif _type == LBTYPE_NESTED_P2WSH:
+         return self.nested_p2wsh_scrAddr
+      
+      else:
+         raise Exception("illegal address type")
+      
+   #############################################################################
+   def hasScrAddr(self, scrAddr):
+      if scrAddr == self.scrAddr or \
+         scrAddr == self.p2shScrAddr or \
+         scrAddr == self.nested_p2wsh_scrAddr:
+         return True
+      return False
+   
+   #############################################################################
+   def isAddrSegWit(self, scrAddr):
+      return scrAddr == self.nested_p2wsh_scrAddr
+    
+   #############################################################################  
+   def getScript(self, _type=None):
+      if _type == None:
+         _type = self.defaultScriptType
+      
+      if _type == LBTYPE_RAW:
+         return self.script
+      
+      elif _type == LBTYPE_P2SH:
+         return self.p2shScript
+      
+      elif _type == LBTYPE_NESTED_P2WSH:
+         return self.p2wsh_nested_script
+      
+      else:
+         raise Exception("illegal script type")
+      
+   #############################################################################
+   def getScrAddrType(self, scrAddr):
+      if scrAddr == self.scrAddr:
+         return LBTYPE_RAW
+      
+      elif scrAddr == self.p2shScrAddr:
+         return LBTYPE_P2SH
+      
+      elif scrAddr == self.nested_p2wsh_scrAddr:
+         return LBTYPE_NESTED_P2WSH
+      
+      return None
+      
+   #############################################################################
+   def getScrAddrList(self):
+      scrAddrList = []
+      scrAddrList.append(script_to_scrAddr(self.script))
+      scrAddrList.append(script_to_scrAddr(self.p2shScript))      
+      scrAddrList.append(script_to_scrAddr(\
+         script_to_p2sh_script(self.p2wsh_script)))
+      
+      return scrAddrList 
+   
+   #############################################################################
+   def getScriptDict(self):
+      scriptDict = {}
+      p2sh_hex = binary_to_hex(self.p2shScrAddr)
+      p2sh_hex_noprefix = p2sh_hex[2:]
+      
+      scriptDict[p2sh_hex] = self.script
+      scriptDict[p2sh_hex_noprefix] = self.script
+      
+      p2wsh_hex = binary_to_hex(self.nested_p2wsh_scrAddr)
+      p2wsh_hex_noprefix = p2wsh_hex[2:]
+      
+      scriptDict[p2wsh_hex] = self.p2wsh_script
+      scriptDict[p2wsh_hex_noprefix] = self.p2wsh_script
+         
+      scriptDict[self.p2wsh_script] = self.p2wsh_base_script
+      scriptDict[binary_to_hex(self.scriptHash256)] = self.p2wsh_base_script
+      
+      return scriptDict
+   
+   #############################################################################
+   def getChangeScript(self, utxoList=None): 
+      if utxoList == None:
+         return self.getScript(self.defaultScriptType)
+      
+      hasRawScript = False
+      hasP2SHScript = False
+      hasNestedSWScript = False
+      
+      for utxo in utxoList:
+         scrAddr = utxo.getRecipientScrAddr()
+         scrType = self.getScrAddrType(scrAddr)
+         
+         if scrType == None:
+            continue
+         
+         if scrType == LBTYPE_RAW:
+            hasRawScript = True
+            
+         elif scrType == LBTYPE_P2SH:
+            hasP2SHScript = True
+            
+         elif scrType == LBTYPE_NESTED_P2WSH:
+            hasNestedSWScript = True
+            
+      returnType = None
+      
+      if hasRawScript and not hasP2SHScript and not hasNestedSWScript:
+         returnType = LBTYPE_RAW
+      elif hasP2SHScript and not hasRawScript and not hasNestedSWScript:
+         returnType = LBTYPE_P2SH
+      elif hasNestedSWScript and not hasP2SHScript and not hasRawScript:
+         returnType = LBTYPE_NESTED_P2WSH
+         
+      if returnType == None:
+         returnType = self.defaultScriptType
+           
+      return self.getScript(returnType)
+   
+   #############################################################################
+   def setScriptType(self, _type):
+      if _type != LBTYPE_RAW and \
+         _type != LBTYPE_P2SH and \
+         _type != LBTYPE_NESTED_P2WSH:
+         return
+      
+      self.defaultScriptType = _type
+      
+   #############################################################################
+   def getScriptType(self):
+      return self.defaultScriptType     
+                
 ################################################################################
 ################################################################################
 class MultiSigLockbox(AsciiSerializable):
@@ -263,6 +445,8 @@ class MultiSigLockbox(AsciiSerializable):
       self.uniqueIDB58 = None
       self.asciiID     = None
       
+      self.addrStruct = LockboxAddresses()
+      
       #UI member for rescans
       self.isEnabled   = True
 
@@ -289,16 +473,23 @@ class MultiSigLockbox(AsciiSerializable):
       self.dPubKeys  = dPubKeys[:]
       binPubKeys     = [p.binPubKey for p in dPubKeys]
       self.a160List  = [hash160(p)  for p in binPubKeys]
+      
+      self.compressedPubKeys = []
+      for pubkey in dPubKeys:
+         pubkey_sbd = SecureBinaryData(pubkey.binPubKey)
+         self.compressedPubKeys.append(CryptoECDSA().CompressPoint(pubkey_sbd).toBinStr())
 
       if createDate is not None:
          self.createDate = createDate
 
       script = pubkeylist_to_multisig_script(binPubKeys, self.M, True)
+      script_compressed = \
+         pubkeylist_to_multisig_script(self.compressedPubKeys, self.M, True)
 
       # Computed some derived members
       self.binScript    = script
-      self.scrAddr      = script_to_scrAddr(script)
-      self.p2shScrAddr  = script_to_scrAddr(script_to_p2sh_script(script))
+      self.binScriptCompressed = script_compressed
+      self.addrStruct.setupAddressesFromScript(script, script_compressed)
       self.uniqueIDB58  = calcLockboxID(script)
       self.opStrList    = convertScriptToOpStrings(script)
       self.asciiID = self.uniqueIDB58 # need a common member name in all classes
@@ -447,8 +638,8 @@ class MultiSigLockbox(AsciiSerializable):
                              for a in outjson['a160list']]
 
       outjson['txoutscript'] = binary_to_hex(self.binScript)
-      outjson['p2shscript']  = binary_to_hex(scrAddr_to_script(self.p2shScrAddr))
-      outjson['p2shaddr']    = scrAddr_to_addrStr(self.p2shScrAddr)
+      outjson['p2shscript']  = binary_to_hex(self.addrStruct.getScript(LBTYPE_P2SH))
+      outjson['p2shaddr']    = scrAddr_to_addrStr(self.addrStruct.getAddr(LBTYPE_P2SH))
       outjson['createdate']  = self.createDate
 
       return outjson
@@ -493,7 +684,7 @@ class MultiSigLockbox(AsciiSerializable):
       print '   Unique ID:  ', self.uniqueIDB58
       print '   Created:    ', unixTimeToFormatStr(self.createDate)
       print '   LBox Name:  ', self.shortName
-      print '   P2SHAddr:   ', scrAddr_to_addrStr(self.p2shScrAddr)
+      print '   P2SHAddr:   ', scrAddr_to_addrStr(self.addrStruct.getAddr(LBTYPE_P2SH))
       print '   Box Desc:   '
       print '     ', self.longDescr[:70]
       print '   Key List:   '
@@ -610,7 +801,38 @@ class MultiSigLockbox(AsciiSerializable):
 
       return UnsignedTransaction().createFromUnsignedTxIO(ustxiAccum, dtxoAccum)
       
+   #############################################################################
+   def getAddr(self, _type=None):
+      return self.addrStruct.getAddr(_type)
+   
+   #############################################################################
+   def hasScrAddr(self, scrAddr):
+      return self.addrStruct.hasScrAddr(scrAddr)
+      
+   #############################################################################
+   def getScript(self, _type=None):
+      return self.addrStruct.getScript(_type)
+      
+   #############################################################################
+   def getScrAddrList(self):
+      return self.addrStruct.getScrAddrList()
+   
+   #############################################################################
+   def getScriptDict(self):
+      return self.addrStruct.getScriptDict()   
+   
+   #############################################################################
+   def isAddrSegWit(self, scrAddr):
+      return self.addrStruct.isAddrSegWit(scrAddr)
+      
+   #############################################################################
+   def setScriptType(self, _type):
+      self.addrStruct.setScriptType(_type)
 
+   #############################################################################
+   def getScriptType(self):
+      return self.addrStruct.getScriptType()
+   
 ################################################################################
 ################################################################################
 class DecoratedPublicKey(AsciiSerializable):
@@ -819,7 +1041,7 @@ class MultiSigPromissoryNote(AsciiSerializable):
    EMAILSUBJ = 'Armory Promissory Note for Simulfunding - %s'
    EMAILBODY = """
                The chunk of text below describes how this wallet will 
-               contribute to a simulfunding transaction.  In the lockbox
+               contribute to a Simulfunding transaction.  In the lockbox
                manager, go to "Merge Promissory Notes" and then click on 
                "Import Promissory Note."  Copy and paste the block of text 
                into the import box, including the first and last lines.  

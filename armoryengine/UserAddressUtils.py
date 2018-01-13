@@ -63,9 +63,7 @@ def getScriptForUserString(userStr, wltMap, lboxList):
          for iterLbox in lboxList:
             # Search for a lockbox with the same ID
             if iterLbox.uniqueIDB58 == parsedLboxID:
-               outScript = iterLbox.binScript
-               if isP2SHLockbox(userStr):
-                  outScript = script_to_p2sh_script(iterLbox.binScript) 
+               outScript = iterLbox.getScript()
                lboxID = parsedLboxID
                hasAddrInIt = False
                break
@@ -83,7 +81,7 @@ def getScriptForUserString(userStr, wltMap, lboxList):
             scrAddr = script_to_scrAddr(outScript)
             wltID = getWltIDForScrAddr(scrAddr, wltMap)
       else:
-         scrAddr = addrStr_to_scrAddr(userStr)
+         scrAddr = addrStr_to_scrAddr(userStr, ADDRBYTE, P2SHBYTE)
          a160 = scrAddr_to_hash160(scrAddr)[1]
          outScript = scrAddr_to_script(scrAddr)
          hasAddrInIt = True
@@ -93,7 +91,7 @@ def getScriptForUserString(userStr, wltMap, lboxList):
 
          # Check if it's a known P2SH
          for lbox in lboxList:
-            if lbox.p2shScrAddr == scrAddr:
+            if lbox.getAddr() == scrAddr:
                lboxID = lbox.uniqueIDB58
                break
 
@@ -167,22 +165,26 @@ def getDisplayStringForScript(binScript, wltMap, lboxList, maxChars=256,
    scriptType = getTxOutScriptType(binScript) 
    scrAddr = script_to_scrAddr(binScript)
 
-   wlt = None
-   for iterID,iterWlt in wltMap.iteritems():
-      if iterWlt.hasScrAddr(scrAddr):
-         wlt = iterWlt
-         break
-
-   lbox = None
-   if wlt is None:
-      searchScrAddr = scrAddr
-      if scriptType==CPP_TXOUT_MULTISIG:
-         searchScrAddr = script_to_scrAddr(script_to_p2sh_script(binScript))
-         
-      for iterLbox in lboxList:
-         if searchScrAddr == iterLbox.p2shScrAddr:
-            lbox = iterLbox
+   if scriptType != CPP_TXOUT_OPRETURN:
+      wlt = None
+      for iterID,iterWlt in wltMap.iteritems():
+         if iterWlt.hasScrAddr(scrAddr):
+            wlt = iterWlt
             break
+   
+      lbox = None
+      if wlt is None:
+         searchScrAddr = scrAddr
+         if scriptType==CPP_TXOUT_MULTISIG:
+            searchScrAddr = script_to_scrAddr(script_to_p2sh_script(binScript))
+            
+         for iterLbox in lboxList:
+            if iterLbox.hasScrAddr(searchScrAddr):
+               lbox = iterLbox
+               break
+   else:
+      wlt = None
+      lbox = None
 
    # Return these with the display string
    wltID  = wlt.uniqueIDB58  if wlt  else None
@@ -201,7 +203,7 @@ def getDisplayStringForScript(binScript, wltMap, lboxList, maxChars=256,
    elif lbox is not None:
       strType  = 'Lockbox %d-of-%d:' % (lbox.M, lbox.N)
       strLabel = lbox.shortName
-      addrStr = scrAddr_to_addrStr(lbox.p2shScrAddr)
+      addrStr = scrAddr_to_addrStr(scrAddr)
       strLast = lbox.uniqueIDB58 if prefIDOverAddr else addrStr
    else:
       strType = ''
@@ -281,6 +283,14 @@ def getDisplayStringForScript(binScript, wltMap, lboxList, maxChars=256,
          dispStr += ' [%s]' % addrStr
       elif len(dispStr) + lastTrunc + 6 <= maxChars:
          dispStr += ' [%s...]' % addrStr[:lastTrunc]
+   elif len(binScript) == 0:
+      dispStr = 'Unknown Input' 
+   elif scriptType == CPP_TXOUT_OPRETURN:
+      msgPos = 2
+      if len(binScript) > 77:
+         msgPos = 3
+      msgStr = binScript[msgPos:]
+      dispStr = 'Msg (%d bytes): %s' % (len(binScript) - msgPos, msgStr)
    else:
       addrStr = script_to_addrStr(script_to_p2sh_script(binScript))
       dispStr = 'Non-Standard: %s' % addrStr

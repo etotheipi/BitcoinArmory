@@ -1,0 +1,18 @@
+diff -urN qt-everywhere-opensource-src-4.8.7/gui/painting/qpaintengine_mac.cpp qt-everywhere-opensource-src-4.8.7.new/gui/painting/qpaintengine_mac.cpp
+--- a/src/gui/painting/qpaintengine_mac.cpp	2015-05-07 09:14:43.000000000 -0500
++++ b/src/gui/painting/qpaintengine_mac.cpp	2015-10-31 00:06:21.000000000 -0500
+@@ -340,13 +340,7 @@
+     }
+ 
+     // Get the color space from the display profile.
+-    CGColorSpaceRef colorSpace = 0;
+-    CMProfileRef displayProfile = 0;
+-    CMError err = CMGetProfileByAVID((CMDisplayIDType)displayID, &displayProfile);
+-    if (err == noErr) {
+-        colorSpace = CGColorSpaceCreateWithPlatformColorSpace(displayProfile);
+-        CMCloseProfile(displayProfile);
+-    }
++    CGColorSpaceRef colorSpace = CGDisplayCopyColorSpace(displayID);
+ 
+     // Fallback: use generic DeviceRGB
+     if (colorSpace == 0)

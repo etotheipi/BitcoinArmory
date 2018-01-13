@@ -1,0 +1,367 @@
+v0.96.4
+== Added ==
+   - Updated fee estimate query from node to improve estimateSmartFee call introduced in Bitcoin Core 0.15.
+   - The block confirmation target slider now spans from 2 to 100 blocks (previously 2 to 6).
+   - You can now pick between 2 fee estimation profiles: conservative and economical. Refer to the estimateRawFee section of
+     the Core 0.15 changelog for more information. A tooltip has been added to the GUI with a quick description.
+   - If your node does not support the estimateSmartFee method, the code will fallback to the previous estimateFee method.
+   - SegWit lockbox creation.
+   - BCH lockbox spending.
+   - Coin selection will now limit itself to change outputs when spending to external addresses you've spent to in the past.
+   - You will receive a warning about privacy loss if coin selection fails to satisfy the previous condition.
+   - Added the following CLI args:
+      - Client side:
+         --force-enable-segwit: when paired with --offline, allows the creation of SegWit types recipient addresses.
+         --force-fcgi: forces the client to use FCGI socketing when connecting to a remote DB IP.
+      - Server side:
+         --listen-all: FCGI server will listen on :80 instead of 127.0.0.1:80
+   
+== Fixed ==
+   - Fixed creating offline transactions that mix P2SH and P2PKH UTXOs.
+   - Fixed importing wallets progress report and scan resolution in the GUI.
+   - Fixed SegWit sighash data serialization with scripts of length > 256 bytes.
+   - Fixed multiple RBF transaction bumping issues.
+   - Fixed ledger based fee bumping.
+   - Fixed RBF control dialog spawning.
+   - Fixed node sync progress bar.
+   - Fixed node status notification flicker during node sync.
+   - Fixed fragment ID generation mismatching the fragment on backup when restoring non deterministic fragments. This fix only
+     applies to fragments generated with versions 0.96.4 and later.
+   - When in offline mode, the default signer option will now pick the proper signer for SegWit transactions.
+   - Fixed --ram-usage control. --ram-usage=1 will no longer hang the DB during bootstrap scans.
+   - As a result, --ram-usage defaults to 50 no instead of 4.
+   - Fixed fee calculation when checking "MAX" with SegWit UTXOs
+   - The Coin control dialog will no longer spawn invisible
+   - When creating a fragmented backup, fragments will no longer be cycled unecessarily
+
+== Minor ==
+   - You can now resize the Transaction Info dialog.
+
+v0.96.3 released September 21st 2017
+== Vulnerability Fix ==
+   - Fragmented backups were using a faulty implementation of Shamir's Secret Sharing (SSS).
+     One of the requirement of SSS security parameters is that the coefficients of the curve are chozen randomly. The implementation
+     up to this point was deriving these coefficients deterministically.
+
+   - While it is hard to determine how far the deterministic coefficient generation erodes the security of SSS, and how exploitable
+     the vulnerability is, the recommendation for users of fragmented backups is to treat the wallets backed up in this fashion as 
+     compromised and to migrate all funds to a new wallet. 
+
+   - The fragmented backup code now properly randomizes the SSS coefficients. Fragmented backups created with version 0.96.3 and later
+     are safe to use.
+
+   - The result of this change is that fragmented backups will no longer be deterministic. The previous behavior guaranteed a given 
+     wallet will always return the same set of fragments for a given M-of-N scheme. Since it deteriorates SSS security properties, 
+     the behavior has to be rolled back.
+   - Fragment sets are now generated randomly, therefor an unique ID has been added to each set to identify them. You cannot mix 
+     and match sets.
+   - While Armory can no longer generate deterministic fragments, it can still restore wallets from deterministic fragments.
+
+   - Many thanks to Gregory Maxwell (greg@xiph.org) for identifying and reporting the vulnerability as well as reviewing the fix.
+
+== Fixed ==
+   - Fixed faulty version packet deserialization revealed by Core 0.15.0.1
+ 
+
+v0.96.2, released August 27th 2017
+== Added ==
+   - Enabled SegWit on the mainnet. Running against a node with WITNESS service bit flagged will allow you to create SegWit addresses.
+   - Improved DB scan speed (~80% faster) and stability.
+   - Reduced DB memory usage (~20% less).
+   - Supernode DB mode. This isn't optimized for consumer grade computers, use at your own risk.
+   - The MAX button in the Send dialog has been changed to a checkbox, effect is now binding. 
+     Maximum value will be calculated on any change.
+   - You can now create OP_RETURN outputs from the Send dialog. This feature is only available in Expert mode.
+   - You can now pick the signer of your choosing in Expert mode.
+   - Added BCH on top of the legacy and 0.96 C++ signer.
+   - Improved verbose on ZC broadcast failure.
+
+== Fixed ==
+   - Fixed benchmark timers on POSIX systems.
+   - Fixed several Linux build configure bugs.
+   - Properly update RPC state in GUI on connect/disconnect events.
+   - Various zero conf bugs.
+   - Scan progress notification.
+   - Properly display comments for non legacy addresses.
+   - Digital exports will be saved under the proper file extention in Windows.
+
+== Removed ==
+   - Removed armoryd from the repository. armoryd was moved to its own repository (https://github.com/goatpig/armoryd)
+
+v0.96.1, released July 26th 2017
+
+== Added ==
+   - Raised default fee to 200 satoshi/Bytes. This fee will apply when using defaults and the node RPC is down.
+     Any applied fee lower than that rate will trigger a warning message box. Users have to actively choose to 
+     bypass the warning.
+   - Split unit tests building from default autotools setup. To build tests, use:
+      ./configure --enable-tests.
+   - You can now disable GUI in the autotools build system. Use: 
+      ./configure --without-gui
+   - When spawned with a cookie file, the DB now randomizes its listen port to (49150 + [0-15000]) and reports it in the cookie file.
+   - Added --fcgi-port command line argument to the DB
+   - Address comments are now visible again in the Coin Control GUI
+   - DB messages now have checksums; this improves error and version mismatch detection
+   - Transactions that failed to broadcast throug the P2P layer will now be pushed to the RPC afterwards, if it's enabled
+   - Refresh address view in Wallet Properties dialog on several user interactions.
+   - RPC status is now signaled in the bottom right corner status bar. Disabled RPC will result in bold purple text.
+   - Highly improved DB corruption self diagnosis and automated fixing.
+   - Zero confirmation parser pool now is now capped at 100 threads. 
+     You can modify this value with the --zcthread-pool command line argument.
+
+== Fixed ==
+   - ZC parsing will no longer occur while the BDM is initializing
+   - Wait on cookie file creation before connecting to auto managed DB
+   - Fixed registration/callback premature garbage collection
+   - Translation patch issues
+   - Fixed "Fund from wallet" lockbox GUI
+   - Fixed TxIn/Out pretty printing
+   - Tied init phase spinning icon rotation to progress notifications. The icon will not spin when no progress data is received, correctly 
+     indicating the DB is hanging.   
+   - Fixed cryptopp build against older CPUs (no AES or PCLMUL archs).
+   - Fixed RBF bumping with no change.
+   - Improved timestamps granularity in logs.
+   - Improved transaction broadcast consistency.
+   - Improved error message verbose of timed out transaction broadcasts.
+   - ./configure --prefix now propagates correctly to Makefiles.
+   - Fixed several memleaks in the database code.
+   - Fixed false positive throws over bad packet detection in socketing layer.
+   - Fixed coin selection edge cases.
+   - Fixed the displaying of address comments in the lobby ledger.
+
+== Removed ==
+   - Python-twisted dependency. This should remove the underlying openSSL dependency as well.
+   - Database command prompt will no longer appear when auto managing the DB on Windows
+
+v0.96, released April 30th 2017
+
+== Added ==
+   - 2 new script types have been introduced on top of legacy P2PKH:
+      - P2SH-P2PK: nested P2PK script. Uses compressed public keys.
+      - P2SH-P2WPKH: nested P2WPKH SegWit single sig output script.
+
+   - Added new signer code to handle the new script types. The code is only used when redeeming outputs using 
+     the new scripts. All legacy outputs (P2PKH) are still handled by the original code and can be signed for 
+     by previous versions dating back to 0.92.x. New address selection GUI let's the user pick the output script 
+     of their choice.
+
+   - The modified offline signing serialization format is backwards compatible. Older version can sign for legacy outputs.
+     Older versions can also fund the new types (as they are P2SH scripts). You will need Armory 0.96+ to spend from these
+     new scripts
+
+   - Introducing brand new wallet code in C++, using LMDB for system I/O. The new code is compatible with Armory's 
+     own chain derivation and can reproduce any existing Armory wallet. Starting 0.96, all existing wallets
+     are mirrored to this new format.
+
+   - Wallet mirrors are exclusively watching only (they only contain public data). The new wallet code interfaces with 
+     the new address types and signer code. It is used to bridge the wallet data from client to database and distinguish 
+     between output scripts.
+
+   - Single address use patterns are preserved. While any wallet can return any of the new output scripts, the new 
+     wallet code guarantees requested new addresses originate from fresh public keys and locks public keys to their
+     chosen address type.
+
+   - Coin selection logic has been reproduced on the C++ side, with some improvements. It allows for proper interaction
+     with satoshi/byte fee options and provides predictive tx size thanks to the new wallet framework.
+
+   - New options have been introduced for fee management:
+      - Manual fee/byte.
+      - Auto fee/byte.
+
+      Auto fee/byte queries fee/byte from your local node over the RPC. It defaults to the default manual fee/byte on
+      failure. UI has been added to the Settings dialog to change the defaults. UI has been added to the Send dialog
+      to select fee options on the fly.
+
+   - Added optional auto adjust fee/byte feature. This feature ties back to the new coin selection logic. When using 
+     fee/byte options, it attempts to increase your fee in order to lign up the precision of your change output with
+     the precision of your spend values. The goal is to obfuscate your change output in conjunction with the existing
+     output order randomization, by bluring the difference in value between change and payement outputs. This feature
+     improves privacy when applicable.
+     
+     The fee bump is never more than 10% the original fee value and the coin selection code will prioritize outputs
+     that fit this strategy if enabled. This behavior can be turned on and off in the new fee dialogs.
+
+   - Added new change address options, configurable in a new settings tab. The options allow the user to pick the 
+     script type of the change address, or automate it.
+
+     When automated, the change output will attempt to match the output script type of the payement address. This
+     feature improves privacy by unifying output script types, which obfuscates the change output. 
+
+     If the recipient address types do not match, auto change will create a P2SH-P2PK output (as it uses compressed 
+     public keys). Keep in mind that all versions prior to 0.96 cannot redeem these type of P2SH outputs.
+
+     If the transaction is SegWit and the change output is automated, the output script type will be P2SH-P2WPKH.
+
+   - The coin selection code will attempt to consolidate unspent outputs in order to redeem more outputs than it creates. 
+     This behavior only takes place if there are available outputs sharing the same address as the already selected ones. 
+     This behavior will not inflate the transaction fee by more than 20%.
+
+   - When choosing fee/byte options, the coin selection code will not create a change output if the change is considered
+     dust. Dust change refers to a change output with a value lower than the fee it will cost to redeem it. 
+
+     In such case, the change value will be added to the transaction fee instead. This will increase tx priority and 
+     improve privacy (as there will be no change output).
+
+   - Reworked the coin control dialog. It now distinguishes between address types. It also allows the selection of CPFP 
+     outputs when applicable.
+
+   - Added RBF support. You can create RBF transactions from the Send dialogue. Checking the RBF box will set all input
+     sequences to (UINT32_MAX - 2).
+
+   - Modified zero confirmation coloring in legders. Own RBFs are displayed in a teal line. Incoming RBFs are red, child
+     ZC (a zero confirmation transaction spending at least one zero confirmation output) are displayed as orange.
+
+   - Your own RBFs have an extra right click menu option, to bump the fee. This will spawn the send dialogue with
+     prefilled fields.
+
+   - A coin control like RBF dialog has been added. It can be accessed from the send dialogue, under the Coin Control
+     button. It allows you to pick any eligible RBF output to double spend. RBF coin control and regular coin control
+     are mutually exclusive. The UX is still experimental, and subject to improvements/redesign.
+
+   - Transactions are now time locked to the current top block. This means miners cannot mine this transaction in a 
+     block with a lower height than specified in the nLockTime field. This limits selfish mining attack scenarios, and
+     is in line with Bitcoin Core's own wallet practices. 
+
+     Due to a mismanagement of the nLockTime field in previous versions, older signers cannot sign transactions 
+     with a nLockTime other than 0. This means that when signing for a legacy P2PKH output with an a pre 0.96 signer, 
+     the transaction will default back to a 0 nLockTime.
+
+   - Added the option to force the full redemption of coin control selection. Previously, the coin selection code would 
+     pick outputs from within a custom coin control set. This option instructs the code to use the set as is, regardless
+     of total spent amount.
+
+   - Added a Tx preview button to the send dialog, to review transactions before clicking "Send".
+
+   - Reworked address ledger in wallet properties dialog. Now distinguishes between address categories (Used, Change and 
+     Unused) and address types (P2PKH, P2SH-P2PK, P2SH-P2WPKH)
+
+   - The SegWit address type (P2SH-P2WPKH) can only be used if your local node operates on a chain that has activated SegWit.
+     SegWit is disabled on the Bitcoin mainnet through the use of a hardcoded flag.
+
+   - Moved node RPC socketing to ArmoryDB. ArmoryDB now waits on node initiliazation and synchronization processes if it can 
+     establish a RPC connection.
+
+   - Migrated build system from raw Makefiles to autotools. This will eventually lead to deterministic builds through Gitian.
+
+   - Added config files for ArmoryQt (armoryqt.conf) and ArmoryDB (armorydb.conf). The config files can take any valid command
+     line arguments for their respective binaries (one arg per line). Config file arguments do not override command line 
+     arguments
+
+== Fixed ==
+   - Fixed transaction count display in wallet properties dialog
+   - Fixed wallet group selector in online lobby
+   - Fixed lockbox spending
+   - Will now properly display updated comments in global ledger
+   - Fixed wallet restore features
+   - Fixed P2P socketing with refactor Bitcoin Core networking layer (0.14+)
+   - Fixed clear mempool feature
+   - The bottom right block count indicator in the client now reports node connectivity properly, with tray notifications and
+     color coding
+   - Fixed interfacing between DB running on a Linux server and clients running on Windows.
+
+v0.95.1, released November 2nd 2016
+
+== Added ==
+   - Pass client datadir to auto spawned DB
+
+== Fixed ==
+   - Fixed coin control GUI
+   - Fixed base58 decode edge case
+   - Fixed db version detection
+   - Fixed db error message reporting in GUI
+   - Fixed explicit db port overwrite in testnet
+
+v0.95.0, released October 23rd 2016
+
+== Added ==
+
+   - Introducing litenode
+   - Client and database are now split in 2 binaries: ArmoryQt (client) and ArmoryDB (server)
+   - Clients interface with servers over the FCGI protocol. Server is hardcoded to listen on localhost, default port is 9001
+   - ArmoryDB can serve remote clients through the use of a HTTP daemon. Example config file for nginx can be found here: 
+     ./nginx_example.conf
+
+   - As a result, bitcoin P2P connectivity has been moved from ArmoryQt to ArmoryDB. This means in turn that clients do not 
+     require the presence of a local bitcoin node to operate anymore.
+   - By default ArmoryQt spawns and controls ArmoryDB. This will not happen in 2 cases:
+      _ There is already an instance of ArmoryDB listening on localhost:9001
+      _ ArmoryQt has been pointed to specific ArmoryDB through a combination of the new --armorydb-ip and --armorydb-port 
+        command line arguments
+   - ArmoryDB requires the presence of a bitcoin node on localhost:8333 and access to raw blockchain data like before.
+     The change to interface with bitcoin nodes remotely (blocks over p2p) is not in the scope of this release
+   - ArmoryDB comes with its own set of command line arguments. They are described here:  
+     ./cppForSwig/BlockUtils.cpp:778
+
+   - DB modes are selected with the new --db-type cli arg. It defaults to --db-type=DB_FULL. Also available are DB_BARE and
+     DB_SUPER. DB_SUPER has no effect currently, it will be implemented in a future release.   
+   - Introducing an extra dataset to resolve random transaction hashes. This database is ~550MB with the current
+     blockchain size. This comes in addition to the previous db features of 0.94. This is the default mode, i.e. DB_FULL. 
+     To disable this feature (revert to the bare 0.94 db), use --db-type=DB_BARE.
+   - You cannot swap db modes on top of an existing db, you will need to build one from scratch instead.
+
+   - ArmoryDB now uses its own log file (dbLog.txt), running in the --datadir folder
+   - 0.95 db format changed from 0.94, you will have to build it in another --dbdir
+   - Added DB version detection. Mismatch in DB version will result in an error message and termination on the client side,
+     a stdout warning on the server terminal side as well as in the db log file.
+
+   - new cli args have been introduced to control db resource consumption:
+     _ --ram_usage: int >= 1. Defaults to 4. Each point is worth ~128MB RAM on top of the baseline needs. There is no upper
+       bound, be careful when using high values. <= 0 values result in use of default.
+     _ --thread-count: int >= 1. Defaults to CPU max thread count. As with ram-usage, use large upper values with care.
+
+   - Improved coin control granularity. You now select UTXOs directly.
+   - Added fee per byte options in Send Bitcoins dialog.
+   - Failure to broadcast zero confirmation transactions to the network are now reported with the specific reject message
+     from your node.
+
+   - Added Segregated Witness read support. This means the database can successfully parse SW transactions.
+   - No SW spending feature yet. This will be the subject of another release.
+
+   - Makes use of bitcoind's new cookie authentication in order to access bitcoind's JSON-RPC interface
+   - Can now make use of the JSON-RPC calls for estimatefee and estimatepriority regardless of whether Armory is managing
+     bitcoind.
+   - Those RPC calls will only work if client is local, i.e. ArmoryDB and bitcoind are being run on the same computer as
+     ArmoryQt.
+
+== Fixed ==
+   - Fixed the missing transaction issue in the Tx Details dialog through the addition of the new resolver dataset
+
+== Removed ==
+   - ArmoryQt does not interface nor require the presence of a local bitcoin node to operate online anymore. This 
+     functionality has been migrated to ArmoryDB
+   - There will be no changes to wallet crypto related operations in this version. Older offline versions of Armory
+     (down to 0.92.x) are still compatible with 0.95
+
+
+v0.94.1, released April 2nd 2016:
+
+== Fixed ==
+   - Fixed parsing new blocks with no wallet loaded
+   - Fixed wallet/address import
+   - Fixed address sweeping
+   - .deb installer: will not register shortcuts if /usr/share/desktop-directories is missing
+
+== Removed ==
+   - Removed Bitcoin P2P alert parsing, as it was removed from Bitcoin Core.
+
+v0.94.0, released March 27th 2016:
+
+== Added ==
+   - New database format: DB shrinked from 60GB to sub 200MB, >10x initial setup and startup speed.
+   - New DB corruption detection and auto repair code. Bad block issues should be mostly gone.
+   - Detection and GUI flagging of RBF enabled zero confirmation transactions. 
+   - Fixed ZC chain handling and replacement. All ZC spending ZC outputs are now flagged as replaceable, 
+     regardless of TxIn sequence or parent Tx state.
+   - Added new GUI option to add additional entropy at wallet creation using a deck of cards.
+   - After the change in lead, all new code is now developed under the MIT license (was AGPL3).
+
+== Removed ==
+   - No more phone home code. There are no plans to reintroduce any code of that nature.
+   - As a result, the announce tab code is gone.
+   - No more torrent code. Seedboxes were hosted by ATI and are now down. Also, IBD improvements in 
+     Core 0.10-12 make this code obsolete.
+   - As a result of the new light weight DB, the TxHint set has been shrinked to the bare minimum. This means
+     Armory cannot resolve arbitrary TxHash to data in block anymore. The main symptom is the inability to 
+     resolve TxIn data in the "Transcation Details" dialog. This feature will be reintroduced as part of an
+     intermediarry DB format inbetween fullnode and supernode.
+   - No more supernode. Will be reintroduced in a later version.

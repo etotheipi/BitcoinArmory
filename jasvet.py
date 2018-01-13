@@ -38,8 +38,7 @@ RNRN = '\r\n\r\n'
 CLEARSIGN_MSG_TYPE_MARKER = 'BITCOIN SIGNED MESSAGE'
 BITCOIN_SIG_TYPE_MARKER = 'BITCOIN SIGNATURE'
 BASE64_MSG_TYPE_MARKER = 'BITCOIN MESSAGE'
-BITCOIN_ARMORY_COMMENT = 'Comment: Signed by Bitcoin Armory v' +\
-   getVersionString(BTCARMORY_VERSION, 3)
+BITCOIN_ARMORY_COMMENT = ''
 class UnknownSigBlockType(Exception): pass
    
 def randomk():  
@@ -637,7 +636,7 @@ def ASv0(privkey, msg):
 
 def ASv1CS(privkey, msg):
    sig=ASv0(privkey, FormatText(msg))
-   r=BEGIN_MARKER+CLEARSIGN_MSG_TYPE_MARKER+DASHX5+RN+BITCOIN_ARMORY_COMMENT+RNRN
+   r=BEGIN_MARKER+CLEARSIGN_MSG_TYPE_MARKER+DASHX5+RN+BITCOIN_ARMORY_COMMENT+RN
    r+=FormatText(msg)+RN
    r+=ASCIIArmory(sig['signature'], BITCOIN_SIG_TYPE_MARKER)
    return r

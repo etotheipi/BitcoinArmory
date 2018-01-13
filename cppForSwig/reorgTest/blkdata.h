@@ -7,6 +7,7 @@ namespace TestChain
 {
 const BinaryData addrA = BinaryData::CreateFromHex("62e907b15cbf27d5425399ebf6f0fb50ebb88f18");
 const BinaryData scrAddrA = HASH160PREFIX + addrA;
+const BinaryData privKeyAddrA = BinaryData::CreateFromHex("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
 const BinaryData addrB = BinaryData::CreateFromHex("ee26c56fc1d942be8d7a24b2a1001dd894693980");
 const BinaryData scrAddrB = HASH160PREFIX + addrB;
 const BinaryData privKeyAddrB = BinaryData::CreateFromHex("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");

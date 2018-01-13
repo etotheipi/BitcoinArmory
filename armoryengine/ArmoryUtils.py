@@ -46,9 +46,7 @@ import subprocess
 #from psutil import Popen
 import psutil
 
-from CppBlockUtils import KdfRomix, CryptoAES
-from qrcodenative import QRCode, QRErrorCorrectLevel
-from twisted.internet.protocol import Protocol, ClientFactory
+from CppBlockUtils import KdfRomix, CryptoAES, ConfigFile_fleshOutArgs, AddressType_P2SH_P2WPKH
 
 try:
    if os.path.exists('update_version.py') and os.path.exists('.git'):
@@ -60,41 +58,47 @@ try:
    from ArmoryBuild import BTCARMORY_BUILD
 except:
    BTCARMORY_BUILD = None
+   
+#pass sys.argv to the cpp config file parser, get the fleshed out verison 
+#in return
+sys.argv = ConfigFile_fleshOutArgs("armoryqt.conf", sys.argv)
 
 DEFAULT = 'DEFAULT'
 LEVELDB_BLKDATA = 'leveldb_blkdata'
 LEVELDB_HEADERS = 'leveldb_headers'
 
-# Version Numbers 
-BTCARMORY_VERSION    = (0, 93,  2, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+# Version Numbers
+BTCARMORY_VERSION    = (0, 96,  3, 992)  # (Major, Minor, Bugfix, AutoIncrement)
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
-ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
-ARMORY_DONATION_PUBKEY = ( '04'
-      '11d14f8498d11c33d08b0cd7b312fb2e6fc9aebd479f8e9ab62b5333b2c395c5'
-      'f7437cab5633b5894c4a5c2132716bc36b7571cbe492a7222442b75df75b9a84')
+# ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
+# ARMORY_DONATION_PUBKEY = ( '04'
+#       '11d14f8498d11c33d08b0cd7b312fb2e6fc9aebd479f8e9ab62b5333b2c395c5'
+#       'f7437cab5633b5894c4a5c2132716bc36b7571cbe492a7222442b75df75b9a84')
 ARMORY_INFO_SIGN_ADDR = '1NWvhByxfTXPYNT4zMBmEY3VL8QJQtQoei'
 ARMORY_INFO_SIGN_PUBLICKEY = ('04'
       'af4abc4b24ef57547dd13a1110e331645f2ad2b99dfe1189abb40a5b24e4ebd8'
       'de0c1c372cc46bbee0ce3d1d49312e416a1fa9c7bb3e32a7eb3867d1c6d1f715')
-SATOSHI_PUBLIC_KEY = ( '04'
-      'fc9702847840aaf195de8442ebecedf5b095cdbb9bc716bda9110971b28a49e0'
-      'ead8564ff0db22209e0374782c093bb899692d524e9d6a6956e7c5ecbcd68284')
 
 
 indent = ' '*3
 haveGUI = [False, None]
 
+ARMORYDB_DEFAULT_IP = "127.0.0.1"
+ARMORYDB_DEFAULT_PORT = "9001"
+
 parser = optparse.OptionParser(usage="%prog [options]\n")
 parser.add_option("--settings",        dest="settingsPath",default=DEFAULT, type="str",          help="load Armory with a specific settings file")
 parser.add_option("--datadir",         dest="datadir",     default=DEFAULT, type="str",          help="Change the directory that Armory calls home")
-parser.add_option("--satoshi-datadir", dest="satoshiHome", default=DEFAULT, type='str',          help="The Bitcoin-Qt/bitcoind home directory")
-parser.add_option("--satoshi-port",    dest="satoshiPort", default=DEFAULT, type="str",          help="For Bitcoin-Qt instances operating on a non-standard port")
-parser.add_option("--satoshi-rpcport", dest="satoshiRpcport",default=DEFAULT,type="str",         help="RPC port Bitcoin-Qt instances operating on a non-standard port")
+parser.add_option("--satoshi-datadir", dest="satoshiHome", default=DEFAULT, type='str',          help="The Bitcoin Core/bitcoind home directory")
+parser.add_option("--satoshi-port",    dest="satoshiPort", default=DEFAULT, type="str",          help="For Bitcoin Core instances operating on a non-standard port")
+parser.add_option("--satoshi-rpcport", dest="satoshiRpcport",default=DEFAULT,type="str",         help="RPC port Bitcoin Core instances operating on a non-standard port")
 #parser.add_option("--bitcoind-path",   dest="bitcoindPath",default='DEFAULT', type="str",         help="Path to the location of bitcoind on your system")
 parser.add_option("--dbdir",           dest="armoryDBDir",  default=DEFAULT, type='str',          help="Location to store blocks database (defaults to --datadir)")
 parser.add_option("--rpcport",         dest="rpcport",     default=DEFAULT, type="str",          help="RPC port for running armoryd.py")
+parser.add_option("--rpcbindaddr",     dest="rpcBindAddr", default="127.0.0.1", type="str",      help="IP Address to bind to for RPC.")
 parser.add_option("--testnet",         dest="testnet",     default=False,     action="store_true", help="Use the testnet protocol")
+parser.add_option("--regtest",         dest="regtest",     default=False,     action="store_true", help="Use the Regression Test Network protocol")
 parser.add_option("--offline",         dest="offline",     default=False,     action="store_true", help="Force Armory to run in offline mode")
 parser.add_option("--nettimeout",      dest="nettimeout",  default=2,         type="int",          help="Timeout for detecting internet connection at startup")
 parser.add_option("--interport",       dest="interport",   default=-1,        type="int",          help="Port for inter-process communication between Armory instances")
@@ -104,27 +108,41 @@ parser.add_option("--netlog",          dest="netlog",      default=False,     ac
 parser.add_option("--logfile",         dest="logFile",     default=DEFAULT, type='str',          help="Specify a non-default location to send logging information")
 parser.add_option("--mtdebug",         dest="mtdebug",     default=False,     action="store_true", help="Log multi-threaded call sequences")
 parser.add_option("--skip-online-check",dest="forceOnline", default=False,   action="store_true", help="Go into online mode, even if internet connection isn't detected")
-parser.add_option("--skip-stats-report", dest="skipStatsReport", default=False, action="store_true", help="Does announcement checking without any OS/version reporting (for ATI statistics)")
-parser.add_option("--skip-announce-check",dest="skipAnnounceCheck", default=False, action="store_true", help="Do not query for Armory announcements")
 parser.add_option("--tor",             dest="useTorSettings", default=False, action="store_true", help="Enable common settings for when Armory connects through Tor")
 parser.add_option("--keypool",         dest="keypool",     default=100, type="int",                help="Default number of addresses to lookahead in Armory wallets")
-parser.add_option("--redownload",      dest="redownload",  default=False,     action="store_true", help="Delete Bitcoin-Qt/bitcoind databases; redownload")
+parser.add_option("--redownload",      dest="redownload",  default=False,     action="store_true", help="Delete Bitcoin Core/bitcoind databases; redownload")
 parser.add_option("--rebuild",         dest="rebuild",     default=False,     action="store_true", help="Rebuild blockchain database and rescan")
 parser.add_option("--rescan",          dest="rescan",      default=False,     action="store_true", help="Rescan existing blockchain DB")
-parser.add_option("--disable-torrent", dest="disableTorrent", default=False,     action="store_true", help="Only download blockchain data via P2P network (slow)")
-parser.add_option("--test-announce", dest="testAnnounceCode", default=False,     action="store_true", help="Only used for developers needing to test announcement code with non-offline keys")
+parser.add_option("--rescanBalance",   dest="rescanBalance", default=False,     action="store_true", help="Rescan balance")
 parser.add_option("--nospendzeroconfchange",dest="ignoreAllZC",default=False, action="store_true", help="All zero-conf funds will be unspendable, including sent-to-self coins")
+parser.add_option("--ignore-new-zeroconf",dest="ignoreZC",default=False, action="store_true", help="Do not update wallet balances on zero-conf transactions")
 parser.add_option("--multisigfile",  dest="multisigFile",  default=DEFAULT, type='str',          help="File to store information about multi-signature transactions")
 parser.add_option("--force-wallet-check", dest="forceWalletCheck", default=False, action="store_true", help="Force the wallet sanity check on startup")
+parser.add_option("--disable-wallet-check", dest="disableWalletCheck", default=False, action="store_true", help="Disable the wallet sanity check on startup")
 parser.add_option("--disable-modules", dest="disableModules", default=False, action="store_true", help="Disable looking for modules in the execution directory")
 parser.add_option("--disable-conf-permis", dest="disableConfPermis", default=False, action="store_true", help="Disable forcing permissions on bitcoin.conf")
 parser.add_option("--disable-detsign", dest="enableDetSign", action="store_false", help="Disable Transaction Deterministic Signing (RFC 6979)")
 parser.add_option("--enable-detsign", dest="enableDetSign", action="store_true", help="Enable Transaction Deterministic Signing (RFC 6979) - Enabled by default")
-parser.add_option("--supernode", dest="enableSupernode", default=False, action="store_true", help="Enabled Exhaustive Blockchain Tracking")
+parser.add_option("--armorydb-ip", dest="armorydb_ip", default=ARMORYDB_DEFAULT_IP, type="str", help="Set remote DB IP (default: 127.0.0.1)")
+parser.add_option("--armorydb-port", dest="armorydb_port", default=ARMORYDB_DEFAULT_PORT, type="str", help="Set remote DB port (default: 9001)")
+parser.add_option("--force-fcgi", dest="force_fcgi", default=False, action="store_true", help="Force the use of fcgi sockets when pointing to a custom DB IP")
+parser.add_option("--ram-usage", dest="ram_usage", default=-1, type="int", help="Set maximum ram during scans, as 128MB increments. Defaults to 4")
+parser.add_option("--thread-count", dest="thread_count", default=-1, type="int", help="Set max thread count during builds and scans. Defaults to CPU total thread count")
+parser.add_option("--db-type", dest="db_type", default="DB_FULL", type="str", help="Set db mode, defaults to DB_FULL")
+parser.add_option("--language", dest="language", default="en", type="str", help="""Set the language for the client to display in. Use the ISO 639-1 language code to choose a language. 
+                                                                                 Options are da, de, en, es, el, fr, he, hr, id, ru, sv. Default is en. """)
+parser.add_option("--force-enable-segwit", dest="force_segwit", default=False, action="store_true", help="Allow SegWit address generation in offline mode")
+
 parser.set_defaults(enableDetSign=True)
 
+# Get the host operating system
+opsys = platform.system()
+OS_WINDOWS = 'win32'  in opsys.lower() or 'windows' in opsys.lower()
+OS_LINUX   = 'nix'    in opsys.lower() or 'nux'     in opsys.lower()
+OS_MACOSX  = 'darwin' in opsys.lower() or 'osx'     in opsys.lower()
+
 # Pre-10.9 OS X sometimes passes a process serial number as -psn_0_xxxxxx. Nuke!
-if sys.platform == 'darwin':
+if OS_MACOSX:
    parser.add_option('-p', '--psn')
 
 # These are arguments passed by running unit-tests that need to be handled
@@ -144,9 +162,13 @@ DONATION       = long(5000000)
 CENT          = long(1000000)
 UNINITIALIZED = None
 UNKNOWN       = -2
-MIN_TX_FEE    = 10000
-MIN_RELAY_TX_FEE = 10000
+MIN_TX_FEE    = 20000
+MIN_RELAY_TX_FEE = 20000
+MIN_FEE_BYTE = 200
 MT_WAIT_TIMEOUT_SEC = 20;
+DEFAULT_FEE_TYPE = "Auto" 
+DEFAULT_CHANGE_TYPE = 'P2PKH'
+DEFAULT_RECEIVE_TYPE = 'P2PKH'
 
 UINT8_MAX  = 2**8-1
 UINT16_MAX = 2**16-1
@@ -229,13 +251,12 @@ class UstxError(Exception): pass
 class P2SHNotSupportedError(Exception): pass
 class NonBase58CharacterError(Exception): pass
 class isMSWallet(Exception): pass
+class SignerException(Exception): pass
 
-# Get the host operating system
-opsys = platform.system()
-OS_WINDOWS = 'win32'  in opsys.lower() or 'windows' in opsys.lower()
-OS_LINUX   = 'nix'    in opsys.lower() or 'nux'     in opsys.lower()
-OS_MACOSX  = 'darwin' in opsys.lower() or 'osx'     in opsys.lower()
-
+# Witness variables and constants
+NODE_WITNESS = 1 << 3
+WITNESS_MARKER = 0
+WITNESS_FLAG = 1
 
 if getattr(sys, 'frozen', False):
    sys.argv = [arg.decode('utf8') for arg in sys.argv]
@@ -261,19 +282,36 @@ for opt,val in CLI_OPTIONS.__dict__.iteritems():
 
 # Use CLI args to determine testnet or not
 USE_TESTNET = CLI_OPTIONS.testnet
-#USE_TESTNET = True
+
+# Use CLI args to determine regtest or not
+USE_REGTEST = CLI_OPTIONS.regtest
 
 # Set default port for inter-process communication
 if CLI_OPTIONS.interport < 0:
-   CLI_OPTIONS.interport = 8223 + (1 if USE_TESTNET else 0)
+   CLI_OPTIONS.interport = 8223 + (1 if USE_TESTNET else 0) + (1 if USE_REGTEST else 0)
 
 
 # Pass this bool to all getSpendable* methods, and it will consider
 # all zero-conf UTXOs as unspendable, including sent-to-self (change)
 IGNOREZC  = CLI_OPTIONS.ignoreAllZC
 
-#supernode
-ENABLE_SUPERNODE = CLI_OPTIONS.enableSupernode
+FORCE_SEGWIT = False
+if CLI_OPTIONS.offline:
+   FORCE_SEGWIT = CLI_OPTIONS.force_segwit
+
+#db address
+ARMORYDB_IP = CLI_OPTIONS.armorydb_ip
+FORCE_FCGI = CLI_OPTIONS.force_fcgi
+
+usesDefaultDbPort = True
+ARMORYDB_PORT = CLI_OPTIONS.armorydb_port
+if ARMORYDB_PORT != ARMORYDB_DEFAULT_PORT:
+   usesDefaultDbPort = False
+
+ARMORY_RAM_USAGE = CLI_OPTIONS.ram_usage
+ARMORY_THREAD_COUNT = CLI_OPTIONS.thread_count
+
+ARMORY_DB_TYPE = CLI_OPTIONS.db_type
 
 # Is deterministic signing enabled?
 ENABLE_DETSIGN = CLI_OPTIONS.enableDetSign
@@ -281,21 +319,31 @@ ENABLE_DETSIGN = CLI_OPTIONS.enableDetSign
 # Figure out the default directories for Satoshi client, and BicoinArmory
 OS_NAME          = ''
 OS_VARIANT       = ''
-USER_HOME_DIR    = ''
+USER_HOME_DIR    = ''   
 BTC_HOME_DIR     = ''
 ARMORY_HOME_DIR  = ''
-ARMORY_DB_DIR      = ''
-SUBDIR = 'testnet3' if USE_TESTNET else ''
+ARMORY_DB_DIR    = ''
+SUBDIR = 'testnet3' if USE_TESTNET else '' + 'regtest' if USE_REGTEST else ''
+
+if not CLI_OPTIONS.satoshiHome==DEFAULT:
+   BTC_HOME_DIR = CLI_OPTIONS.satoshiHome
+   if BTC_HOME_DIR.endswith('blocks'):
+      BTC_HOME_DIR, blocks_suffix = os.path.split(BTC_HOME_DIR)
+
 if OS_WINDOWS:
    OS_NAME         = 'Windows'
    OS_VARIANT      = platform.win32_ver()
-   
+
    import ctypes
    buffer = ctypes.create_unicode_buffer(u'\0' * 260)
    rt = ctypes.windll.shell32.SHGetFolderPathW(0, 26, 0, 0, ctypes.byref(buffer))
    USER_HOME_DIR = unicode(buffer.value)
-               
-   BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, 'Bitcoin', SUBDIR)
+
+   if BTC_HOME_DIR == '':
+      BTC_HOME_DIR = os.path.join(USER_HOME_DIR, 'Bitcoin')
+   if SUBDIR != '':
+      BTC_HOME_DIR = os.path.join(BTC_HOME_DIR, SUBDIR)
+   
    ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'Armory', SUBDIR)
    BLKFILE_DIR     = os.path.join(BTC_HOME_DIR, 'blocks')
    BLKFILE_1stFILE = os.path.join(BLKFILE_DIR, 'blk00000.dat')
@@ -303,7 +351,12 @@ elif OS_LINUX:
    OS_NAME         = 'Linux'
    OS_VARIANT      = platform.linux_distribution()
    USER_HOME_DIR   = os.getenv('HOME')
-   BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, '.bitcoin', SUBDIR)
+   
+   if BTC_HOME_DIR == '':
+      BTC_HOME_DIR = os.path.join(USER_HOME_DIR, '.bitcoin')
+   if SUBDIR != '':
+      BTC_HOME_DIR = os.path.join(BTC_HOME_DIR, SUBDIR)
+   
    ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, '.armory', SUBDIR)
    BLKFILE_DIR     = os.path.join(BTC_HOME_DIR, 'blocks')
    BLKFILE_1stFILE = os.path.join(BLKFILE_DIR, 'blk00000.dat')
@@ -312,7 +365,12 @@ elif OS_MACOSX:
    OS_NAME         = 'MacOSX'
    OS_VARIANT      = platform.mac_ver()
    USER_HOME_DIR   = os.path.expanduser('~/Library/Application Support')
-   BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, 'Bitcoin', SUBDIR)
+    
+   if BTC_HOME_DIR == '':
+      BTC_HOME_DIR = os.path.join(USER_HOME_DIR, 'Bitcoin')
+   if SUBDIR != '':
+      BTC_HOME_DIR = os.path.join(BTC_HOME_DIR, SUBDIR)   
+   
    ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'Armory', SUBDIR)
    BLKFILE_DIR     = os.path.join(BTC_HOME_DIR, 'blocks')
    BLKFILE_1stFILE = os.path.join(BLKFILE_DIR, 'blk00000.dat')
@@ -320,15 +378,9 @@ else:
    print '***Unknown operating system!'
    print '***Cannot determine default directory locations'
 
-# Get the host operating system
-opsys = platform.system()
-OS_WINDOWS = 'win32'  in opsys.lower() or 'windows' in opsys.lower()
-OS_LINUX   = 'nix'    in opsys.lower() or 'nux'     in opsys.lower()
-OS_MACOSX  = 'darwin' in opsys.lower() or 'osx'     in opsys.lower()
-
 BLOCKCHAINS = {}
 BLOCKCHAINS['\xf9\xbe\xb4\xd9'] = "Main Network"
-BLOCKCHAINS['\xfa\xbf\xb5\xda'] = "Old Test Network"
+BLOCKCHAINS['\xfa\xbf\xb5\xda'] = "Regression Test Network"
 BLOCKCHAINS['\x0b\x11\x09\x07'] = "Test Network (testnet3)"
 
 NETWORKS = {}
@@ -336,11 +388,14 @@ NETWORKS['\x00'] = "Main Network"
 NETWORKS['\x05'] = "Main Network"
 NETWORKS['\x6f'] = "Test Network"
 NETWORKS['\xc4'] = "Test Network"
+NETWORKS['\x6f'] = "Regtest Network"
+NETWORKS['\xc4'] = "Regtest Network"
 NETWORKS['\x34'] = "Namecoin Network"
 
 # We disable wallet checks on ARM for the sake of resources (unless forced)
 DO_WALLET_CHECK = CLI_OPTIONS.forceWalletCheck or \
-                  not platform.machine().lower().startswith('arm')
+                  not platform.machine().lower().startswith('arm') and \
+                  not CLI_OPTIONS.disableWalletCheck
 
 # Version Handling Code
 def getVersionString(vquad, numPieces=4):
@@ -375,20 +430,6 @@ def readVersionInt(verInt):
    verList.append( int(verStr[:-7       ]) )
    return tuple(verList[::-1])
 
-# Allow user to override default bitcoin-qt/bitcoind home directory
-if not CLI_OPTIONS.satoshiHome==DEFAULT:
-   success = True
-   if USE_TESTNET:
-      testnetTry = os.path.join(CLI_OPTIONS.satoshiHome, 'testnet3')
-      if os.path.exists(testnetTry):
-         CLI_OPTIONS.satoshiHome = testnetTry
-
-   if not os.path.exists(CLI_OPTIONS.satoshiHome):
-      print 'Directory "%s" does not exist!  Using default!' % \
-                                                CLI_OPTIONS.satoshiHome
-   else:
-      BTC_HOME_DIR = CLI_OPTIONS.satoshiHome
-
 # Allow user to override default Armory home directory
 if not CLI_OPTIONS.datadir==DEFAULT:
    try:
@@ -399,7 +440,7 @@ if not CLI_OPTIONS.datadir==DEFAULT:
       # If user has no permission to create the directory
       # pass so that the default value remains
       # This condition will be checked after the main
-      # constructor completes so that a warning dialog 
+      # constructor completes so that a warning dialog
       # can be displayed
       pass
 # Same for the directory that holds the LevelDB databases
@@ -414,7 +455,7 @@ if not CLI_OPTIONS.armoryDBDir==DEFAULT:
       # If user has no permission to create the directory
       # pass so that the default value remains
       # This condition will be checked after the main
-      # constructor completes so that a warning dialog 
+      # constructor completes so that a warning dialog
       # can be displayed
       pass
 
@@ -422,6 +463,7 @@ if not CLI_OPTIONS.armoryDBDir==DEFAULT:
 # Change the log file to use
 ARMORY_LOG_FILE = os.path.join(ARMORY_HOME_DIR, 'armorylog.txt')
 ARMCPP_LOG_FILE = os.path.join(ARMORY_HOME_DIR, 'armorycpplog.txt')
+ARMDB_LOG_FILE = os.path.join(ARMORY_HOME_DIR, 'dbLog.txt')
 if not sys.argv[0] in ['ArmoryQt.py', 'ArmoryQt.exe', 'Armory.exe']:
    basename = os.path.basename(sys.argv[0])
    CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, '%s.log.txt' % basename)
@@ -462,11 +504,11 @@ if ARMORY_HOME_DIR and not os.path.exists(ARMORY_HOME_DIR):
 if not os.path.exists(ARMORY_DB_DIR):
    os.makedirs(ARMORY_DB_DIR)
 
-
-
-
 ##### MAIN NETWORK IS DEFAULT #####
-if not USE_TESTNET:
+from CppBlockUtils import BlockDataManagerConfig
+bdmConfig = BlockDataManagerConfig()
+
+if not USE_TESTNET and not USE_REGTEST:
    # TODO:  The testnet genesis tx hash can't be the same...?
    BITCOIN_PORT = 8333
    BITCOIN_RPC_PORT = 8332
@@ -485,22 +527,41 @@ if not USE_TESTNET:
    BLOCKEXPLORE_URL_TX   = 'https://blockchain.info/tx/%s'
    BLOCKEXPLORE_URL_ADDR = 'https://blockchain.info/address/%s'
 else:
-   BITCOIN_PORT = 18333
-   BITCOIN_RPC_PORT = 18332
+   #set static members of BDMconfig for address generation on C++ side
+   bdmConfig.selectNetwork("Test")
+   
+   BITCOIN_PORT = 18444 if USE_REGTEST else 18333
+   BITCOIN_RPC_PORT = 18443 if USE_REGTEST else 18332
    ARMORY_RPC_PORT     = 18225
-   MAGIC_BYTES  = '\x0b\x11\x09\x07'
-   GENESIS_BLOCK_HASH_HEX  = '43497fd7f826957108f4a30fd9cec3aeba79972084e90ead01ea330900000000'
-   GENESIS_BLOCK_HASH      = 'CI\x7f\xd7\xf8&\x95q\x08\xf4\xa3\x0f\xd9\xce\xc3\xae\xbay\x97 \x84\xe9\x0e\xad\x01\xea3\t\x00\x00\x00\x00'
-   GENESIS_TX_HASH_HEX     = '3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a'
-   GENESIS_TX_HASH         = ';\xa3\xed\xfdz{\x12\xb2z\xc7,>gv\x8fa\x7f\xc8\x1b\xc3\x88\x8aQ2:\x9f\xb8\xaaK\x1e^J'
+   if USE_TESTNET:
+      MAGIC_BYTES  = '\x0b\x11\x09\x07'
+      GENESIS_BLOCK_HASH_HEX  = '43497fd7f826957108f4a30fd9cec3aeba79972084e90ead01ea330900000000'
+      GENESIS_BLOCK_HASH      = 'CI\x7f\xd7\xf8&\x95q\x08\xf4\xa3\x0f\xd9\xce\xc3\xae\xbay\x97 \x84\xe9\x0e\xad\x01\xea3\t\x00\x00\x00\x00'
+      GENESIS_TX_HASH_HEX     = '3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a'
+      GENESIS_TX_HASH         = ';\xa3\xed\xfdz{\x12\xb2z\xc7,>gv\x8fa\x7f\xc8\x1b\xc3\x88\x8aQ2:\x9f\xb8\xaaK\x1e^J'
+      ARMORYDB_DEFAULT_PORT = "19001"
+
+      if usesDefaultDbPort:
+         ARMORYDB_PORT = "19001"
+   else:
+      MAGIC_BYTES  = '\xfa\xbf\xb5\xda'
+      GENESIS_BLOCK_HASH_HEX  = '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f'
+      GENESIS_BLOCK_HASH      = '\x06\x22\x6e\x46\x11\x1a\x0b\x59\xca\xaf\x12\x60\x43\xeb\x5b\xbf\x28\xc3\x4f\x3a\x5e\x33\x2a\x1f\xc7\xb2\xb7\x3c\xf1\x88\x91\x0f'
+      GENESIS_TX_HASH_HEX     = '3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a'
+      GENESIS_TX_HASH         = ';\xa3\xed\xfdz{\x12\xb2z\xc7,>gv\x8fa\x7f\xc8\x1b\xc3\x88\x8aQ2:\x9f\xb8\xaaK\x1e^J'
+      ARMORYDB_DEFAULT_PORT = "19002"
+
+      if usesDefaultDbPort:
+         ARMORYDB_PORT = "19002"
+
    ADDRBYTE = '\x6f'
    P2SHBYTE = '\xc4'
    PRIVKEYBYTE = '\xef'
 
-   # 
-   BLOCKEXPLORE_NAME     = 'blockexplorer.com'
-   BLOCKEXPLORE_URL_TX   = 'http://blockexplorer.com/testnet/tx/%s'
-   BLOCKEXPLORE_URL_ADDR = 'http://blockexplorer.com/testnet/address/%s'
+   #
+   BLOCKEXPLORE_NAME     = 'blockexplorer.com' if USE_TESTNET else 'Fake regtest explorer'
+   BLOCKEXPLORE_URL_TX   = 'https://blockexplorer.com/testnet/tx/%s' if USE_TESTNET else 'https://noexplorer.none/%s'
+   BLOCKEXPLORE_URL_ADDR = 'https://blockexplorer.com/testnet/address/%s' if USE_TESTNET else 'https://noexplorer.none/addr/%s'
 
 # These are the same regardless of network
 # They are the way data is stored in the database which is network agnostic
@@ -508,8 +569,8 @@ SCRADDR_P2PKH_BYTE    = '\x00'
 SCRADDR_P2SH_BYTE     = '\x05'
 SCRADDR_MULTISIG_BYTE = '\xfe'
 SCRADDR_NONSTD_BYTE   = '\xff'
-SCRADDR_BYTE_LIST     = [SCRADDR_P2PKH_BYTE, \
-                         SCRADDR_P2SH_BYTE, \
+SCRADDR_BYTE_LIST     = [ADDRBYTE, \
+                         P2SHBYTE, \
                          SCRADDR_MULTISIG_BYTE, \
                          SCRADDR_NONSTD_BYTE]
 
@@ -520,21 +581,33 @@ CPP_TXOUT_STDPUBKEY33  = 2
 CPP_TXOUT_MULTISIG     = 3
 CPP_TXOUT_P2SH         = 4
 CPP_TXOUT_NONSTANDARD  = 5
+CPP_TXOUT_P2WPKH       = 6
+CPP_TXOUT_P2WSH        = 7
+CPP_TXOUT_OPRETURN     = 8
+
 CPP_TXOUT_HAS_ADDRSTR  = [CPP_TXOUT_STDHASH160, \
                           CPP_TXOUT_STDPUBKEY65,
                           CPP_TXOUT_STDPUBKEY33,
-                          CPP_TXOUT_P2SH]
+                          CPP_TXOUT_P2SH,
+                          CPP_TXOUT_P2WPKH,
+                          CPP_TXOUT_P2WSH]
 CPP_TXOUT_STDSINGLESIG = [CPP_TXOUT_STDHASH160, \
                           CPP_TXOUT_STDPUBKEY65,
                           CPP_TXOUT_STDPUBKEY33]
+CPP_TXOUT_NESTED_SINGLESIG = [CPP_TXOUT_STDPUBKEY33,
+                          CPP_TXOUT_P2WPKH]
+CPP_TXOUT_SEGWIT = [AddressType_P2SH_P2WPKH]
 
-CPP_TXOUT_SCRIPT_NAMES = ['']*6
+CPP_TXOUT_SCRIPT_NAMES = ['']*9
 CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_STDHASH160]  = 'Standard (PKH)'
 CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_STDPUBKEY65] = 'Standard (PK65)'
 CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_STDPUBKEY33] = 'Standard (PK33)'
 CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_MULTISIG]    = 'Multi-Signature'
 CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_P2SH]        = 'Standard (P2SH)'
 CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_NONSTANDARD] = 'Non-Standard'
+CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_P2WPKH]      = 'Standard (P2WPKH)'
+CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_P2WSH]       = 'Standard (P2WSH)'
+CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_OPRETURN]    = 'Meta Data (OP_RETURN)'
 
 # Copied from cppForSwig/BtcUtils.h::getTxInScriptTypeInt(script)
 CPP_TXIN_STDUNCOMPR    = 0
@@ -544,8 +617,11 @@ CPP_TXIN_SPENDPUBKEY   = 3
 CPP_TXIN_SPENDMULTI    = 4
 CPP_TXIN_SPENDP2SH     = 5
 CPP_TXIN_NONSTANDARD   = 6
+CPP_TXIN_WITNESS       = 7
+CPP_TXIN_P2WPKH_P2SH   = 8
+CPP_TXIN_P2WSH_P2SH    = 9
 
-CPP_TXIN_SCRIPT_NAMES = ['']*7
+CPP_TXIN_SCRIPT_NAMES = ['']*10
 CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_STDUNCOMPR]  = 'Sig + PubKey65'
 CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_STDCOMPR]    = 'Sig + PubKey33'
 CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_COINBASE]    = 'Coinbase'
@@ -554,19 +630,22 @@ CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_SPENDMULTI]  = 'Spend Multisig'
 CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_SPENDP2SH]   = 'Spend P2SH'
 CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_NONSTANDARD] = 'Non-Standard'
 
+#default address type
+DEFAULT_ADDR_TYPE = 'P2PKH'
+
 ################################################################################
 if not CLI_OPTIONS.satoshiPort == DEFAULT:
    try:
       BITCOIN_PORT = int(CLI_OPTIONS.satoshiPort)
    except:
-      raise TypeError('Invalid port for Bitcoin-Qt, using ' + str(BITCOIN_PORT))
+      raise TypeError('Invalid port for Bitcoin Core, using ' + str(BITCOIN_PORT))
 
 ################################################################################
 if not CLI_OPTIONS.satoshiRpcport == DEFAULT:
    try:
       BITCOIN_RPC_PORT = int(CLI_OPTIONS.satoshiRpcport)
    except:
-      raise TypeError('Invalid rpc port for Bitcoin-Qt, using ' + str(BITCOIN_RPC_PORT))
+      raise TypeError('Invalid rpc port for Bitcoin Core, using ' + str(BITCOIN_RPC_PORT))
 
 ################################################################################
 if not CLI_OPTIONS.rpcport == DEFAULT:
@@ -655,7 +734,7 @@ def subprocess_check_output(*popenargs, **kwargs):
       from subprocess import CalledProcessError
    else:
       from subprocess_win import CalledProcessError
-      
+
    process = launchProcess(*popenargs, **kwargs)
    output, unused_err = process.communicate()
    retcode = process.poll()
@@ -678,7 +757,7 @@ def killProcessTree(pid):
       from subprocess import Popen, PIPE
    else:
       from subprocess_win import Popen, PIPE
-      
+
    if not OS_LINUX:
       for child in psutil.Process(pid).get_children():
          killProcess(child.pid)
@@ -800,14 +879,14 @@ def chopLogFile(filename, size):
          logFile.seek(0,0)
       logLines = logFile.readlines()
       logFile.close()
-   
+
       nBytes,nLines = 0,0;
       for line in logLines[::-1]:
          nBytes += len(line)
          nLines += 1
          if nBytes>size:
             break
-   
+
       logFile = open(filename, 'w')
       for line in logLines[-nLines:]:
          logFile.write(line)
@@ -835,7 +914,7 @@ if CLI_OPTIONS.logDisable:
    DEFAULT_FILE_LOGTHRESH     += 100
 
 
-DateFormat = '%Y-%m-%d %H:%M'
+DateFormat = '%Y-%m-%d %H:%M:%S'
 logging.getLogger('').setLevel(logging.DEBUG)
 fileFormatter  = logging.Formatter('%(asctime)s (%(levelname)s) -- %(message)s', \
                                      datefmt=DateFormat)
@@ -900,13 +979,15 @@ if CLI_OPTIONS.logDisable:
 
 
 
-def logexcept_override(type, value, tback):
-   import traceback
-   import logging
-   strList = traceback.format_exception(type,value,tback)
-   logging.error(''.join([s for s in strList]))
+def logexcept_override(_type, value, tback):
+   try:
+      strList = traceback.format_exception(_type,value,tback)
+      logging.error(''.join([s for s in strList]))
+   except:
+      pass
+   
    # then call the default handler
-   sys.__excepthook__(type, value, tback)
+   sys.__excepthook__(_type, value, tback)
 
 sys.excepthook = logexcept_override
 
@@ -917,10 +998,11 @@ fileRebuild     = os.path.join(ARMORY_HOME_DIR, 'rebuild.flag')
 fileRescan      = os.path.join(ARMORY_HOME_DIR, 'rescan.flag')
 fileDelSettings = os.path.join(ARMORY_HOME_DIR, 'delsettings.flag')
 fileClrMempool  = os.path.join(ARMORY_HOME_DIR, 'clearmempool.flag')
+fileRescanBalance  = os.path.join(ARMORY_HOME_DIR, 'rescanbalance.flag')
 
 # Flag to remove everything in Bitcoin dir except wallet.dat (if requested)
 if os.path.exists(fileRedownload):
-   # Flag to remove *BITCOIN-QT* databases so it will have to re-download
+   # Flag to remove *BITCOIN-Core* databases so it will have to re-download
    LOGINFO('Found %s, will delete Bitcoin DBs & redownload' % fileRedownload)
 
    os.remove(fileRedownload)
@@ -942,22 +1024,32 @@ elif os.path.exists(fileRebuild):
    if os.path.exists(fileRescan):
       os.remove(fileRescan)
 
+   if os.path.exists(fileRescanBalance):
+      os.remove(fileRescanBalance)
+
    CLI_OPTIONS.rebuild = True
+
 elif os.path.exists(fileRescan):
    LOGINFO('Found %s, will throw out saved history, rescan' % fileRescan)
    os.remove(fileRescan)
-   if os.path.exists(fileRebuild):
-      os.remove(fileRebuild)
    CLI_OPTIONS.rescan = True
+
+   if os.path.exists(fileRescanBalance):
+      os.remove(fileRescanBalance)
+
+elif os.path.exists(fileRescanBalance):
+   LOGINFO('Found %s, will rescan balances' % fileRescanBalance)
+   os.remove(fileRescanBalance)
+   CLI_OPTIONS.rescanBalance = True
 
 CLI_OPTIONS.clearMempool = False
 if os.path.exists(fileClrMempool):
    # Flag to clear all ZC transactions from database
    LOGINFO('Found %s, will destroy all zero conf transaction in DB' % fileClrMempool)
    os.remove(fileClrMempool)
-   
+
    CLI_OPTIONS.clearMempool = True
-   
+
 
 # Separately, we may want to delete the settings file, which couldn't
 # be done easily from the GUI, because it frequently gets rewritten to
@@ -971,7 +1063,7 @@ if os.path.exists(fileDelSettings):
 ################################################################################
 def deleteBitcoindDBs():
    if not os.path.exists(BTC_HOME_DIR):
-      LOGERROR('Could not find Bitcoin-Qt/bitcoind home dir to remove blk data')
+      LOGERROR('Could not find Bitcoin Core/bitcoind home dir to remove blk data')
       LOGERROR('  Does not exist: %s' % BTC_HOME_DIR)
    else:
       LOGINFO('Found bitcoin home dir, removing blocks and databases')
@@ -1005,26 +1097,12 @@ if CLI_OPTIONS.rebuild and os.path.exists(ARMORY_DB_DIR):
    shutil.rmtree(ARMORY_DB_DIR)
    os.mkdir(ARMORY_DB_DIR)
 
-
-####
-if CLI_OPTIONS.testAnnounceCode:
-   LOGERROR('*'*60)
-   LOGERROR('You are currently using a developer mode intended for ')
-   LOGERROR('to help with testing of announcements, which is considered')
-   LOGERROR('a security risk.  ')
-   LOGERROR('*'*60)
-
-
-
-
 ####
 if CLI_OPTIONS.useTorSettings:
-   LOGWARN('Option --tor was supplied, forcing --skip-announce-check,')
-   LOGWARN('--skip-online-check, --skip-stats-report and --disable-torrent')
-   CLI_OPTIONS.skipAnnounceCheck = True
+   LOGWARN('Option --tor was supplied, forcing')
+   LOGWARN('--skip-online-check and --skip-stats-report')
    CLI_OPTIONS.skipStatsReport = True
    CLI_OPTIONS.forceOnline = True
-   CLI_OPTIONS.disableTorrent = True
 
 
 
@@ -1182,6 +1260,13 @@ except:
    SystemSpecs.HddAvailA = -1
    SystemSpecs.HddAvailB = -1
 
+# OSX 10.12 just had to go and make things complicated....
+prefEnc = locale.getpreferredencoding()
+if prefEnc == None:
+   if os.environ.get('LC_ALL', '').upper() == 'UTF-8':
+      prefEnc = 'utf-8'
+   else:
+      prefEnc = 'Unknown'
 
 LOGINFO('')
 LOGINFO('')
@@ -1203,7 +1288,7 @@ LOGINFO('   Total Available RAM   : %0.2f GB', SystemSpecs.Memory)
 LOGINFO('   CPU ID string         : ' + SystemSpecs.CpuStr)
 LOGINFO('   Number of CPU cores   : %d cores', SystemSpecs.NumCores)
 LOGINFO('   System is 64-bit      : ' + str(SystemSpecs.IsX64))
-LOGINFO('   Preferred Encoding    : ' + locale.getpreferredencoding())
+LOGINFO('   Preferred Encoding    : ' + prefEnc)
 LOGINFO('   Machine Arch          : ' + SystemSpecs.Machine)
 LOGINFO('   Available HDD (ARM)   : %d GB' % SystemSpecs.HddAvailA)
 LOGINFO('   Available HDD (BTC)   : %d GB' % SystemSpecs.HddAvailB)
@@ -1435,6 +1520,11 @@ def formatWithPlurals(txt, replList=None, pluralList=None):
 #  -- ScrAddr strings (A unique identifier used by the DB)
 ################################################################################
 
+
+################################################################################
+def getAddrByte():
+   return '\x6f' if USE_TESTNET or USE_REGTEST else '\x00'
+
 ################################################################################
 # Convert a 20-byte hash to a "pay-to-public-key-hash" script to be inserted
 # into a TxOut script
@@ -1461,7 +1551,7 @@ def hash160_to_p2sh_script(binStr20):
 
    from Transaction import getOpCode
    from Script import scriptPushData
-   outScript = ''.join([  getOpCode('OP_HASH160'), 
+   outScript = ''.join([  getOpCode('OP_HASH160'),
                           scriptPushData(binStr20),
                           getOpCode('OP_EQUAL')])
    return outScript
@@ -1494,10 +1584,10 @@ def pubkey_to_p2pk_script(binStr33or65):
 # will do that by default.  If you require a different order, pre-sort them
 # and pass withSort=False.
 #
-# NOTE:  About the hardcoded bytes in here: the mainnet addrByte and P2SH  
+# NOTE:  About the hardcoded bytes in here: the mainnet addrByte and P2SH
 #        bytes are hardcoded into DB format.  This means that
 #        that any ScrAddr object will use the mainnet prefix bytes, regardless
-#        of whether it is in testnet.  
+#        of whether it is in testnet.
 def pubkeylist_to_multisig_script(pkList, M, withSort=True):
 
    if sum([  (0 if len(pk) in [33,65] else 1)   for pk in pkList]) > 0:
@@ -1522,11 +1612,11 @@ def pubkeylist_to_multisig_script(pkList, M, withSort=True):
 
 ################################################################################
 def scrAddr_to_script(scraddr):
-   """ 
-   Convert a scrAddr string (used by BDM) to the correct TxOut script 
-   Note this only works for P2PKH and P2SH scraddrs.  Multi-sig and 
+   """
+   Convert a scrAddr string (used by BDM) to the correct TxOut script
+   Note this only works for P2PKH and P2SH scraddrs.  Multi-sig and
    all non-standard scripts cannot be derived from scrAddrs.  In a way,
-   a scrAddr is intended to be an intelligent "hash" of the script, 
+   a scrAddr is intended to be an intelligent "hash" of the script,
    and it's a perk that most of the time we can reverse it to get the script.
    """
    if len(scraddr)==0:
@@ -1537,9 +1627,9 @@ def scrAddr_to_script(scraddr):
       LOGERROR('Bad scraddr: "%s"' % binary_to_hex(scraddr))
       raise BadAddressError('Invalid ScrAddress')
 
-   if prefix==SCRADDR_P2PKH_BYTE:
+   if prefix==ADDRBYTE:
       return hash160_to_p2pkhash_script(scraddr[1:])
-   elif prefix==SCRADDR_P2SH_BYTE:
+   elif prefix==P2SHBYTE:
       return hash160_to_p2sh_script(scraddr[1:])
    else:
       LOGERROR('Unsupported scraddr type: "%s"' % binary_to_hex(scraddr))
@@ -1565,9 +1655,9 @@ def scrAddr_to_addrStr(scrAddr):
    if not prefix in SCRADDR_BYTE_LIST or not len(scrAddr)==21:
       raise BadAddressError('Invalid ScrAddress')
 
-   if prefix==SCRADDR_P2PKH_BYTE:
+   if prefix==ADDRBYTE:
       return hash160_to_addrStr(scrAddr[1:])
-   elif prefix==SCRADDR_P2SH_BYTE:
+   elif prefix==P2SHBYTE:
       return hash160_to_p2shAddrStr(scrAddr[1:])
    else:
       LOGERROR('Unsupported scrAddr type: "%s"' % binary_to_hex(scrAddr))
@@ -1583,15 +1673,18 @@ def scrAddr_to_hash160(scrAddr):
 
 
 ################################################################################
-def addrStr_to_scrAddr(addrStr):
-   if not checkAddrStrValid(addrStr):
+def addrStr_to_scrAddr(addrStr, p2pkhByte = ADDRBYTE, p2shByte = P2SHBYTE):
+   if addrStr == '':
+      return '';
+
+   if not checkAddrStrValid(addrStr, [p2pkhByte, p2shByte]):
       BadAddressError('Invalid address: "%s"' % addrStr)
 
-   atype, a160 = addrStr_to_hash160(addrStr)
-   if atype==ADDRBYTE:
-      return SCRADDR_P2PKH_BYTE + a160
-   elif atype==P2SHBYTE:
-      return SCRADDR_P2SH_BYTE + a160
+   atype, a160 = addrStr_to_hash160(addrStr, True, p2pkhByte, p2shByte)
+   if atype==p2pkhByte:
+      return p2pkhByte + a160
+   elif atype==p2shByte:
+      return p2shByte + a160
    else:
       BadAddressError('Invalid address: "%s"' % addrStr)
 
@@ -1682,25 +1775,6 @@ def unicode_truncate(theStr, length, encoding='utf-8'):
     return encoded.decode(encoding, 'ignore')
 
 
-#############################################################################
-def satoshiIsAvailable(host='127.0.0.1', port=BITCOIN_PORT, timeout=0.01):
-
-   if not isinstance(port, (list,tuple)):
-      port = [port]
-
-   for p in port:
-      s = socket.socket()
-      s.settimeout(timeout)   # Most of the time checking localhost -- FAST
-      try:
-         s.connect((host, p))
-         s.close()
-         return p
-      except:
-         pass
-
-   return 0
-
-
 # This is a sweet trick for create enum-like dictionaries.
 # Either automatically numbers (*args), or name-val pairs (**kwargs)
 #http://stackoverflow.com/questions/36932/whats-the-best-way-to-implement-an-enum-in-python
@@ -1752,14 +1826,16 @@ if CLI_OPTIONS.logDisable:
 # be valid entities for tracking in a wallet.  Until then, all of our python
 # utilities all use just hash160 values, and we manually add the prefix
 # before talking to the BDM.
-HASH160PREFIX  = '\x00'
-P2SHPREFIX     = '\x05'
-MSIGPREFIX     = '\xfe'
-NONSTDPREFIX   = '\xff'
+HASH160PREFIX     = '\x00'
+HASH160_TESTNET   = '\x6f'
+P2SHPREFIX        = '\x05'
+P2SH_TESTNET      = '\xc4'
+MSIGPREFIX        = '\xfe'
+NONSTDPREFIX      = '\xff'
 def CheckHash160(scrAddr):
    if not len(scrAddr)==21:
       raise BadAddressError("Supplied scrAddr is not a Hash160 value!")
-   if not scrAddr[0] in [HASH160PREFIX, P2SHPREFIX]:
+   if not scrAddr[0] in [ADDRBYTE, P2SHBYTE]:
       raise BadAddressError("Supplied scrAddr is not a Hash160 value!")
    return scrAddr[1:]
 
@@ -1790,7 +1866,7 @@ def RightNowUTC():
 
 def RightNowStr(fmt=DEFAULT_DATE_FORMAT):
    return unixTimeToFormatStr(RightNow(), fmt)
-   
+
 
 # Define all the hashing functions we're going to need.  We don't actually
 # use any of the first three directly (sha1, sha256, ripemd160), we only
@@ -2127,9 +2203,10 @@ def addrStr_is_p2sh(b58Str):
 # As of version 0.90.1, this returns the prefix byte with the hash160.  This is
 # because we need to handle/distinguish regular addresses from P2SH.  All code
 # using this method must be updated to expect 2 outputs and check the prefix.
-def addrStr_to_hash160(b58Str, p2shAllowed=True):
+def addrStr_to_hash160(b58Str, p2shAllowed=True, \
+                       addrByte = ADDRBYTE, p2shByte = P2SHBYTE):
    binStr = base58_to_binary(b58Str)
-   if not p2shAllowed and binStr[0]==P2SHBYTE:
+   if not p2shAllowed and binStr[0]==p2shByte:
       raise P2SHNotSupportedError
    if not len(binStr) == 25:
       raise BadAddressError('Address string is %d bytes' % len(binStr))
@@ -2137,7 +2214,7 @@ def addrStr_to_hash160(b58Str, p2shAllowed=True):
    if not hash256(binStr[:21])[:4] == binStr[-4:]:
       raise ChecksumError('Address string has invalid checksum')
 
-   if not binStr[0] in (ADDRBYTE, P2SHBYTE):
+   if not binStr[0] in (addrByte, p2shByte):
       raise BadAddressError('Unknown addr prefix: %s' % binary_to_hex(binStr[0]))
 
    return (binStr[0], binStr[1:-4])
@@ -2391,43 +2468,6 @@ def binaryBits_to_difficulty(b):
 def difficulty_to_binaryBits(i):
    pass
 
-################################################################################
-def CreateQRMatrix(dataToEncode, errLevel=QRErrorCorrectLevel.L):
-   dataLen = len(dataToEncode)
-   baseSz = 4 if errLevel == QRErrorCorrectLevel.L else \
-            5 if errLevel == QRErrorCorrectLevel.M else \
-            6 if errLevel == QRErrorCorrectLevel.Q else \
-            7 # errLevel = QRErrorCorrectLevel.H 
-   sz = baseSz if dataLen < 70 else  5 +  (dataLen - 70) / 30
-   qrmtrx = [[]]
-   while sz<20:
-      try:
-         errCorrectEnum = getattr(QRErrorCorrectLevel, errLevel.upper())
-         qr = QRCode(sz, errCorrectEnum)
-         qr.addData(dataToEncode)
-         qr.make()
-         success=True
-         break
-      except TypeError:
-         sz += 1
-
-   if not success:
-      LOGERROR('Unsuccessful attempt to create QR code')
-      LOGERROR('Data to encode: (Length: %s, isAscii: %s)', \
-                     len(dataToEncode), isASCII(dataToEncode))
-      return [[0]], 1
-
-   qrmtrx = []
-   modCt = qr.getModuleCount()
-   for r in range(modCt):
-      tempList = [0]*modCt
-      for c in range(modCt):
-         # The matrix is transposed by default, from what we normally expect
-         tempList[c] = 1 if qr.isDark(c,r) else 0
-      qrmtrx.append(tempList)
-
-   return [qrmtrx, modCt]
-
 
 # The following params are for the Bitcoin elliptic curves (secp256k1)
 SECP256K1_MOD   = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2FL
@@ -2560,7 +2600,7 @@ class FiniteField(object):
 
 
 ################################################################################
-def SplitSecret(secret, needed, pieces, nbytes=None, use_random_x=False):
+def SplitSecret(secret, needed, pieces, nbytes=None):
    if not isinstance(secret, basestring):
       secret = secret.toBinStr()
 
@@ -2587,13 +2627,10 @@ def SplitSecret(secret, needed, pieces, nbytes=None, use_random_x=False):
       raise FiniteFieldError
 
 
-   # We deterministically produce the coefficients so that we always use the
-   # same polynomial for a given secret
-   lasthmac = secret[:]
+   # We use randomized coefficients so as to respect SSS security parameters
    othernum = []
    for i in range(pieces+needed-1):
-      lasthmac = HMAC512(lasthmac, 'splitsecrets')[:nbytes]
-      othernum.append(binary_to_int(lasthmac))
+      othernum.append(binary_to_int(SecureBinaryData().GenerateRandom(nbytes).toBinStr()))
 
    def poly(x):
       polyout = ff.mult(a, ff.power(x,needed-1))
@@ -2603,7 +2640,7 @@ def SplitSecret(secret, needed, pieces, nbytes=None, use_random_x=False):
       return polyout
 
    for i in range(pieces):
-      x = othernum[i+2] if use_random_x else i+1
+      x = i+1
       fragments.append( [x, poly(x)] )
 
    secret,a = None,None
@@ -2721,10 +2758,10 @@ def ReadFragIDLineBin(binLine):
    doMask = binary_to_int(binLine[0]) > 127
    M      = binary_to_int(binLine[0]) & 0x7f
    fnum   = binary_to_int(binLine[1])
-   wltID  = binLine[2:]
+   fragID  = binLine[2:]
 
-   idBase58 = ComputeFragIDBase58(M, wltID) + '-#' + str(fnum)
-   return (M, fnum, wltID, doMask, idBase58)
+   idBase58 = ComputeFragIDBase58(M, fragID) + '-#' + str(fnum)
+   return (M, fnum, fragID, doMask, idBase58)
 
 
 ################################################################################
@@ -2762,15 +2799,18 @@ def checkAddrBinValid(addrBin, validPrefixes=None):
 
    if not isinstance(validPrefixes, list):
       validPrefixes = [validPrefixes]
-
-   return (checkAddrType(addrBin) in validPrefixes)
+      
+   prefix = checkAddrType(addrBin)
+   return (prefix in validPrefixes)
 
 
 
 ################################################################################
-def checkAddrStrValid(addrStr):
+def checkAddrStrValid(addrStr, validPrefixes=[ADDRBYTE, P2SHBYTE]):
    """ Check that a Base58 address-string is valid on this network """
-   return checkAddrBinValid(base58_to_binary(addrStr))
+   if(addrStr == ''):
+      return False
+   return checkAddrBinValid(base58_to_binary(addrStr), validPrefixes)
 
 
 ################################################################################
@@ -2964,11 +3004,16 @@ def createBitcoinURI(addr, amt=None, msg=None):
 
 ################################################################################
 def createDERSigFromRS(rBin, sBin):
-   # Remove all leading zero-bytes (why didn't we use lstrip() here?)
-   while rBin[0]=='\x00':
-      rBin = rBin[1:]
-   while sBin[0]=='\x00':
-      sBin = sBin[1:]
+   # Remove all leading zero-bytes
+   rBin = rBin.lstrip('\x00')
+   sBin = sBin.lstrip('\x00')
+
+   # assure that s is the low value so that tx is not malleable (BIP62)
+   sInt = binary_to_int(sBin, BIGENDIAN)
+   if sInt >  SECP256K1_ORDER / 2:
+      sInt = SECP256K1_ORDER - sInt
+      # Compliance with BIP62 requires no extra padding
+      sBin = int_to_binary(sInt, endOut=BIGENDIAN)
 
    if binary_to_int(rBin[0])&128>0:  rBin = '\x00'+rBin
    if binary_to_int(sBin[0])&128>0:  sBin = '\x00'+sBin
@@ -3668,7 +3713,17 @@ class SettingsFile(object):
          except:
             LOGEXCEPT('Invalid setting in %s (skipping...)', path)
 
-
+# Grab language settings from settings file or from cli
+LANGUAGES = ["da", "de", "en", "es", "el", "fr", "he", "hr", "id", "ru", "sv"]
+if CLI_OPTIONS.language == "en":
+   langSetting = SettingsFile(SETTINGS_PATH).get('Language')
+else:
+   langSetting = CLI_OPTIONS.language
+if langSetting not in LANGUAGES:
+   LOGERROR("Unsupported language %s specified. Defaulting to English (en)", langSetting)
+   langSetting = "en"
+GUI_LANGUAGE = "armory_" + langSetting + ".qm"
+LOGINFO("Using Language: %s", langSetting)
 
 # Random method for creating
 def touchFile(fname):
@@ -3680,87 +3735,3 @@ def touchFile(fname):
       os.fsync(f.fileno())
       f.close()
 
-
-# NOTE: Had to put in this at the eend so it was after the AllowAsync def
-# This flag takes into account both CLI_OPTIONs, and availability of the
-# BitTornado library  (the user can remove the BitTornado dir and/or the
-# torrentDL.py files without breaking Armory, it will simply set this
-# disable flag to true)
-class FakeTDM(object):
-   def __init__(self):
-      self.isRunning   = lambda: False
-      self.isStarted   = lambda: False
-      self.isFinished  = lambda: False
-      self.getTDMState = lambda: 'Disabled'
-      self.removeOldTorrentFile = lambda: None
-
-
-DISABLE_TORRENTDL = CLI_OPTIONS.disableTorrent
-TheTDM = FakeTDM()
-try:
-   import torrentDL
-   TheTDM = torrentDL.TorrentDownloadManager()
-except:
-   LOGEXCEPT('Failed to import torrent downloader')
-   DISABLE_TORRENTDL = True
-
-# We only use BITTORRENT for mainnet
-if USE_TESTNET:
-   DISABLE_TORRENTDL = True
-
-
-
-############################################
-class ArmoryInstanceListener(Protocol):
-   def connectionMade(self):
-      LOGINFO('Another Armory instance just tried to open.')
-      self.factory.func_conn_made()
-
-   def dataReceived(self, data):
-      LOGINFO('Received data from alternate Armory instance')
-      self.factory.func_recv_data(data)
-      self.transport.loseConnection()
-      
-############################################
-class ArmoryListenerFactory(ClientFactory):
-   protocol = ArmoryInstanceListener
-   def __init__(self, fn_conn_made, fn_recv_data):
-      self.func_conn_made = fn_conn_made
-      self.func_recv_data = fn_recv_data
-      
-# Check general internet connection
-# Do not Check when ForceOnline is true
-def isInternetAvailable(forceOnline = False):
-   internetStatus = INTERNET_STATUS.Unavailable
-   if forceOnline:
-      internetStatus = INTERNET_STATUS.DidNotCheck
-   else:
-      try:
-         import urllib2
-         urllib2.urlopen('http://google.com', timeout=CLI_OPTIONS.nettimeout)
-         internetStatus = INTERNET_STATUS.Available
-      except ImportError:
-         LOGERROR('No module urllib2 -- cannot determine if internet is '
-            'available')
-      except urllib2.URLError:
-         # In the extremely rare case that google might be down (or just to try
-         # again...)
-         try:
-            urllib2.urlopen('http://microsoft.com', timeout=CLI_OPTIONS.nettimeout)
-            internetStatus = INTERNET_STATUS.Available
-         except:
-            LOGEXCEPT('Error checking for internet connection')
-            LOGERROR('Run --skip-online-check if you think this is an error')
-      except:
-         LOGEXCEPT('Error checking for internet connection')
-         LOGERROR('Run --skip-online-check if you think this is an error')
-
-   return internetStatus
-
-
-# Returns true if Online Mode is possible
-def onlineModeIsPossible(btcdir=BTC_HOME_DIR):
-   return isInternetAvailable(forceOnline=CLI_OPTIONS.forceOnline) != \
-                INTERNET_STATUS.Unavailable and \
-      satoshiIsAvailable() and \
-      os.path.exists(os.path.join(btcdir, 'blocks'))

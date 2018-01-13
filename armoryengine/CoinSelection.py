@@ -65,9 +65,6 @@ from armoryengine.ArmoryUtils import CheckHash160, binary_to_hex, coin2str, \
 from armoryengine.Timer import TimeThisFunction
 from armoryengine.Transaction import *
 import BDM
-from bitcoinrpc_jsonrpc.authproxy import JSONRPCException
-
-
 
 ################################################################################
 # These would normally be defined by C++ and fed in, but I've recreated
@@ -83,40 +80,62 @@ class PyUnspentTxOut(object):
    def __init__(self, scrAddr=None, txHash=None, txoIdx=None, val=None, 
                                              numConf=None, fullScript=None):
 
-      self.initialize(scrAddr, txHash, txoIdx, val, numConf, fullScript)
+      self.initialize(scrAddr, txHash, None, None, None, 
+                      txoIdx, val, numConf, fullScript)
 
 
    #############################################################################
    def createFromCppUtxo(self, cppUtxo):
       scrAddr= cppUtxo.getRecipientScrAddr()
       val    = cppUtxo.getValue()
-      conf   = cppUtxo.getNumConfirm()
+      conf   = cppUtxo.getNumConfirm(TheBDM.getTopBlockHeight())
       txHash = cppUtxo.getTxHash()
+      txHashStr = cppUtxo.getTxHashStr()
       txoIdx = cppUtxo.getTxOutIndex()
       script = cppUtxo.getScript()
+      txHeight = cppUtxo.getHeight()
+      txIndex = cppUtxo.getTxIndex()
+      sequence = cppUtxo.getPreferredSequence()
 
-      self.initialize(scrAddr, txHash, txoIdx, val, conf, script)
+      self.initialize(scrAddr, txHash, txHashStr, txHeight, txIndex, 
+                      txoIdx, val, conf, script, sequence)
       return self
 
    #############################################################################
-   def initialize(self, scrAddr=None, txHash=None, txoIdx=None, val=None, 
-                                              numConf=None, fullScript=None):
+   def initialize(self, scrAddr, txHash, txHashStr, txHeight, txIndex, 
+                  txoIdx, val, numConf=None, fullScript=None, 
+                  sequence=2**32-1):
       self.scrAddr    = scrAddr
       self.txHash     = txHash
+      self.txHashStr  = txHashStr
       self.txOutIndex = txoIdx
       self.val        = val
       self.conf       = numConf
+      self.txHeight   = txHeight
+      self.txIndex    = txIndex
+      self.sequence   = sequence
 
       if self.scrAddr and fullScript is None:
          self.binScript = scrAddr_to_script(self.scrAddr)
       else:
          self.binScript = fullScript
+         
+      self.checked = True
 
    def getTxHash(self):
       return self.txHash
+   
+   def getTxHashStr(self):
+      return self.txHashStr
+   
+   def getTxHeight(self):
+      return self.txHeight
 
    def getTxOutIndex(self):
       return self.txOutIndex
+   
+   def getTxIndex(self):
+      return self.txIndex
 
    def getValue(self):
       return self.val
@@ -139,9 +158,22 @@ class PyUnspentTxOut(object):
       pstr.append(coin2str(self.val))
       pstr.append(str(self.conf).rjust(8,' '))
       return '  '.join(pstr)
+   
+   def shortLabel(self):
+      return '%d|%d|%d' % (self.txHeight, self.txIndex, self.txOutIndex)
+      
+   def longLabel(self):
+      return 'height: %d, txIndex: %d, txOutIndex: %d, txHash: %s' % \
+         (self.txHeight, self.txIndex, self.txOutIndex, self.txHashStr)
 
    def pprint(self, indent=''):
       print self.prettyStr(indent)
+      
+   def setChecked(self, val):
+      self.checked = val
+      
+   def isChecked(self):
+      return self.checked
 
 
 ################################################################################
@@ -719,44 +751,22 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=10, margin=C
    return finalSelection
 
 NBLOCKS_TO_CONFIRM = 3
+FEEBYTE_CONSERVATIVE = "CONSERVATIVE"
+FEEBYTE_ECONOMICAL = "ECONOMICAL"
 # ONE_BTC * 144 / 250
 DEFAULT_PRIORITY = 57600000
 
 ################################################################################
 # Call bitcoin core to get the fee estimate per KB
-def estimateFee():
-   result = MIN_TX_FEE
-   try:
-      # See https://bitcoin.org/en/developer-reference#estimatefee for
-      # documentation about this RPC call
-      fee = BDM.TheSDM.callJSON('estimatefee', NBLOCKS_TO_CONFIRM)
-      # -1 is returned if BitcoinD does not have enough data to estimate fee.
-      if fee > 0:
-         result = int(fee * ONE_BTC)
-   except:
-      # if the BitcoinD version does not support fee estimation return default
-      # if the BitcoinD was never started return default
-      pass
-   return result
+def estimateFee(nblocksToConfirm, strategy):
+   # See https://bitcoin.org/en/developer-reference#estimatefee for
+   # documentation about this RPC call
+   return TheBDM.bdv().estimateFee(nblocksToConfirm, strategy)
    
 ################################################################################
 # Call bitcoin core to get the priority estimate
 def estimatePriority():
-   result = DEFAULT_PRIORITY
-   try:
-      # See https://bitcoin.org/en/developer-reference#estimatepriority for
-      # documentation about this RPC call
-      priority = BDM.TheSDM.callJSON('estimatepriority', NBLOCKS_TO_CONFIRM)
-      # -1 is returned if BitcoinD does not have enough data to estimate
-      # the priority
-      if priority == -1:
-         result = priority
-   except:
-      # if the BitcoinD version does not support priority estimation
-      # return default
-      # if the BitcoinD was never started return default
-      pass
-   return int(result)
+   return DEFAULT_PRIORITY
 
 ################################################################################
 def calcMinSuggestedFeesHackMS(selectCoinsResult, targetOutVal, preSelectedFee, 
@@ -791,57 +801,43 @@ def calcMinSuggestedFeesHackMS(selectCoinsResult, targetOutVal, preSelectedFee,
 
    return suggestedFee
    
-      
-
 ################################################################################
-def calcMinSuggestedFees(selectCoinsResult, targetOutVal, preSelectedFee,
-                         numRecipients):
-   """
-   Returns two fee options:  one for relay, one for include-in-block.
-   In general, relay fees are required to get your block propagated
-   (since most nodes are Satoshi clients), but there's no guarantee
-   it will be included in a block -- though I'm sure there's plenty
-   of miners out there will include your tx for sub-standard fee.
-   However, it's virtually guaranteed that a miner will accept a fee
-   equal to the second return value from this method.
-
-   We have to supply the fee that was used in the selection algorithm,
-   so that we can figure out how much change there will be.  Without
-   this information, we might accidentally declare a tx to be freeAllow
-   when it actually is not.
-   """
-
-   # TODO: this should be updated to accommodate the non-constant 
-   #       TxOut/TxIn size given that it now accepts P2SH and Multisig
-
+def estimateTxSize(selectCoinsResult, targetOutVal, preSelectedFee,
+                         numRecipients, autoChange = True):
+     
    if len(selectCoinsResult)==0:
       return -1
    
    paid = targetOutVal + preSelectedFee
-   change = sum([u.getValue() for u in selectCoinsResult]) - paid
+   change = False
+   if autoChange == True:
+      change = sum([u.getValue() for u in selectCoinsResult]) - paid
 
    # Calc approx tx size
    numBytes  =  10
    numBytes += 180 * len(selectCoinsResult)
    numBytes +=  35 * (numRecipients + (1 if change>0 else 0))
-   numKb = int(numBytes / 1000)
+   
+   return numBytes 
 
-   suggestedFee = (1+numKb)*estimateFee()
-   if numKb>10:
-      return suggestedFee
-   # Compute raw priority of tx
-   prioritySum = 0
-   for utxo in selectCoinsResult:
-      prioritySum += utxo.getValue() * utxo.getNumConfirm()
-   prioritySum = prioritySum / numBytes
+################################################################################
+def calcMinSuggestedFees(selectCoinsResult, targetOutVal, preSelectedFee,
+                         numRecipients, autoChange = True):
 
-   if(prioritySum >= estimatePriority() and numBytes < 10000):
-      return 0
+   # TODO: this should be updated to accommodate the non-constant 
+   #       TxOut/TxIn size given that it now accepts P2SH and Multisig
 
+   numBytes = estimateTxSize(selectCoinsResult, \
+               targetOutVal, preSelectedFee, numRecipients, autoChange)
+   if numBytes == -1:
+      return -1
+   
+   try:
+      suggestedFee = numBytes*estimateFee(2)
+   except:
+      suggestedFee = numBytes*MIN_RELAY_TX_FEE
+      
    return suggestedFee
-
-
-
 
 ################################################################################
 def approxTxInSizeForTxOut(utxoScript, lboxList=None):
@@ -866,7 +862,7 @@ def approxTxInSizeForTxOut(utxoScript, lboxList=None):
    elif scrType == CPP_TXOUT_P2SH and not lboxList is None:
       scrAddr = script_to_scrAddr(utxoScript)
       for lbox in lboxList:
-         if scrAddr == lbox.p2shScrAddr:
+         if scrAddr == lbox.getAddr():
             M,N,a160s,pubs = getMultisigScriptInfo(lbox.binScript)
             return M*70 + 40
 

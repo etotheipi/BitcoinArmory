@@ -882,38 +882,6 @@ class PubKeyBlockTest(unittest.TestCase):
 
 
    """
-   def testMinimizeDERSignaturePadding(self):
-      multiTx1  = PyTx().unserialize(multiTx1raw)
-      paddingMinimizedMulti1, newTxMulti1 = multiTx1.minimizeDERSignaturePadding()
-      self.assertEqual(multiTx1.inputs[0].binScript, newTxMulti1.inputs[0].binScript)
-      self.assertEqual(multiTx1.inputs[1].binScript, newTxMulti1.inputs[1].binScript)
-      self.assertEqual(multiTx1.inputs[2].binScript, newTxMulti1.inputs[2].binScript)
-      self.assertEqual(multiTx1.inputs[3].binScript, newTxMulti1.inputs[3].binScript)
-      self.assertFalse(paddingMinimizedMulti1)
-      
-      txString = multiTx1.toString()
-      self.assertTrue(len(txString)> 0)
-      
-      multiTx2  = PyTx().unserialize(multiTx2raw)
-      paddingMinimizedMulti2, newTxMulti2 = multiTx2.minimizeDERSignaturePadding()
-      self.assertEqual(multiTx2.inputs[0].binScript, newTxMulti2.inputs[0].binScript)
-      self.assertEqual(multiTx2.inputs[1].binScript, newTxMulti2.inputs[1].binScript)
-      self.assertEqual(multiTx2.inputs[2].binScript, newTxMulti2.inputs[2].binScript)
-      # Added 1 extra byte of padding
-      self.assertEqual(len(multiTx2.inputs[3].binScript)-1, len(newTxMulti2.inputs[3].binScript))
-      self.assertTrue(paddingMinimizedMulti2)
-      
-      tx1  = PyTx().unserialize(tx1raw)
-      paddingMinimized1, newTx1 = tx1.minimizeDERSignaturePadding()
-      self.assertEqual(tx1.inputs[0].binScript, newTx1.inputs[0].binScript)
-      self.assertFalse(paddingMinimized1)
-      tx2  = PyTx().unserialize(tx2raw)
-      paddingMinimized2, newTx2 = tx2.minimizeDERSignaturePadding()
-      # Old tx had 2 extra bytes of padding one each on the r and s
-      self.assertEqual(len(tx2.inputs[0].binScript)-2, len(newTx2.inputs[0].binScript))
-      self.assertTrue(paddingMinimized2)
-      
-      
    def testSerializeUnserialize(self):
       tx1 = PyTx().unserialize(tx1raw)
       tx2 = PyTx().unserialize(BinaryUnpacker(tx2raw))
