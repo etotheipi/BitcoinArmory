@@ -33,28 +33,33 @@ qtVer         = '4.8.7'  # NB: ArmoryMac.pro must also be kept up to date!!!
 sipVer        = '4.19.6' # NB: ArmoryMac.pro must also be kept up to date!!!
 pyQtVer       = '4.12.1' # NB: When I'm upgraded, SIP usually has to be upgraded too.
 
-LOGFILE       = 'build-app.log.txt'
-LOGPATH       = path.abspath( path.join(os.getcwd(), LOGFILE))
-ARMORYDIR     = '..'
-OBJCDIR       = path.join(os.getcwd(), 'objc_armory')
-WORKDIR       = path.join(os.getcwd(), 'workspace')
-APPDIR        = path.join(WORKDIR, 'Armory.app') # actually make it local
-DLDIR         = path.join(WORKDIR, 'downloads')
-UNPACKDIR     = path.join(WORKDIR, 'unpackandbuild')
-INSTALLDIR    = path.join(WORKDIR, 'install')
-PREFIXBASEDIR = path.join(APPDIR, 'Contents/MacOS/py')
-PYPREFIX      = path.join(APPDIR, 'Contents/Frameworks/Python.framework/Versions/%s' % pyMajorVer)
-PREFIXDIR     = path.join(PREFIXBASEDIR, 'usr')
-PYLIBPREFIX   = path.join(PYPREFIX, 'lib')
-PYINCPREFIX   = path.join(PYPREFIX, 'include/python%s' % pyMajorVer)
-PYBINARY      = path.join(PYPREFIX, 'Resources/Python.app/Contents/MacOS/Python')
-PYSITEPKGS    = path.join(PYLIBPREFIX, 'python%s/site-packages' % pyMajorVer)
-MAKEFLAGS     = '-j4'
+# Used only if compiling a version that supports armoryd
+twistedVer    = '17.9.0'
+twistedSubdir = 'a2/37/298f9547606c45d75aa9792369302cc63aa4bbcf7b5f607560180dd099d2'
+
+# Various paths and build materials related to Armory.
+LOGFILE        = 'build-app.log.txt'
+LOGPATH        = path.abspath( path.join(os.getcwd(), LOGFILE))
+OBJCDIR        = path.join(os.getcwd(), 'objc_armory')
+WORKDIR        = path.join(os.getcwd(), 'workspace')
+APPBASE        = path.join(WORKDIR, 'Armory.app') # actually make it local
+WORKDLDIR      = path.join(WORKDIR, 'downloads')
+WORKUNPACKDIR  = path.join(WORKDIR, 'unpackandbuild')
+WORKINSTALLDIR = path.join(WORKDIR, 'install')
+ARMORYCODEBASE = path.join(APPBASE, 'Contents/MacOS/py')
+PYFRAMEBASE    = path.join(APPBASE, 'Contents/Frameworks/Python.framework/Versions/%s' % pyMajorVer)
+PYLIBPREFIX    = path.join(PYFRAMEBASE, 'lib')
+PYINCPREFIX    = path.join(PYFRAMEBASE, 'include/python%s' % pyMajorVer)
+PYBINARY       = path.join(PYFRAMEBASE, 'Resources/Python.app/Contents/MacOS/Python')
+PYSITEPKGS     = path.join(PYLIBPREFIX, 'python%s/site-packages' % pyMajorVer)
+MAKEFLAGS      = '-j4'
 
 # Autotools needs some TLC to make Python happy.
-CONFIGFLAGS   = '--with-macosx-version-min=%s LIBS=\"-L%s\" PYTHON=\"%s\" PYTHON_LDFLAGS=\"-L%s\" PYTHON_CPPFLAGS=\"-I%s\" PYTHON_EXTRA_LIBS=\"-u _PyMac_Error %s/Python\"' % (minOSXVer, PYLIBPREFIX, PYBINARY, PYLIBPREFIX, PYINCPREFIX, PYPREFIX)
+CONFIGFLAGS = '--with-macosx-version-min=%s LIBS=\"-L%s\" PYTHON=\"%s\" PYTHON_LDFLAGS=\"-L%s\" PYTHON_CPPFLAGS=\"-I%s\" PYTHON_EXTRA_LIBS=\"-u _PyMac_Error %s/Python\"' % (minOSXVer, PYLIBPREFIX, PYBINARY, PYLIBPREFIX, PYINCPREFIX, PYFRAMEBASE)
 
-QTBUILTFLAG   = path.join(UNPACKDIR, 'qt/qt_install_success.txt')
+# Susceptible to build failures. Would fix, but prereqs are going away. Leave
+# alone since it'll be gone soon anyway.
+QTBUILTFLAG = path.join(WORKUNPACKDIR, 'qt/qt_install_success.txt')
 
 # If no arguments specified, then do the minimal amount of work necessary
 # Assume that only one flag is specified.  These should be
@@ -62,7 +67,7 @@ parser = optparse.OptionParser(usage="%prog [options]\n")
 parser.add_option('--fromscratch',  dest='fromscratch', default=False, action='store_true', help='Remove all prev-downloaded: redownload and rebuild all')
 parser.add_option('--rebuildall',   dest='rebuildall',  default=False, action='store_true', help='Remove all prev-built; no redownload, only rebuild')
 parser.add_option('--compapponly',  dest='compapponly', default=False, action='store_true', help='Recompile Armory, not the 3rd party code')
-parser.add_option('--cleanupapp',   dest='cleanupapp',  default=False, action='store_true', help='Delete Python files in the compiled application')
+parser.add_option('--armoryd',      dest='armoryd',     default=False, action='store_true', help='Add files to allow armoryd to run')
 (CLIOPTS, CLIARGS) = parser.parse_args()
 
 ########################################################
@@ -73,7 +78,7 @@ def logprint(s):
       f.write(s if s.endswith('\n') else s+'\n')
 
 # Even if it's already built, we'll always "make install" and then
-# set a bunch of environment variables (INSTALLDIR is wiped on every
+# set a bunch of environment variables (WORKINSTALLDIR is wiped on every
 # run of this script, so all "make install" steps need to be re-run).
 # Variables placed out here to make compile-only option feasible.
 # Qt5 may require QMAKESPEC to change.
@@ -81,10 +86,10 @@ try:
    oldDYLDPath = ':'+os.environ['DYLD_FRAMEWORK_PATH']
 except KeyError:
    oldDYLDPath = ''
-qtInstDir  = path.join(INSTALLDIR, 'qt')
+qtInstDir  = path.join(WORKINSTALLDIR, 'qt')
 qtBinDir = path.join(qtInstDir, 'bin')
-qtBuildDir = path.join(UNPACKDIR, 'qt-everywhere-opensource-src-%s' % qtVer)
-frmpath = path.join(APPDIR, 'Contents/Frameworks')
+qtBuildDir = path.join(WORKUNPACKDIR, 'qt-everywhere-opensource-src-%s' % qtVer)
+frmpath = path.join(APPBASE, 'Contents/Frameworks')
 os.environ['PATH'] = '%s:%s' % (qtBinDir, os.environ['PATH'])
 os.environ['DYLD_FRAMEWORK_PATH'] = '%s:%s' % (frmpath, oldDYLDPath)
 os.environ['QTDIR'] = qtInstDir
@@ -109,21 +114,24 @@ def main():
       os.remove(LOGFILE)
 
    if not CLIOPTS.compapponly:
-      delete_prev_data(CLIOPTS)
+      delete_prereq_data(CLIOPTS)
 
    makedir(WORKDIR)
-   makedir(DLDIR)
-   makedir(UNPACKDIR)
-   makedir(INSTALLDIR)
+   makedir(WORKDLDIR)
+   makedir(WORKUNPACKDIR)
+   makedir(WORKINSTALLDIR)
 
+   # Download Armory prerequisites
    for pkgname, fname, url, ID in distfiles:
       logprint('\n\n')
       downloadPkg(pkgname, fname, url, ID)
-
    logprint("\n\nALL DOWNLOADS COMPLETED.\n\n")
 
-   if not CLIOPTS.compapponly:
+   if not os.path.isdir(APPBASE):
       make_empty_app()
+      make_resources()
+
+   if not CLIOPTS.compapponly:
       compile_python()
       compile_pip()
       compile_libpng()
@@ -131,13 +139,14 @@ def main():
       compile_sip()
       compile_pyqt()
       compile_psutil()
-      make_resources()
+      if CLIOPTS.armoryd:
+         compile_twisted()
 
    compile_armory()
    compile_objc_library()
    cleanup_app()
    # Force Finder to update the Icon
-   execAndWait("touch " + APPDIR)
+   execAndWait("touch " + APPBASE)
    make_targz()
 
    # Show the final app size.
@@ -253,7 +262,7 @@ def getTarUnpackPath(tarName, inDir=None):
    return theDir
 
 ################################################################################
-def unpack(tarName, fromDir=DLDIR, toDir=UNPACKDIR, overwrite=False):
+def unpack(tarName, fromDir=WORKDLDIR, toDir=WORKUNPACKDIR, overwrite=False):
    """
    This is not a versatile function. It expects tar or zip files with a single
    unpack directory. I will expand this function as necessary if we
@@ -302,7 +311,7 @@ def unpack(tarName, fromDir=DLDIR, toDir=UNPACKDIR, overwrite=False):
    return newStuff[0] if len(newStuff)==1 else newStuff
 
 ################################################################################
-def downloadPkg(pkgname, fname, url, ID, toDir=DLDIR):
+def downloadPkg(pkgname, fname, url, ID, toDir=WORKDLDIR):
    myfile = path.join(toDir, fname)
    doDL = True
 
@@ -374,6 +383,11 @@ distfiles.append( [ "pyqt", \
                     "https://sourceforge.net/projects/pyqt/files/PyQt4/PyQt-%s/PyQt4_gpl_mac-%s.tar.gz" % (pyQtVer, pyQtVer), \
                     '028f3fc979428687e8e8fd78288b41f1b5735a7c' ] )
 
+distfiles.append( [ 'Twisted', \
+                    "Twisted-%s.tar.bz2" % twistedVer, \
+                    "https://files.pythonhosted.org/packages/%s/Twisted-%s.tar.bz2" % (twistedSubdir, twistedVer), \
+                    "a218e69ab51b5c6b632043f91aed98bc92083a90" ] )
+
 # Now repack the information in distfiles
 tarfilesToDL = {}
 for d in distfiles:
@@ -382,13 +396,13 @@ for d in distfiles:
 ########################################################
 def make_empty_app():
    'Make the empty .app bundle structure'
-   makedir(APPDIR)
-   makedir(path.join(APPDIR,'Contents'))
-   makedir(path.join(APPDIR,'Contents/MacOS'))
-   makedir(path.join(APPDIR,'Contents/MacOS/py'))
-   makedir(path.join(APPDIR,'Contents/Frameworks'))
-   makedir(path.join(APPDIR,'Contents/Resources'))
-   makedir(path.join(APPDIR,'Contents/Dependencies'))
+   makedir(APPBASE)
+   makedir(path.join(APPBASE,'Contents'))
+   makedir(path.join(APPBASE,'Contents/MacOS'))
+   makedir(path.join(APPBASE,'Contents/MacOS/py'))
+   makedir(path.join(APPBASE,'Contents/Frameworks'))
+   makedir(path.join(APPBASE,'Contents/Resources'))
+   makedir(path.join(APPBASE,'Contents/Dependencies'))
 
 ########################################################
 def compile_python():
@@ -415,23 +429,23 @@ def compile_python():
    with open(modSetupFile, "w") as origFile:
       origFile.write(setupText)
 
-   frameDir = path.join(APPDIR, 'Contents/Frameworks')
+   frameDir = path.join(APPBASE, 'Contents/Frameworks')
    execAndWait('./configure CFLAGS=-I%s/include CPPFLAGS=-I%s/include LDFLAGS=\"-L%s/lib -lssl -lcrypto\" --enable-ipv6 --prefix=%s --enable-framework="%s"' % \
-                                             (opensslPath, opensslPath, opensslPath, INSTALLDIR, frameDir), cwd=bldPath)
+                                             (opensslPath, opensslPath, opensslPath, WORKINSTALLDIR, frameDir), cwd=bldPath)
 
    # make
    execAndWait('make %s' % MAKEFLAGS, cwd=bldPath)
-   execAndWait('make install PYTHONAPPSDIR=%s' % INSTALLDIR, cwd=bldPath)
+   execAndWait('make install PYTHONAPPSDIR=%s' % WORKINSTALLDIR, cwd=bldPath)
 
    # Update $PATH var
-   newPath = path.join(PYPREFIX, 'bin')
+   newPath = path.join(PYFRAMEBASE, 'bin')
    os.environ['PATH'] = '%s:%s' % (newPath, os.environ['PATH'])
    logprint('PATH is now %s' % os.environ['PATH'])
 
 ########################################################
 def compile_pip():
    logprint('Installing pip and setuptools')
-   pipexe = path.join(PYPREFIX, 'bin/pip')
+   pipexe = path.join(PYFRAMEBASE, 'bin/pip')
    if path.exists(pipexe):
       logprint('Pip already installed')
    else:
@@ -451,7 +465,7 @@ def compile_pip():
 def compile_libpng():
    logprint('Installing libpng')
    dylib = 'libpng16.16.dylib'
-   target = path.join(APPDIR, 'Contents/Dependencies', dylib)
+   target = path.join(APPBASE, 'Contents/Dependencies', dylib)
    if path.exists(target):
       logprint('libpng already installed.')
    else:
@@ -470,13 +484,13 @@ def compile_qt():
    # Already cloned to the qtDLDir, then tar it and move the dir to
    # qtBuildDir. Then we will build inside the qtBuildDir, using qtInstDir
    # as the prefix.
-   qtDLDir    = path.join(DLDIR, 'qt')
-   qtBuildDir = path.join(UNPACKDIR, 'qt-everywhere-opensource-src-%s' % qtVer)
-   qtInstDir  = path.join(INSTALLDIR, 'qt')
-   qtTarFile   = path.join(DLDIR, 'qt-everywhere-opensource-src-%s.tar.gz' % qtVer)
+   qtDLDir    = path.join(WORKDLDIR, 'qt')
+   qtBuildDir = path.join(WORKUNPACKDIR, 'qt-everywhere-opensource-src-%s' % qtVer)
+   qtInstDir  = path.join(WORKINSTALLDIR, 'qt')
+   qtTarFile   = path.join(WORKDLDIR, 'qt-everywhere-opensource-src-%s.tar.gz' % qtVer)
 
    # If we did a fresh download, it's already uncompressed in DLDir. Move it
-   # to where it should be in the UNPACKDIR
+   # to where it should be in the WORKUNPACKDIR
    if path.exists(qtDLDir):
       if path.exists(qtBuildDir):
          removetree(qtBuildDir)
@@ -530,11 +544,11 @@ def install_qt():
       qtconf = path.join(qtBinDir, 'qt.conf')
       execAndWait('make install', cwd=qtBuildDir)
 
-      newcwd = path.join(APPDIR, 'Contents/Frameworks')
+      newcwd = path.join(APPBASE, 'Contents/Frameworks')
 
       for mod in ['QtCore', 'QtGui', 'QtNetwork']:
          src = path.join(qtInstDir, 'lib', mod+'.framework')
-         dst = path.join(APPDIR, 'Contents/Frameworks', mod+'.framework')
+         dst = path.join(APPBASE, 'Contents/Frameworks', mod+'.framework')
          if path.exists(dst):
             removetree(dst)
          copytree(src, dst)
@@ -553,15 +567,15 @@ def compile_sip():
       sipPath = unpack(tarfilesToDL['sip'])
       command  = 'python configure.py'
       command += ' --destdir="%s"' % PYSITEPKGS
-      command += ' --bindir="%s/bin"' % PYPREFIX
-      command += ' --incdir="%s/include"' % PYPREFIX
-      command += ' --sipdir="%s/share/sip"' % PYPREFIX
+      command += ' --bindir="%s/bin"' % PYFRAMEBASE
+      command += ' --incdir="%s/include"' % PYFRAMEBASE
+      command += ' --sipdir="%s/share/sip"' % PYFRAMEBASE
       command += ' --deployment-target=%s' % minOSXVer
       execAndWait(command, cwd=sipPath)
       execAndWait('make %s' % MAKEFLAGS, cwd=sipPath)
 
    # Must run "make install" again even if it was previously built (since
-   # the APPDIR and INSTALLDIR are wiped every time the script is run)
+   # the APPBASE and WORKINSTALLDIR are wiped every time the script is run)
    execAndWait('make install', cwd=sipPath)
 
 ########################################################
@@ -573,13 +587,13 @@ def compile_pyqt():
       logprint('PyQt4 is already installed.')
    else:
       pyqtPath = unpack(tarfilesToDL['pyqt'])
-      incDir = path.join(PYPREFIX, 'include')
+      incDir = path.join(PYFRAMEBASE, 'include')
       execAndWait('python ./configure-ng.py --confirm-license --sip-incdir="%s"' % incDir, cwd=pyqtPath)
       execAndWait('make %s' % MAKEFLAGS, cwd=pyqtPath)
 
    # Need to add pyrcc4 to the PATH
    execAndWait('make install', cwd=pyqtPath)
-   pyrccPath = path.join(UNPACKDIR, 'PyQt_mac_gpl-%s/pyrcc' % pyQtVer)
+   pyrccPath = path.join(WORKUNPACKDIR, 'PyQt_mac_gpl-%s/pyrcc' % pyQtVer)
    os.environ['PATH'] = '%s:%s' % (pyrccPath, os.environ['PATH'])
 
 ########################################################
@@ -594,12 +608,23 @@ def compile_psutil():
       execAndWait(command, cwd=psPath)
 
 ########################################################
+def compile_twisted():
+   logprint('Installing python-twisted')
+
+   if glob.glob(PYSITEPKGS + '/Twisted*'):
+      logprint('Twisted already installed')
+   else:
+      command = "python -s setup.py --no-user-cfg install --force --verbose"
+      twpath = unpack(tarfilesToDL['Twisted'])
+      execAndWait(command, cwd=twpath)
+
+########################################################
 def compile_armory():
    logprint('Compiling and installing Armory')
    # Always compile - even if already in app
-   armoryAppScript = path.join(APPDIR, 'Contents/MacOS/Armory')
-   armorydAppScript = path.join(APPDIR, 'Contents/MacOS/armoryd')
-   armoryDB = path.join(APPDIR, 'Contents/MacOS/ArmoryDB')
+   armoryAppScript = path.join(APPBASE, 'Contents/MacOS/Armory')
+   armorydAppScript = path.join(APPBASE, 'Contents/MacOS/armoryd')
+   armoryDB = path.join(APPBASE, 'Contents/MacOS/ArmoryDB')
    currentDir = os.getcwd()
    os.chdir("..")
    execAndWait('python update_version.py')
@@ -607,7 +632,7 @@ def compile_armory():
    execAndWait('./autogen.sh', cwd='..')
    execAndWait('./configure %s' % CONFIGFLAGS, cwd='..')
    execAndWait('make clean', cwd='..')
-   execAndWait('make DESTDIR="%s" install %s' % (PREFIXBASEDIR, MAKEFLAGS), cwd='..')
+   execAndWait('make DESTDIR="%s" install %s' % (ARMORYCODEBASE, MAKEFLAGS), cwd='..')
    copyfile('Armory-script.sh', armoryAppScript)
    copyfile('armoryd-script.sh', armorydAppScript)
    execAndWait('chmod +x "%s"' % armoryAppScript)
@@ -636,7 +661,7 @@ def compile_objc_library():
 ########################################################
 def make_resources():
    "Populate the Resources folder."
-   cont = path.join(APPDIR, 'Contents')
+   cont = path.join(APPBASE, 'Contents')
    copyfile('Info.plist', cont)
 
    icnsArm = '../img/armory_icon_fullres.icns'
@@ -647,15 +672,12 @@ def make_resources():
 def cleanup_app():
    "Try to remove as much unnecessary junk as possible."
    print "Removing Python test-suite."
-   testdir = path.join(PYPREFIX, "lib/python%s/test" % pyMajorVer)
+   testdir = path.join(PYFRAMEBASE, "lib/python%s/test" % pyMajorVer)
    if path.exists(testdir):
       removetree(testdir)
-      print "Removing .pyo and unneeded .py files."
-   if CLIOPTS.cleanupapp:
-      remove_python_files(PYPREFIX, False)
-   else:
-      remove_python_files(PYPREFIX)
-   remove_python_files(PREFIXBASEDIR, False)
+
+   print "Removing .pyo and .pyc files."
+   remove_python_files(ARMORYCODEBASE)
 
 ########################################################
 def make_targz():
@@ -685,49 +707,42 @@ def show_app_size():
    # following command is fast *and* accurate. Don't touch without good reasons!
    "Show the size of the app."
    execAndWait('ls -lR %s | grep -v \'^d\' | awk \'{total += $5} END ' \
-               '{print \"Total size of Armory:\", total, \"bytes\"}\'' % APPDIR)
+               '{print \"Total size of Armory:\", total, \"bytes\"}\'' % APPBASE)
    sys.stdout.flush()
 
 ########################################################
-def remove_python_files(top, removePy=True):
-   """Remove .pyo files and, if desired, any .py files where the .pyc file exists."""
+def remove_python_files(top):
+   """Remove .pyo and .pyc files."""
    n_pyo = 0
-   n_py_rem = 0
-   n_py_kept = 0
+   n_pyc = 0
+
    for (dirname, dirs, files) in os.walk(top):
       for f in files:
          prename, ext = path.splitext(f)
          if ext == '.pyo':
             removefile(path.join(dirname, f))
             n_pyo += 1
-         elif ext == '.py':
-            if removePy:
-               if (f + 'c') in files:
-                  removefile(path.join(dirname, f))
-                  n_py_rem += 1
-               else:
-                  n_py_kept += 1
-            else:
-               if (f + 'c') in files:
-                  removefile(path.join(dirname, (f + 'c')))
-               n_py_kept += 1
-   logprint("Removes %i .py files (kept %i)." % (n_py_rem, n_py_kept))
+         elif ext == '.pyc':
+            removefile(path.join(dirname, f))
+            n_pyc += 1
+
+   logprint("Removed %i .pyo and %i .pyc files." % (n_pyo, n_pyc))
 
 ########################################################
-def delete_prev_data(opts):
+def delete_prereq_data(opts):
    # If we ran this before, we should have a qt dir here
-   prevQtDir = path.join(UNPACKDIR, 'qt')
+   prevQtDir = path.join(WORKUNPACKDIR, 'qt')
 
    # Always remove previously-built application files
-   removetree(APPDIR)
-   removetree(INSTALLDIR)
+   removetree(APPBASE)
+   removetree(WORKINSTALLDIR)
 
    # When building from scratch
    if opts.fromscratch:
-      removetree(UNPACKDIR) # Clear all unpacked tar files
-      removetree(DLDIR) # Clear even the downloaded files
+      removetree(WORKUNPACKDIR) # Clear all unpacked tar files
+      removetree(WORKDLDIR) # Clear even the downloaded files
    elif opts.rebuildall:
-      removetree(UNPACKDIR)
+      removetree(WORKUNPACKDIR)
    else:
       logprint('Using all packages previously downloaded and built')
 
