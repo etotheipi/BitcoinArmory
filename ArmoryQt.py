@@ -3529,7 +3529,7 @@ class ArmoryMainWindow(QMainWindow):
       if len(self.walletMap)==0:
          reply = QMessageBox.information(self, self.tr('No Wallets!'), self.tr(
             'You have not created any wallets which means there is '
-            'nowhere to store you bitcoins!  Would you like to '
+            'nowhere to store your bitcoins!  Would you like to '
             'create a wallet now?'), \
             QMessageBox.Yes | QMessageBox.No)
          if reply==QMessageBox.Yes:
@@ -4387,7 +4387,7 @@ class ArmoryMainWindow(QMainWindow):
             '<br><br>'
             'Now would be a good time to make paper (or digital) backups of '
             'your wallet(s) if you have not done so already!  You are protected '
-            '<i>forever</i> from hard-drive loss, or forgetting you password. '
+            '<i>forever</i> from hard-drive loss, or forgetting your password. '
             'If you do not have a backup, you could lose all of your '
             'Bitcoins forever!', "", len(self.walletMap))
 
