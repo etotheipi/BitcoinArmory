@@ -83,7 +83,7 @@ def getScriptForUserString(userStr, wltMap, lboxList):
             scrAddr = script_to_scrAddr(outScript)
             wltID = getWltIDForScrAddr(scrAddr, wltMap)
       else:
-         scrAddr = addrStr_to_scrAddr(userStr)
+         scrAddr = addrStr_to_scrAddr(userStr, ADDRBYTE, P2SHBYTE)
          a160 = scrAddr_to_hash160(scrAddr)[1]
          outScript = scrAddr_to_script(scrAddr)
          hasAddrInIt = True
@@ -167,22 +167,26 @@ def getDisplayStringForScript(binScript, wltMap, lboxList, maxChars=256,
    scriptType = getTxOutScriptType(binScript) 
    scrAddr = script_to_scrAddr(binScript)
 
-   wlt = None
-   for iterID,iterWlt in wltMap.iteritems():
-      if iterWlt.hasScrAddr(scrAddr):
-         wlt = iterWlt
-         break
-
-   lbox = None
-   if wlt is None:
-      searchScrAddr = scrAddr
-      if scriptType==CPP_TXOUT_MULTISIG:
-         searchScrAddr = script_to_scrAddr(script_to_p2sh_script(binScript))
-         
-      for iterLbox in lboxList:
-         if searchScrAddr == iterLbox.p2shScrAddr:
-            lbox = iterLbox
+   if scriptType != CPP_TXOUT_OPRETURN:
+      wlt = None
+      for iterID,iterWlt in wltMap.iteritems():
+         if iterWlt.hasScrAddr(scrAddr):
+            wlt = iterWlt
             break
+   
+      lbox = None
+      if wlt is None:
+         searchScrAddr = scrAddr
+         if scriptType==CPP_TXOUT_MULTISIG:
+            searchScrAddr = script_to_scrAddr(script_to_p2sh_script(binScript))
+            
+         for iterLbox in lboxList:
+            if searchScrAddr == iterLbox.p2shScrAddr:
+               lbox = iterLbox
+               break
+   else:
+      wlt = None
+      lbox = None
 
    # Return these with the display string
    wltID  = wlt.uniqueIDB58  if wlt  else None
@@ -283,6 +287,12 @@ def getDisplayStringForScript(binScript, wltMap, lboxList, maxChars=256,
          dispStr += ' [%s...]' % addrStr[:lastTrunc]
    elif len(binScript) == 0:
       dispStr = 'Unknown Input' 
+   elif scriptType == CPP_TXOUT_OPRETURN:
+      msgPos = 2
+      if len(binScript) > 77:
+         msgPos = 3
+      msgStr = binScript[msgPos:]
+      dispStr = 'Msg (%d bytes): %s' % (len(binScript) - msgPos, msgStr)
    else:
       addrStr = script_to_addrStr(script_to_p2sh_script(binScript))
       dispStr = 'Non-Standard: %s' % addrStr

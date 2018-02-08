@@ -1,5 +1,4 @@
 import sys
-from twisted.python import filepath
 # This Code chunk has to appear before ArmoryUtils is imported
 # If not, it will run the tests in Mainnet.
 # TODO: Fix the code base so that nothing is started during imports.

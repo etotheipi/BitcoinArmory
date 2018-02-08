@@ -2,27 +2,29 @@
 //                                                                            //
 //  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
-//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//  See LICENSE-ATI or http://www.gnu.org/licenses/agpl.html                  //
+//                                                                            //
+//                                                                            //
+//  Copyright (C) 2016, goatpig                                               //            
+//  Distributed under the MIT license                                         //
+//  See LICENSE-MIT or https://opensource.org/licenses/MIT                    //                                   
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
+
 #include <vector>
 #include <list>
 #include <map>
 #include "StoredBlockObj.h"
+#include "DbHeader.h"
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryData StoredDBInfo::getDBKey(void)
+BinaryData StoredDBInfo::getDBKey(uint16_t id)
 {
-   // Return a key that is guaranteed to be before all other non-empty
-   // DB keys
-   static BinaryData dbinfokey(0);
-   if(dbinfokey.getSize() == 0)
-   {
-      BinaryWriter bw(1);
-      bw.put_uint8_t((uint8_t)DB_PREFIX_DBINFO); 
-      dbinfokey = bw.getData();
-   }
-   return dbinfokey;
+   BinaryWriter bw(3);
+   bw.put_uint8_t((uint8_t)DB_PREFIX_DBINFO);
+   bw.put_uint16_t(id, BE);
+
+   return bw.getData();
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -32,18 +34,26 @@ void StoredDBInfo::unserializeDBValue(BinaryRefReader & brr)
    {
       magic_.resize(0);
       topBlkHgt_ = UINT32_MAX;
-      topBlkHash_.resize(0);
+      metaHash_.resize(0);
       return;
    }
    brr.get_BinaryData(magic_, 4);
+   
    BitUnpacker<uint32_t> bitunpack(brr);
+   armoryVer_  =                 bitunpack.getBits(16);
+   if (armoryVer_ != ARMORY_DB_VERSION)
+   {
+      stringstream ss;
+      ss << "DB version mismatch. Use another dbdir or empty the current one!";
+      LOGERR << ss.str();
+      throw DbErrorMsg(ss.str());
+   }
+
+   armoryType_ = (ARMORY_DB_TYPE)bitunpack.getBits(4);
+   
    topBlkHgt_    = brr.get_uint32_t();
    appliedToHgt_ = brr.get_uint32_t();
-   brr.get_BinaryData(topBlkHash_, 32);
-
-   armoryVer_  =                 bitunpack.getBits(4);
-   armoryType_ = (ARMORY_DB_TYPE)bitunpack.getBits(4);
-   pruneType_  = (DB_PRUNE_TYPE) bitunpack.getBits(4);
+   brr.get_BinaryData(metaHash_, 32);
 
    if (brr.getSizeRemaining() == 32)
       brr.get_BinaryData(topScannedBlkHash_, 32);
@@ -53,15 +63,18 @@ void StoredDBInfo::unserializeDBValue(BinaryRefReader & brr)
 void StoredDBInfo::serializeDBValue(BinaryWriter & bw ) const
 {
    BitPacker<uint32_t> bitpack;
-   bitpack.putBits((uint32_t)armoryVer_,   4);
+   bitpack.putBits((uint32_t)armoryVer_,   16);
    bitpack.putBits((uint32_t)armoryType_,  4);
-   bitpack.putBits((uint32_t)pruneType_,   4);
 
    bw.put_BinaryData(magic_);
    bw.put_BitPacker(bitpack);
    bw.put_uint32_t(topBlkHgt_); // top blk height
    bw.put_uint32_t(appliedToHgt_); // top blk height
-   bw.put_BinaryData(topBlkHash_);
+   
+   if (metaHash_.getSize() == 0)
+      bw.put_BinaryData(BtcUtils::EmptyHash());
+   else
+      bw.put_BinaryData(metaHash_);
 
    if (topScannedBlkHash_.getSize())
       bw.put_BinaryData(topScannedBlkHash_);
@@ -90,7 +103,7 @@ void StoredDBInfo::pprintOneLine(uint32_t indent)
    
    cout << "DBINFO: " 
         << " TopBlk: " << topBlkHgt_
-        << " , " << topBlkHash_.getSliceCopy(0,4).toHexStr().c_str()
+        << " , " << metaHash_.getSliceCopy(0,4).toHexStr().c_str()
         << endl;
 }
 
@@ -192,6 +205,11 @@ void DBBlock::createFromBlockHeader(const BlockHeader & bh)
    duplicateID_ = UINT8_MAX;
    isMainBranch_ = bh.isMainBranch();
    hasBlockHeader_ = true;
+
+   fileID_ = bh.getBlockFileNum();
+   offset_ = bh.getOffset();
+
+   uniqueID_ = bh.getThisID();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -222,6 +240,48 @@ void DBBlock::setHeaderData(BinaryData const & header80B)
    }
    dataCopy_.copyFrom(header80B);
    BtcUtils::getHash256(header80B, thisHash_);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void StoredHeader::unserializeSimple(BinaryRefReader brr)
+{
+   uint32_t height = blockHeight_;
+   uint8_t  dupid = duplicateID_;
+
+   vector<BinaryData> allTxHashes;
+   BlockHeader bh(brr);
+   uint32_t nTx = (uint32_t)brr.get_var_int();
+
+   createFromBlockHeader(bh);
+   numTx_ = nTx;
+
+   blockHeight_ = height;
+   duplicateID_ = dupid;
+
+   numBytes_ = HEADER_SIZE + BtcUtils::calcVarIntSize(numTx_);
+   if (dataCopy_.getSize() != HEADER_SIZE)
+   {
+      LOGERR << "Unserializing header did not produce 80-byte object!";
+      return;
+   }
+
+   if (numBytes_ > brr.getSize())
+   {
+      LOGERR << "Anticipated size of block header is more than what we have";
+      throw BlockDeserializingException();
+   }
+
+   BtcUtils::getHash256(dataCopy_, thisHash_);
+
+   for (uint32_t tx = 0; tx < nTx; tx++)
+   {
+      // gather tx hashes
+      Tx thisTx(brr);
+
+      StoredTx stx;
+      stx.thisHash_ = thisTx.getThisHash();
+      stxMap_[tx] = move(stx);
+   }
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -315,6 +375,12 @@ void StoredHeader::unserializeFullBlock(BinaryRefReader brr,
 
       // Finally, add the 
       stxMap_[tx] = stx;
+   }
+
+   if (nTx == 0 || nTx != allTxHashes.size())
+   {
+	   LOGERR << "Mismatch between numtx and allTxHashes.size() or 0 tx in block";
+	   throw BlockDeserializingException();
    }
 
    //compute the merkle root and compare to the header's
@@ -424,6 +490,9 @@ BlockHeader DBBlock::getBlockHeaderCopy(void) const
    bh.setBlockSize(numBytes_);
    bh.setDuplicateID(duplicateID_);
 
+   bh.setBlockFileNum(fileID_);
+   bh.setBlockFileOffset(offset_);
+
    return bh;
 }
 
@@ -462,21 +531,44 @@ void DBBlock::unserializeDBValue( DB_SELECT         db,
 
    if(db==HEADERS)
    {
+      if(brr.getSize() < HEADER_SIZE + 26)
+      {
+         stringstream err;
+         err << "buffer is too small: " << dataCopy_.getSize();
+         err << " bytes. expected: " << HEADER_SIZE + 26;
+
+         LOGERR << err.str();
+         throw BlockDeserializingException(err.str());
+      }
+
       brr.get_BinaryData(dataCopy_, HEADER_SIZE);
       BinaryData hgtx = brr.get_BinaryData(4);
       blockHeight_ = DBUtils::hgtxToHeight(hgtx);
       duplicateID_ = DBUtils::hgtxToDupID(hgtx);
       BtcUtils::getHash256(dataCopy_, thisHash_);
       numBytes_ = brr.get_uint32_t();
+      numTx_ = brr.get_uint32_t();
+      fileID_ = brr.get_uint16_t();
+      offset_ = brr.get_uint64_t();
+      uniqueID_ = brr.get_uint32_t();
    }
    else if(db==BLKDATA)
    {
+      if(brr.getSize() < HEADER_SIZE + 12)
+      {
+         stringstream err;
+         err << "buffer is too small: " << dataCopy_.getSize();
+         err << " bytes. expected: " << HEADER_SIZE + 12;
+
+         LOGERR << err.str();
+         throw BlockDeserializingException(err.str());
+      }
+
       // Read the flags byte
       BitUnpacker<uint32_t> bitunpack(brr);
-      unserArmVer_      =                  bitunpack.getBits(4);
+      unserArmVer_      =                  bitunpack.getBits(16);
       unserBlkVer_      =                  bitunpack.getBits(4);
       unserDbType_      = (ARMORY_DB_TYPE) bitunpack.getBits(4);
-      unserPrType_      = (DB_PRUNE_TYPE)  bitunpack.getBits(2);
       unserMkType_      = (MERKLE_SER_TYPE)bitunpack.getBits(2);
       blockAppliedToDB_ =                  bitunpack.getBit();
    
@@ -508,8 +600,7 @@ void DBBlock::unserializeDBValue( DB_SELECT         db,
 void DBBlock::serializeDBValue(
    BinaryWriter &  bw,
    DB_SELECT       db,
-   ARMORY_DB_TYPE dbType,
-   DB_PRUNE_TYPE pruneType
+   ARMORY_DB_TYPE dbType
 ) const
 {
    if(!isInitialized())
@@ -524,6 +615,10 @@ void DBBlock::serializeDBValue(
       bw.put_BinaryData(dataCopy_);
       bw.put_BinaryData(hgtx);
       bw.put_uint32_t(numBytes_);
+      bw.put_uint32_t(numTx_);
+      bw.put_uint16_t(fileID_);
+      bw.put_uint64_t(offset_);
+      bw.put_uint32_t(uniqueID_);
    }
    else if(db==BLKDATA)
    {
@@ -542,8 +637,6 @@ void DBBlock::serializeDBValue(
       {
          // If we store all the tx anyway, don't need any/partial merkle trees
          case ARMORY_DB_BARE:    mtype = MERKLE_SER_NONE;    break;
-         case ARMORY_DB_LITE:    mtype = MERKLE_SER_PARTIAL; break;
-         case ARMORY_DB_PARTIAL: mtype = MERKLE_SER_FULL;    break;
          case ARMORY_DB_FULL:    mtype = MERKLE_SER_NONE;    break;
          case ARMORY_DB_SUPER:   mtype = MERKLE_SER_NONE;    break;
          default: 
@@ -556,10 +649,9 @@ void DBBlock::serializeDBValue(
    
       // Create the flags byte
       BitPacker<uint32_t> bitpack;
-      bitpack.putBits((uint32_t)ARMORY_DB_VERSION,         4);
+      bitpack.putBits((uint32_t)ARMORY_DB_VERSION,         16);
       bitpack.putBits((uint32_t)version,                   4);
-      bitpack.putBits((uint32_t)dbType, 4);
-      bitpack.putBits((uint32_t)pruneType,  2);
+      bitpack.putBits((uint32_t)dbType,                    4);
       bitpack.putBits((uint32_t)mtype,                     2);
       bitpack.putBit(blockAppliedToDB_);
 
@@ -666,9 +758,14 @@ void DBTx::unserialize(BinaryRefReader & brr, bool fragged)
 {
    vector<size_t> offsetsIn, offsetsOut; 
    uint32_t nbytes = BtcUtils::StoredTxCalcLength(brr.getCurrPtr(),
-                                                  fragged,
-                                                  &offsetsIn,
-                                                  &offsetsOut);
+      brr.getSize(), fragged, &offsetsIn, &offsetsOut, nullptr);
+
+   if (offsetsOut.size() < 1)
+   {
+      LOGERR << "Couldn't deserialize db value";
+      return;
+   }
+
    if(brr.getSizeRemaining() < nbytes)
    {
       LOGERR << "Not enough bytes in BRR to unserialize StoredTx";
@@ -679,8 +776,11 @@ void DBTx::unserialize(BinaryRefReader & brr, bool fragged)
 
    isFragged_ = fragged;
    numTxOut_  = offsetsOut.size()-1;
+   txInCutOff_ = offsetsOut[0];
+
    version_   = READ_UINT32_LE(dataCopy_.getPtr());
    lockTime_  = READ_UINT32_LE(dataCopy_.getPtr() + nbytes - 4);
+  
 
    if(isFragged_)
    {
@@ -720,8 +820,8 @@ void DBTx::unserializeDBValue(BinaryRefReader & brr)
    //    DBVersion      4 bits
    //    TxVersion      2 bits
    //    HowTxSer       4 bits   (FullTxOut, TxNoTxOuts, numTxOutOnly)
-   BitUnpacker<uint16_t> bitunpack(brr); // flags
-   unserArmVer_  =                    bitunpack.getBits(4);
+   BitUnpacker<uint32_t> bitunpack(brr); // flags
+   unserArmVer_  =                    bitunpack.getBits(16);
    unserTxVer_   =                    bitunpack.getBits(2);
    unserTxType_  = (TX_SERIALIZE_TYPE)bitunpack.getBits(4);
 
@@ -746,8 +846,7 @@ void DBTx::unserializeDBValue(BinaryRefReader & brr)
 /////////////////////////////////////////////////////////////////////////////
 void StoredTx::serializeDBValue(
       BinaryWriter &    bw,
-      ARMORY_DB_TYPE dbType,
-      DB_PRUNE_TYPE
+      ARMORY_DB_TYPE dbType
    ) const
 {
    TX_SERIALIZE_TYPE serType;
@@ -757,8 +856,6 @@ void StoredTx::serializeDBValue(
       // In most cases, if storing separate TxOuts, fragged Tx is fine
       // UPDATE:  I'm not sure there's a good reason to NOT frag ever
       case ARMORY_DB_BARE:    serType = TX_SER_FRAGGED; break;
-      case ARMORY_DB_LITE:    serType = TX_SER_FRAGGED; break;
-      case ARMORY_DB_PARTIAL: serType = TX_SER_FRAGGED; break;
       case ARMORY_DB_FULL:    serType = TX_SER_FRAGGED; break;
       case ARMORY_DB_SUPER:   serType = TX_SER_FRAGGED; break;
       default: 
@@ -779,10 +876,10 @@ void StoredTx::serializeDBValue(
 
    uint16_t version = (uint16_t)READ_UINT32_LE(dataCopy_.getPtr());
 
-   BitPacker<uint16_t> bitpack;
-   bitpack.putBits((uint16_t)ARMORY_DB_VERSION,  4);
-   bitpack.putBits((uint16_t)version,            2);
-   bitpack.putBits((uint16_t)serType,            4);
+   BitPacker<uint32_t> bitpack;
+   bitpack.putBits((uint32_t)ARMORY_DB_VERSION,  16);
+   bitpack.putBits((uint32_t)version,            2);
+   bitpack.putBits((uint32_t)serType,            4);
 
    
    bw.put_BitPacker(bitpack);
@@ -822,13 +919,14 @@ BinaryData StoredTx::getSerializedTx(void) const
    else if(!haveAllTxOut())
       return BinaryData(0); 
 
-   BinaryWriter bw;
-   bw.reserve(numBytes_);
-    
+   BinaryWriter bw;    
    if(numBytes_ != UINT32_MAX)
       bw.reserve(numBytes_);
 
-   bw.put_BinaryData(dataCopy_.getPtr(), dataCopy_.getSize()-4);
+   if (txInCutOff_ == SIZE_MAX)
+      return BinaryData(0);
+
+   bw.put_BinaryData(dataCopy_.getPtr(), txInCutOff_);
 
    map<uint16_t, StoredTxOut>::const_iterator iter;
    uint16_t i=0;
@@ -842,7 +940,8 @@ BinaryData StoredTx::getSerializedTx(void) const
       bw.put_BinaryData(iter->second.getSerializedTxOut());
    }
 
-   bw.put_BinaryData(dataCopy_.getPtr()+dataCopy_.getSize()-4, 4);
+   bw.put_BinaryData(dataCopy_.getPtr()+txInCutOff_, 
+      dataCopy_.getSize() - txInCutOff_);
    return bw.getData();
 }
 
@@ -863,7 +962,8 @@ BinaryData DBTx::getSerializedTxFragged(void) const
 
    BinaryWriter bw;
    vector<size_t> outOffsets;
-   BtcUtils::StoredTxCalcLength(dataCopy_.getPtr(), false, NULL, &outOffsets);
+   BtcUtils::StoredTxCalcLength(dataCopy_.getPtr(), dataCopy_.getSize(),
+      false, nullptr, &outOffsets, nullptr);
    uint32_t firstOut  = outOffsets[0];
    uint32_t afterLast = outOffsets[outOffsets.size()-1];
    uint32_t span = afterLast - firstOut;
@@ -937,7 +1037,8 @@ void StoredTxOut::unserialize(BinaryRefReader & brr)
       return;
    }
 
-   uint32_t numBytes = BtcUtils::TxOutCalcLength(brr.getCurrPtr());
+   uint32_t numBytes = BtcUtils::TxOutCalcLength(
+      brr.getCurrPtr(), brr.getSizeRemaining());
 
    if(brr.getSizeRemaining() < numBytes)
    {
@@ -975,50 +1076,78 @@ void StoredTxOut::unserializeDBValue(BinaryRefReader & brr)
    txVersion_   =                  bitunpack.getBits(2);
    spentness_   = (TXOUT_SPENTNESS)bitunpack.getBits(2);
    isCoinbase_  =                  bitunpack.getBit();
+   auto dbType  = (ARMORY_DB_TYPE) bitunpack.getBits(2);
 
    unserialize(brr);
    if(spentness_ == TXOUT_SPENT && brr.getSizeRemaining()>=8)
       spentByTxInKey_ = brr.get_BinaryData(8); 
+
+   if (dbType != ARMORY_DB_SUPER)
+      return;
+
+   brr.get_BinaryData(parentHash_, 32);
+   txOutIndex_ = brr.get_uint16_t();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void StoredTxOut::serializeDBValue(BinaryWriter & bw, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
+void StoredTxOut::serializeDBValue(BinaryWriter & bw, ARMORY_DB_TYPE dbType,
                                    bool forceSaveSpentness) const
 {
-   TXOUT_SPENTNESS writeSpent = spentness_;
-   
-   if(!forceSaveSpentness)
-   { 
-      switch(dbType)
+   serializeDBValue(bw, dbType, forceSaveSpentness,
+      txVersion_, isCoinbase_, spentness_, dataCopy_.getRef(),
+      spentByTxInKey_.getRef(), parentHash_.getRef(), txOutIndex_);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredTxOut::serializeDBValue(
+   BinaryWriter& bw,
+   ARMORY_DB_TYPE dbType, bool forceSaveSpentness,
+   uint16_t txVersion, bool isCoinbase,
+   TXOUT_SPENTNESS spentness,
+   const BinaryDataRef dataRef,
+   const BinaryDataRef spentByTxIn,
+   const BinaryDataRef hash,
+   uint16_t txoutindex)
+{
+   TXOUT_SPENTNESS writeSpent = spentness;
+
+   if (!forceSaveSpentness)
+   {
+      switch (dbType)
       {
          //// If the DB is in lite or partial modes, we don't bother recording
          //   spentness (in fact, if it's spent, this entry probably won't even
          //   be written to the DB).
-         case ARMORY_DB_BARE:                                 break;
-         case ARMORY_DB_LITE:    writeSpent = TXOUT_SPENTUNK; break;
-         case ARMORY_DB_PARTIAL: writeSpent = TXOUT_SPENTUNK; break;
-         case ARMORY_DB_FULL:                                 break;
-         case ARMORY_DB_SUPER:                                break;
-         default: 
-            LOGERR << "Invalid DB mode in serializeStoredTxOutValue";
+      case ARMORY_DB_BARE:                                 break;
+      case ARMORY_DB_FULL:                                 break;
+      case ARMORY_DB_SUPER:                                break;
+      default:
+         LOGERR << "Invalid DB mode in serializeStoredTxOutValue";
       }
    }
 
    BitPacker<uint16_t> bitpack;
-   bitpack.putBits((uint16_t)ARMORY_DB_VERSION,  4);
-   bitpack.putBits((uint16_t)txVersion_,         2);
-   bitpack.putBits((uint16_t)writeSpent,         2);
-   bitpack.putBit(           isCoinbase_);
+   bitpack.putBits((uint16_t)ARMORY_DB_VERSION, 4);
+   bitpack.putBits((uint16_t)txVersion, 2);
+   bitpack.putBits((uint16_t)writeSpent, 2);
+   bitpack.putBit(isCoinbase);
+   bitpack.putBits((uint16_t)dbType, 2);
 
    bw.put_BitPacker(bitpack);
-   bw.put_BinaryData(dataCopy_);  // 8-byte value, var_int sz, pkscript
-   
-   if(writeSpent == TXOUT_SPENT)
+   bw.put_BinaryData(dataRef);  // 8-byte value, var_int sz, pkscript
+
+   if (writeSpent == TXOUT_SPENT)
    {
-      if(spentByTxInKey_.getSize()==0)
+      if (spentByTxIn.getSize() == 0)
          LOGERR << "Need to write out spentByTxIn but no spentness data";
-      bw.put_BinaryData(spentByTxInKey_);
+      bw.put_BinaryData(spentByTxIn);
    }
+
+   if (dbType != ARMORY_DB_SUPER)
+      return;
+
+   bw.put_BinaryData(hash);
+   bw.put_uint16_t(txoutindex);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1030,6 +1159,10 @@ BinaryData StoredTxOut::getDBKey(bool withPrefix) const
       txOutIndex_  == UINT16_MAX)
    {
       LOGERR << "Requesting DB key for incomplete STXO";
+      LOGERR << "--- height: " << blockHeight_;
+      LOGERR << "--- dupID: " << duplicateID_;
+      LOGERR << "--- txIndex: " << txIndex_;
+      LOGERR << "--- txOutIndex" << txOutIndex_;
       return BinaryData(0);
    }
 
@@ -1088,6 +1221,7 @@ Tx StoredTx::getTxCopy(void) const
    Tx returnTx(getSerializedTx());
    if(blockHeight_ != UINT32_MAX)
       returnTx.setTxRef(TxRef(getDBKey(false)));
+   returnTx.setRBF(isRBF_);
    return returnTx;
 }
 
@@ -1134,6 +1268,7 @@ StoredTx & StoredTx::createFromTx(Tx & tx, bool doFrag, bool withTxOuts)
 
    uint32_t span = tx.getTxOutOffset(numTxOut_) - tx.getTxOutOffset(0);
    fragBytes_ = numBytes_ - span;
+   txInCutOff_ = tx.getTxOutOffset(0);
 
    if(!doFrag)
       dataCopy_ = tx.serialize(); 
@@ -1142,11 +1277,11 @@ StoredTx & StoredTx::createFromTx(Tx & tx, bool doFrag, bool withTxOuts)
       BinaryRefReader brr(tx.getPtr(), tx.getSize());
       uint32_t firstOut  = tx.getTxOutOffset(0);
       uint32_t afterLast = tx.getTxOutOffset(numTxOut_);
-      uint32_t span = afterLast - firstOut;
-      dataCopy_.resize(tx.getSize() - span);
+      uint32_t _span = afterLast - firstOut;
+      dataCopy_.resize(tx.getSize() - _span);
       brr.get_BinaryData(dataCopy_.getPtr(), firstOut);
-      brr.advance(span);
-      brr.get_BinaryData(dataCopy_.getPtr()+firstOut, 4);
+      brr.advance(_span);
+      brr.get_BinaryData(dataCopy_.getPtr()+firstOut, brr.getSizeRemaining());
    }
 
    if(withTxOuts)
@@ -1288,39 +1423,72 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
 {
    // Now read the stored data fro this registered address
    BitUnpacker<uint16_t> bitunpack(brr);
-   version_            =                    bitunpack.getBits(4);
-   DB_PRUNE_TYPE pruneType = (DB_PRUNE_TYPE)    bitunpack.getBits(2);
-   (void)pruneType;
-   SCRIPT_UTXO_TYPE txoListType = (SCRIPT_UTXO_TYPE) bitunpack.getBits(2);
-   (void)txoListType;
+   auto dbType = (ARMORY_DB_TYPE)bitunpack.getBits(4);
 
-   alreadyScannedUpToBlk_ = brr.get_uint32_t();
+   if (dbType != ARMORY_DB_SUPER)
+   {
+      scanHeight_ = brr.get_int32_t();
+      tallyHeight_ = brr.get_int32_t();
+   }
+
    totalTxioCount_ = brr.get_var_int();
+   
+   subHistMap_.clear();
+   subsshSummary_.clear();
 
-   // We shouldn't end up with empty SSH's, but should catch it just in case
+   // We shouldn't end up with empty ssh's, but should catch it just in case
    if(totalTxioCount_==0)
       return;
    
-   subHistMap_.clear();
-   totalUnspent_ = brr.get_uint64_t();
+   try
+   {
+      totalUnspent_ = brr.get_uint64_t();
+
+      //
+      auto sumSize = brr.get_uint32_t();
+      for (unsigned i = 0; i < sumSize; i++)
+      {
+         unsigned height = brr.get_var_int();
+         unsigned sum = brr.get_var_int();
+
+         subsshSummary_[height] = sum;
+      }
+   }
+   catch (runtime_error& e)
+   {
+      LOGERR << "StoredScriptHistory deser error";
+      throw e;
+   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 void StoredScriptHistory::serializeDBValue(BinaryWriter & bw, 
-   ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType ) 
+   ARMORY_DB_TYPE dbType) 
    const
 {
    // Write out all the flags
    BitPacker<uint16_t> bitpack;
    bitpack.putBits((uint16_t)dbType,                  4);
-   bitpack.putBits((uint16_t)pruneType,               2);
    bitpack.putBits((uint16_t)SCRIPT_UTXO_VECTOR,      2);
    bw.put_BitPacker(bitpack);
 
-   // 
-   bw.put_uint32_t(alreadyScannedUpToBlk_); 
-   bw.put_var_int(totalTxioCount_); 
+   //
+   if (dbType != ARMORY_DB_SUPER)
+   {
+      bw.put_int32_t(scanHeight_);
+      bw.put_int32_t(tallyHeight_);
+   }
+      
+   bw.put_var_int(totalTxioCount_);
    bw.put_uint64_t(totalUnspent_);
+
+   //
+   bw.put_uint32_t(subsshSummary_.size());
+   for (auto& sum : subsshSummary_)
+   {
+      bw.put_var_int(sum.first);
+      bw.put_var_int(sum.second);
+   }
 }
 
 
@@ -1389,7 +1557,7 @@ void StoredScriptHistory::pprintOneLine(uint32_t indent)
    uint32_t sz = uniqueKey_.getSize();
    cout << "SSHOBJ: " << ktype.c_str() << ": "
         << uniqueKey_.getSliceCopy(1,sz-1).toHexStr()
-        << " Sync: " << alreadyScannedUpToBlk_ 
+        << " Sync: " << scanHeight_ 
         << " #IO: " << totalTxioCount_
         << " Unspent: " << (totalUnspent_/COIN)
         << endl;
@@ -1405,35 +1573,6 @@ void StoredScriptHistory::pprintFullSSH(uint32_t indent)
    map<BinaryData, StoredSubHistory>::iterator iter;
    for(iter = subHistMap_.begin(); iter != subHistMap_.end(); iter++)
       iter->second.pprintFullSubSSH(indent+3);
-}
-
-
-
-////////////////////////////////////////////////////////////////////////////////
-TxIOPair* StoredScriptHistory::findTxio(BinaryData const & dbKey8B, 
-                                        bool includeMultisig)
-{
-   if(!isInitialized() || subHistMap_.size() == 0)
-      return NULL;
-
-   {
-      // Otherwise, we go searching...
-      BinaryData first4 = dbKey8B.getSliceCopy(0,4);
-      map<BinaryData, StoredSubHistory>::iterator iterSubSSH;
-      iterSubSSH = subHistMap_.find(first4);
-      if(ITER_NOT_IN_MAP(iterSubSSH, subHistMap_))
-         return NULL;
-   
-      // This returns NULL if does not exist.
-      TxIOPair* outptr = iterSubSSH->second.findTxio(dbKey8B);
-      if(outptr==NULL)
-         return NULL;
-
-      if(!includeMultisig && outptr->isMultisig())
-         return NULL;
-
-      return outptr;
-   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1586,9 +1725,22 @@ void StoredScriptHistory::eraseTxio(const TxIOPair& txio)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+void StoredScriptHistory::clear()
+{
+   uniqueKey_.clear();
+   version_ = UINT32_MAX;
+   scanHeight_ = tallyHeight_ = -1;
+
+   totalTxioCount_ = totalUnspent_ = 0;
+
+   subsshSummary_.clear();
+   subHistMap_.clear();
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // SubSSH object code
 //
-// If the SSH has more than one TxIO, then we put them into SubSSH objects,
+// If the ssh has more than one TxIO, then we put them into SubSSH objects,
 // which represent a list of TxIOs for the given block.  The complexity of
 // doing it this way seems unnecessary, but it actually works quite efficiently
 // for massively-reused addresses like SatoshiDice.
@@ -1645,7 +1797,12 @@ void StoredSubHistory::unserializeDBValue(BinaryRefReader & brr)
       txio.setFromCoinbase(isCoinbase);
       txio.setMultisig(isMulti);
 
-      insertTxio(txio);
+      //insertTxio(txio);
+      BinaryData key8B = txio.getDBKeyOfOutput();
+
+      pair<BinaryData, TxIOPair> txioInsertPair(
+         move(key8B), move(txio));
+      txioMap_.insert(move(txioInsertPair));
    }
 }
 
@@ -1669,8 +1826,7 @@ void StoredSubHistory::getSummary(BinaryRefReader & brr)
 ////////////////////////////////////////////////////////////////////////////////
 void StoredSubHistory::serializeDBValue(BinaryWriter & bw, 
                                         LMDBBlockDatabase *db, 
-                                        ARMORY_DB_TYPE dbType, 
-                                        DB_PRUNE_TYPE pruneType) const
+                                        ARMORY_DB_TYPE dbType) const
 {
    bw.put_var_int(txioMap_.size());
    for(const auto& txioPair : txioMap_)
@@ -1681,9 +1837,6 @@ void StoredSubHistory::serializeDBValue(BinaryWriter & bw,
       // If spent and only maintaining a pruned DB, skip it
       if(isSpent)
       {
-         if(pruneType==DB_PRUNE_ALL)
-            continue;
-
          if(!txio.getTxRefOfInput().isInitialized())
          {
             LOGERR << "TxIO is spent, but input is not initialized";
@@ -1807,14 +1960,14 @@ void StoredSubHistory::pprintFullSubSSH(uint32_t indent)
          cout << " ";
 
       TxIOPair & txio = iter->second;
-      uint32_t hgt;
-      uint8_t  dup;
+      uint32_t _hgt;
+      uint8_t  _dup;
       uint16_t txi;
       uint16_t txo = txio.getIndexOfOutput();
       BinaryData txoKey = txio.getDBKeyOfOutput();
       BinaryRefReader brrTxOut(txoKey);
-      DBUtils::readBlkDataKeyNoPrefix(brrTxOut, hgt, dup, txi);
-      cout << "TXIO: (" << hgt << "," << (uint32_t)dup 
+      DBUtils::readBlkDataKeyNoPrefix(brrTxOut, _hgt, _dup, txi);
+      cout << "TXIO: (" << _hgt << "," << (uint32_t)_dup 
                           << "," << txi << "," << txo << ")";
 
       
@@ -1826,93 +1979,16 @@ void StoredSubHistory::pprintFullSubSSH(uint32_t indent)
 
       if(txio.hasTxIn())
       {
-         uint16_t txo = txio.getIndexOfInput();
+         uint16_t _txo = txio.getIndexOfInput();
          BinaryData txiKey = txio.getDBKeyOfInput();
          BinaryRefReader brrTxIn(txiKey);
-         DBUtils::readBlkDataKeyNoPrefix(brrTxIn, hgt, dup, txi);
-         cout << "  SPENT: (" << hgt << "," << (uint32_t)dup 
-                       << "," << txi << "," << txo << ")";
+         DBUtils::readBlkDataKeyNoPrefix(brrTxIn, _hgt, _dup, txi);
+         cout << "  SPENT: (" << _hgt << "," << (uint32_t)_dup 
+                       << "," << txi << "," << _txo << ")";
       }
       cout << endl;
    }
    
-
-}
-
-////////////////////////////////////////////////////////////////////////////////
-TxIOPair* StoredSubHistory::findTxio(BinaryData const & dbKey8B, bool withMulti)
-{
-   auto iter = txioMap_.find(dbKey8B);
-   if(ITER_NOT_IN_MAP(iter, txioMap_))
-      return NULL;
-   else
-   {
-      if (!withMulti && iter->second.isMultisig())
-         return NULL;
-   }
-   return &(iter->second);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-const TxIOPair* StoredSubHistory::markTxOutSpent(const BinaryData& txOutKey8B) 
-{
-   TxIOPair * txioptr = findTxio(txOutKey8B);
-   if(txioptr==NULL)
-   {
-      LOGERR << "We should've found an unpsent txio in the subSSH but didn't";
-      return nullptr;
-      //throw runtime_error("missing txio!");
-   }
-
-   txioptr->setUTXO(false);
-   txioptr->flagged = true;
-
-   return txioptr;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Since the outer-SSH object tracks total unspent balances, we need to pass 
-// out the total amount that was deleted from the sub-history, and of course
-// return zero if nothing was removed.
-bool StoredSubHistory::eraseTxio(BinaryData const & dbKey8B)
-{
-   auto txioIter = txioMap_.find(dbKey8B);
-
-   if (ITER_NOT_IN_MAP(txioIter, txioMap_))
-   {
-      LOGWARN << "failed to erase txio in subshh: doesn't exist!";
-      return false;
-   }
-
-   txioMap_.erase(txioIter);
-   return true;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-TxIOPair& StoredSubHistory::insertTxio(TxIOPair const & txio, 
-                                       uint64_t* additionalSize)
-{
-   BinaryData key8B = txio.getDBKeyOfOutput();
-
-   pair<BinaryData, TxIOPair> txioInsertPair(key8B, txio);
-   pair<map<BinaryData, TxIOPair>::iterator, bool> txioInsertResult;
-
-   // This returns pair<ExistingOrInsertedIter, wasInserted>
-   txioInsertResult = txioMap_.insert(txioInsertPair);
-
-   // If not inserted, then it was already there.  Overwrite if requested
-   if (txioInsertResult.second == true)
-   {
-      if (additionalSize != nullptr)
-      {
-         *additionalSize += UPDATE_BYTES_KEY;
-         if (txio.hasTxIn())
-            *additionalSize += UPDATE_BYTES_KEY;
-      }
-   }
-   else txioInsertResult.first->second = txio;
-
-   return txioInsertResult.first->second;
 
 }
 
@@ -1945,7 +2021,7 @@ uint64_t StoredSubHistory::getSubHistoryBalance(bool withMultisig)
    return bal;
 }
 ////////////////////////////////////////////////////////////////////////////////
-// This method will add the TxIOPair to the SSH object if it doesn't exist,
+// This method will add the TxIOPair to the ssh object if it doesn't exist,
 // in addition to marking it unspent.  
 //
 // If there is a 2-of-3 multisig scraddr M, which includes pubkeys, X, Y and Z,
@@ -1964,7 +2040,7 @@ uint64_t StoredSubHistory::getSubHistoryBalance(bool withMultisig)
 // involve a given scraddr, but don't automatically include them in any
 // balance or UTXO set calculations.
 //   
-// Returns the difference to be applied to totalUnspent_ in the outer SSH
+// Returns the difference to be applied to totalUnspent_ in the outer ssh
 // (unless it's UINT64_MAX which is interpretted as failure)
 void StoredSubHistory::markTxOutUnspent(const BinaryData& txOutKey8B, 
                                         uint64_t&  additionalSize,
@@ -2022,7 +2098,7 @@ vector<uint64_t> StoredSubHistory::getSubHistoryValues(void)
 
 ////////////////////////////////////////////////////////////////////////////////
 void StoredUndoData::unserializeDBValue(BinaryRefReader & brr, 
-   ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType)
+   ARMORY_DB_TYPE dbType)
 {
    brr.get_BinaryData(blockHash_, 32);
 
@@ -2043,8 +2119,8 @@ void StoredUndoData::unserializeDBValue(BinaryRefReader & brr,
       BinaryData hgtx   = brr.get_BinaryData(4);
       stxo.blockHeight_ = DBUtils::hgtxToHeight(hgtx);
       stxo.duplicateID_ = DBUtils::hgtxToDupID(hgtx);
-      stxo.txIndex_     = brr.get_uint16_t(BIGENDIAN);
-      stxo.txOutIndex_  = brr.get_uint16_t(BIGENDIAN);
+      stxo.txIndex_     = brr.get_uint16_t(BE);
+      stxo.txOutIndex_  = brr.get_uint16_t(BE);
 
       // This is the raw OutPoint of the removed TxOut.  May not strictly
       // be necessary for processing undo ops in this DB (but might be), 
@@ -2065,7 +2141,8 @@ void StoredUndoData::unserializeDBValue(BinaryRefReader & brr,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void StoredUndoData::serializeDBValue(BinaryWriter & bw, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType ) const
+void StoredUndoData::serializeDBValue(
+   BinaryWriter & bw, ARMORY_DB_TYPE dbType) const
 {
    bw.put_BinaryData(blockHash_);
 
@@ -2117,18 +2194,20 @@ void StoredUndoData::serializeDBValue(BinaryWriter & bw, ARMORY_DB_TYPE dbType, 
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void StoredUndoData::unserializeDBValue(BinaryData const & bd, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType)
+void StoredUndoData::unserializeDBValue(
+   BinaryData const & bd, ARMORY_DB_TYPE dbType)
 {
    BinaryRefReader brr(bd);
-   unserializeDBValue(brr, dbType, pruneType);
+   unserializeDBValue(brr, dbType);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void StoredUndoData::unserializeDBValue(BinaryDataRef bdr, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType)
+void StoredUndoData::unserializeDBValue(
+   BinaryDataRef bdr, ARMORY_DB_TYPE dbType)
                                   
 {
    BinaryRefReader brr(bdr);
-   unserializeDBValue(brr, dbType, pruneType);
+   unserializeDBValue(brr, dbType);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2311,7 +2390,7 @@ BinaryData StoredHeadHgtList::getDBKey(bool withPrefix) const
    BinaryWriter bw(5);
    if(withPrefix)
       bw.put_uint8_t((uint8_t)DB_PREFIX_HEADHGT); 
-   bw.put_uint32_t(height_, BIGENDIAN);
+   bw.put_uint32_t(height_, BE);
    return bw.getData();
 
 }
@@ -2330,259 +2409,7 @@ void StoredHeadHgtList::unserializeDBKey(BinaryDataRef key)
       }
    }
 
-   height_ = brr.get_uint32_t(BIGENDIAN);
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-BLKDATA_TYPE DBUtils::readBlkDataKey( BinaryRefReader & brr,
-                                                uint32_t & height,
-                                                uint8_t  & dupID)
-{
-   uint16_t tempTxIdx;
-   uint16_t tempTxOutIdx;
-   return readBlkDataKey(brr, height, dupID, tempTxIdx, tempTxOutIdx);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-BLKDATA_TYPE DBUtils::readBlkDataKey( BinaryRefReader & brr,
-                                                uint32_t & height,
-                                                uint8_t  & dupID,
-                                                uint16_t & txIdx)
-{
-   uint16_t tempTxOutIdx;
-   return readBlkDataKey(brr, height, dupID, txIdx, tempTxOutIdx);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-BLKDATA_TYPE DBUtils::readBlkDataKey( BinaryRefReader & brr,
-                                                uint32_t & height,
-                                                uint8_t  & dupID,
-                                                uint16_t & txIdx,
-                                                uint16_t & txOutIdx)
-{
-   uint8_t prefix = brr.get_uint8_t();
-   if(prefix != (uint8_t)DB_PREFIX_TXDATA)
-   {
-      height   = 0xffffffff;
-      dupID    =       0xff;
-      txIdx    =     0xffff;
-      txOutIdx =     0xffff;
-      return NOT_BLKDATA;
-   }
-   
-   return readBlkDataKeyNoPrefix(brr, height, dupID, txIdx, txOutIdx);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-BLKDATA_TYPE DBUtils::readBlkDataKeyNoPrefix(
-                                       BinaryRefReader & brr,
-                                       uint32_t & height,
-                                       uint8_t  & dupID)
-{
-   uint16_t tempTxIdx;
-   uint16_t tempTxOutIdx;
-   return readBlkDataKeyNoPrefix(brr, height, dupID, tempTxIdx, tempTxOutIdx);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-BLKDATA_TYPE DBUtils::readBlkDataKeyNoPrefix(
-                                       BinaryRefReader & brr,
-                                       uint32_t & height,
-                                       uint8_t  & dupID,
-                                       uint16_t & txIdx)
-{
-   uint16_t tempTxOutIdx;
-   return readBlkDataKeyNoPrefix(brr, height, dupID, txIdx, tempTxOutIdx);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-BLKDATA_TYPE DBUtils::readBlkDataKeyNoPrefix(
-                                       BinaryRefReader & brr,
-                                       uint32_t & height,
-                                       uint8_t  & dupID,
-                                       uint16_t & txIdx,
-                                       uint16_t & txOutIdx)
-{
-   BinaryData hgtx = brr.get_BinaryData(4);
-   height = hgtxToHeight(hgtx);
-   dupID  = hgtxToDupID(hgtx);
-
-   if(brr.getSizeRemaining() == 0)
-   {
-      txIdx    = 0xffff;
-      txOutIdx = 0xffff;
-      return BLKDATA_HEADER;
-   }
-   else if(brr.getSizeRemaining() == 2)
-   {
-      txIdx    = brr.get_uint16_t(BIGENDIAN);
-      txOutIdx = 0xffff;
-      return BLKDATA_TX;
-   }
-   else if(brr.getSizeRemaining() == 4)
-   {
-      txIdx    = brr.get_uint16_t(BIGENDIAN);
-      txOutIdx = brr.get_uint16_t(BIGENDIAN);
-      return BLKDATA_TXOUT;
-   }
-   else
-   {
-      LOGERR << "Unexpected bytes remaining: " << brr.getSizeRemaining();
-      return NOT_BLKDATA;
-   }
-}
-
-
-
-
-
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-string DBUtils::getPrefixName(uint8_t prefixInt)
-{
-   return getPrefixName((DB_PREFIX)prefixInt);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-string DBUtils::getPrefixName(DB_PREFIX pref)
-{
-   switch(pref)
-   {
-      case DB_PREFIX_DBINFO:    return string("DBINFO"); 
-      case DB_PREFIX_TXDATA:    return string("TXDATA"); 
-      case DB_PREFIX_SCRIPT:    return string("SCRIPT"); 
-      case DB_PREFIX_TXHINTS:   return string("TXHINTS"); 
-      case DB_PREFIX_TRIENODES: return string("TRIENODES"); 
-      case DB_PREFIX_HEADHASH:  return string("HEADHASH"); 
-      case DB_PREFIX_HEADHGT:   return string("HEADHGT"); 
-      case DB_PREFIX_UNDODATA:  return string("UNDODATA"); 
-      default:                  return string("<unknown>"); 
-   }
-}
-
-/////////////////////////////////////////////////////////////////////////////
-bool DBUtils::checkPrefixByteWError( BinaryRefReader & brr, 
-                                               DB_PREFIX prefix,
-                                               bool rewindWhenDone)
-{
-   uint8_t oneByte = brr.get_uint8_t();
-   bool out;
-   if(oneByte == (uint8_t)prefix)
-      out = true;
-   else
-   {
-      LOGERR << "Unexpected prefix byte: "
-                 << "Expected: " << getPrefixName(prefix)
-                 << "Received: " << getPrefixName(oneByte);
-      out = false;
-   }
-
-   if(rewindWhenDone)
-      brr.rewind(1);
-
-   return out;
-}
-
-/////////////////////////////////////////////////////////////////////////////
-bool DBUtils::checkPrefixByte( BinaryRefReader & brr, 
-                                          DB_PREFIX prefix,
-                                          bool rewindWhenDone)
-{
-   uint8_t oneByte = brr.get_uint8_t();
-   bool out = (oneByte == (uint8_t)prefix);
-
-   if(rewindWhenDone)
-      brr.rewind(1);
-
-   return out;
-}
-
-/////////////////////////////////////////////////////////////////////////////
-BinaryData DBUtils::getBlkDataKey( uint32_t height, 
-                                             uint8_t  dup)
-{
-   BinaryWriter bw(5);
-   bw.put_uint8_t(    DB_PREFIX_TXDATA );
-   bw.put_BinaryData( heightAndDupToHgtx(height,dup) );
-   return bw.getData();
-}
-
-/////////////////////////////////////////////////////////////////////////////
-BinaryData DBUtils::getBlkDataKey( uint32_t height, 
-                                             uint8_t  dup,
-                                             uint16_t txIdx)
-{
-   BinaryWriter bw(7);
-   bw.put_uint8_t(    DB_PREFIX_TXDATA );
-   bw.put_BinaryData( heightAndDupToHgtx(height,dup) );
-   bw.put_uint16_t(   txIdx, BIGENDIAN); 
-   return bw.getData();
-}
-
-/////////////////////////////////////////////////////////////////////////////
-BinaryData DBUtils::getBlkDataKey(uint32_t height, 
-                                            uint8_t  dup,
-                                            uint16_t txIdx,
-                                            uint16_t txOutIdx)
-{
-   BinaryWriter bw(9);
-   bw.put_uint8_t(    DB_PREFIX_TXDATA );
-   bw.put_BinaryData( heightAndDupToHgtx(height,dup) );
-   bw.put_uint16_t(   txIdx,    BIGENDIAN);
-   bw.put_uint16_t(   txOutIdx, BIGENDIAN);
-   return bw.getData();
-}
-
-/////////////////////////////////////////////////////////////////////////////
-BinaryData DBUtils::getBlkDataKeyNoPrefix( uint32_t height, 
-                                                     uint8_t  dup)
-{
-   return heightAndDupToHgtx(height,dup);
-}
-
-/////////////////////////////////////////////////////////////////////////////
-BinaryData DBUtils::getBlkDataKeyNoPrefix( uint32_t height, 
-                                                     uint8_t  dup,
-                                                     uint16_t txIdx)
-{
-   BinaryWriter bw(6);
-   bw.put_BinaryData( heightAndDupToHgtx(height,dup));
-   bw.put_uint16_t(   txIdx, BIGENDIAN);
-   return bw.getData();
-}
-
-/////////////////////////////////////////////////////////////////////////////
-BinaryData DBUtils::getBlkDataKeyNoPrefix( uint32_t height, 
-                                                     uint8_t  dup,
-                                                     uint16_t txIdx,
-                                                     uint16_t txOutIdx)
-{
-   BinaryWriter bw(8);
-   bw.put_BinaryData( heightAndDupToHgtx(height,dup));
-   bw.put_uint16_t(   txIdx,    BIGENDIAN);
-   bw.put_uint16_t(   txOutIdx, BIGENDIAN);
-   return bw.getData();
-}
-
-/////////////////////////////////////////////////////////////////////////////
-uint32_t DBUtils::hgtxToHeight(const BinaryData& hgtx)
-{
-   return (READ_UINT32_BE(hgtx) >> 8);
-
-}
-
-/////////////////////////////////////////////////////////////////////////////
-uint8_t DBUtils::hgtxToDupID(const BinaryData& hgtx)
-{
-   return (READ_UINT32_BE(hgtx) & 0x7f);
-}
-
-/////////////////////////////////////////////////////////////////////////////
-BinaryData DBUtils::heightAndDupToHgtx(uint32_t hgt, uint8_t dup)
-{
-   uint32_t hgtxInt = (hgt<<8) | (uint32_t)dup;
-   return WRITE_UINT32_BE(hgtxInt);
+   height_ = brr.get_uint32_t(BE);
 }
 
 // kate: indent-width 3; replace-tabs on;
