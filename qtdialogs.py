@@ -5092,7 +5092,7 @@ class DlgShowKeyList(ArmoryDialog):
       wltID = self.wlt.uniqueIDB58
       fn = self.main.getFileSave(title=self.tr('Save Key List'), \
                                  ffilter=[self.tr('Text Files (*.txt)')], \
-                                 defaultFilename=('keylist_%1_.txt' % wltID))
+                                 defaultFilename=('keylist_%s_.txt' % wltID))
       if len(fn) > 0:
          fileobj = open(fn, 'w')
          fileobj.write(str(self.txtBox.toPlainText()))

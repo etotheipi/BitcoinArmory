@@ -2240,7 +2240,7 @@ class ArmoryMainWindow(QMainWindow):
 
       types = ffilter
       types.append('All files (*)')
-      typesStr = ';; '.join(types)
+      typesStr = ';; '.join(str(_type) for _type in types)
 
       # Open the native file save dialog and grab the saved file/path unless
       # we're in OS X, where native dialogs sometimes freeze. Looks like a Qt
