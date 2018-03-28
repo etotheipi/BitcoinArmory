@@ -1894,8 +1894,9 @@ class PyBtcWallet(object):
                
       addrComments = []
       for a160 in self.txAddrMap[txHash]:
-         if self.commentsMap.has_key(a160) and '[[' not in self.commentsMap[a160]:
-            addrComments.append(self.commentsMap[a160])
+         h160 = a160[1:]
+         if self.commentsMap.has_key(h160) and '[[' not in self.commentsMap[h160]:
+            addrComments.append(self.commentsMap[h160])
 
       return '; '.join(addrComments)
 
