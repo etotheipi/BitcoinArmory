@@ -13173,7 +13173,8 @@ class DlgCorruptWallet(DlgProgress):
          wlt = None
          wltPath = ''
 
-         if isinstance(self.walletList[0], str):
+         if isinstance(self.walletList[0], str) or \
+            isinstance(self.walletList[0], unicode):
             wltPath = self.walletList[0]
          else:
             wlt = self.walletList[0]

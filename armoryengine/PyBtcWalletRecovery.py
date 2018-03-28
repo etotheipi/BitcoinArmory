@@ -71,6 +71,8 @@ class PyBtcWalletRecovery(object):
       self.UID = ''
       self.labelName = ''
       self.WalletPath = ''
+
+      self.pybtcaddrSize = len(PyBtcAddress().serialize())
       
       """
       Modes:
