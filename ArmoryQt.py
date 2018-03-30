@@ -5350,23 +5350,26 @@ class ArmoryMainWindow(QMainWindow):
             dispLines.append(self.tr('Amount:  %1 BTC').arg(totalStr))
             dispLines.append(self.tr('From:    %2').arg(wltName))
          elif le.getValue() < 0:
-            # Also display the address of where they went
-            txref = TheBDM.bdv().getTxByHash(le.getTxHash())
-            nOut = txref.getNumTxOut()
-            recipStr = ''
-            for i in range(0, nOut):
-               script = txref.getTxOutCopy(i).getScript()
-               if pywlt.hasScrAddr(script_to_scrAddr(script)):
-                  continue
-               if len(recipStr)==0:
-                  recipStr = self.getDisplayStringForScript(script, 45)['String']
-               else:
-                  recipStr = self.tr('<Multiple Recipients>')
+            try:
+               # Also display the address of where they went
+               txref = TheBDM.bdv().getTxByHash(le.getTxHash())
+               nOut = txref.getNumTxOut()
+               recipStr = ''
+               for i in range(0, nOut):
+                  script = txref.getTxOutCopy(i).getScript()
+                  if pywlt.hasScrAddr(script_to_scrAddr(script)):
+                     continue
+                  if len(recipStr)==0:
+                     recipStr = self.getDisplayStringForScript(script, 45)['String']
+                  else:
+                     recipStr = self.tr('<Multiple Recipients>')
 
-            title = self.tr('Bitcoins Sent!')
-            dispLines.append(unicode(self.tr('Amount:  %1 BTC').arg(totalStr)))
-            dispLines.append(unicode(self.tr('From:    %1').arg(wltName )))
-            dispLines.append(unicode(self.tr('To:      %1').arg(recipStr)))
+               title = self.tr('Bitcoins Sent!')
+               dispLines.append(unicode(self.tr('Amount:  %1 BTC').arg(totalStr)))
+               dispLines.append(unicode(self.tr('From:    %1').arg(wltName )))
+               dispLines.append(unicode(self.tr('To:      %1').arg(recipStr)))
+            except Exception as e:
+               LOGERROR('tx broadcast systray display failed with error: %s' % e)
 
          self.showTrayMsg(title, dispLines.join("\n"), \
                           QSystemTrayIcon.Information, 10000)
