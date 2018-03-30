@@ -1,4 +1,4 @@
-v0.96.4
+v0.96.4, released March 30th 2018
 == Added ==
    - Updated fee estimate query from node to improve estimateSmartFee call introduced in Bitcoin Core 0.15.
    - The block confirmation target slider now spans from 2 to 100 blocks (previously 2 to 6).
@@ -33,11 +33,21 @@ v0.96.4
    - Fixed fee calculation when checking "MAX" with SegWit UTXOs
    - The Coin control dialog will no longer spawn invisible
    - When creating a fragmented backup, fragments will no longer be cycled unecessarily
+   - Fixed imported address rendering in the Address Book dialog
+   - The Transaction Info dialog will now display address comments in the comment field if there is no comment 
+     attached to the transaction itself
+   - The Transaction Info dialog will now properly display fee/byte fee for unconfirmed transactions   
+   - The main transaction ledger will now display comments attached to outgoing addresses for each relevant transaction
+   - Fixed selecting an arbitrary wallet file in the Recovery Tool dialog.
+
+== Removed ==
+   - You cannot sign messages with P2SH addresses. This functionality never existed in Armory to begin with, as it 
+     did not produce single sig P2SH addresses prior to 0.96. It will be introduced in 0.97
 
 == Minor ==
    - You can now resize the Transaction Info dialog.
 
-v0.96.3 released September 21st 2017
+v0.96.3, released September 21st 2017
 == Vulnerability Fix ==
    - Fragmented backups were using a faulty implementation of Shamir's Secret Sharing (SSS).
      One of the requirement of SSS security parameters is that the coefficients of the curve are chozen randomly. The implementation
