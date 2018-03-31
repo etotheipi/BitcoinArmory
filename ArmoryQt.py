@@ -5345,22 +5345,19 @@ class ArmoryMainWindow(QMainWindow):
          # If coins were either received or sent from the loaded wlt/lbox
          dispLines = QStringList()
          totalStr = coin2strNZS(abs(le.getValue()))
+         title = None
          if le.getValue() > 0:
             title = self.tr('Bitcoins Received!')
             dispLines.append(self.tr('Amount:  %1 BTC').arg(totalStr))
             dispLines.append(self.tr('From:    %2').arg(wltName))
          elif le.getValue() < 0:
             try:
-               # Also display the address of where they went
-               txref = TheBDM.bdv().getTxByHash(le.getTxHash())
-               nOut = txref.getNumTxOut()
                recipStr = ''
-               for i in range(0, nOut):
-                  script = txref.getTxOutCopy(i).getScript()
-                  if pywlt.hasScrAddr(script_to_scrAddr(script)):
+               for addr in le.getScrAddrList():
+                  if pywlt.hasScrAddr(addr):
                      continue
                   if len(recipStr)==0:
-                     recipStr = self.getDisplayStringForScript(script, 45)['String']
+                     recipStr = hash160_to_addrStr(addr[1:], addr[0])
                   else:
                      recipStr = self.tr('<Multiple Recipients>')
 
@@ -5371,9 +5368,10 @@ class ArmoryMainWindow(QMainWindow):
             except Exception as e:
                LOGERROR('tx broadcast systray display failed with error: %s' % e)
 
-         self.showTrayMsg(title, dispLines.join("\n"), \
-                          QSystemTrayIcon.Information, 10000)
-         LOGINFO(title + '\n' + dispLines.join("\n"))
+         if title:
+            self.showTrayMsg(title, dispLines.join("\n"), \
+                       QSystemTrayIcon.Information, 10000)
+            LOGINFO(title + '\n' + dispLines.join("\n")) 
 
          # Wait for 5 seconds before processing the next queue object.
          self.notifyBlockedUntil = RightNow() + 5
