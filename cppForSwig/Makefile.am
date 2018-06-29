@@ -37,7 +37,7 @@ INCLUDE_FILES = UniversalTimer.h BinaryData.h lmdb_wrapper.h \
 	make_unique.h TxOutScrRef.h bdmenums.h DbHeader.h SocketIncludes.h \
 	PartialMerkle.h util.h WalletManager.h SwigClient.h Wallets.h \
 	CoinSelection.h LedgerEntryData.h ThreadSafeClasses.h \
-	Win_TranslatePath.h ScriptRecipient.h CppBlockUtils_wrap.h
+	Win_TranslatePath.h ScriptRecipient.h
 
 DB_SOURCE_FILES = UniversalTimer.cpp BinaryData.cpp lmdb_wrapper.cpp \
 	BtcUtils.cpp DBUtils.cpp BlockObj.cpp BlockUtils.cpp EncryptionUtils.cpp \
@@ -105,10 +105,9 @@ endif
 
 #custom rules
 CppBlockUtils_wrap.cxx: CppBlockUtils.i
-	swig $(SWIG_FLAGS) CppBlockUtils.i
+	swig $(SWIG_FLAGS) CppBlockUtils.i 
 
-CppBlockUtils_wrap.h: CppBlockUtils.i
-	swig $(SWIG_FLAGS) CppBlockUtils.i
+.PHONY: CppBlockUtils_wrap.cxx
 
 clean-local:
 	rm -f CppBlockUtils.py
