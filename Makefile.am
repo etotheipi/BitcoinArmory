@@ -11,7 +11,7 @@ ACLOCAL_AMFLAGS = -I m4
 
 lrelease:
 if HAVE_GUI
-	lrelease lang/*.ts
+	$(HAVE_LRELEASE) lang/*.ts
 endif
 
 qrc_img_resources.py: imgList.xml
