@@ -118,6 +118,11 @@ class MessageSigningWidget(QWidget):
       atype, addr160 = addrStr_to_hash160(str(self.addressLineEdit.text()))
       if atype==P2SHBYTE:
          LOGWARN('P2SH address requested')
+         QMessageBox.critical(self, self.tr('P2SH Address'), \
+            self.tr('You are attempting to sign a message with a P2SH address. <br><br>This feature is not supported at the moment'), \
+               QMessageBox.Ok)
+         return
+
       walletId = self.main.getWalletForAddr160(addr160)
       wallet = self.main.walletMap[walletId]
       if wallet.useEncryption and wallet.isLocked:
@@ -128,7 +133,7 @@ class MessageSigningWidget(QWidget):
                self.tr('Cannot import private keys without unlocking wallet!'), \
                QMessageBox.Ok)
             return
-      return wallet.addrMap[addr160].binPrivKey32_Plain.toBinStr()
+      return wallet.getAddrObjectForHash(addr160).binPrivKey32_Plain.toBinStr()
 
    def bareSignMessage(self):
       messageText = str(self.messageTextEdit.toPlainText())
@@ -236,13 +241,13 @@ class SignatureVerificationWidget(QWidget):
          # in the Message Signing/Verification dialog
          msg =  '<br>'.join([line[:60]+ '...'*(len(line)>60) for line in msg.split('<br>')][:12])
          MsgBoxCustom(MSGBOX.Good, self.tr('Verified!'), str(self.tr(
-            '%`'
+            '%1`'
             '<hr>'
             '<blockquote>'
-            '<font face="Courier" color="#000060"><b>%1</b></font>'
+            '<font face="Courier" color="#000060"><b>%2</b></font>'
             '</blockquote>'
             '<hr><br>'
-            '<b>Please</b> make sure that the address above (%2...) matches the '
+            '<b>Please</b> make sure that the address above (%3...) matches the '
             'exact address you were expecting.  A valid signature is meaningless '
             'unless it is made '
             'from a recognized address!').arg(ownerStr, msg, addrB58[:10])))

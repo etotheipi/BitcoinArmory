@@ -297,6 +297,50 @@ void LedgerEntry::computeLedgerMap(map<BinaryData, LedgerEntry> &leMap,
          usesWitness,
          isChained);
 
+      /*
+      When signing a tx online, the wallet knows the txhash, therefor it can register all
+      comments on outgoing addresses under the txhash.
+
+      When the tx is signed offline, there is no guarantee that the txhash will be known
+      when the offline tx is crafted. Therefor the comments for each outgoing address are
+      registered under that address only. 
+
+      In order for the GUI to be able to resolve outgoing address comments, the ledger entry
+      needs to carry those for pay out transactions
+      */
+
+      if (value < 0)
+      {
+         try
+         {
+            //grab tx by hash
+            auto&& payout_tx = db->getFullTxCopy(txioVec.first);
+         
+            //get scrAddr for each txout
+            for (unsigned i=0; i < payout_tx.getNumTxOut(); i++)
+            {
+               auto&& txout = payout_tx.getTxOutCopy(i);
+               scrAddrSet.insert(txout.getScrAddressStr());
+            }
+         }
+         catch (exception&)
+         {
+            LMDBEnv::Transaction zctx;
+            db->beginDBTransaction(&zctx, ZERO_CONF, LMDB::ReadOnly);
+
+            StoredTx stx;
+            if (!db->getStoredZcTx(stx, txioVec.first))
+            {
+               LOGWARN << "failed to get tx for ledger parsing";
+            }
+            else
+            {
+               for (auto& txout : stx.stxoMap_)
+                  scrAddrSet.insert(txout.second.getScrAddress());
+            }
+         }
+      }
+
       le.scrAddrSet_ = move(scrAddrSet);
       leMap[txioVec.first] = le;
    }

@@ -2240,7 +2240,7 @@ class ArmoryMainWindow(QMainWindow):
 
       types = ffilter
       types.append('All files (*)')
-      typesStr = ';; '.join(types)
+      typesStr = ';; '.join(str(_type) for _type in types)
 
       # Open the native file save dialog and grab the saved file/path unless
       # we're in OS X, where native dialogs sometimes freeze. Looks like a Qt
@@ -3529,7 +3529,7 @@ class ArmoryMainWindow(QMainWindow):
       if len(self.walletMap)==0:
          reply = QMessageBox.information(self, self.tr('No Wallets!'), self.tr(
             'You have not created any wallets which means there is '
-            'nowhere to store you bitcoins!  Would you like to '
+            'nowhere to store your bitcoins!  Would you like to '
             'create a wallet now?'), \
             QMessageBox.Yes | QMessageBox.No)
          if reply==QMessageBox.Yes:
@@ -4387,7 +4387,7 @@ class ArmoryMainWindow(QMainWindow):
             '<br><br>'
             'Now would be a good time to make paper (or digital) backups of '
             'your wallet(s) if you have not done so already!  You are protected '
-            '<i>forever</i> from hard-drive loss, or forgetting you password. '
+            '<i>forever</i> from hard-drive loss, or forgetting your password. '
             'If you do not have a backup, you could lose all of your '
             'Bitcoins forever!', "", len(self.walletMap))
 
@@ -5345,32 +5345,33 @@ class ArmoryMainWindow(QMainWindow):
          # If coins were either received or sent from the loaded wlt/lbox
          dispLines = QStringList()
          totalStr = coin2strNZS(abs(le.getValue()))
+         title = None
          if le.getValue() > 0:
             title = self.tr('Bitcoins Received!')
             dispLines.append(self.tr('Amount:  %1 BTC').arg(totalStr))
             dispLines.append(self.tr('From:    %2').arg(wltName))
          elif le.getValue() < 0:
-            # Also display the address of where they went
-            txref = TheBDM.bdv().getTxByHash(le.getTxHash())
-            nOut = txref.getNumTxOut()
-            recipStr = ''
-            for i in range(0, nOut):
-               script = txref.getTxOutCopy(i).getScript()
-               if pywlt.hasScrAddr(script_to_scrAddr(script)):
-                  continue
-               if len(recipStr)==0:
-                  recipStr = self.getDisplayStringForScript(script, 45)['String']
-               else:
-                  recipStr = self.tr('<Multiple Recipients>')
+            try:
+               recipStr = ''
+               for addr in le.getScrAddrList():
+                  if pywlt.hasScrAddr(addr):
+                     continue
+                  if len(recipStr)==0:
+                     recipStr = hash160_to_addrStr(addr[1:], addr[0])
+                  else:
+                     recipStr = self.tr('<Multiple Recipients>')
 
-            title = self.tr('Bitcoins Sent!')
-            dispLines.append(unicode(self.tr('Amount:  %1 BTC').arg(totalStr)))
-            dispLines.append(unicode(self.tr('From:    %1').arg(wltName )))
-            dispLines.append(unicode(self.tr('To:      %1').arg(recipStr)))
+               title = self.tr('Bitcoins Sent!')
+               dispLines.append(unicode(self.tr('Amount:  %1 BTC').arg(totalStr)))
+               dispLines.append(unicode(self.tr('From:    %1').arg(wltName )))
+               dispLines.append(unicode(self.tr('To:      %1').arg(recipStr)))
+            except Exception as e:
+               LOGERROR('tx broadcast systray display failed with error: %s' % e)
 
-         self.showTrayMsg(title, dispLines.join("\n"), \
-                          QSystemTrayIcon.Information, 10000)
-         LOGINFO(title + '\n' + dispLines.join("\n"))
+         if title:
+            self.showTrayMsg(title, dispLines.join("\n"), \
+                       QSystemTrayIcon.Information, 10000)
+            LOGINFO(title + '\n' + dispLines.join("\n")) 
 
          # Wait for 5 seconds before processing the next queue object.
          self.notifyBlockedUntil = RightNow() + 5

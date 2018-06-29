@@ -293,10 +293,17 @@ uint64_t CoinSelection::getFeeForMaxVal(
    }
 
    if (witnessSize != 0)
-      txSize += 2 + utxoVec_.size();
+   {
+      txSize += 2;
+      if (coinControlVec.size() == 0)
+         txSize += utxoVec_.size();
+      else
+         txSize += coinControlVec.size();
+   }
 
-   float fee = fee_byte * (txSize + witnessSize * 0.75f);
-   return uint64_t(fee);
+   uint64_t fee = uint64_t(fee_byte * float(txSize));
+   fee += uint64_t(float(witnessSize) * 0.25f * fee_byte);
+   return fee;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

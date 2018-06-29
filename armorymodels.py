@@ -992,7 +992,19 @@ class WalletAddrDispModel(QAbstractTableModel):
       if row>=len(self.addr160List):
          return QVariant('')
       addr = self.wlt.addrMap[self.addr160List[row]]
-      cppaddr = self.wlt.cppWallet.getAddrObjByIndex(addr.chainIndex)
+      addr_index = addr.chainIndex
+
+      try:
+         if addr_index == -2:
+            addr_index = self.wlt.cppWallet.getAssetIndexForAddr(addr.getAddr160())
+            index_import = self.wlt.cppWallet.convertToImportIndex(addr_index)
+            cppaddr = self.wlt.cppWallet.getImportAddrObjByIndex(index_import) 
+         else:
+            cppaddr = self.wlt.cppWallet.getAddrObjByIndex(addr_index)
+      except:
+         LOGERROR('failed to grab address by index %d, original id: %d' % (addr_index, addr.chainIndex))
+         return QVariant()
+
       addr160 = cppaddr.getAddrHash()
       addrB58 = cppaddr.getScrAddr()
       chainIdx = addr.chainIndex+1  # user must get 1-indexed

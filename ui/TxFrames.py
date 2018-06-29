@@ -930,6 +930,8 @@ class SendBitcoinsFrame(ArmoryFrame):
       ustx = self.validateInputsGetUSTX()
             
       if ustx:
+         self.updateUserComments()
+
          if self.createUnsignedTxCallback and self.unsignedCheckbox.isChecked():
             self.createUnsignedTxCallback(ustx)
          else:
@@ -1206,16 +1208,6 @@ class SendBitcoinsFrame(ArmoryFrame):
 
    #####################################################################
    def makeRecipFrame(self, nRecip, is_opreturn=False):
-      '''
-      prevNRecip = len(self.widgetTable)
-      nRecip = max(nRecip, 1)
-      inputs = []
-      for i in range(nRecip):
-         if i < prevNRecip and i < nRecip:
-            inputs.append([])
-            for widg in ['QLE_ADDR', 'QLE_AMT', 'QLE_COMM']: 
-               inputs[-1].append(str(self.widgetTable[i][widg].text()))
-      '''
 
       frmRecip = QFrame()
       frmRecip.setFrameStyle(QFrame.NoFrame)
@@ -1302,13 +1294,6 @@ class SendBitcoinsFrame(ArmoryFrame):
          self.widgetTable = self.widgetTable[0:len(self.widgetTable) + recip_diff]
 
       for widget_obj in self.widgetTable:
-
-         '''
-         if r < nRecip and r < prevNRecip:
-            self.widgetTable[r]['QLE_ADDR'].setText(inputs[r][0])
-            self.widgetTable[r]['QLE_AMT'].setText(inputs[r][1])
-            self.widgetTable[r]['QLE_COMM'].setText(inputs[r][2])
-         '''
 
          subfrm = QFrame()
          subfrm.setFrameStyle(STYLE_RAISED)
@@ -1605,7 +1590,19 @@ class SendBitcoinsFrame(ArmoryFrame):
          self.frmSelectedWlt.customUtxoList = utxolist
          self.frmSelectedWlt.altBalance = balance
          self.frmSelectedWlt.updateOnRBF(True) 
-      
+ 
+   #############################################################################
+   def updateUserComments(self):
+      for row in range(len(self.widgetTable)):
+         widget_obj = self.widgetTable[row]
+         if 'OP_RETURN' in widget_obj:
+            continue
+         
+         addr_comment = str(self.widgetTable[row]['QLE_COMM'].text())
+         addr_str = str(self.widgetTable[row]['QLE_ADDR'].text())
+         addr160 = addrStr_to_hash160(addr_str)[1]
+
+         self.wlt.setComment(addr160, addr_comment)
          
 
 ################################################################################
