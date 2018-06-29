@@ -104,10 +104,10 @@ libCppBlockUtils_la_LDFLAGS += -Wl,-rpath,@executable_path/ -Wl,-rpath,@loader_p
 endif
 
 #custom rules
-CppBlockUtils_wrap.h: CppBlockUtils.i
+CppBlockUtils_wrap.cxx: CppBlockUtils.i
 	swig $(SWIG_FLAGS) CppBlockUtils.i
 
-CppBlockUtils_wrap.cxx: CppBlockUtils.i
+CppBlockUtils_wrap.h: CppBlockUtils.i
 	swig $(SWIG_FLAGS) CppBlockUtils.i
 
 clean-local:
