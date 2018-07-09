@@ -227,6 +227,7 @@ class SatoshiDaemonManager(object):
 
          searchPaths.extend([os.path.join(sp, 'Bitcoin') for sp in searchPaths])
          searchPaths.extend([os.path.join(sp, 'daemon') for sp in searchPaths])
+         searchPaths.extend([os.path.join(sp, 'bin') for sp in searchPaths])
 
          possBaseDir = []
 
