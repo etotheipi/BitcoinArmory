@@ -1602,7 +1602,10 @@ class SendBitcoinsFrame(ArmoryFrame):
          addr_str = str(self.widgetTable[row]['QLE_ADDR'].text())
          addr160 = addrStr_to_hash160(addr_str)[1]
 
-         self.wlt.setComment(addr160, addr_comment)
+         try:
+            self.wlt.setComment(addr160, addr_comment)
+         except:
+            pass
          
 
 ################################################################################
