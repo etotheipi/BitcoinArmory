@@ -325,6 +325,9 @@ ARMORY_HOME_DIR  = ''
 ARMORY_DB_DIR    = ''
 SUBDIR = 'testnet3' if USE_TESTNET else '' + 'regtest' if USE_REGTEST else ''
 
+#settingsObject = SettingsFile(CLI_OPTIONS.settingsPath)
+
+
 if not CLI_OPTIONS.satoshiHome==DEFAULT:
    BTC_HOME_DIR = CLI_OPTIONS.satoshiHome
    if BTC_HOME_DIR.endswith('blocks'):
@@ -443,8 +446,8 @@ if not CLI_OPTIONS.datadir==DEFAULT:
       # constructor completes so that a warning dialog
       # can be displayed
       pass
-# Same for the directory that holds the LevelDB databases
-ARMORY_DB_DIR     = os.path.join(ARMORY_HOME_DIR, 'databases')
+# Same for the directory that holds the LMDB databases
+ARMORY_DB_DIR = os.path.join(ARMORY_HOME_DIR, 'databases')
 
 if not CLI_OPTIONS.armoryDBDir==DEFAULT:
    try:
@@ -458,6 +461,7 @@ if not CLI_OPTIONS.armoryDBDir==DEFAULT:
       # constructor completes so that a warning dialog
       # can be displayed
       pass
+
 
 
 # Change the log file to use
@@ -815,7 +819,7 @@ def LOGDEBUG(msg, *a):
    try:
       logstr = msg if len(a)==0 else (msg%a)
       callerStr = getCallerLine() + ' - '
-      logging.debug(callerStr + logstr)
+      logging.debug(callerStr + str(logstr))
    except TypeError:
       traceback.print_stack()
       raise
@@ -824,7 +828,7 @@ def LOGINFO(msg, *a):
    try:
       logstr = msg if len(a)==0 else (msg%a)
       callerStr = getCallerLine() + ' - '
-      logging.info(callerStr + logstr)
+      logging.info(callerStr + str(logstr))
    except TypeError:
       traceback.print_stack()
       raise
@@ -832,7 +836,7 @@ def LOGWARN(msg, *a):
    try:
       logstr = msg if len(a)==0 else (msg%a)
       callerStr = getCallerLine() + ' - '
-      logging.warn(callerStr + logstr)
+      logging.warn(callerStr + str(logstr))
    except TypeError:
       traceback.print_stack()
       raise
@@ -840,7 +844,7 @@ def LOGERROR(msg, *a):
    try:
       logstr = msg if len(a)==0 else (msg%a)
       callerStr = getCallerLine() + ' - '
-      logging.error(callerStr + logstr)
+      logging.error(callerStr + str(logstr))
    except TypeError:
       traceback.print_stack()
       raise
@@ -848,7 +852,7 @@ def LOGCRIT(msg, *a):
    try:
       logstr = msg if len(a)==0 else (msg%a)
       callerStr = getCallerLine() + ' - '
-      logging.critical(callerStr + logstr)
+      logging.critical(callerStr + str(logstr))
    except TypeError:
       traceback.print_stack()
       raise
@@ -856,7 +860,7 @@ def LOGEXCEPT(msg, *a):
    try:
       logstr = msg if len(a)==0 else (msg%a)
       callerStr = getCallerLine() + ' - '
-      logging.exception(callerStr + logstr)
+      logging.exception(callerStr + str(logstr))
    except TypeError:
       traceback.print_stack()
       raise

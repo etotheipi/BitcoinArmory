@@ -8319,6 +8319,8 @@ class DlgSettings(ArmoryDialog):
          'Let Armory run Bitcoin Core/bitcoind in the background'))
       self.edtSatoshiExePath = QLineEdit()
       self.edtSatoshiHomePath = QLineEdit()
+      self.edtArmoryDbdir = QLineEdit()
+
       self.edtSatoshiExePath.setMinimumWidth(tightSizeNChar(GETFONT('Fixed', 10), 40)[0])
       self.connect(self.chkManageSatoshi, SIGNAL(CLICKED), self.clickChkManage)
       self.startChk = self.main.getSettingOrSetDefault('ManageSatoshi', not OS_MACOSX)
@@ -8348,16 +8350,16 @@ class DlgSettings(ArmoryDialog):
       if self.main.settings.hasSetting('SatoshiDatadir'):
          self.edtSatoshiHomePath.setText(self.main.settings.get('SatoshiDatadir'))
          self.edtSatoshiHomePath.home(False)
+      if self.main.settings.hasSetting('ArmoryDbdir'):
+         self.edtArmoryDbdir.setText(self.main.settings.get('ArmoryDbdir'))
+         self.edtArmoryDbdir.home(False)
+
 
       lblDescrExe = QRichLabel(self.tr('Bitcoin Install Dir:'))
-      lblDescrHome = QRichLabel(self.tr('Bitcoin Home Dir:'))
       lblDefaultExe = QRichLabel(self.tr('Leave blank to have Armory search default '
                                   'locations for your OS'), size=2)
-      lblDefaultHome = QRichLabel(self.tr('Leave blank to use default datadir '
-                                  '(%1)').arg(BTC_HOME_DIR), size=2)
 
       self.btnSetExe = createDirectorySelectButton(self, self.edtSatoshiExePath)
-      self.btnSetHome = createDirectorySelectButton(self, self.edtSatoshiHomePath)
 
       layoutMgmt = QGridLayout()
       layoutMgmt.addWidget(lblManageSatoshi, 0, 0, 1, 3)
@@ -8368,17 +8370,45 @@ class DlgSettings(ArmoryDialog):
       layoutMgmt.addWidget(self.btnSetExe, 2, 2)
       layoutMgmt.addWidget(lblDefaultExe, 3, 1, 1, 2)
 
-      layoutMgmt.addWidget(lblDescrHome, 4, 0)
-      layoutMgmt.addWidget(self.edtSatoshiHomePath, 4, 1)
-      layoutMgmt.addWidget(self.btnSetHome, 4, 2)
-      layoutMgmt.addWidget(lblDefaultHome, 5, 1, 1, 2)
       frmMgmt = QFrame()
       frmMgmt.setLayout(layoutMgmt)
 
       self.clickChkManage()
       ##########################################################################
 
+      lblPathing = QRichLabel(self.tr('<b> Blockchain and Database Paths</b>'
+         '<br><br>'
+         'Optional feature to specify custom paths for blockchain '
+         'data and Armory\'s database.'
+         ))
 
+      lblDescrHome = QRichLabel(self.tr('Bitcoin Home Dir:'))
+      lblDefaultHome = QRichLabel(self.tr('Leave blank to use default datadir '
+                                  '(%1)').arg(BTC_HOME_DIR), size=2)
+      lblDescrDbdir = QRichLabel(self.tr('Armory Database Dir:'))
+      lblDefaultDbdir = QRichLabel(self.tr('Leave blank to use default datadir '
+                                  '(%1)').arg(ARMORY_DB_DIR), size=2)
+
+      self.btnSetHome = createDirectorySelectButton(self, self.edtSatoshiHomePath)
+      self.btnSetDbdir = createDirectorySelectButton(self, self.edtArmoryDbdir)
+
+      layoutPath = QGridLayout()
+      layoutPath.addWidget(lblPathing, 0, 0, 1, 3)
+
+      layoutPath.addWidget(lblDescrHome, 1, 0)
+      layoutPath.addWidget(self.edtSatoshiHomePath, 1, 1)
+      layoutPath.addWidget(self.btnSetHome, 1, 2)
+      layoutPath.addWidget(lblDefaultHome, 2, 1, 1, 2)
+
+      layoutPath.addWidget(lblDescrDbdir, 3, 0)
+      layoutPath.addWidget(self.edtArmoryDbdir, 3, 1)
+      layoutPath.addWidget(self.btnSetDbdir, 3, 2)
+      layoutPath.addWidget(lblDefaultDbdir, 4, 1, 1, 2)
+
+      frmPaths = QFrame()
+      frmPaths.setLayout(layoutPath)
+
+      ##########################################################################
       lblDefaultUriTitle = QRichLabel(self.tr('<b>Set Armory as default URL handler</b>'))
       lblDefaultURI = QRichLabel(self.tr(
          'Set Armory to be the default when you click on "bitcoin:" '
@@ -8558,6 +8588,12 @@ class DlgSettings(ArmoryDialog):
 
       i += 1
       frmLayout.addWidget(frmMgmt, i, 0, 1, 3)
+
+      i += 1
+      frmLayout.addWidget(HLINE(), i, 0, 1, 3)
+
+      i += 1
+      frmLayout.addWidget(frmPaths, i, 0, 1, 3)
 
       i += 1
       frmLayout.addWidget(HLINE(), i, 0, 1, 3)
@@ -8881,21 +8917,36 @@ class DlgSettings(ArmoryDialog):
          else:
             self.main.settings.delete('SatoshiExe')
 
-         # Check valid path is supplied for bitcoind home directory
-         pathHome = unicode(self.edtSatoshiHomePath.text()).strip()
-         if len(pathHome) > 0:
-            if not os.path.exists(pathHome):
-               exeName = 'bitcoin-qt.exe' if OS_WINDOWS else 'bitcoin-qt'
-               QMessageBox.warning(self, self.tr('Invalid Path'), self.tr(
+      # Check path is supplied for bitcoind home directory
+      pathHome = unicode(self.edtSatoshiHomePath.text()).strip()
+      if len(pathHome) > 0:
+         if not os.path.exists(pathHome):
+            QMessageBox.warning(self, self.tr('Invalid Path'), self.tr(
                   'The path you specified for the Bitcoin software home directory '
                   'does not exist.  Only specify this directory if you use a '
                   'non-standard "-datadir=" option when running Bitcoin Core or '
                   'bitcoind.  If you leave this field blank, the following '
                   'path will be used: <br><br> %1').arg(BTC_HOME_DIR), QMessageBox.Ok)
-               return
-            self.main.writeSetting('SatoshiDatadir', pathHome)
-         else:
-            self.main.settings.delete('SatoshiDatadir')
+            return
+         self.main.writeSetting('SatoshiDatadir', pathHome)
+      else:
+         self.main.settings.delete('SatoshiDatadir')
+
+      # Check path is supplied for armory db directory
+      pathDbdir = unicode(self.edtArmoryDbdir.text()).strip()
+      if len(pathDbdir) > 0:
+         if not os.path.exists(pathDbdir):
+            QMessageBox.warning(self, self.tr('Invalid Path'), self.tr(
+                  'The path you specified for Armory\'s database directory '
+                  'does not exist.  Only specify this directory if you want '
+                  'Armory to save its local database to a custom path. '
+                  'If you leave this field blank, the following '
+                  'path will be used: <br><br> %1').arg(ARMORY_DB_DIR), QMessageBox.Ok)
+            return
+         self.main.writeSetting('ArmoryDbdir', pathDbdir)
+      else:
+         self.main.settings.delete('ArmoryDbdir')
+
 
       self.main.writeSetting('ManageSatoshi', self.chkManageSatoshi.isChecked())
 
@@ -8986,9 +9037,7 @@ class DlgSettings(ArmoryDialog):
    #############################################################################
    def clickChkManage(self):
       self.edtSatoshiExePath.setEnabled(self.chkManageSatoshi.isChecked())
-      self.edtSatoshiHomePath.setEnabled(self.chkManageSatoshi.isChecked())
       self.btnSetExe.setEnabled(self.chkManageSatoshi.isChecked())
-      self.btnSetHome.setEnabled(self.chkManageSatoshi.isChecked())
 
 
 ################################################################################

@@ -240,7 +240,7 @@ class BlockDataManager(object):
    
    #############################################################################
    @ActLikeASingletonBDM
-   def goOnline(self, satoshiDir=None, armoryDBDir=None, armoryHomeDir=None):
+   def goOnline(self):
       self.bdv().goOnline()
       self.callback = PySide_CallBack(self).__disown__()
       self.callback.startLoop()
@@ -269,14 +269,6 @@ class BlockDataManager(object):
          return
 
       self.btcdir = newBtcDir
-
-   #############################################################################
-   @ActLikeASingletonBDM
-   def setArmoryDBDir(self, armoryDBDir):
-      if not os.path.exists(armoryDBDir):
-         os.makedirs(armoryDBDir)
-
-      self.armoryDBDir = armoryDBDir
          
    #############################################################################
    @ActLikeASingletonBDM
