@@ -232,7 +232,8 @@ Blockchain BlockDataViewer::blockchain(void)
 void BlockDataViewer::broadcastZC(const BinaryData& rawTx)
 {
    auto&& txHash = BtcUtils::getHash256(rawTx.getRef());
-   Tx tx(rawTx);
+   Tx tx;
+   tx.unserialize(rawTx);
    txMap_->insert(make_pair(txHash, tx));
 
    Command cmd;
@@ -279,7 +280,8 @@ Tx BlockDataViewer::getTxByHash(const BinaryData& txHash)
 
    Tx tx;
    tx.unserializeWithMetaData(rawtx.get());
-   txMap_->insert(make_pair(txHash, tx));
+   if(tx.isInitialized())
+      txMap_->insert(make_pair(txHash, tx));
    return tx;
 }
 
