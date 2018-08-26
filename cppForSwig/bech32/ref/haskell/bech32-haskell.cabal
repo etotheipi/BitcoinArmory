@@ -1,0 +1,42 @@
+name:                bech32-haskell
+version:             0.1.0.0
+homepage:            https://github.com/sipa/bech32/tree/master/ref/haskell
+license:             MIT
+license-file:        LICENSE
+author:              Marko Bencun
+copyright:           2017 Marko Bencun
+build-type:          Simple
+cabal-version:       >=1.10
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     Codec.Binary.Bech32
+  build-depends:       base >= 4.7 && < 5
+                     , bytestring
+                     , array
+  ghc-options:         -Wall -Werror -O2
+  default-language:    Haskell2010
+
+benchmark bench-builder-all
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      bench
+  main-is:             Bench.hs
+  build-depends:       base
+                     , bech32-haskell
+                     , deepseq
+                     , criterion
+  ghc-options:         -Wall -Werror -O2
+
+test-suite bech32-haskell-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Spec.hs
+  build-depends:       base
+                     , bech32-haskell
+                     , tasty
+                     , tasty-hunit
+                     , bytestring
+                     , base16-bytestring
+                     , criterion
+  ghc-options:         -Wall -Werror -O2 -threaded -rtsopts -with-rtsopts=-N
+  default-language:    Haskell2010
