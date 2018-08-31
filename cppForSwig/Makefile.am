@@ -53,7 +53,8 @@ CPPBLOCKUTILS_SOURCE_FILES = UniversalTimer.cpp BinaryData.cpp \
 	WalletManager.cpp Wallets.cpp Script.cpp Signer.cpp \
 	Transactions.cpp \
 	CoinSelection.cpp ReentrantLock.cpp JSON_codec.cpp \
-	TransactionBatch.cpp log.cpp TxEvalState.cpp
+	TransactionBatch.cpp log.cpp TxEvalState.cpp \
+	bech32/ref/c++/bech32.cpp bech32/ref/c++/segwit_addr.cpp
 
 
 #ArmoryDB
