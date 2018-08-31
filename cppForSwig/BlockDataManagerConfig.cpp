@@ -25,6 +25,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 uint8_t BlockDataManagerConfig::pubkeyHashPrefix_;
 uint8_t BlockDataManagerConfig::scriptHashPrefix_;
+string BlockDataManagerConfig::bech32Prefix_;
 
 ////////////////////////////////////////////////////////////////////////////////
 const string BlockDataManagerConfig::dbDirExtention_ = "/databases";
@@ -102,6 +103,7 @@ void BlockDataManagerConfig::selectNetwork(const string &netname)
       rpcPort_ = portToString(RPC_PORT_MAINNET);
       pubkeyHashPrefix_ = SCRIPT_PREFIX_HASH160;
       scriptHashPrefix_ = SCRIPT_PREFIX_P2SH;
+      bech32Prefix_ = "bc";
       
       if (!customFcgiPort_)
          fcgiPort_ = portToString(FCGI_PORT_MAINNET);
@@ -115,6 +117,7 @@ void BlockDataManagerConfig::selectNetwork(const string &netname)
       rpcPort_ = portToString(RPC_PORT_TESTNET);
       pubkeyHashPrefix_ = SCRIPT_PREFIX_HASH160_TESTNET;
       scriptHashPrefix_ = SCRIPT_PREFIX_P2SH_TESTNET;
+      bech32Prefix_ = "tb";
 
       testnet_ = true;
       
@@ -130,6 +133,7 @@ void BlockDataManagerConfig::selectNetwork(const string &netname)
       rpcPort_ = portToString(RPC_PORT_TESTNET);
       pubkeyHashPrefix_ = SCRIPT_PREFIX_HASH160_TESTNET;
       scriptHashPrefix_ = SCRIPT_PREFIX_P2SH_TESTNET;
+      bech32Prefix_ = "tb";
 
       regtest_ = true;
       

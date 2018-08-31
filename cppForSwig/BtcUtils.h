@@ -35,6 +35,7 @@
 #include "ripemd.h"
 #include "UniversalTimer.h"
 #include "log.h"
+#include "bech32/ref/c++/segwit_addr.h"
 
 class LedgerEntryData;
 
@@ -130,6 +131,8 @@ typedef enum
   SCRIPT_PREFIX_HASH160=0x00,
   SCRIPT_PREFIX_P2SH=0x05,
   SCRIPT_PREFIX_HASH160_TESTNET=0x6f,
+  SCRIPT_PREFIX_P2WPKH = 0x90,
+  SCRIPT_PREFIX_P2WSH = 0x95,
   SCRIPT_PREFIX_P2SH_TESTNET=0xc4,
   SCRIPT_PREFIX_MULTISIG=0xfe,
   SCRIPT_PREFIX_NONSTD=0xff,
@@ -2079,6 +2082,35 @@ public:
          throw runtime_error("hash160 failure");
 
       return hash1;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   static BinaryData bech32ToScript(const string& data, const string& prefix)
+   {
+      auto&& resultPair = segwit_addr::decode(prefix, data);
+      if (resultPair.first == -1 || resultPair.first != 0)
+         throw runtime_error("invalid address");
+
+      BinaryWriter bw(2 + resultPair.second.size());
+      bw.put_uint8_t(0);
+      bw.put_uint8_t(resultPair.second.size());
+
+      BinaryDataRef bdr; 
+      bdr.setRef(&resultPair.second[0], resultPair.second.size());
+      bw.put_BinaryDataRef(bdr);
+
+      return bw.getData();
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   static string scriptToBech32(const BinaryData& data, const string& prefix)
+   {
+      auto& dataV = data.getVector();
+      auto&& result = segwit_addr::encode(prefix, 0, dataV);
+      if (result.size() == 0)
+         throw runtime_error("invalid script");
+
+      return result;
    }
 };
    

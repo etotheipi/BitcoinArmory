@@ -512,6 +512,8 @@ if not os.path.exists(ARMORY_DB_DIR):
 from CppBlockUtils import BlockDataManagerConfig
 bdmConfig = BlockDataManagerConfig()
 
+BECH32_PREFIX = "tb" #default to testnet
+
 if not USE_TESTNET and not USE_REGTEST:
    # TODO:  The testnet genesis tx hash can't be the same...?
    BITCOIN_PORT = 8333
@@ -525,6 +527,7 @@ if not USE_TESTNET and not USE_REGTEST:
    ADDRBYTE = '\x00'
    P2SHBYTE = '\x05'
    PRIVKEYBYTE = '\x80'
+   BECH32_PREFIX = "bc"
 
    # This will usually just be used in the GUI to make links for the user
    BLOCKEXPLORE_NAME     = 'blockchain.info'
@@ -573,8 +576,11 @@ SCRADDR_P2PKH_BYTE    = '\x00'
 SCRADDR_P2SH_BYTE     = '\x05'
 SCRADDR_MULTISIG_BYTE = '\xfe'
 SCRADDR_NONSTD_BYTE   = '\xff'
+SCRADDR_P2WPKH_BYTE   = '\x90'
+SCRADDR_P2WSH_BYTE    = '\x95'
 SCRADDR_BYTE_LIST     = [ADDRBYTE, \
                          P2SHBYTE, \
+                         SCRADDR_P2WPKH_BYTE, SCRADDR_P2WSH_BYTE, \
                          SCRADDR_MULTISIG_BYTE, \
                          SCRADDR_NONSTD_BYTE]
 
@@ -609,8 +615,8 @@ CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_STDPUBKEY33] = 'Standard (PK33)'
 CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_MULTISIG]    = 'Multi-Signature'
 CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_P2SH]        = 'Standard (P2SH)'
 CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_NONSTANDARD] = 'Non-Standard'
-CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_P2WPKH]      = 'Standard (P2WPKH)'
-CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_P2WSH]       = 'Standard (P2WSH)'
+CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_P2WPKH]      = 'SegWit (P2WPKH)'
+CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_P2WSH]       = 'SegWit (P2WSH)'
 CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_OPRETURN]    = 'Meta Data (OP_RETURN)'
 
 # Copied from cppForSwig/BtcUtils.h::getTxInScriptTypeInt(script)
@@ -1663,6 +1669,8 @@ def scrAddr_to_addrStr(scrAddr):
       return hash160_to_addrStr(scrAddr[1:])
    elif prefix==P2SHBYTE:
       return hash160_to_p2shAddrStr(scrAddr[1:])
+   elif prefix==SCRADDR_P2WPKH_BYTE or prefix==SCRADDR_P2WSH_BYTE:
+      return Cpp.BtcUtils_scriptToBech32(scrAddr[1:], BECH32_PREFIX)
    else:
       LOGERROR('Unsupported scrAddr type: "%s"' % binary_to_hex(scrAddr))
       raise BadAddressError('Can only convert P2PKH and P2SH scripts')

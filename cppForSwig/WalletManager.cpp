@@ -454,8 +454,16 @@ shared_ptr<ScriptRecipient> CoinSelectionInstance::createRecipient(
       rec = make_shared<Recipient_P2SH>(
          hash.getSliceRef(1, hash.getSize() - 1), value);
    }
+   else if(scrType == SCRIPT_PREFIX_P2WPKH || scrType == SCRIPT_PREFIX_P2WSH)
+   {
+      auto&& hashVal = hash.getSliceCopy(1, hash.getSize() - 1);
+      rec = make_shared<Recipient_Bech32>(
+         hashVal, value);
+   }
    else
-      throw CoinSelectionException("unexpected recipient script type");
+   {
+      throw ScriptRecipientException("unexpected script type");
+   }
 
    return rec;
 }

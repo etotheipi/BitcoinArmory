@@ -2337,7 +2337,7 @@ shared_ptr<ScriptRecipient> AddressEntry_P2WSH::getRecipient(
       throw WalletException("unexpected asset type");
    }
 
-   return make_shared<Recipient_PW2SH>(scriptHash, value);
+   return make_shared<Recipient_P2WSH>(scriptHash, value);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2822,7 +2822,7 @@ const BinaryData& AssetEntry_Multisig::getP2WSHScript() const
    {
       auto& hash256 = getHash256();
 
-      Recipient_PW2SH recipient(hash256, 0);
+      Recipient_P2WSH recipient(hash256, 0);
       auto& script = recipient.getSerializedScript();
 
       p2wshScript_ = move(script.getSliceCopy(9, script.getSize() - 9));

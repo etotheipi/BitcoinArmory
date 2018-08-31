@@ -432,7 +432,7 @@ public:
       auto txOutRef = BtcUtils::getTxOutScrAddrNoCopy(script);
 
       auto p2pkh_prefix =
-        SCRIPT_PREFIX(BlockDataManagerConfig::getPubkeyHashPrefix());
+         SCRIPT_PREFIX(BlockDataManagerConfig::getPubkeyHashPrefix());
       auto p2sh_prefix =
          SCRIPT_PREFIX(BlockDataManagerConfig::getScriptHashPrefix());
 
@@ -443,6 +443,9 @@ public:
          recipient = make_shared<Recipient_P2SH>(txOutRef.scriptRef_, value);
       else if (txOutRef.type_ == SCRIPT_PREFIX_OPRETURN)
          recipient = make_shared<Recipient_OPRETURN>(txOutRef.scriptRef_);
+      else if (txOutRef.type_ == SCRIPT_PREFIX_P2WSH ||
+         txOutRef.type_ == SCRIPT_PREFIX_P2WPKH)
+         recipient = make_shared<Recipient_Bech32>(txOutRef.scriptRef_, value);
       else
          throw WalletException("unexpected output type");
 

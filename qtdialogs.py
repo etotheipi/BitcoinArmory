@@ -4389,7 +4389,8 @@ class DlgConfirmSend(ArmoryDialog):
       returnPairs = []
       for script,val in scriptValPairs:
          scrType = getTxOutScriptType(script)
-         if scrType in CPP_TXOUT_HAS_ADDRSTR:
+         if scrType in CPP_TXOUT_HAS_ADDRSTR and \
+            scrType != CPP_TXOUT_P2WPKH and scrType != CPP_TXOUT_P2WSH:
             scraddr = script_to_scrAddr(script)
             addr160 = scrAddr_to_hash160(scraddr)[1]
             if wlt.hasAddr(addr160):
@@ -5289,8 +5290,12 @@ class DlgDispTxInfo(ArmoryDialog):
             scrType = CPP_TXOUT_P2SH
 
          if scrType in CPP_TXOUT_HAS_ADDRSTR:
-            addrStr = script_to_addrStr(script)
-            addr160 = addrStr_to_hash160(addrStr)[1]
+            try:
+               addrStr = script_to_addrStr(script)
+               addr160 = addrStr_to_hash160(addrStr)[1]
+            except:
+               addr160 = ""
+
             scrAddr = script_to_scrAddr(script)
             if haveWallet and wlt.hasAddr(addr160):
                svPairSelf.append([scrAddr, amt])
@@ -5420,7 +5425,10 @@ class DlgDispTxInfo(ArmoryDialog):
       lbls.append([])
       lbls[-1].append(self.main.createToolTipWidget(self.tr('Comment stored for this transaction in this wallet')))
       lbls[-1].append(QLabel(self.tr('User Comment:')))
-      txhash_bin = hex_to_binary(txHash, endOut=endianness)
+      try:
+         txhash_bin = hex_to_binary(txHash, endOut=endianness)
+      except:
+         txhash_bin = txHash
       comment_tx = ''
       if haveWallet:
          comment_tx = wlt.getComment(txhash_bin)

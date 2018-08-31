@@ -60,7 +60,7 @@ shared_ptr<ScriptRecipient> ScriptRecipient::deserialize(
    else if (byte0 == 34 && byte1 == 0 && byte2 == 32)
    {
       auto&& hash256 = brr_script.get_BinaryData(32);
-      result_ptr = make_shared<Recipient_PW2SH>(hash256, value);
+      result_ptr = make_shared<Recipient_P2WSH>(hash256, value);
    }
 
    if (result_ptr == nullptr)

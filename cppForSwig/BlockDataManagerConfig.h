@@ -82,6 +82,7 @@ struct BlockDataManagerConfig
    /////////////
    static uint8_t pubkeyHashPrefix_;
    static uint8_t scriptHashPrefix_;
+   static string bech32Prefix_;
 
    /////////////
    static uint8_t getPubkeyHashPrefix(void) { return pubkeyHashPrefix_; }
