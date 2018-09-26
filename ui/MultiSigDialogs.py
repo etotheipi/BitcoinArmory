@@ -2542,6 +2542,7 @@ class DlgMultiSpendReview(ArmoryDialog):
             self.wltOfflineSign = []
             self.wltSignRightNow = []
             self.keyholePixmap = []
+            self.keyUnrelated = []
 
       # Some simple container classes
       class OutputBundle(object):
@@ -2585,8 +2586,13 @@ class DlgMultiSpendReview(ArmoryDialog):
             iBundle.wltOfflineSign  = [None]*N
             iBundle.wltSignRightNow = [None]*N
             iBundle.keyholePixmap   = [None]*N
+            iBundle.keyUnrelated    = [None]*N
             for i in range(N):
-               a160 = iBundle.lockbox.a160List[i]
+               this_lb = iBundle.lockbox
+               a160 = this_lb.a160List[i]
+               dpubkey = this_lb.dPubKeys[i].binPubKey
+               cpubkey = this_lb.compressedPubKeys[i]
+
                wltID = self.main.getWalletForAddr160(a160)
                iBundle.keyholePixmap[i] = QLabel()
                iBundle.keyholePixmap[i].setPixmap(self.pixWhite())
@@ -2594,10 +2600,12 @@ class DlgMultiSpendReview(ArmoryDialog):
                   wlt = self.main.walletMap[wltID]
                   wltType = determineWalletType(wlt, self.main)[0]
                   if wltType in [WLTTYPES.WatchOnly, WLTTYPES.Offline]:
-                     iBundle.wltOfflineSign[i] = [wltID, a160]
+                     iBundle.wltOfflineSign[i] = [wltID, a160, dpubkey, cpubkey]
                   else:
-                     iBundle.wltSignRightNow[i] = [wltID, a160]
+                     iBundle.wltSignRightNow[i] = [wltID, a160, dpubkey, cpubkey]
                      iBundle.keyholePixmap[i].setPixmap(self.pixGreen())
+               else:
+                  iBundle.keyUnrelated[i] = [None, a160, dpubkey, cpubkey]
          else:
             iBundle.wltOfflineSign  = [None]
             iBundle.wltSignRightNow = [None]
@@ -2615,7 +2623,7 @@ class DlgMultiSpendReview(ArmoryDialog):
                   iBundle.wltOfflineSign[0] = [wltID, a160]
                   iBundle.keyholePixmap[0].setPixmap(self.pixWhite())
                else:
-                  iBundle.wltSignRightNow[0] = [wltID, a160]
+                  iBundle.wltSignRightNow[0] = [wltID, a160, None, None]
                   iBundle.keyholePixmap[0].setPixmap(self.pixGreen())
             else:
                # In these cases, nothing really to do
@@ -2931,7 +2939,7 @@ class DlgMultiSpendReview(ArmoryDialog):
    ############################################################################# 
    def doSignForInput(self, idStr, keyIdx, signerType=SIGNER_DEFAULT):
       ib = self.inputBundles[idStr]
-      wltID, a160 = ib.wltSignRightNow[keyIdx]
+      wltID, a160, dkey, ckey = ib.wltSignRightNow[keyIdx]
       wlt = self.main.walletMap[wltID]
       if wlt.useEncryption and wlt.isLocked:
          dlg = DlgUnlockWallet(wlt, self, self.main, self.tr('Sign Lockbox'))
@@ -2985,12 +2993,51 @@ class DlgMultiSpendReview(ArmoryDialog):
          # be either ALREADY_SIGNED or NO_SIGNATURE (no WLT* possible)
          isigstat = ib.ustxiList[0].evaluateSigningStatus(pytx=self.ustx.pytxObj)
 
-         N = ib.lockbox.N if ib.lockbox else 1
-         for i in range(N):
+         if ib.lockbox:
+            N = ib.lockbox.N 
+            entryKeyIndex = [None]*N
+
+            #match signing dialog entries to pubkeys in the ustx
+            for v in range(N):
+               ms_key = ib.ustxiList[0].pubKeys[v]
+               for w in range(N):
+                  try:
+                     #check signable wallets first
+                     if ms_key in ib.wltSignRightNow[w]:
+                        entryKeyIndex[v] = w
+                        break
+                  except:
+                     pass
+                  
+                  try:
+                     #check offline wallets otherwise
+                     if ms_key in ib.wltOfflineSign[w]:
+                        entryKeyIndex[v] = w
+                        break
+                  except:
+                     pass
+
+                  try:
+                     #lastly, check unrelated keys
+                     if ms_key in ib.keyUnrelated[w]:
+                        entryKeyIndex[v] = w
+                        break
+                  except:
+                     continue
+
+               #set default index if there are no matches (unkonwn key)
+               if entryKeyIndex[v] == None:
+                  entryKeyIndex[v] = v
+         else:
+            N = 1
+            entryKeyIndex = [0]
+
+         for y in range(N):
+            i = entryKeyIndex[y]
             signBtn = iWidgMap['SignBtn'][i]
             chkLbl  = iWidgMap['ChkImg'][i]
             keyImg  = iWidgMap['KeyImg'][i]
-            if isigstat.statusN[i]==TXIN_SIGSTAT.ALREADY_SIGNED:
+            if isigstat.statusN[y]==TXIN_SIGSTAT.ALREADY_SIGNED:
                chkLbl.setVisible(True)
                chkLbl.setPixmap(self.pixChk())
                signBtn.setEnabled(False)
