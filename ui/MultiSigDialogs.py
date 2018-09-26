@@ -2951,6 +2951,11 @@ class DlgMultiSpendReview(ArmoryDialog):
 
       try:
          if ib.lockbox:
+
+            #if any input is not of legacy type, force cpp signer
+            if self.ustx.isLegacyTx == False:
+               signerType = SIGNER_CPP
+
             # If a lockbox, all USTXIs require the same signing key
             for ustxi in ib.ustxiList:
                addrObj = wlt.getAddrByHash160(a160)
