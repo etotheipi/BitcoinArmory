@@ -9950,7 +9950,7 @@ TEST_F(BlockUtilsSuper, RepaidMissingTxio)
    }
 
    //delete the keys
-   auto& delKeysThread = [&ssh, this](void)->void
+   auto delKeysThread = [&ssh, this](void)->void
    { 
       LMDBEnv::Transaction tx(iface_->dbEnv_[BLKDATA].get(), LMDB::ReadWrite);
 
@@ -10727,6 +10727,1070 @@ TEST_F(TestCryptoECDSA, SECP256K1MultScalars)
                                                               multScalarB);
    EXPECT_EQ(multRes, testRes);
 }
+
+// Multiply a scalar and a point, and check the result.
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(TestCryptoECDSA, SECP256K1MultPoint)
+{
+   SecureBinaryData testVal;
+   bool testRes = CryptoECDSA().ECMultiplyPoint(multScalar,
+                                                multPointX,
+                                                multPointY,
+                                                testVal);
+   EXPECT_TRUE(testRes);
+   EXPECT_EQ(multPointRes, testVal);
+}
+
+// Add two points and check the result.
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(TestCryptoECDSA, SECP256K1AddPoints)
+{
+   SecureBinaryData testVal;
+   bool testRes = CryptoECDSA().ECAddPoints(addAX,
+                                            addAY,
+                                            addBX,
+                                            addBY,
+                                            testVal);
+   EXPECT_TRUE(testRes);
+   EXPECT_EQ(addRes, testVal);
+}
+
+// Multiply two scalars and check the result.
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(TestCryptoECDSA, SECP256K1PointInverse)
+{
+   SecureBinaryData testVal;
+   bool invValid = CryptoECDSA().ECInverse(invAX, invAY, testVal);
+   EXPECT_TRUE(invValid);
+   EXPECT_EQ(invRes, testVal);
+}
+
+// Perform compression and decompression functions on points.
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(TestCryptoECDSA, KeyCompression)
+{
+   SecureBinaryData testCompressPt1 = CryptoECDSA().CompressPoint(uncompPointPub1);
+   SecureBinaryData testCompressPt2 = CryptoECDSA().CompressPoint(uncompPointPub2);
+   SecureBinaryData testUncompressPt1 = CryptoECDSA().UncompressPoint(compPointPub1);
+   SecureBinaryData testUncompressPt2 = CryptoECDSA().UncompressPoint(compPointPub2);
+
+   EXPECT_EQ(compPointPub1, testCompressPt1);
+   EXPECT_EQ(compPointPub2, testCompressPt2);
+   EXPECT_EQ(uncompPointPub1, testUncompressPt1);
+   EXPECT_EQ(uncompPointPub2, testUncompressPt2);
+}
+
+// Compute public keys given private keys. The private values have been chosen
+// such that one compressed public key will start w/ 0x02 and the other w/ 0x03.
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(TestCryptoECDSA, KeyComputation)
+{
+   SecureBinaryData prvKey1 = compPointPrv1.getSliceRef(1, 32);
+   SecureBinaryData prvKey2 = compPointPrv2.getSliceRef(1, 32);
+   SecureBinaryData calcPubKey1 = CryptoECDSA().ComputePublicKey(prvKey1);
+   SecureBinaryData calcPubKey2 = CryptoECDSA().ComputePublicKey(prvKey2);
+
+   EXPECT_EQ(uncompPointPub1, calcPubKey1);
+   EXPECT_EQ(uncompPointPub2, calcPubKey2);
+}
+
+
+class TestExtendedKey : public ::testing::Test
+{
+protected:
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void SetUp(void) 
+   {
+      if(1)    
+      {
+         verPub          = 76067358; // 0x0488B21E
+         verPri          = 76066276; // 0x0488ADE4
+      }
+      else 
+      {
+         verPub          = 70617039; // 0x043587CF
+         verPri          = 70615956; // 0x04358394
+      }
+
+      seedKey1           = READHEX("00e8f32e723decf4051aefac8e2c93c9c5b214313817cdb01a1494b917c8436b35");
+      seedCC1            = READHEX("873dff81c02f525623fd1fe5167eac3a55a049de3d314bb42ee227ffed37d508");
+      seedPubKey1        = READHEX("0439a36013301597daef41fbe593a02cc513d0b55527ec2df1050e2e8ff49c85c23cbe7ded0e7ce6a594896b8f62888fdbc5c8821305e2ea42bf01e37300116281");
+      seedCompPubKey1    = READHEX("0339a36013301597daef41fbe593a02cc513d0b55527ec2df1050e2e8ff49c85c2");
+      seedExtSerPrv1     = READHEX("0488ade4000000000000000000873dff81c02f525623fd1fe5167eac3a55a049de3d314bb42ee227ffed37d50800e8f32e723decf4051aefac8e2c93c9c5b214313817cdb01a1494b917c8436b35");
+      seedExtSerPub1     = READHEX("0488b21e000000000000000000873dff81c02f525623fd1fe5167eac3a55a049de3d314bb42ee227ffed37d5080339a36013301597daef41fbe593a02cc513d0b55527ec2df1050e2e8ff49c85c2");
+      seedID1            = READHEX("3442193e1bb70916e914552172cd4e2dbc9df811");
+      seedFP1            = READHEX("3442193e");
+      seedParFP1         = READHEX("00000000");
+      seedString1        = "M";
+
+      seedKey2           = READHEX("004b03d6fc340455b363f51020ad3ecca4f0850280cf436c70c727923f6db46c3e");
+      seedCC2            = READHEX("60499f801b896d83179a4374aeb7822aaeaceaa0db1f85ee3e904c4defbd9689");
+      seedPubKey2        = READHEX("04cbcaa9c98c877a26977d00825c956a238e8dddfbd322cce4f74b0b5bd6ace4a77bd3305d363c26f82c1e41c667e4b3561c06c60a2104d2b548e6dd059056aa51");
+      seedCompPubKey2    = READHEX("03cbcaa9c98c877a26977d00825c956a238e8dddfbd322cce4f74b0b5bd6ace4a7");
+      seedExtSerPrv2     = READHEX("0488ade400000000000000000060499f801b896d83179a4374aeb7822aaeaceaa0db1f85ee3e904c4defbd9689004b03d6fc340455b363f51020ad3ecca4f0850280cf436c70c727923f6db46c3e");
+      seedExtSerPub2     = READHEX("0488b21e00000000000000000060499f801b896d83179a4374aeb7822aaeaceaa0db1f85ee3e904c4defbd968903cbcaa9c98c877a26977d00825c956a238e8dddfbd322cce4f74b0b5bd6ace4a7");
+      seedID2            = READHEX("bd16bee53961a47d6ad888e29545434a89bdfe95");
+      seedFP2            = READHEX("bd16bee5");
+      seedParFP2         = READHEX("00000000");
+      seedString2        = "M";
+
+      LOGDISABLESTDOUT();
+   }
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void TearDown(void)
+   {
+   }
+
+   uint32_t verPub;
+   uint32_t verPri;
+
+   SecureBinaryData seedKey1;
+   SecureBinaryData seedCC1;
+   SecureBinaryData seedPubKey1;
+   SecureBinaryData seedCompPubKey1;
+   SecureBinaryData seedExtSerPrv1;
+   SecureBinaryData seedExtSerPub1;
+   SecureBinaryData seedID1;
+   SecureBinaryData seedFP1;
+   SecureBinaryData seedParFP1;
+   string           seedString1;
+
+   SecureBinaryData seedKey2;
+   SecureBinaryData seedCC2;
+   SecureBinaryData seedPubKey2;
+   SecureBinaryData seedCompPubKey2;
+   SecureBinaryData seedExtSerPrv2;
+   SecureBinaryData seedExtSerPub2;
+   SecureBinaryData seedID2;
+   SecureBinaryData seedFP2;
+   SecureBinaryData seedParFP2;
+   string           seedString2;
+};
+
+// Build extended master keys and confirm that the contents are valid.
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(TestExtendedKey, BuildEK1)
+{
+   ExtendedKey masterKey1(seedKey1, seedCC1);
+   SecureBinaryData retKey1       = masterKey1.getKey();
+   SecureBinaryData retPubKey1    = masterKey1.getPublicKey(false);
+   SecureBinaryData retChaincode1 = masterKey1.getChaincode();
+   SecureBinaryData testExtSer1   = masterKey1.getExtKeySer();
+   SecureBinaryData testID1       = masterKey1.getIdentifier();
+   SecureBinaryData testFP1       = masterKey1.getFingerprint();
+   SecureBinaryData testParFP1    = masterKey1.getParentFP();
+   SecureBinaryData testCompPub1  = masterKey1.getPublicKey();
+   uint32_t testVer1              = masterKey1.getVersion();
+   uint8_t testDepth1             = masterKey1.getDepth();
+   uint32_t testChildNum1         = masterKey1.getChildNum();
+   string testString1             = masterKey1.getIndexListString();
+
+   EXPECT_TRUE(masterKey1.isInitialized());
+   EXPECT_TRUE(masterKey1.hasChaincode());
+   EXPECT_TRUE(masterKey1.isPrv());
+   EXPECT_TRUE(masterKey1.isMaster());
+   EXPECT_FALSE(masterKey1.isPub());
+   EXPECT_EQ(seedKey1, retKey1);
+   EXPECT_EQ(seedPubKey1, retPubKey1);
+   EXPECT_EQ(seedCC1, retChaincode1);
+   EXPECT_EQ(seedExtSerPrv1, testExtSer1);
+   EXPECT_EQ(seedID1, testID1);
+   EXPECT_EQ(seedFP1, testFP1);
+   EXPECT_EQ(seedParFP1, testParFP1);
+   EXPECT_EQ(seedCompPubKey1, testCompPub1);
+   EXPECT_EQ(verPri, testVer1);
+   EXPECT_EQ(0, testDepth1);
+   EXPECT_EQ(0, testChildNum1);
+   EXPECT_EQ(seedString1, testString1);
+
+   ExtendedKey masterKey2(seedKey2, seedCC2);
+   SecureBinaryData retKey2       = masterKey2.getKey();
+   SecureBinaryData retPubKey2    = masterKey2.getPublicKey(false);
+   SecureBinaryData retChaincode2 = masterKey2.getChaincode();
+   SecureBinaryData testExtSer2   = masterKey2.getExtKeySer();
+   SecureBinaryData testID2       = masterKey2.getIdentifier();
+   SecureBinaryData testFP2       = masterKey2.getFingerprint();
+   SecureBinaryData testParFP2    = masterKey2.getParentFP();
+   SecureBinaryData testCompPub2  = masterKey2.getPublicKey();
+   uint32_t testVer2              = masterKey2.getVersion();
+   uint8_t testDepth2             = masterKey2.getDepth();
+   uint32_t testChildNum2         = masterKey2.getChildNum();
+   string testString2             = masterKey2.getIndexListString();
+
+   EXPECT_TRUE(masterKey2.isInitialized());
+   EXPECT_TRUE(masterKey2.hasChaincode());
+   EXPECT_TRUE(masterKey2.isPrv());
+   EXPECT_TRUE(masterKey2.isMaster());
+   EXPECT_FALSE(masterKey2.isPub());
+   EXPECT_EQ(seedKey2, retKey2);
+   EXPECT_EQ(seedPubKey2, retPubKey2);
+   EXPECT_EQ(seedCC2, retChaincode2);
+   EXPECT_EQ(seedExtSerPrv2, testExtSer2);
+   EXPECT_EQ(seedID2, testID2);
+   EXPECT_EQ(seedFP2, testFP2);
+   EXPECT_EQ(seedParFP2, testParFP2);
+   EXPECT_EQ(seedCompPubKey2, testCompPub2);
+   EXPECT_EQ(verPri, testVer2);
+   EXPECT_EQ(0, testDepth2);
+   EXPECT_EQ(0, testChildNum2);
+   EXPECT_EQ(seedString2, testString2);
+
+   // Can't get a standalone object from the default constructor. Not sure why.
+   EXPECT_FALSE(ExtendedKey().isInitialized());
+}
+
+// Make copies that don't have private keys, only public keys. Confirm that the
+// public key matches what we expect.
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(TestExtendedKey, CheckPublicCopies)
+{
+   ExtendedKey parentKey1(seedKey1, seedCC1);
+
+   ExtendedKey childKey1 = parentKey1.makePublicCopy();
+   parentKey1.deletePrivateKey();
+
+   EXPECT_EQ(seedCompPubKey1, childKey1.getKey());
+   EXPECT_EQ(seedCompPubKey1, parentKey1.getKey());
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
+class TestHDWalletCryptoSeed : public ::testing::Test
+{
+protected:
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void SetUp(void) 
+   {
+      seedInput1      = READHEX("000102030405060708090a0b0c0d0e0f");
+      seedKey1        = READHEX("00e8f32e723decf4051aefac8e2c93c9c5b214313817cdb01a1494b917c8436b35");
+      seedCompPubKey1 = READHEX("0339a36013301597daef41fbe593a02cc513d0b55527ec2df1050e2e8ff49c85c2");
+      seedCC1         = READHEX("873dff81c02f525623fd1fe5167eac3a55a049de3d314bb42ee227ffed37d508");
+
+      seedInput2      = READHEX("fffcf9f6f3f0edeae7e4e1dedbd8d5d2cfccc9c6c3c0bdbab7b4b1aeaba8a5a29f9c999693908d8a8784817e7b7875726f6c696663605d5a5754514e4b484542");
+      seedKey2        = READHEX("004b03d6fc340455b363f51020ad3ecca4f0850280cf436c70c727923f6db46c3e");
+      seedCompPubKey2 = READHEX("03cbcaa9c98c877a26977d00825c956a238e8dddfbd322cce4f74b0b5bd6ace4a7");
+      seedCC2         = READHEX("60499f801b896d83179a4374aeb7822aaeaceaa0db1f85ee3e904c4defbd9689");
+
+      LOGDISABLESTDOUT();
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void TearDown(void)
+   {
+   }
+
+   SecureBinaryData seedInput1;
+   SecureBinaryData seedKey1;
+   SecureBinaryData seedCC1;
+   SecureBinaryData seedCompPubKey1;
+
+   SecureBinaryData seedInput2;
+   SecureBinaryData seedKey2;
+   SecureBinaryData seedCC2;
+   SecureBinaryData seedCompPubKey2;
+};
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Build a seed (key + chain code), and confirm the values are what we expect.
+TEST_F(TestHDWalletCryptoSeed, BuildSeed)
+{
+   HDWalletCryptoSeed testSeed1  = HDWalletCryptoSeed(seedInput1);
+   SecureBinaryData testSeedKey1 = testSeed1.getMasterKey();
+   SecureBinaryData testSeedCC1  = testSeed1.getMasterChain();
+   int32_t findRes1 = seedKey1.find(testSeedKey1, 1);
+   EXPECT_NE(findRes1, -1);
+   EXPECT_EQ(seedCC1, testSeedCC1);
+
+   HDWalletCryptoSeed testSeed2  = HDWalletCryptoSeed(seedInput2);
+   SecureBinaryData testSeedKey2 = testSeed2.getMasterKey();
+   SecureBinaryData testSeedCC2  = testSeed2.getMasterChain();
+   int32_t findRes2 = seedKey2.find(testSeedKey2, 1);
+   EXPECT_NE(findRes2, -1);
+   EXPECT_EQ(seedCC2, testSeedCC2);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Build a seed (key + chain code), and confirm the values are what we expect.
+TEST_F(TestHDWalletCryptoSeed, ConvertSeed)
+{
+   ExtendedKey ek;
+   ek = HDWalletCrypto().convertSeedToMasterKey(seedInput1);
+   EXPECT_EQ(seedKey1.getSliceCopy(1,32), ek.getPrivateKey(false));
+   EXPECT_EQ(seedCC1, ek.getChaincode());
+
+   ek = HDWalletCrypto().convertSeedToMasterKey(seedInput2);
+   EXPECT_EQ(seedKey2.getSliceCopy(1,32), ek.getPrivateKey(false));
+   EXPECT_EQ(seedCC2, ek.getChaincode());
+}
+
+
+class TestHDWalletCrypto : public ::testing::Test
+{
+protected:
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void SetUp(void)
+   {
+      if(1)
+      {
+         verPub          = 76067358; // 0x0488B21E
+         verPri          = 76066276; // 0x0488ADE4
+      }
+      else
+      {
+         verPub          = 70617039; // 0x043587CF
+         verPri          = 70615956; // 0x04358394
+      }
+
+      // Data pulled from the decoded BIP32 test vector addresses. Hardened = '
+      seedKey1           = READHEX("00e8f32e723decf4051aefac8e2c93c9c5b214313817cdb01a1494b917c8436b35");
+      seedCC1            = READHEX("873dff81c02f525623fd1fe5167eac3a55a049de3d314bb42ee227ffed37d508");
+      seedPubKey1        = READHEX("0439a36013301597daef41fbe593a02cc513d0b55527ec2df1050e2e8ff49c85c23cbe7ded0e7ce6a594896b8f62888fdbc5c8821305e2ea42bf01e37300116281");
+      seedCompPubKey1    = READHEX("0339a36013301597daef41fbe593a02cc513d0b55527ec2df1050e2e8ff49c85c2");
+      seedExtSerPrv1     = READHEX("0488ade4000000000000000000873dff81c02f525623fd1fe5167eac3a55a049de3d314bb42ee227ffed37d50800e8f32e723decf4051aefac8e2c93c9c5b214313817cdb01a1494b917c8436b35");
+      seedExtSerPub1     = READHEX("0488b21e000000000000000000873dff81c02f525623fd1fe5167eac3a55a049de3d314bb42ee227ffed37d5080339a36013301597daef41fbe593a02cc513d0b55527ec2df1050e2e8ff49c85c2");
+      seedID1            = READHEX("3442193e1bb70916e914552172cd4e2dbc9df811");
+      seedFP1            = READHEX("3442193e");
+      seedParFP1         = READHEX("00000000");
+      seedString1        = "M";
+
+      seedKey1_D1        = READHEX("00edb2e14f9ee77d26dd93b4ecede8d16ed408ce149b6cd80b0715a2d911a0afea");
+      seedCC1_D1         = READHEX("47fdacbd0f1097043b78c63c20c34ef4ed9a111d980047ad16282c7ae6236141");
+      seedPubKey1_D1     = READHEX("045a784662a4a20a65bf6aab9ae98a6c068a81c52e4b032c0fb5400c706cfccc567f717885be239daadce76b568958305183ad616ff74ed4dc219a74c26d35f839");
+      seedCompPubKey1_D1 = READHEX("035a784662a4a20a65bf6aab9ae98a6c068a81c52e4b032c0fb5400c706cfccc56");
+      seedExtSerPrv1_D1  = READHEX("0488ade4013442193e8000000047fdacbd0f1097043b78c63c20c34ef4ed9a111d980047ad16282c7ae623614100edb2e14f9ee77d26dd93b4ecede8d16ed408ce149b6cd80b0715a2d911a0afea");
+      seedExtSerPub1_D1  = READHEX("0488b21e013442193e8000000047fdacbd0f1097043b78c63c20c34ef4ed9a111d980047ad16282c7ae6236141035a784662a4a20a65bf6aab9ae98a6c068a81c52e4b032c0fb5400c706cfccc56");
+      seedID1_D1         = READHEX("5c1bd648ed23aa5fd50ba52b2457c11e9e80a6a7");
+      seedFP1_D1         = READHEX("5c1bd648");
+      seedParFP1_D1      = READHEX("3442193e");
+      seedString1_D1     = "M/0'";
+
+      seedKey1_D2        = READHEX("003c6cb8d0f6a264c91ea8b5030fadaa8e538b020f0a387421a12de9319dc93368");
+      seedCC1_D2         = READHEX("2a7857631386ba23dacac34180dd1983734e444fdbf774041578e9b6adb37c19");
+      seedPubKey1_D2     = READHEX("04501e454bf00751f24b1b489aa925215d66af2234e3891c3b21a52bedb3cd711c008794c1df8131b9ad1e1359965b3f3ee2feef0866be693729772be14be881ab");
+      seedCompPubKey1_D2 = READHEX("03501e454bf00751f24b1b489aa925215d66af2234e3891c3b21a52bedb3cd711c");
+      seedExtSerPrv1_D2  = READHEX("0488ade4025c1bd648000000012a7857631386ba23dacac34180dd1983734e444fdbf774041578e9b6adb37c19003c6cb8d0f6a264c91ea8b5030fadaa8e538b020f0a387421a12de9319dc93368");
+      seedExtSerPub1_D2  = READHEX("0488b21e025c1bd648000000012a7857631386ba23dacac34180dd1983734e444fdbf774041578e9b6adb37c1903501e454bf00751f24b1b489aa925215d66af2234e3891c3b21a52bedb3cd711c");
+      seedID1_D2         = READHEX("bef5a2f9a56a94aab12459f72ad9cf8cf19c7bbe");
+      seedFP1_D2         = READHEX("bef5a2f9");
+      seedParFP1_D2      = READHEX("5c1bd648");
+      seedString1_D2     = "M/0'/1";
+
+      seedKey1_D3        = READHEX("00cbce0d719ecf7431d88e6a89fa1483e02e35092af60c042b1df2ff59fa424dca");
+      seedCC1_D3         = READHEX("04466b9cc8e161e966409ca52986c584f07e9dc81f735db683c3ff6ec7b1503f");
+      seedPubKey1_D3     = READHEX("0457bfe1e341d01c69fe5654309956cbea516822fba8a601743a012a7896ee8dc24310ef3676384179e713be3115e93f34ac9a3933f6367aeb3081527ea74027b7");
+      seedCompPubKey1_D3 = READHEX("0357bfe1e341d01c69fe5654309956cbea516822fba8a601743a012a7896ee8dc2");
+      seedExtSerPrv1_D3  = READHEX("0488ade403bef5a2f98000000204466b9cc8e161e966409ca52986c584f07e9dc81f735db683c3ff6ec7b1503f00cbce0d719ecf7431d88e6a89fa1483e02e35092af60c042b1df2ff59fa424dca");
+      seedExtSerPub1_D3  = READHEX("0488b21e03bef5a2f98000000204466b9cc8e161e966409ca52986c584f07e9dc81f735db683c3ff6ec7b1503f0357bfe1e341d01c69fe5654309956cbea516822fba8a601743a012a7896ee8dc2");
+      seedID1_D3         = READHEX("ee7ab90cde56a8c0e2bb086ac49748b8db9dce72");
+      seedFP1_D3         = READHEX("ee7ab90c");
+      seedParFP1_D3      = READHEX("bef5a2f9");
+      seedString1_D3     = "M/0'/1/2'";
+
+      seedKey1_D4        = READHEX("000f479245fb19a38a1954c5c7c0ebab2f9bdfd96a17563ef28a6a4b1a2a764ef4");
+      seedCC1_D4         = READHEX("cfb71883f01676f587d023cc53a35bc7f88f724b1f8c2892ac1275ac822a3edd");
+      seedPubKey1_D4     = READHEX("04e8445082a72f29b75ca48748a914df60622a609cacfce8ed0e35804560741d292728ad8d58a140050c1016e21f285636a580f4d2711b7fac3957a594ddf416a0");
+      seedCompPubKey1_D4 = READHEX("02e8445082a72f29b75ca48748a914df60622a609cacfce8ed0e35804560741d29");
+      seedExtSerPrv1_D4  = READHEX("0488ade404ee7ab90c00000002cfb71883f01676f587d023cc53a35bc7f88f724b1f8c2892ac1275ac822a3edd000f479245fb19a38a1954c5c7c0ebab2f9bdfd96a17563ef28a6a4b1a2a764ef4");
+      seedExtSerPub1_D4  = READHEX("0488b21e04ee7ab90c00000002cfb71883f01676f587d023cc53a35bc7f88f724b1f8c2892ac1275ac822a3edd02e8445082a72f29b75ca48748a914df60622a609cacfce8ed0e35804560741d29");
+      seedID1_D4         = READHEX("d880d7d893848509a62d8fb74e32148dac68412f");
+      seedFP1_D4         = READHEX("d880d7d8");
+      seedParFP1_D4      = READHEX("ee7ab90c");
+      seedString1_D4     = "M/0'/1/2'/2";
+
+      seedKey1_D5        = READHEX("00471b76e389e528d6de6d816857e012c5455051cad6660850e58372a6c3e6e7c8");
+      seedCC1_D5         = READHEX("c783e67b921d2beb8f6b389cc646d7263b4145701dadd2161548a8b078e65e9e");
+      seedPubKey1_D5     = READHEX("042a471424da5e657499d1ff51cb43c47481a03b1e77f951fe64cec9f5a48f7011cf31cb47de7ccf6196d3a580d055837de7aa374e28c6c8a263e7b4512ceee362");
+      seedCompPubKey1_D5 = READHEX("022a471424da5e657499d1ff51cb43c47481a03b1e77f951fe64cec9f5a48f7011");
+      seedExtSerPrv1_D5  = READHEX("0488ade405d880d7d83b9aca00c783e67b921d2beb8f6b389cc646d7263b4145701dadd2161548a8b078e65e9e00471b76e389e528d6de6d816857e012c5455051cad6660850e58372a6c3e6e7c8");
+      seedExtSerPub1_D5  = READHEX("0488b21e05d880d7d83b9aca00c783e67b921d2beb8f6b389cc646d7263b4145701dadd2161548a8b078e65e9e022a471424da5e657499d1ff51cb43c47481a03b1e77f951fe64cec9f5a48f7011");
+      seedID1_D5         = READHEX("d69aa102255fed74378278c7812701ea641fdf32");
+      seedFP1_D5         = READHEX("d69aa102");
+      seedParFP1_D5      = READHEX("d880d7d8");
+      seedString1_D5     = "M/0'/1/2'/2/1000000000";
+
+      seedKey2           = READHEX("004b03d6fc340455b363f51020ad3ecca4f0850280cf436c70c727923f6db46c3e");
+      seedCC2            = READHEX("60499f801b896d83179a4374aeb7822aaeaceaa0db1f85ee3e904c4defbd9689");
+      seedPubKey2        = READHEX("04cbcaa9c98c877a26977d00825c956a238e8dddfbd322cce4f74b0b5bd6ace4a77bd3305d363c26f82c1e41c667e4b3561c06c60a2104d2b548e6dd059056aa51");
+      seedCompPubKey2    = READHEX("03cbcaa9c98c877a26977d00825c956a238e8dddfbd322cce4f74b0b5bd6ace4a7");
+      seedExtSerPrv2     = READHEX("0488ade400000000000000000060499f801b896d83179a4374aeb7822aaeaceaa0db1f85ee3e904c4defbd9689004b03d6fc340455b363f51020ad3ecca4f0850280cf436c70c727923f6db46c3e");
+      seedExtSerPub2     = READHEX("0488b21e00000000000000000060499f801b896d83179a4374aeb7822aaeaceaa0db1f85ee3e904c4defbd968903cbcaa9c98c877a26977d00825c956a238e8dddfbd322cce4f74b0b5bd6ace4a7");
+      seedID2            = READHEX("bd16bee53961a47d6ad888e29545434a89bdfe95");
+      seedFP2            = READHEX("bd16bee5");
+      seedParFP2         = READHEX("00000000");
+      seedString2        = "M";
+
+      seedKey2_D1        = READHEX("00abe74a98f6c7eabee0428f53798f0ab8aa1bd37873999041703c742f15ac7e1e");
+      seedCC2_D1         = READHEX("f0909affaa7ee7abe5dd4e100598d4dc53cd709d5a5c2cac40e7412f232f7c9c");
+      seedPubKey2_D1     = READHEX("04fc9e5af0ac8d9b3cecfe2a888e2117ba3d089d8585886c9c826b6b22a98d12ea67a50538b6f7d8b5f7a1cc657efd267cde8cc1d8c0451d1340a0fb3642777544");
+      seedCompPubKey2_D1 = READHEX("02fc9e5af0ac8d9b3cecfe2a888e2117ba3d089d8585886c9c826b6b22a98d12ea");
+      seedExtSerPrv2_D1  = READHEX("0488ade401bd16bee500000000f0909affaa7ee7abe5dd4e100598d4dc53cd709d5a5c2cac40e7412f232f7c9c00abe74a98f6c7eabee0428f53798f0ab8aa1bd37873999041703c742f15ac7e1e");
+      seedExtSerPub2_D1  = READHEX("0488b21e01bd16bee500000000f0909affaa7ee7abe5dd4e100598d4dc53cd709d5a5c2cac40e7412f232f7c9c02fc9e5af0ac8d9b3cecfe2a888e2117ba3d089d8585886c9c826b6b22a98d12ea");
+      seedID2_D1         = READHEX("5a61ff8eb7aaca3010db97ebda76121610b78096");
+      seedFP2_D1         = READHEX("5a61ff8e");
+      seedParFP2_D1      = READHEX("bd16bee5");
+      seedString2_D1     = "M/0";
+
+      seedKey2_D2        = READHEX("00877c779ad9687164e9c2f4f0f4ff0340814392330693ce95a58fe18fd52e6e93");
+      seedCC2_D2         = READHEX("be17a268474a6bb9c61e1d720cf6215e2a88c5406c4aee7b38547f585c9a37d9");
+      seedPubKey2_D2     = READHEX("04c01e7425647bdefa82b12d9bad5e3e6865bee0502694b94ca58b666abc0a5c3b6c8bf5e8fbfc053205b45776963d148187d0aebf9c08bf2b253dc1cf5860fc19");
+      seedCompPubKey2_D2 = READHEX("03c01e7425647bdefa82b12d9bad5e3e6865bee0502694b94ca58b666abc0a5c3b");
+      seedExtSerPrv2_D2  = READHEX("0488ade4025a61ff8effffffffbe17a268474a6bb9c61e1d720cf6215e2a88c5406c4aee7b38547f585c9a37d900877c779ad9687164e9c2f4f0f4ff0340814392330693ce95a58fe18fd52e6e93");
+      seedExtSerPub2_D2  = READHEX("0488b21e025a61ff8effffffffbe17a268474a6bb9c61e1d720cf6215e2a88c5406c4aee7b38547f585c9a37d903c01e7425647bdefa82b12d9bad5e3e6865bee0502694b94ca58b666abc0a5c3b");
+      seedID2_D2         = READHEX("d8ab493736da02f11ed682f88339e720fb0379d1");
+      seedFP2_D2         = READHEX("d8ab4937");
+      seedParFP2_D2      = READHEX("5a61ff8e");
+      seedString2_D2     = "M/0/2147483647'";
+
+      seedKey2_D3        = READHEX("00704addf544a06e5ee4bea37098463c23613da32020d604506da8c0518e1da4b7");
+      seedCC2_D3         = READHEX("f366f48f1ea9f2d1d3fe958c95ca84ea18e4c4ddb9366c336c927eb246fb38cb");
+      seedPubKey2_D3     = READHEX("04a7d1d856deb74c508e05031f9895dab54626251b3806e16b4bd12e781a7df5b9105b3150817d235e80ea17914dc9d6f542b1c5f4b16d8d98fe3c94fc0a67de89");
+      seedCompPubKey2_D3 = READHEX("03a7d1d856deb74c508e05031f9895dab54626251b3806e16b4bd12e781a7df5b9");
+      seedExtSerPrv2_D3  = READHEX("0488ade403d8ab493700000001f366f48f1ea9f2d1d3fe958c95ca84ea18e4c4ddb9366c336c927eb246fb38cb00704addf544a06e5ee4bea37098463c23613da32020d604506da8c0518e1da4b7");
+      seedExtSerPub2_D3  = READHEX("0488b21e03d8ab493700000001f366f48f1ea9f2d1d3fe958c95ca84ea18e4c4ddb9366c336c927eb246fb38cb03a7d1d856deb74c508e05031f9895dab54626251b3806e16b4bd12e781a7df5b9");
+      seedID2_D3         = READHEX("78412e3a2296a40de124307b6485bd19833e2e34");
+      seedFP2_D3         = READHEX("78412e3a");
+      seedParFP2_D3      = READHEX("d8ab4937");
+      seedString2_D3     = "M/0/2147483647'/1";
+
+      seedKey2_D4        = READHEX("00f1c7c871a54a804afe328b4c83a1c33b8e5ff48f5087273f04efa83b247d6a2d");
+      seedCC2_D4         = READHEX("637807030d55d01f9a0cb3a7839515d796bd07706386a6eddf06cc29a65a0e29");
+      seedPubKey2_D4     = READHEX("04d2b36900396c9282fa14628566582f206a5dd0bcc8d5e892611806cafb0301f0ecb53a1b24eda1117d6864f1dbaf2f92345a1cb52c70036e2a424b37c3d829b0");
+      seedCompPubKey2_D4 = READHEX("02d2b36900396c9282fa14628566582f206a5dd0bcc8d5e892611806cafb0301f0");
+      seedExtSerPrv2_D4  = READHEX("0488ade40478412e3afffffffe637807030d55d01f9a0cb3a7839515d796bd07706386a6eddf06cc29a65a0e2900f1c7c871a54a804afe328b4c83a1c33b8e5ff48f5087273f04efa83b247d6a2d");
+      seedExtSerPub2_D4  = READHEX("0488b21e0478412e3afffffffe637807030d55d01f9a0cb3a7839515d796bd07706386a6eddf06cc29a65a0e2902d2b36900396c9282fa14628566582f206a5dd0bcc8d5e892611806cafb0301f0");
+      seedID2_D4         = READHEX("31a507b815593dfc51ffc7245ae7e5aee304246e");
+      seedFP2_D4         = READHEX("31a507b8");
+      seedParFP2_D4      = READHEX("78412e3a");
+      seedString2_D4     = "M/0/2147483647'/1/2147483646'";
+
+      seedKey2_D5        = READHEX("00bb7d39bdb83ecf58f2fd82b6d918341cbef428661ef01ab97c28a4842125ac23");
+      seedCC2_D5         = READHEX("9452b549be8cea3ecb7a84bec10dcfd94afe4d129ebfd3b3cb58eedf394ed271");
+      seedPubKey2_D5     = READHEX("044d902e1a2fc7a8755ab5b694c575fce742c48d9ff192e63df5193e4c7afe1f9c4597bb130cb16893607c6e7418c46be47b8f4a3ddbe5e6e71051393b1d673abe");
+      seedCompPubKey2_D5 = READHEX("024d902e1a2fc7a8755ab5b694c575fce742c48d9ff192e63df5193e4c7afe1f9c");
+      seedExtSerPrv2_D5  = READHEX("0488ade40531a507b8000000029452b549be8cea3ecb7a84bec10dcfd94afe4d129ebfd3b3cb58eedf394ed27100bb7d39bdb83ecf58f2fd82b6d918341cbef428661ef01ab97c28a4842125ac23");
+      seedExtSerPub2_D5  = READHEX("0488b21e0531a507b8000000029452b549be8cea3ecb7a84bec10dcfd94afe4d129ebfd3b3cb58eedf394ed271024d902e1a2fc7a8755ab5b694c575fce742c48d9ff192e63df5193e4c7afe1f9c");
+      seedID2_D5         = READHEX("26132fdbe7bf89cbc64cf8dafa3f9f88b8666220");
+      seedFP2_D5         = READHEX("26132fdb");
+      seedParFP2_D5      = READHEX("31a507b8");
+      seedString2_D5     = "M/0/2147483647'/1/2147483646'/2";
+
+      LOGDISABLESTDOUT();
+   }
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void TearDown(void)
+   {
+   }
+
+   uint32_t verPub;
+   uint32_t verPri;
+
+   SecureBinaryData seedKey1;
+   SecureBinaryData seedCC1;
+   SecureBinaryData seedPubKey1;
+   SecureBinaryData seedCompPubKey1;
+   SecureBinaryData seedExtSerPrv1;
+   SecureBinaryData seedExtSerPub1;
+   SecureBinaryData seedID1;
+   SecureBinaryData seedFP1;
+   SecureBinaryData seedParFP1;
+   string           seedString1;
+
+   SecureBinaryData seedKey1_D1;
+   SecureBinaryData seedCC1_D1;
+   SecureBinaryData seedPubKey1_D1;
+   SecureBinaryData seedCompPubKey1_D1;
+   SecureBinaryData seedExtSerPrv1_D1;
+   SecureBinaryData seedExtSerPub1_D1;
+   SecureBinaryData seedID1_D1;
+   SecureBinaryData seedFP1_D1;
+   SecureBinaryData seedParFP1_D1;
+   string           seedString1_D1;
+
+   SecureBinaryData seedKey1_D2;
+   SecureBinaryData seedCC1_D2;
+   SecureBinaryData seedPubKey1_D2;
+   SecureBinaryData seedCompPubKey1_D2;
+   SecureBinaryData seedExtSerPrv1_D2;
+   SecureBinaryData seedExtSerPub1_D2;
+   SecureBinaryData seedID1_D2;
+   SecureBinaryData seedFP1_D2;
+   SecureBinaryData seedParFP1_D2;
+   string           seedString1_D2;
+
+   SecureBinaryData seedKey1_D3;
+   SecureBinaryData seedCC1_D3;
+   SecureBinaryData seedPubKey1_D3;
+   SecureBinaryData seedCompPubKey1_D3;
+   SecureBinaryData seedExtSerPrv1_D3;
+   SecureBinaryData seedExtSerPub1_D3;
+   SecureBinaryData seedID1_D3;
+   SecureBinaryData seedFP1_D3;
+   SecureBinaryData seedParFP1_D3;
+   string           seedString1_D3;
+
+   SecureBinaryData seedKey1_D4;
+   SecureBinaryData seedCC1_D4;
+   SecureBinaryData seedPubKey1_D4;
+   SecureBinaryData seedCompPubKey1_D4;
+   SecureBinaryData seedExtSerPrv1_D4;
+   SecureBinaryData seedExtSerPub1_D4;
+   SecureBinaryData seedID1_D4;
+   SecureBinaryData seedFP1_D4;
+   SecureBinaryData seedParFP1_D4;
+   string           seedString1_D4;
+
+   SecureBinaryData seedKey1_D5;
+   SecureBinaryData seedCC1_D5;
+   SecureBinaryData seedPubKey1_D5;
+   SecureBinaryData seedCompPubKey1_D5;
+   SecureBinaryData seedExtSerPrv1_D5;
+   SecureBinaryData seedExtSerPub1_D5;
+   SecureBinaryData seedID1_D5;
+   SecureBinaryData seedFP1_D5;
+   SecureBinaryData seedParFP1_D5;
+   string           seedString1_D5;
+
+   SecureBinaryData seedKey2;
+   SecureBinaryData seedCC2;
+   SecureBinaryData seedPubKey2;
+   SecureBinaryData seedCompPubKey2;
+   SecureBinaryData seedExtSerPrv2;
+   SecureBinaryData seedExtSerPub2;
+   SecureBinaryData seedID2;
+   SecureBinaryData seedFP2;
+   SecureBinaryData seedParFP2;
+   string           seedString2;
+
+   SecureBinaryData seedKey2_D1;
+   SecureBinaryData seedCC2_D1;
+   SecureBinaryData seedPubKey2_D1;
+   SecureBinaryData seedCompPubKey2_D1;
+   SecureBinaryData seedExtSerPrv2_D1;
+   SecureBinaryData seedExtSerPub2_D1;
+   SecureBinaryData seedID2_D1;
+   SecureBinaryData seedFP2_D1;
+   SecureBinaryData seedParFP2_D1;
+   string           seedString2_D1;
+
+   SecureBinaryData seedKey2_D2;
+   SecureBinaryData seedCC2_D2;
+   SecureBinaryData seedPubKey2_D2;
+   SecureBinaryData seedCompPubKey2_D2;
+   SecureBinaryData seedExtSerPrv2_D2;
+   SecureBinaryData seedExtSerPub2_D2;
+   SecureBinaryData seedID2_D2;
+   SecureBinaryData seedFP2_D2;
+   SecureBinaryData seedParFP2_D2;
+   string           seedString2_D2;
+
+   SecureBinaryData seedKey2_D3;
+   SecureBinaryData seedCC2_D3;
+   SecureBinaryData seedPubKey2_D3;
+   SecureBinaryData seedCompPubKey2_D3;
+   SecureBinaryData seedExtSerPrv2_D3;
+   SecureBinaryData seedExtSerPub2_D3;
+   SecureBinaryData seedID2_D3;
+   SecureBinaryData seedFP2_D3;
+   SecureBinaryData seedParFP2_D3;
+   string           seedString2_D3;
+
+   SecureBinaryData seedKey2_D4;
+   SecureBinaryData seedCC2_D4;
+   SecureBinaryData seedPubKey2_D4;
+   SecureBinaryData seedCompPubKey2_D4;
+   SecureBinaryData seedExtSerPrv2_D4;
+   SecureBinaryData seedExtSerPub2_D4;
+   SecureBinaryData seedID2_D4;
+   SecureBinaryData seedFP2_D4;
+   SecureBinaryData seedParFP2_D4;
+   string           seedString2_D4;
+
+   SecureBinaryData seedKey2_D5;
+   SecureBinaryData seedCC2_D5;
+   SecureBinaryData seedPubKey2_D5;
+   SecureBinaryData seedCompPubKey2_D5;
+   SecureBinaryData seedExtSerPrv2_D5;
+   SecureBinaryData seedExtSerPub2_D5;
+   SecureBinaryData seedID2_D5;
+   SecureBinaryData seedFP2_D5;
+   SecureBinaryData seedParFP2_D5;
+   string           seedString2_D5;
+};
+
+// Generate all the data (except WIF and Base58 values) from the BIP32 test
+// vector suite, and confirm that it matches what we expect. Extended keys will
+// be public and private.
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(TestHDWalletCrypto, BIP32TestVectorSuite)
+{
+   vector<uint32_t> set1ChildNum;
+   set1ChildNum.push_back(2147483648); // 0x80000000
+   set1ChildNum.push_back(1);
+   set1ChildNum.push_back(2147483650); // 0x80000002
+   set1ChildNum.push_back(2);
+   set1ChildNum.push_back(1000000000);
+   vector<SecureBinaryData> set1PrvKey;
+   set1PrvKey.push_back(seedKey1_D1);
+   set1PrvKey.push_back(seedKey1_D2);
+   set1PrvKey.push_back(seedKey1_D3);
+   set1PrvKey.push_back(seedKey1_D4);
+   set1PrvKey.push_back(seedKey1_D5);
+   vector<SecureBinaryData> set1CC;
+   set1CC.push_back(seedCC1_D1);
+   set1CC.push_back(seedCC1_D2);
+   set1CC.push_back(seedCC1_D3);
+   set1CC.push_back(seedCC1_D4);
+   set1CC.push_back(seedCC1_D5);
+   vector<SecureBinaryData> set1PubKey;
+   set1PubKey.push_back(seedPubKey1_D1);
+   set1PubKey.push_back(seedPubKey1_D2);
+   set1PubKey.push_back(seedPubKey1_D3);
+   set1PubKey.push_back(seedPubKey1_D4);
+   set1PubKey.push_back(seedPubKey1_D5);
+   vector<SecureBinaryData> set1CompPubKey;
+   set1CompPubKey.push_back(seedCompPubKey1_D1);
+   set1CompPubKey.push_back(seedCompPubKey1_D2);
+   set1CompPubKey.push_back(seedCompPubKey1_D3);
+   set1CompPubKey.push_back(seedCompPubKey1_D4);
+   set1CompPubKey.push_back(seedCompPubKey1_D5);
+   vector<SecureBinaryData> set1ExtSerPrv;
+   set1ExtSerPrv.push_back(seedExtSerPrv1_D1);
+   set1ExtSerPrv.push_back(seedExtSerPrv1_D2);
+   set1ExtSerPrv.push_back(seedExtSerPrv1_D3);
+   set1ExtSerPrv.push_back(seedExtSerPrv1_D4);
+   set1ExtSerPrv.push_back(seedExtSerPrv1_D5);
+   vector<SecureBinaryData> set1ExtSerPub;
+   set1ExtSerPub.push_back(seedExtSerPub1_D1);
+   set1ExtSerPub.push_back(seedExtSerPub1_D2);
+   set1ExtSerPub.push_back(seedExtSerPub1_D3);
+   set1ExtSerPub.push_back(seedExtSerPub1_D4);
+   set1ExtSerPub.push_back(seedExtSerPub1_D5);
+   vector<SecureBinaryData> set1ID;
+   set1ID.push_back(seedID1_D1);
+   set1ID.push_back(seedID1_D2);
+   set1ID.push_back(seedID1_D3);
+   set1ID.push_back(seedID1_D4);
+   set1ID.push_back(seedID1_D5);
+   vector<SecureBinaryData> set1FP;
+   set1FP.push_back(seedFP1_D1);
+   set1FP.push_back(seedFP1_D2);
+   set1FP.push_back(seedFP1_D3);
+   set1FP.push_back(seedFP1_D4);
+   set1FP.push_back(seedFP1_D5);
+   vector<SecureBinaryData> set1ParFP;
+   set1ParFP.push_back(seedParFP1_D1);
+   set1ParFP.push_back(seedParFP1_D2);
+   set1ParFP.push_back(seedParFP1_D3);
+   set1ParFP.push_back(seedParFP1_D4);
+   set1ParFP.push_back(seedParFP1_D5);
+   vector<uint8_t> set1Depth;
+   set1Depth.push_back(0x01);
+   set1Depth.push_back(0x02);
+   set1Depth.push_back(0x03);
+   set1Depth.push_back(0x04);
+   set1Depth.push_back(0x05);
+   vector<string> set1String;
+   set1String.push_back(seedString1_D1);
+   set1String.push_back(seedString1_D2);
+   set1String.push_back(seedString1_D3);
+   set1String.push_back(seedString1_D4);
+   set1String.push_back(seedString1_D5);
+
+   vector<uint32_t> set2ChildNum;
+   set2ChildNum.push_back(0);
+   set2ChildNum.push_back(4294967295); // 0xffffffff
+   set2ChildNum.push_back(1);
+   set2ChildNum.push_back(4294967294); // 0xfffffffe
+   set2ChildNum.push_back(2);
+   vector<SecureBinaryData> set2PrvKey;
+   set2PrvKey.push_back(seedKey2_D1);
+   set2PrvKey.push_back(seedKey2_D2);
+   set2PrvKey.push_back(seedKey2_D3);
+   set2PrvKey.push_back(seedKey2_D4);
+   set2PrvKey.push_back(seedKey2_D5);
+   vector<SecureBinaryData> set2CC;
+   set2CC.push_back(seedCC2_D1);
+   set2CC.push_back(seedCC2_D2);
+   set2CC.push_back(seedCC2_D3);
+   set2CC.push_back(seedCC2_D4);
+   set2CC.push_back(seedCC2_D5);
+   vector<SecureBinaryData> set2PubKey;
+   set2PubKey.push_back(seedPubKey2_D1);
+   set2PubKey.push_back(seedPubKey2_D2);
+   set2PubKey.push_back(seedPubKey2_D3);
+   set2PubKey.push_back(seedPubKey2_D4);
+   set2PubKey.push_back(seedPubKey2_D5);
+   vector<SecureBinaryData> set2CompPubKey;
+   set2CompPubKey.push_back(seedCompPubKey2_D1);
+   set2CompPubKey.push_back(seedCompPubKey2_D2);
+   set2CompPubKey.push_back(seedCompPubKey2_D3);
+   set2CompPubKey.push_back(seedCompPubKey2_D4);
+   set2CompPubKey.push_back(seedCompPubKey2_D5);
+   vector<SecureBinaryData> set2ExtSerPrv;
+   set2ExtSerPrv.push_back(seedExtSerPrv2_D1);
+   set2ExtSerPrv.push_back(seedExtSerPrv2_D2);
+   set2ExtSerPrv.push_back(seedExtSerPrv2_D3);
+   set2ExtSerPrv.push_back(seedExtSerPrv2_D4);
+   set2ExtSerPrv.push_back(seedExtSerPrv2_D5);
+   vector<SecureBinaryData> set2ExtSerPub;
+   set2ExtSerPub.push_back(seedExtSerPub2_D1);
+   set2ExtSerPub.push_back(seedExtSerPub2_D2);
+   set2ExtSerPub.push_back(seedExtSerPub2_D3);
+   set2ExtSerPub.push_back(seedExtSerPub2_D4);
+   set2ExtSerPub.push_back(seedExtSerPub2_D5);
+   vector<SecureBinaryData> set2ID;
+   set2ID.push_back(seedID2_D1);
+   set2ID.push_back(seedID2_D2);
+   set2ID.push_back(seedID2_D3);
+   set2ID.push_back(seedID2_D4);
+   set2ID.push_back(seedID2_D5);
+   vector<SecureBinaryData> set2FP;
+   set2FP.push_back(seedFP2_D1);
+   set2FP.push_back(seedFP2_D2);
+   set2FP.push_back(seedFP2_D3);
+   set2FP.push_back(seedFP2_D4);
+   set2FP.push_back(seedFP2_D5);
+   vector<SecureBinaryData> set2ParFP;
+   set2ParFP.push_back(seedParFP2_D1);
+   set2ParFP.push_back(seedParFP2_D2);
+   set2ParFP.push_back(seedParFP2_D3);
+   set2ParFP.push_back(seedParFP2_D4);
+   set2ParFP.push_back(seedParFP2_D5);
+   vector<uint8_t> set2Depth;
+   set2Depth.push_back(0x01);
+   set2Depth.push_back(0x02);
+   set2Depth.push_back(0x03);
+   set2Depth.push_back(0x04);
+   set2Depth.push_back(0x05);
+   vector<string> set2String;
+   set2String.push_back(seedString2_D1);
+   set2String.push_back(seedString2_D2);
+   set2String.push_back(seedString2_D3);
+   set2String.push_back(seedString2_D4);
+   set2String.push_back(seedString2_D5);
+
+   // Check the 1st set of BIP32 test vectors. This covers the private parent
+   // -> private child case.
+   ExtendedKey parentKey1(seedKey1, seedCC1);
+   unsigned int s1 = 0;
+
+   for(vector<uint32_t>::iterator it1 = set1ChildNum.begin();
+       it1 != set1ChildNum.end(); ++it1)
+   {
+      SecureBinaryData addend1;
+      ExtendedKey childKey1 = HDWalletCrypto().childKeyDeriv(parentKey1,
+                                                             *it1,
+                                                             &addend1);
+      SecureBinaryData retKey1       = childKey1.getKey();
+      SecureBinaryData retPubKey1    = childKey1.getPublicKey(false);
+      SecureBinaryData retChaincode1 = childKey1.getChaincode();
+      SecureBinaryData testExtSer1   = childKey1.getExtKeySer();
+      SecureBinaryData testID1       = childKey1.getIdentifier();
+      SecureBinaryData testFP1       = childKey1.getFingerprint();
+      SecureBinaryData testParFP1    = childKey1.getParentFP();
+      SecureBinaryData testCompPub1  = childKey1.getPublicKey();
+      uint32_t testVer1              = childKey1.getVersion();
+      uint8_t testDepth1             = childKey1.getDepth();
+      uint32_t testChildNum1         = childKey1.getChildNum();
+      string testString1             = childKey1.getIndexListString();
+
+      EXPECT_TRUE(childKey1.isInitialized());
+      EXPECT_TRUE(childKey1.hasChaincode());
+      EXPECT_TRUE(childKey1.isPrv());
+      EXPECT_FALSE(childKey1.isMaster());
+      EXPECT_FALSE(childKey1.isPub());
+      EXPECT_EQ(set1PrvKey[s1], retKey1);
+      EXPECT_EQ(set1PubKey[s1], retPubKey1);
+      EXPECT_EQ(set1CC[s1], retChaincode1);
+      EXPECT_EQ(set1ExtSerPrv[s1], testExtSer1);
+      EXPECT_EQ(set1ID[s1], testID1);
+      EXPECT_EQ(set1FP[s1], testFP1);
+      EXPECT_EQ(set1ParFP[s1], testParFP1);
+      EXPECT_EQ(set1CompPubKey[s1], testCompPub1);
+      EXPECT_EQ(verPri, testVer1);
+      EXPECT_EQ(set1Depth[s1], testDepth1);
+      EXPECT_EQ(*it1, testChildNum1);
+      EXPECT_EQ(set1String[s1], testString1);
+
+      // Check the multiplier if it's non-hardened. (The official test vectors
+      // don't have consecutive non-hardened multipliers, unfortunately.)
+      if(addend1.getSize() != 0)
+      {
+         SecureBinaryData childMultKey = HDWalletCrypto().getChildKeyFromMult(
+                                                            parentKey1.getKey(),
+                                                            addend1);
+         if(childMultKey.getSize() > 0)
+         {
+            EXPECT_EQ(childKey1.getKey().toHexStr(), childMultKey.toHexStr());
+         }
+         else
+         {
+            ASSERT_TRUE(0); // Is there a better way to intentionally kill the test?
+         }
+      }
+
+      parentKey1 = childKey1;
+      ++s1;
+   }
+
+   // Check the 2nd set of BIP32 test vectors. This covers the private parent
+   // -> private child case.
+   ExtendedKey parentKey2(seedKey2, seedCC2);
+   unsigned int s2 = 0;
+
+   for(vector<uint32_t>::iterator it2 = set2ChildNum.begin();
+       it2 != set2ChildNum.end(); ++it2)
+   {
+      SecureBinaryData addend2;
+      ExtendedKey childKey2 = HDWalletCrypto().childKeyDeriv(parentKey2,
+                                                             *it2,
+                                                             &addend2);
+      SecureBinaryData retKey2       = childKey2.getKey();
+      SecureBinaryData retPubKey2    = childKey2.getPublicKey(false);
+      SecureBinaryData retChaincode2 = childKey2.getChaincode();
+      SecureBinaryData testExtSer2   = childKey2.getExtKeySer();
+      SecureBinaryData testID2       = childKey2.getIdentifier();
+      SecureBinaryData testFP2       = childKey2.getFingerprint();
+      SecureBinaryData testParFP2    = childKey2.getParentFP();
+      SecureBinaryData testCompPub2  = childKey2.getPublicKey();
+      uint32_t testVer2              = childKey2.getVersion();
+      uint8_t testDepth2             = childKey2.getDepth();
+      uint32_t testChildNum2         = childKey2.getChildNum();
+      string testString2             = childKey2.getIndexListString();
+
+      EXPECT_TRUE(childKey2.isInitialized());
+      EXPECT_TRUE(childKey2.hasChaincode());
+      EXPECT_TRUE(childKey2.isPrv());
+      EXPECT_FALSE(childKey2.isMaster());
+      EXPECT_FALSE(childKey2.isPub());
+      EXPECT_EQ(set2PrvKey[s2], retKey2);
+      EXPECT_EQ(set2PubKey[s2], retPubKey2);
+      EXPECT_EQ(set2CC[s2], retChaincode2);
+      EXPECT_EQ(set2ExtSerPrv[s2], testExtSer2);
+      EXPECT_EQ(set2ID[s2], testID2);
+      EXPECT_EQ(set2FP[s2], testFP2);
+      EXPECT_EQ(set2ParFP[s2], testParFP2);
+      EXPECT_EQ(set2CompPubKey[s2], testCompPub2);
+      EXPECT_EQ(verPri, testVer2);
+      EXPECT_EQ(set2Depth[s2], testDepth2);
+      EXPECT_EQ(*it2, testChildNum2);
+      EXPECT_EQ(set2String[s2], testString2);
+
+      // Check the multiplier if it's non-hardened. (The official test vectors
+      // don't have consecutive non-hardened multipliers, unfortunately.)
+      if(addend2.getSize() != 0)
+      {
+         SecureBinaryData childMultKey = HDWalletCrypto().getChildKeyFromMult(
+                                                            parentKey2.getKey(),
+                                                            addend2);
+         if(childMultKey.getSize() > 0)
+         {
+            EXPECT_EQ(childKey2.getKey().toHexStr(), childMultKey.toHexStr());
+         }
+         else
+         {
+            ASSERT_TRUE(0); // Is there a better way to intentionally kill the test?
+         }
+      }
+
+      parentKey2 = childKey2;
+      ++s2;
+   }
+
+   // Check the first BIP32 test vectors again, checking only extended pub keys.
+   // This covers both the public parent -> public child case (non-hardened) and
+   // private parent -> public child case (hardened).
+   ExtendedKey parentExtKey1(seedKey1, seedCC1);
+   ExtendedKey tempPrvKey1(seedKey1, seedCC1);
+   ExtendedKey checkKey;
+   ExtendedKey multParKey = parentExtKey1;
+   unsigned int sPub1 = 0;
+
+   for(vector<uint32_t>::iterator itPub1 = set1ChildNum.begin();
+       itPub1 != set1ChildNum.end(); ++itPub1)
+   {
+      // Taken from isHardened() (EncryptionUtils.cpp). If not hardened, perform
+      // a full check.
+      SecureBinaryData multiplier1;
+      if((0x80000000 & *itPub1) == 0x00000000)
+      {
+         // If not hardened, take the private key, convert it to a public key,
+         // and then derive the public child. In the BIP32 spec, this covers
+         // both the public -> public case.
+         parentExtKey1.deletePrivateKey();
+         ExtendedKey childPubKey1 = HDWalletCrypto().childKeyDeriv(parentExtKey1,
+                                                                   *itPub1);
+
+         checkKey = childPubKey1;
+         parentExtKey1 = childPubKey1;
+         tempPrvKey1 = HDWalletCrypto().childKeyDeriv(tempPrvKey1,
+                                                      *itPub1,
+                                                      &multiplier1);
+      }
+      else
+      {
+         // If we're trying to get a hardened key, just derive the private key
+         // and convert to a public key. In the BIP32 spec, this covers the
+         // private -> public (hardened) case.
+         ExtendedKey childKey1 = HDWalletCrypto().childKeyDeriv(tempPrvKey1,
+                                                                *itPub1);
+         tempPrvKey1 = childKey1;
+         childKey1.deletePrivateKey();
+
+         checkKey = childKey1;
+         parentExtKey1 = childKey1;
+      }
+
+      SecureBinaryData retKey1       = checkKey.getKey();
+      SecureBinaryData retPubKey1    = checkKey.getPublicKey(false);
+      SecureBinaryData retChaincode1 = checkKey.getChaincode();
+      SecureBinaryData testExtSer1   = checkKey.getExtKeySer();
+      SecureBinaryData testID1       = checkKey.getIdentifier();
+      SecureBinaryData testFP1       = checkKey.getFingerprint();
+      SecureBinaryData testParFP1    = checkKey.getParentFP();
+      SecureBinaryData testCompPub1  = checkKey.getPublicKey();
+      uint32_t testVer1              = checkKey.getVersion();
+      uint8_t testDepth1             = checkKey.getDepth();
+      uint32_t testChildNum1         = checkKey.getChildNum();
+      string testString1             = checkKey.getIndexListString();
+
+      // Check the test vector data.
+      EXPECT_TRUE(checkKey.isInitialized());
+      EXPECT_TRUE(checkKey.hasChaincode());
+      EXPECT_TRUE(checkKey.isPub());
+      EXPECT_FALSE(checkKey.isPrv());
+      EXPECT_FALSE(checkKey.isMaster());
+      EXPECT_EQ(set1CompPubKey[sPub1], retKey1);
+      EXPECT_EQ(set1PubKey[sPub1], retPubKey1);
+      EXPECT_EQ(set1CC[sPub1], retChaincode1);
+      EXPECT_EQ(set1ID[sPub1], testID1);
+      EXPECT_EQ(set1FP[sPub1], testFP1);
+      EXPECT_EQ(set1ParFP[sPub1], testParFP1);
+      EXPECT_EQ(set1CompPubKey[sPub1], testCompPub1);
+      EXPECT_EQ(verPub, testVer1);
+      EXPECT_EQ(set1Depth[sPub1], testDepth1);
+      EXPECT_EQ(*itPub1, testChildNum1);
+      EXPECT_EQ(set1String[sPub1], testString1);
+
+      // Check the multiplier.
+      if(multiplier1.getSize() != 0)
+      {
+         SecureBinaryData childMultKey = HDWalletCrypto().getChildKeyFromMult(
+                                                 multParKey.getPublicKey(false),
+                                                 multiplier1);
+
+         if(childMultKey.getSize() > 0)
+         {
+            EXPECT_EQ(retPubKey1.toHexStr(), childMultKey.toHexStr());
+         }
+         else
+         {
+            ASSERT_TRUE(0); // Is there a better way to intentionally kill the test?
+         }
+      }
+      multParKey = checkKey;
+      
+      ++sPub1;
+   }
+
+   // Check the second BIP32 test vectors again, using only extended pub keys.
+   // This covers the public -> public and private -> public (hardened) cases.
+   ExtendedKey parentExtKey2(seedKey2, seedCC2);
+   ExtendedKey tempPrvKey2(seedKey2, seedCC2);
+   multParKey = parentExtKey2;
+   unsigned int sPub2 = 0;
+
+   for(vector<uint32_t>::iterator itPub2 = set2ChildNum.begin();
+       itPub2 != set2ChildNum.end(); ++itPub2)
+   {
+      // Taken from isHardened() (EncryptionUtils.cpp). If not hardened, perform
+      // a full check.
+      SecureBinaryData multiplier2;
+      if((0x80000000 & *itPub2) == 0x00000000)
+      {
+         // If not hardened, take the private key, convert it to a public key, and
+         // then derive the public child. In the BIP32 spec, this covers both the
+         // public -> public case and the private -> public case (non-hardened).
+         parentExtKey2.deletePrivateKey();
+         ExtendedKey childPubKey2 = HDWalletCrypto().childKeyDeriv(parentExtKey2,
+                                                                   *itPub2,
+                                                                   &multiplier2);
+         
+         checkKey = childPubKey2;
+         parentExtKey2 = childPubKey2;
+         tempPrvKey2 = HDWalletCrypto().childKeyDeriv(tempPrvKey2, *itPub2);
+      }
+      else
+      {
+         // If we're trying to get a hardened key, just derive the private key
+         // and convert to a public key. In the BIP32 spec, this covers both the
+         // public -> public case and the private -> public case (hardened).
+         ExtendedKey childKey2 = HDWalletCrypto().childKeyDeriv(tempPrvKey2,
+                                                                *itPub2);
+         tempPrvKey2 = childKey2;
+         childKey2.deletePrivateKey();
+
+         checkKey = childKey2;
+         parentExtKey2 = childKey2;
+      }
+
+      SecureBinaryData retKey2       = checkKey.getKey();
+      SecureBinaryData retPubKey2    = checkKey.getPublicKey(false);
+      SecureBinaryData retChaincode2 = checkKey.getChaincode();
+      SecureBinaryData testExtSer2   = checkKey.getExtKeySer();
+      SecureBinaryData testID2       = checkKey.getIdentifier();
+      SecureBinaryData testFP2       = checkKey.getFingerprint();
+      SecureBinaryData testParFP2    = checkKey.getParentFP();
+      SecureBinaryData testCompPub2  = checkKey.getPublicKey();
+      uint32_t testVer2              = checkKey.getVersion();
+      uint8_t testDepth2             = checkKey.getDepth();
+      uint32_t testChildNum2         = checkKey.getChildNum();
+      string testString2             = checkKey.getIndexListString();
+
+      EXPECT_TRUE(checkKey.isInitialized());
+      EXPECT_TRUE(checkKey.hasChaincode());
+      EXPECT_TRUE(checkKey.isPub());
+      EXPECT_FALSE(checkKey.isPrv());
+      EXPECT_FALSE(checkKey.isMaster());
+      EXPECT_EQ(set2CompPubKey[sPub2], retKey2);
+      EXPECT_EQ(set2PubKey[sPub2], retPubKey2);
+      EXPECT_EQ(set2CC[sPub2], retChaincode2);
+      EXPECT_EQ(set2ID[sPub2], testID2);
+      EXPECT_EQ(set2FP[sPub2], testFP2);
+      EXPECT_EQ(set2ParFP[sPub2], testParFP2);
+      EXPECT_EQ(set2CompPubKey[sPub2], testCompPub2);
+      EXPECT_EQ(verPub, testVer2);
+      EXPECT_EQ(set2Depth[sPub2], testDepth2);
+      EXPECT_EQ(*itPub2, testChildNum2);
+      EXPECT_EQ(set2String[sPub2], testString2);
+
+      // Check the multiplier.
+      if(multiplier2.getSize() != 0)
+      {
+         SecureBinaryData childMultKey = HDWalletCrypto().getChildKeyFromMult(
+                                                 multParKey.getPublicKey(false),
+                                                 multiplier2);
+
+         if(childMultKey.getSize() > 0)
+         {
+            EXPECT_EQ(retPubKey2.toHexStr(), childMultKey.toHexStr());
+         }
+         else
+         {
+            ASSERT_TRUE(0); // Is there a better way to intentionally kill the test?
+         }
+      }
+      multParKey = checkKey;
+
+      ++sPub2;
+   }
+}
+
 
 // Verify that some public keys (compressed and uncompressed) are valid.
 ////////////////////////////////////////////////////////////////////////////////

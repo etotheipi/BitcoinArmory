@@ -96,6 +96,7 @@ import decimal
 from inspect import *
 import json
 import sys
+import getdns
 
 from twisted.cred.checkers import FilePasswordDB
 from twisted.internet import reactor
@@ -107,7 +108,9 @@ from txjsonrpc.web import jsonrpc
 from armoryengine.ALL import *
 from armoryengine.Decorators import EmailOutput, catchErrsForJSON
 from armoryengine.PyBtcWalletRecovery import *
+from armoryengine.ConstructedScript import PublicKeySource
 from jasvet import readSigBlock, verifySignature
+from dnssec_dane.daneHandler import getDANERecord, BTCAID_PAYLOAD_TYPE
 
 
 # Some non-twisted json imports from jgarzik's code and his UniversalEncoder
@@ -133,6 +136,7 @@ class AddressNotInWallet(Exception): pass
 class BlockchainNotReady(Exception): pass
 class InvalidTransaction(Exception): pass
 class IncompleteTransaction(Exception): pass
+class InvalidDANESearchParam(Exception): pass
 
 # A dictionary that includes the names of all functions an armoryd user can
 # call from the armoryd server. Implemented on the server side so that a client
@@ -254,6 +258,48 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       # connection to bitcoind
       self.NetworkingFactory = None
+
+
+   #############################################################################
+   # Utility function that takes an email address, gets a PMTA record based on
+   # the address, and returns the address found within.
+   @catchErrsForJSON
+   def jsonrpc_getdanerecfromdns(self, inAddr):
+      """
+      DESCRIPTION:
+      Function that gets a BTCA record from DNS. Prototype.
+      PARAMETRS:
+      inAddr - Email address with a record in DNS.
+      RETURN:
+      A string with the Bitcoin address associated with the email address.
+      """
+      # Code basically stolen from wallet2.0-dns:dnssec_dane/getDANERec.py and
+      # then slightly enhanced. This WILL require more work later!
+
+      # For now, assume record name is an email address. Use the SMIME record format,
+      # where the username is hashed using SHA224. Also, assume domain is searched.
+      retDict = {}
+      userAddr = ''
+      recordUser, recordDomain = inAddr.split('@', 1)
+      sha224Res = sha224(recordUser)
+      daneReqName = binary_to_hex(sha224Res) + '._pmta.' + recordDomain
+
+      # Go out and get the DANE record.
+      pmtaRecType, daneRec = getDANERecord(daneReqName)
+      if pmtaRecType == BTCAID_PAYLOAD_TYPE.PublicKeySource:
+         # HACK HACK HACK: Just assume we have a PKS record that is static and
+         # has a Hash160 value.
+         pksRec = PublicKeySource().unserialize(daneRec)
+
+         # Convert Hash160 to Bitcoin address.
+         if daneRec != None:
+            userAddr = hash160_to_addrStr(pksRec.rawSource, ADDRBYTE)
+
+      else:
+         raise InvalidDANESearchParam(inAddr + " has no DANE record")
+
+      retDict['BTC Address'] = userAddr
+      return retDict
 
 
    #############################################################################
