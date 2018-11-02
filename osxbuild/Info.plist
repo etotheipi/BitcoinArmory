@@ -11,5 +11,6 @@
   <key>NSPrincipalClass</key> <string>NSApplication</string>
   <key>LSMinimumSystemVersion</key> <string>10.8.0</string>
   <key>LSAppNapIsDisabled</key> <true/>
+  <key>NSRequiresAquaSystemAppearance</key> <true/>
 </dict>
 </plist>
