@@ -12536,7 +12536,7 @@ def verifyRecoveryTestID(parent, computedWltID, expectedWltID=None):
             'Computed wallet ID: %1 <br>'
             'Expected wallet ID: %2 <br><br>'
             'Is it possible that you loaded a different backup than the '
-            'one you just made?').arg(computedWltID, 'expectedWltID'), \
+            'one you just made?').arg(computedWltID, expectedWltID), \
             QMessageBox.Ok)
       else:
          MsgBoxCustom(MSGBOX.Good, parent.tr('Backup is Good!'), parent.tr(
