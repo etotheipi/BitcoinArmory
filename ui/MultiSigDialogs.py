@@ -2953,19 +2953,24 @@ class DlgMultiSpendReview(ArmoryDialog):
          if ib.lockbox:
 
             #if any input is not of legacy type, force cpp signer
-            if self.ustx.isLegacyTx == False:
+            if self.ustx.isSegWit():
                signerType = SIGNER_CPP
 
             # If a lockbox, all USTXIs require the same signing key
             for ustxi in ib.ustxiList:
-               addrObj = wlt.getAddrByHash160(a160)
+               addrObj = wlt.getAddrObjectForHash(a160)
                ustxi.createAndInsertSignature(\
                   self.ustx.pytxObj, addrObj.binPrivKey32_Plain, signerType=signerType)
          else:
             # Not lockboxes... may have to access multiple keys in wallet
+                        
+            #if any input is not of legacy type, force cpp signer
+            if self.ustx.isSegWit():
+               signerType = SIGNER_CPP
+
             for ustxi in ib.ustxiList:
                a160 = CheckHash160(ustxi.scrAddrs[0])
-               addrObj = wlt.getAddrByHash160(a160)
+               addrObj = wlt.getAddrObjectForHash(a160)
                ustxi.createAndInsertSignature(\
                   self.ustx.pytxObj, addrObj.binPrivKey32_Plain, signerType=signerType)
          
@@ -3514,9 +3519,28 @@ class DlgCreatePromNote(ArmoryDialog):
 
          rawTx = cppTx.serialize()
          utxoScrAddr = utxo.getRecipientScrAddr()
-         aobj = wlt.getAddrByHash160(CheckHash160(utxoScrAddr))
+         aobj = wlt.getAddrObjectForHash(utxoScrAddr)
          pubKeys = {utxoScrAddr: aobj.binPublicKey65.toBinStr()}
-         ustxiList.append(UnsignedTxInput(rawTx, txoIdx, None, pubKeys))
+
+         p2shMap = {}
+         p2shScript = wlt.cppWallet.getP2SHScriptForHash(utxo.getScript())
+         if len(p2shScript) > 0:
+            p2shKey = binary_to_hex(script_to_scrAddr(script_to_p2sh_script(
+               p2shScript)))
+            p2shMap[p2shKey] = p2shScript  
+            p2shMap[BASE_SCRIPT] = p2shScript
+
+         try:
+            scriptType = Cpp.BtcUtils().getTxOutScriptTypeInt(p2shScript)
+            if scriptType == CPP_TXOUT_P2WPKH:
+               nestedScript = binary_to_hex(p2shScript[2:])
+               pubkey = SecureBinaryData(aobj.getPubKey())
+               compressed_key = CryptoECDSA().CompressPoint(pubkey)
+               p2shMap[nestedScript] = compressed_key.toBinStr()
+         except:
+            pass
+
+         ustxiList.append(UnsignedTxInput(rawTx, txoIdx, p2shMap, pubKeys))
          
 
       funderStr = str(self.edtKeyLabel.text()).strip()
@@ -3590,7 +3614,7 @@ class DlgMergePromNotes(ArmoryDialog):
          #lbTargStr = '<font color="%s"><b>Lockbox %s-of-%s</b>: %s (%s)</font>' % \
             #(htmlColor('TextBlue'), self.lbox.M, self.lbox.N, 
             #self.lbox.shortName, self.lbox.uniqueIDB58)
-         lbTargStr = self.main.getDisplayStringForScript(self.lbox.binScript)
+         lbTargStr = self.main.getDisplayStringForScript(self.lbox.getScript())
          lbTargStr = lbTargStr['String']
          gboxTarget  = QGroupBox(self.tr('Lockbox Being Funded'))
       else:
@@ -3883,6 +3907,7 @@ class DlgMergePromNotes(ArmoryDialog):
             updUstxi = UnsignedTxInput().unserialize(ustxi.serialize())
             updUstxi.contribID = prom.promID
             updUstxi.contribLabel = prom.promLabel
+            updUstxi.inputID = len(ustxiList)
             ustxiList.append(updUstxi)
 
          if prom.dtxoChange:

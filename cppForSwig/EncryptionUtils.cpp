@@ -365,9 +365,9 @@ SecureBinaryData CryptoAES::DecryptCFB(SecureBinaryData & data,
 
 /////////////////////////////////////////////////////////////////////////////
 // Same as above, but only changing the AES mode of operation (CBC, not CFB)
-SecureBinaryData CryptoAES::EncryptCBC(SecureBinaryData & data, 
-                                       SecureBinaryData & key,
-                                       SecureBinaryData & iv)
+SecureBinaryData CryptoAES::EncryptCBC(const SecureBinaryData & data, 
+                                       const SecureBinaryData & key,
+                                       SecureBinaryData & iv) const
 {
    if(CRYPTO_DEBUG)
    {
@@ -401,9 +401,9 @@ SecureBinaryData CryptoAES::EncryptCBC(SecureBinaryData & data,
 
 /////////////////////////////////////////////////////////////////////////////
 // Same as above, but only changing the AES mode of operation (CBC, not CFB)
-SecureBinaryData CryptoAES::DecryptCBC(SecureBinaryData & data, 
-                                       SecureBinaryData & key,
-                                       SecureBinaryData   iv  )
+SecureBinaryData CryptoAES::DecryptCBC(const SecureBinaryData & data, 
+                                       const SecureBinaryData & key,
+                                       const SecureBinaryData & iv  ) const
 {
    if(CRYPTO_DEBUG)
    {

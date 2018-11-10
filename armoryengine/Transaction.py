@@ -1135,7 +1135,7 @@ class UnsignedTxInput(AsciiSerializable):
       self.value       = txout.getValue()
       self.contribID   = '' if contribID is None else contribID
       self.contribLabel= '' if contribLabel is None else contribLabel
-      self.p2shMap     = p2shMap
+      self.p2shMap     = p2shMap if p2shMap is not None else dict()
       self.sequence    = sequence
 
       # Each of these will be a single value for single-signature UTXOs
@@ -1827,7 +1827,11 @@ class UnsignedTxInput(AsciiSerializable):
       signStatus.wltIsRelevant = False
       signStatus.wltCanSign    = False
       
-      if self.signerType in [SIGNER_CPP, SIGNER_BCH]:
+      signertype = self.signerType
+      if pytx is not None:
+         signertype = pytx.signerType_
+
+      if signertype in [SIGNER_CPP, SIGNER_BCH]:
          if pytx == None:
             raise Exception("need pytx cppsigner state to evaluate signing status")
          
