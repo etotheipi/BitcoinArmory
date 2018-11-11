@@ -1498,7 +1498,7 @@ class DlgLockboxManager(ArmoryDialog):
          elif action == actionCopyBalance:
             clippy = getModelStr(LOCKBOXCOLS.Balance)
          elif action == actionRemoveLB:
-            dispInfo = self.main.getDisplayStringForScript(lbox.binScript)
+            dispInfo = self.main.getDisplayStringForScript(lbox.getScript())
             reply = QMessageBox.warning(self, self.tr('Confirm Delete'), self.tr(
                '"Removing" a lockbox does not delete any signing keys, so you '
                'maintain signing authority for any coins that are sent there. '  
