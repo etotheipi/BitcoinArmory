@@ -99,7 +99,6 @@ void BlockDataManagerConfig::selectNetwork(const string &netname)
       genesisBlockHash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
       genesisTxHash_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
       magicBytes_ = READHEX(MAINNET_MAGIC_BYTES);
-      btcPort_ = portToString(NODE_PORT_MAINNET);
       rpcPort_ = portToString(RPC_PORT_MAINNET);
       pubkeyHashPrefix_ = SCRIPT_PREFIX_HASH160;
       scriptHashPrefix_ = SCRIPT_PREFIX_P2SH;
@@ -107,13 +106,15 @@ void BlockDataManagerConfig::selectNetwork(const string &netname)
       
       if (!customFcgiPort_)
          fcgiPort_ = portToString(FCGI_PORT_MAINNET);
+      
+      if(!customBtcPort_)
+         btcPort_ = portToString(NODE_PORT_MAINNET);
    }
    else if (netname == "Test")
    {
       genesisBlockHash_ = READHEX(TESTNET_GENESIS_HASH_HEX);
       genesisTxHash_ = READHEX(TESTNET_GENESIS_TX_HASH_HEX);
       magicBytes_ = READHEX(TESTNET_MAGIC_BYTES);
-      btcPort_ = portToString(NODE_PORT_TESTNET);
       rpcPort_ = portToString(RPC_PORT_TESTNET);
       pubkeyHashPrefix_ = SCRIPT_PREFIX_HASH160_TESTNET;
       scriptHashPrefix_ = SCRIPT_PREFIX_P2SH_TESTNET;
@@ -123,13 +124,15 @@ void BlockDataManagerConfig::selectNetwork(const string &netname)
       
       if (!customFcgiPort_)
          fcgiPort_ = portToString(FCGI_PORT_TESTNET);
+
+      if (!customBtcPort_)
+         btcPort_ = portToString(NODE_PORT_MAINNET);
    }
    else if (netname == "Regtest")
    {
       genesisBlockHash_ = READHEX(REGTEST_GENESIS_HASH_HEX);
       genesisTxHash_ = READHEX(REGTEST_GENESIS_TX_HASH_HEX);
       magicBytes_ = READHEX(REGTEST_MAGIC_BYTES);
-      btcPort_ = portToString(NODE_PORT_REGTEST);
       rpcPort_ = portToString(RPC_PORT_TESTNET);
       pubkeyHashPrefix_ = SCRIPT_PREFIX_HASH160_TESTNET;
       scriptHashPrefix_ = SCRIPT_PREFIX_P2SH_TESTNET;
@@ -139,6 +142,9 @@ void BlockDataManagerConfig::selectNetwork(const string &netname)
       
       if (!customFcgiPort_)
          fcgiPort_ = portToString(FCGI_PORT_REGTEST);
+
+      if (!customBtcPort_)
+         btcPort_ = portToString(NODE_PORT_MAINNET);
    }
 }
 
@@ -225,6 +231,8 @@ void BlockDataManagerConfig::parseArgs(int argc, char* argv[])
    --satoshirpc-port: set node rpc port
 
    --listen-all: listen to all incoming IPs (not just localhost)
+
+   --satoshi-port: set Bitcoin node port
 
    ***/
 
@@ -407,6 +415,13 @@ void BlockDataManagerConfig::processArgs(const map<string, string>& args,
    if (iter != args.end())
    {
       listen_all_ = true;
+   }
+
+   iter = args.find("satoshi-port");
+   if (iter != args.end())
+   {
+      btcPort_ = stripQuotes(iter->second);
+      customBtcPort_ = true;
    }
 
    //network type

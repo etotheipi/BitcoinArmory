@@ -63,6 +63,7 @@ struct BlockDataManagerConfig
    string rpcPort_;
 
    bool customFcgiPort_ = false;
+   bool customBtcPort_ = false;
 
 
    unsigned ramUsage_ = 50;
