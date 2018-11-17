@@ -126,7 +126,7 @@ void BlockDataManagerConfig::selectNetwork(const string &netname)
          fcgiPort_ = portToString(FCGI_PORT_TESTNET);
 
       if (!customBtcPort_)
-         btcPort_ = portToString(NODE_PORT_MAINNET);
+         btcPort_ = portToString(NODE_PORT_TESTNET);
    }
    else if (netname == "Regtest")
    {
@@ -144,7 +144,7 @@ void BlockDataManagerConfig::selectNetwork(const string &netname)
          fcgiPort_ = portToString(FCGI_PORT_REGTEST);
 
       if (!customBtcPort_)
-         btcPort_ = portToString(NODE_PORT_MAINNET);
+         btcPort_ = portToString(NODE_PORT_REGTEST);
    }
 }
 
