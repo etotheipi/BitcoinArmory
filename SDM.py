@@ -370,6 +370,9 @@ class SatoshiDaemonManager(object):
       blocksdir = os.path.join(self.satoshiHome, 'blocks')
       if os.path.exists(blocksdir):   
          pargs.append('--satoshi-datadir="' + blocksdir + '"')
+
+      if (CLI_OPTIONS.satoshiPort):
+         pargs.append('--satoshi-port=' + str(BITCOIN_PORT))
          
       pargs.append('--datadir="' + dataDir + '"')
       pargs.append('--dbdir="' + dbDir + '"')
