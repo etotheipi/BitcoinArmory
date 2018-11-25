@@ -194,7 +194,7 @@ public:
          auto hashType = asset->getAddressTypeForHash(
             count.first.getSliceRef(1, count.first.getSize() - 1));
 
-         updateWallet = asset->setAddressEntryType(hashType);
+         updateWallet |= asset->setAddressEntryType(hashType);
       }
 
       if (updateWallet)
@@ -294,6 +294,37 @@ public:
    AddressType getAddrTypeForIndex(int index)
    {
       auto addrType = wallet_->getAddrTypeForIndex(index);
+
+      AddressType type;
+      switch (addrType)
+      {
+      case AddressEntryType_P2PKH:
+         type = AddressType_P2PKH;
+         break;
+
+      case AddressEntryType_Nested_Multisig:
+      case AddressEntryType_Nested_P2WSH:
+         type = AddressType_Multisig;
+         break;
+
+      case AddressEntryType_Nested_P2WPKH:
+         type = AddressType_P2SH_P2WPKH;
+         break;
+
+      case AddressEntryType_Nested_P2PK:
+         type = AddressType_P2SH_P2PK;
+         break;
+
+      default:
+         throw WalletException("invalid address type");
+      }
+
+      return type;
+   }
+
+   AddressType getAddrTypeForIndex_WithScript(int index, const BinaryData& h160)
+   {
+      auto addrType = wallet_->getAddrTypeForIndex(index, h160);
 
       AddressType type;
       switch (addrType)

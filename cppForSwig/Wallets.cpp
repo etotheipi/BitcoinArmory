@@ -1275,6 +1275,20 @@ AddressEntryType AssetWallet::getAddrTypeForIndex(int index)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+AddressEntryType AssetWallet::getAddrTypeForIndex(int index, 
+   const BinaryData& h160)
+{
+   ReentrantLock lock(this);
+   auto asset = getAssetForIndex(index);
+   auto addrType = asset->getAddressTypeForHash(h160);
+
+   if (addrType == AddressEntryType_Default)
+      return getDefaultAddressType();
+
+   return addrType;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 shared_ptr<AddressEntry> AssetWallet_Single::getAddressEntryForAsset(
    shared_ptr<AssetEntry> assetPtr, AddressEntryType ae_type)
 {
@@ -1368,6 +1382,17 @@ shared_ptr<AddressEntry> AssetWallet::getAddressEntryForIndex(int index)
 
    auto asset = getAssetForIndex(index);
    return getAddressEntryForAsset(asset, asset->getAddrType());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+shared_ptr<AddressEntry> AssetWallet::getAddressEntryForIndex(int index,
+   const BinaryDataRef& h160)
+{
+   ReentrantLock lock(this);
+
+   auto asset = getAssetForIndex(index);
+   auto addrType = asset->getAddressTypeForHash(h160);
+   return getAddressEntryForAsset(asset, addrType);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

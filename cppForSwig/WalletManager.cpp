@@ -352,7 +352,9 @@ void CoinSelectionInstance::decorateUTXOs(
    {
       auto&& scrAddr = utxo.getRecipientScrAddr();
       auto index = walletPtr->getAssetIndexForAddr(scrAddr);
-      auto addrPtr = walletPtr->getAddressEntryForIndex(index);
+
+      auto scrAddrNoPrefix = scrAddr.getSliceRef(1, scrAddr.getSize() - 1);
+      auto addrPtr = walletPtr->getAddressEntryForIndex(index, scrAddrNoPrefix);
 
       utxo.txinRedeemSizeBytes_ = addrPtr->getInputSize();
 
