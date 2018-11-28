@@ -808,6 +808,11 @@ vector<BinaryData> ConfigFile::fleshOutArgs(
 
    //complete config file path
    string configFile_path = BlockDataManagerConfig::defaultDataDir_;
+   if (keyValMap.find("--testnet") != keyValMap.end())
+      configFile_path = BlockDataManagerConfig::defaultTestnetDataDir_;
+   else if (keyValMap.find("--regtest") != keyValMap.end())
+      configFile_path = BlockDataManagerConfig::defaultRegtestDataDir_;
+
    auto datadir_iter = keyValMap.find("--datadir");
    if (datadir_iter != keyValMap.end() && datadir_iter->second.size() > 0)
       configFile_path = datadir_iter->second;
