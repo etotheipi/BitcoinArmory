@@ -530,9 +530,9 @@ if not USE_TESTNET and not USE_REGTEST:
    BECH32_PREFIX = "bc"
 
    # This will usually just be used in the GUI to make links for the user
-   BLOCKEXPLORE_NAME     = 'blockchain.info'
-   BLOCKEXPLORE_URL_TX   = 'https://blockchain.info/tx/%s'
-   BLOCKEXPLORE_URL_ADDR = 'https://blockchain.info/address/%s'
+   BLOCKEXPLORE_NAME     = 'blockstream.info'
+   BLOCKEXPLORE_URL_TX   = 'https://blockstream.info/tx/%s'
+   BLOCKEXPLORE_URL_ADDR = 'https://blockstream.info/address/%s'
 else:
    #set static members of BDMconfig for address generation on C++ side
    bdmConfig.selectNetwork("Test")
