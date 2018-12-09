@@ -5356,7 +5356,7 @@ class ArmoryMainWindow(QMainWindow):
                   if pywlt.hasScrAddr(addr):
                      continue
                   if len(recipStr)==0:
-                     recipStr = hash160_to_addrStr(addr[1:], addr[0])
+                     recipStr = scrAddr_to_addrStr(addr)
                   else:
                      recipStr = self.tr('<Multiple Recipients>')
 
