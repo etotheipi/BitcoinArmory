@@ -2001,6 +2001,8 @@ class DecoratedTxOut(AsciiSerializable):
          self.multiInfo['Addr160s'] = a160s
          self.multiInfo['PubKeys'] = pubs
 
+      if self.scriptType in [CPP_TXOUT_P2WPKH, CPP_TXOUT_P2WSH]:
+         self.version = version | 0xFF000000
 
    #############################################################################
    def setAuthData(self, authType, authObj):
@@ -2119,6 +2121,9 @@ class DecoratedTxOut(AsciiSerializable):
 
       bp = BinaryPacker()
       bp.put(UINT32,       self.version)
+      if (self.version & 0xFF000000) == 0xFF000000:
+         bp.put(UINT32, 0xDEADBEEF)
+
       bp.put(BINARY_CHUNK, MAGIC_BYTES)
       bp.put(VAR_STR,      self.binScript)
       bp.put(UINT64,       self.value)
@@ -2137,6 +2142,9 @@ class DecoratedTxOut(AsciiSerializable):
    def unserialize(self, rawData, skipMagicCheck=False):
       bu = BinaryUnpacker(rawData)
       version    = bu.get(UINT32)
+      if (version & 0xFF000000) == 0xFF000000:
+         bu.get(UINT32)
+
       magic      = bu.get(BINARY_CHUNK, 4)
       script     = bu.get(VAR_STR)
       value      = bu.get(UINT64)
@@ -2154,7 +2162,7 @@ class DecoratedTxOut(AsciiSerializable):
          raise NetworkIDError('Network magic bytes mismatch')
 
 
-      if not version==UNSIGNED_TX_VERSION:
+      if not (version & 0x00FFFFFF) == UNSIGNED_TX_VERSION:
          LOGWARN('Unserialing UnsignedTxInput of different version')
          LOGWARN('   USTX    Version: %d' % version)
          LOGWARN('   Armory  Version: %d' % UNSIGNED_TX_VERSION)
@@ -2163,7 +2171,7 @@ class DecoratedTxOut(AsciiSerializable):
       authDataObj = NullAuthData().unserialize(authData)
 
       self.__init__(script, value, p2shScr, wltLoc, 
-                             authMeth, authDataObj, contribID, contribLBL)
+                             authMeth, authDataObj, contribID, contribLBL, version)
       return self
 
 
