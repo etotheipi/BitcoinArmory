@@ -1981,6 +1981,7 @@ bool ZeroConfContainer::processInvTxThread(InvEntry entry, unsigned timeout_ms)
    if (entry.invtype_ == Inv_Terminate)
       return false;
 
+   entry.invtype_ = Inv_Msg_Witness_Tx;
    auto payload = networkNode_->getTx(entry, timeout_ms);
 
    auto payloadtx = dynamic_pointer_cast<Payload_Tx>(payload);
