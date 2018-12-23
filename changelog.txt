@@ -1,4 +1,4 @@
-v0.96.5
+v0.96.5, released December 23rd 2018
 == Added ==
    - You can now set the database path from the Settings menu.
    - You can now spend to bech32 addresses.
