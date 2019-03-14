@@ -2,4 +2,10 @@
 @Library('shared-jenkins-libraries@master') _
 
 
-genericFedoraRPMPipeline()
+def makesrpm() {
+	return {
+		sh 'make srpm'
+	}
+}
+
+genericFedoraRPMPipeline(srpm_step=makesrpm())
