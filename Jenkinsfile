@@ -3,5 +3,5 @@
 
 
 genericFedoraRPMPipeline(null, {
-	sh 'cd src ./autogen.sh && ./configure --prefix=/usr && make srpm'
+	sh 'cd src && ./autogen.sh && ./configure --prefix=/usr && make srpm'
 })
