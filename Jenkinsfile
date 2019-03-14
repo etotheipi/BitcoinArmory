@@ -8,4 +8,4 @@ def makesrpm() {
 	}
 }
 
-genericFedoraRPMPipeline(srpm_step=makesrpm())
+genericFedoraRPMPipeline(checkout_step = null, srpm_step = makesrpm())
