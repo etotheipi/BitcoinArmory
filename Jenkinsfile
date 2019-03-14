@@ -3,5 +3,5 @@
 
 
 genericFedoraRPMPipeline(null, {
-	sh 'cd src && make srpm'
+	sh 'cd src && ls -la && pwd && make srpm'
 })
