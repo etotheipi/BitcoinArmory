@@ -3,5 +3,5 @@
 
 
 genericFedoraRPMPipeline(null, {
-	sh 'cd src && ./autogen.sh && PYTHON_VERSION=2.7 ./configure --prefix=/usr && make srpm'
+	sh 'cd src && ./autogen.sh && PYTHON=/usr/bin/python2 ./configure --prefix=/usr && make srpm'
 })
