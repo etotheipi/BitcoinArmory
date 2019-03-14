@@ -2,7 +2,7 @@
 @Library('shared-jenkins-libraries@master') _
 
 
-def makesrpm() {
+def makesrpm = {
 	return {
 		sh 'make srpm'
 	}
