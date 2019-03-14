@@ -2,10 +2,6 @@
 @Library('shared-jenkins-libraries@master') _
 
 
-def makesrpm = {
-	return {
-		sh 'make srpm'
-	}
-}
-
-genericFedoraRPMPipeline(null, makesrpm)
+genericFedoraRPMPipeline(null, {
+	sh 'make srpm'
+})
