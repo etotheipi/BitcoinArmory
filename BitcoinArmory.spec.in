@@ -22,13 +22,15 @@ This is a local full node implementation of an advanced Bitcoin wallet.
 
 %build
 export PATH=/usr/lib64/qt4/bin:/usr/lib/qt4/bin:"$PATH"
-PYTHON=%{_bindir}/python2 %configure
+export PYTHON=%{_bindir}/python2
+%configure
 %make_build
 
 
 %install
 mkdir -p "%{buildroot}"/usr/share/applications
 export PATH=/usr/lib64/qt4/bin:/usr/lib/qt4/bin:"$PATH"
+export PYTHON=%{_bindir}/python2
 %make_install
 
 
