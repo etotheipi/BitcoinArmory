@@ -37,7 +37,8 @@ INCLUDE_FILES = UniversalTimer.h BinaryData.h lmdb_wrapper.h \
 	make_unique.h TxOutScrRef.h bdmenums.h DbHeader.h SocketIncludes.h \
 	PartialMerkle.h util.h WalletManager.h SwigClient.h Wallets.h \
 	CoinSelection.h LedgerEntryData.h ThreadSafeClasses.h \
-	Win_TranslatePath.h ScriptRecipient.h
+	Win_TranslatePath.h ScriptRecipient.h \
+	bech32/ref/c++/bech32.h bech32/ref/c++/segwit_addr.h
 
 DB_SOURCE_FILES = UniversalTimer.cpp BinaryData.cpp lmdb_wrapper.cpp \
 	BtcUtils.cpp DBUtils.cpp BlockObj.cpp BlockUtils.cpp EncryptionUtils.cpp \
