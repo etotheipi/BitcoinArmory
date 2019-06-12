@@ -902,8 +902,13 @@ public:
    void extendChain(shared_ptr<AssetEntry>, unsigned);
    bool hasScrAddr(const BinaryData& scrAddr);
    int getAssetIndexForAddr(const BinaryData& scrAddr);
+   
    AddressEntryType getAddrTypeForIndex(int index);
+   AddressEntryType getAddrTypeForIndex(int index, const BinaryData&);
+
    shared_ptr<AddressEntry> getAddressEntryForIndex(int);
+   shared_ptr<AddressEntry> getAddressEntryForIndex(int, const BinaryDataRef&);
+   
    AddressEntryType getDefaultAddressType(void) const { return default_aet_; }
    void update(void);
    void deleteImports(const vector<BinaryData>&);

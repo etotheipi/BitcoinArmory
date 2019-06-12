@@ -60,7 +60,19 @@ shared_ptr<ScriptRecipient> ScriptRecipient::deserialize(
    else if (byte0 == 34 && byte1 == 0 && byte2 == 32)
    {
       auto&& hash256 = brr_script.get_BinaryData(32);
-      result_ptr = make_shared<Recipient_PW2SH>(hash256, value);
+      result_ptr = make_shared<Recipient_P2WSH>(hash256, value);
+   }
+   else
+   {
+      //is this an OP_RETURN?
+      if (byte0 == script.getSize() - 1 && byte1 == OP_RETURN)
+      {
+         if(byte2 == OP_PUSHDATA1)
+            byte2 = brr_script.get_uint8_t();
+
+         auto&& opReturnMessage = brr_script.get_BinaryData(byte2);
+         result_ptr = make_shared<Recipient_OPRETURN>(opReturnMessage);
+      }
    }
 
    if (result_ptr == nullptr)

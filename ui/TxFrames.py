@@ -21,7 +21,8 @@ from armoryengine.MultiSigUtils import \
    isP2SHLockbox
 from armoryengine.ArmoryUtils import MAX_COMMENT_LENGTH, getAddrByte
 from FeeSelectUI import FeeSelectionDialog
-from CppBlockUtils import TXOUT_SCRIPT_P2SH, TransactionBatch, SecureBinaryData, RecipientReuseException
+from CppBlockUtils import TXOUT_SCRIPT_P2SH, TXOUT_SCRIPT_P2WPKH, TXOUT_SCRIPT_P2WSH, \
+   TransactionBatch, SecureBinaryData, RecipientReuseException
 from armoryengine.SignerWrapper import SIGNER_DEFAULT
 
 class SendBitcoinsFrame(ArmoryFrame):
@@ -430,8 +431,19 @@ class SendBitcoinsFrame(ArmoryFrame):
             
       try:
          coinSelRow = self.widgetTable[id_]
-         
-         prefix, h160 = addrStr_to_hash160(str(coinSelRow['QLE_ADDR'].text()).strip())
+         scrAddr = str(coinSelRow['QLE_ADDR'].text()).strip()
+         if len(scrAddr) == 0:
+            raise BadAddressError('Empty address string')
+
+         try:
+            prefix, h160 = addrStr_to_hash160(scrAddr)
+         except:
+            h160 = Cpp.BtcUtils_bech32ToScript(scrAddr, BECH32_PREFIX)[2:]
+            if len(h160) == 20:
+               prefix = SCRADDR_P2WPKH_BYTE
+            elif len(h160) == 32:
+               prefix = SCRADDR_P2WSH_BYTE
+
          scrAddr = prefix + h160
          valueStr = str(coinSelRow['QLE_AMT'].text()).strip()
          value = str2coin(valueStr, negAllowed=False)
@@ -461,15 +473,21 @@ class SendBitcoinsFrame(ArmoryFrame):
                prefix, h160 = addrStr_to_hash160(addrStr)
             except:
                #recipient input is not an address, is it a locator instead?
-               scriptDict = self.main.getScriptForUserString(\
-                  addrStr, self.main.walletMap, self.main.allLockboxes)
+               scriptDict = self.main.getScriptForUserString(addrStr)
                
                if scriptDict['Script'] == None:
                   raise Exception("invalid addrStr in recipient")
                
-               scraddr = script_to_scrAddr(scriptDict['Script']) 
-               prefix = scraddr[0]
-               h160 = scraddr[1:]   
+               if scriptDict['IsBech32'] == False:
+                  scraddr = script_to_scrAddr(scriptDict['Script']) 
+                  prefix = scraddr[0]
+                  h160 = scraddr[1:]   
+               else:
+                  h160 = Cpp.BtcUtils_bech32ToScript(addrStr, BECH32_PREFIX)[2:]
+                  if len(h160) == 20:
+                     prefix = SCRADDR_P2WPKH_BYTE
+                  elif len(h160) == 32:
+                     prefix = SCRADDR_P2WSH_BYTE
                
             scrAddr = prefix + h160
             valueStr = str(coinSelRow['QLE_AMT'].text()).strip()
@@ -1013,13 +1031,29 @@ class SendBitcoinsFrame(ArmoryFrame):
       
       #check if there are any P2SH recipients      
       haveP2SH = False
+      haveP2PKH = False
+      haveBech32 = False
       homogenousOutputs = True
       for script, val in scriptValPairs:
          scripttype = Cpp.BtcUtils.getTxOutScriptTypeInt(script)
          if scripttype == TXOUT_SCRIPT_P2SH:
             haveP2SH = True
-         elif haveP2SH == True:
-            homogenousOutputs = False
+         if scripttype == TXOUT_SCRIPT_P2WSH or \
+            scripttype == TXOUT_SCRIPT_P2WPKH:
+            haveBech32 = True
+         else:
+            haveP2PKH
+
+      count = 0
+      if haveP2SH:
+         count = count + 1
+      if haveP2PKH:
+         count = count + 1
+      if haveBech32:
+         count = count + 1
+
+      if count > 1:
+         homogenousOutputs = False
             
          
       def changeTypeMismatch(changetype, rectype):
@@ -1052,7 +1086,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          
          return getAddr(newAddr, changeType)
       
-      if not haveP2SH:
+      if not haveP2SH and not haveBech32:
          return getAddr(newAddr, 'P2PKH')
       
       #is our Tx SW?
@@ -1523,7 +1557,12 @@ class SendBitcoinsFrame(ArmoryFrame):
          if len(rpt) == 3:
             comment = rpt[2]
          
-         prefix, hash160 = addrStr_to_hash160(addrStr)
+         hash160 = None
+         try:
+            prefix, hash160 = addrStr_to_hash160(addrStr)
+         except:
+            pass
+
          try:
             self.addOneRecipient(hash160, value, comment, plainText=addrStr)
          except:
@@ -1600,9 +1639,12 @@ class SendBitcoinsFrame(ArmoryFrame):
          
          addr_comment = str(self.widgetTable[row]['QLE_COMM'].text())
          addr_str = str(self.widgetTable[row]['QLE_ADDR'].text())
-         addr160 = addrStr_to_hash160(addr_str)[1]
 
-         self.wlt.setComment(addr160, addr_comment)
+         try:
+            addr160 = addrStr_to_hash160(addr_str)[1]
+            self.wlt.setComment(addr160, addr_comment)
+         except:
+            pass
          
 
 ################################################################################

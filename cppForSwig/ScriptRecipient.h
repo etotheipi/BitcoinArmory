@@ -23,7 +23,8 @@ enum SpendScriptType
    SST_P2WSH,
    SST_NESTED_P2WSH,
    SST_OPRETURN,
-   SST_UNIVERSAL
+   SST_UNIVERSAL,
+   SST_BECH32
 };
 
 ////
@@ -164,13 +165,13 @@ public:
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-class Recipient_PW2SH : public ScriptRecipient
+class Recipient_P2WSH : public ScriptRecipient
 {
 private:
    const BinaryData h256_;
 
 public:
-   Recipient_PW2SH(const BinaryData& h256, uint64_t val) :
+   Recipient_P2WSH(const BinaryData& h256, uint64_t val) :
       ScriptRecipient(SST_P2WSH, val), h256_(h256)
    {
       if (h256_.getSize() != 32)
@@ -280,4 +281,44 @@ public:
       return 8 + binScript_.getSize() + varint_len;
    }
 };
+
+////////////////////////////////////////////////////////////////////////////////
+class Recipient_Bech32 : public ScriptRecipient
+{
+private:
+   const BinaryData binScript_;
+   
+public:
+   Recipient_Bech32(const BinaryData& binScript, uint64_t val) :
+      ScriptRecipient(SST_P2WSH, val), binScript_(binScript)
+   {
+      if (binScript.getSize() != 20 && binScript.getSize() != 32)
+         throw ScriptRecipientException("invalid segwit script size");
+   }
+
+   void serialize(void)
+   {
+      if (script_.getSize() != 0)
+         return;
+
+      BinaryWriter bw;
+      bw.put_uint64_t(value_);
+      bw.put_var_int(binScript_.getSize() + 2);
+      bw.put_uint8_t(0);
+      bw.put_uint8_t(binScript_.getSize());
+      bw.put_BinaryData(binScript_);
+
+      script_ = move(bw.getData());
+   }
+
+   size_t getSize(void) const
+   {
+      size_t varint_len = 1;
+      if (binScript_.getSize() >= 0xfd)
+         varint_len = 3; //larger scripts would make the tx invalid
+
+      return 9 + binScript_.getSize();
+   }
+};
+
 #endif

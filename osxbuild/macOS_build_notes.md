@@ -25,7 +25,7 @@ If a bug is found, please consult the [Bitcoin Forum](https://bitcointalk.org/in
 
  4. Install and link dependencies required by the Armory build process but not by included Armory binaries.
 
-        brew install xz swig gettext openssl automake libtool homebrew/dupes/zlib
+        brew install xz swig gettext openssl automake libtool homebrew/homebrew-core/zlib python2
         brew link gettext --force
 
  5. Restart your Mac. (This is necessary due to issues related to the Python install.)
@@ -44,11 +44,11 @@ If a bug is found, please consult the [Bitcoin Forum](https://bitcointalk.org/in
 
  9. Compile Armory.
 
-        cd *Location of Armory source code*  (An example would be ~/Projects/BitcoinArmory)
+		cd *Location of Armory source code*  (An example would be ~/Projects/BitcoinArmory)
 		git submodule init  (Required only if using Git version control, as discussed in Step 7.2.)
 		git submodule update  (Required only if using Git version control, as discussed in Step 7.2.)
 		cd osxbuild
-        python build-app.py > /dev/null
+		python2 build-app.py > /dev/null
 
 The "> /dev/null" line in step 9 is optional. All this does is prevent the command line from being overwhelmed with build output. The output will automatically be saved to osxbuild/build-app.log.txt no matter what.
 

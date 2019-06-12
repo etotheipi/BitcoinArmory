@@ -1882,13 +1882,12 @@ class ArmoryMainWindow(QMainWindow):
 
 
       self.satoshiHomePath = BTC_HOME_DIR
-      if self.settings.hasSetting('SatoshiDatadir') and \
-         CLI_OPTIONS.satoshiHome==DEFAULT:
+      if self.settings.hasSetting('SatoshiDatadir'):
          # Setting override BTC_HOME_DIR only if it wasn't explicitly
          # set as the command line.
          manageSatoshi = self.settings.get('ManageSatoshi')
          if manageSatoshi == True:
-            self.satoshiHomePath = self.settings.get('SatoshiDatadir')
+            self.satoshiHomePath = str(self.settings.get('SatoshiDatadir'))
             LOGINFO('Setting satoshi datadir = %s' % self.satoshiHomePath)
 
       TheBDM.setSatoshiDir(self.satoshiHomePath)
@@ -5357,7 +5356,7 @@ class ArmoryMainWindow(QMainWindow):
                   if pywlt.hasScrAddr(addr):
                      continue
                   if len(recipStr)==0:
-                     recipStr = hash160_to_addrStr(addr[1:], addr[0])
+                     recipStr = scrAddr_to_addrStr(addr)
                   else:
                      recipStr = self.tr('<Multiple Recipients>')
 

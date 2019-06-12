@@ -1275,6 +1275,20 @@ AddressEntryType AssetWallet::getAddrTypeForIndex(int index)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+AddressEntryType AssetWallet::getAddrTypeForIndex(int index, 
+   const BinaryData& h160)
+{
+   ReentrantLock lock(this);
+   auto asset = getAssetForIndex(index);
+   auto addrType = asset->getAddressTypeForHash(h160);
+
+   if (addrType == AddressEntryType_Default)
+      return getDefaultAddressType();
+
+   return addrType;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 shared_ptr<AddressEntry> AssetWallet_Single::getAddressEntryForAsset(
    shared_ptr<AssetEntry> assetPtr, AddressEntryType ae_type)
 {
@@ -1368,6 +1382,17 @@ shared_ptr<AddressEntry> AssetWallet::getAddressEntryForIndex(int index)
 
    auto asset = getAssetForIndex(index);
    return getAddressEntryForAsset(asset, asset->getAddrType());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+shared_ptr<AddressEntry> AssetWallet::getAddressEntryForIndex(int index,
+   const BinaryDataRef& h160)
+{
+   ReentrantLock lock(this);
+
+   auto asset = getAssetForIndex(index);
+   auto addrType = asset->getAddressTypeForHash(h160);
+   return getAddressEntryForAsset(asset, addrType);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2337,7 +2362,7 @@ shared_ptr<ScriptRecipient> AddressEntry_P2WSH::getRecipient(
       throw WalletException("unexpected asset type");
    }
 
-   return make_shared<Recipient_PW2SH>(scriptHash, value);
+   return make_shared<Recipient_P2WSH>(scriptHash, value);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2822,7 +2847,7 @@ const BinaryData& AssetEntry_Multisig::getP2WSHScript() const
    {
       auto& hash256 = getHash256();
 
-      Recipient_PW2SH recipient(hash256, 0);
+      Recipient_P2WSH recipient(hash256, 0);
       auto& script = recipient.getSerializedScript();
 
       p2wshScript_ = move(script.getSliceCopy(9, script.getSize() - 9));

@@ -68,7 +68,7 @@ LEVELDB_BLKDATA = 'leveldb_blkdata'
 LEVELDB_HEADERS = 'leveldb_headers'
 
 # Version Numbers
-BTCARMORY_VERSION    = (0, 96,  4, 0)  # (Major, Minor, Bugfix, AutoIncrement)
+BTCARMORY_VERSION    = (0, 96,  5, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 # ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -325,6 +325,9 @@ ARMORY_HOME_DIR  = ''
 ARMORY_DB_DIR    = ''
 SUBDIR = 'testnet3' if USE_TESTNET else '' + 'regtest' if USE_REGTEST else ''
 
+#settingsObject = SettingsFile(CLI_OPTIONS.settingsPath)
+
+
 if not CLI_OPTIONS.satoshiHome==DEFAULT:
    BTC_HOME_DIR = CLI_OPTIONS.satoshiHome
    if BTC_HOME_DIR.endswith('blocks'):
@@ -443,8 +446,8 @@ if not CLI_OPTIONS.datadir==DEFAULT:
       # constructor completes so that a warning dialog
       # can be displayed
       pass
-# Same for the directory that holds the LevelDB databases
-ARMORY_DB_DIR     = os.path.join(ARMORY_HOME_DIR, 'databases')
+# Same for the directory that holds the LMDB databases
+ARMORY_DB_DIR = os.path.join(ARMORY_HOME_DIR, 'databases')
 
 if not CLI_OPTIONS.armoryDBDir==DEFAULT:
    try:
@@ -458,6 +461,7 @@ if not CLI_OPTIONS.armoryDBDir==DEFAULT:
       # constructor completes so that a warning dialog
       # can be displayed
       pass
+
 
 
 # Change the log file to use
@@ -508,6 +512,8 @@ if not os.path.exists(ARMORY_DB_DIR):
 from CppBlockUtils import BlockDataManagerConfig
 bdmConfig = BlockDataManagerConfig()
 
+BECH32_PREFIX = "tb" #default to testnet
+
 if not USE_TESTNET and not USE_REGTEST:
    # TODO:  The testnet genesis tx hash can't be the same...?
    BITCOIN_PORT = 8333
@@ -521,11 +527,12 @@ if not USE_TESTNET and not USE_REGTEST:
    ADDRBYTE = '\x00'
    P2SHBYTE = '\x05'
    PRIVKEYBYTE = '\x80'
+   BECH32_PREFIX = "bc"
 
    # This will usually just be used in the GUI to make links for the user
-   BLOCKEXPLORE_NAME     = 'blockchain.info'
-   BLOCKEXPLORE_URL_TX   = 'https://blockchain.info/tx/%s'
-   BLOCKEXPLORE_URL_ADDR = 'https://blockchain.info/address/%s'
+   BLOCKEXPLORE_NAME     = 'blockstream.info'
+   BLOCKEXPLORE_URL_TX   = 'https://blockstream.info/tx/%s'
+   BLOCKEXPLORE_URL_ADDR = 'https://blockstream.info/address/%s'
 else:
    #set static members of BDMconfig for address generation on C++ side
    bdmConfig.selectNetwork("Test")
@@ -569,8 +576,11 @@ SCRADDR_P2PKH_BYTE    = '\x00'
 SCRADDR_P2SH_BYTE     = '\x05'
 SCRADDR_MULTISIG_BYTE = '\xfe'
 SCRADDR_NONSTD_BYTE   = '\xff'
+SCRADDR_P2WPKH_BYTE   = '\x90'
+SCRADDR_P2WSH_BYTE    = '\x95'
 SCRADDR_BYTE_LIST     = [ADDRBYTE, \
                          P2SHBYTE, \
+                         SCRADDR_P2WPKH_BYTE, SCRADDR_P2WSH_BYTE, \
                          SCRADDR_MULTISIG_BYTE, \
                          SCRADDR_NONSTD_BYTE]
 
@@ -605,8 +615,8 @@ CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_STDPUBKEY33] = 'Standard (PK33)'
 CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_MULTISIG]    = 'Multi-Signature'
 CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_P2SH]        = 'Standard (P2SH)'
 CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_NONSTANDARD] = 'Non-Standard'
-CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_P2WPKH]      = 'Standard (P2WPKH)'
-CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_P2WSH]       = 'Standard (P2WSH)'
+CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_P2WPKH]      = 'SegWit (P2WPKH)'
+CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_P2WSH]       = 'SegWit (P2WSH)'
 CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_OPRETURN]    = 'Meta Data (OP_RETURN)'
 
 # Copied from cppForSwig/BtcUtils.h::getTxInScriptTypeInt(script)
@@ -815,7 +825,7 @@ def LOGDEBUG(msg, *a):
    try:
       logstr = msg if len(a)==0 else (msg%a)
       callerStr = getCallerLine() + ' - '
-      logging.debug(callerStr + logstr)
+      logging.debug(callerStr + str(logstr))
    except TypeError:
       traceback.print_stack()
       raise
@@ -824,7 +834,7 @@ def LOGINFO(msg, *a):
    try:
       logstr = msg if len(a)==0 else (msg%a)
       callerStr = getCallerLine() + ' - '
-      logging.info(callerStr + logstr)
+      logging.info(callerStr + str(logstr))
    except TypeError:
       traceback.print_stack()
       raise
@@ -832,7 +842,7 @@ def LOGWARN(msg, *a):
    try:
       logstr = msg if len(a)==0 else (msg%a)
       callerStr = getCallerLine() + ' - '
-      logging.warn(callerStr + logstr)
+      logging.warn(callerStr + str(logstr))
    except TypeError:
       traceback.print_stack()
       raise
@@ -840,7 +850,7 @@ def LOGERROR(msg, *a):
    try:
       logstr = msg if len(a)==0 else (msg%a)
       callerStr = getCallerLine() + ' - '
-      logging.error(callerStr + logstr)
+      logging.error(callerStr + str(logstr))
    except TypeError:
       traceback.print_stack()
       raise
@@ -848,7 +858,7 @@ def LOGCRIT(msg, *a):
    try:
       logstr = msg if len(a)==0 else (msg%a)
       callerStr = getCallerLine() + ' - '
-      logging.critical(callerStr + logstr)
+      logging.critical(callerStr + str(logstr))
    except TypeError:
       traceback.print_stack()
       raise
@@ -856,7 +866,7 @@ def LOGEXCEPT(msg, *a):
    try:
       logstr = msg if len(a)==0 else (msg%a)
       callerStr = getCallerLine() + ' - '
-      logging.exception(callerStr + logstr)
+      logging.exception(callerStr + str(logstr))
    except TypeError:
       traceback.print_stack()
       raise
@@ -1659,6 +1669,8 @@ def scrAddr_to_addrStr(scrAddr):
       return hash160_to_addrStr(scrAddr[1:])
    elif prefix==P2SHBYTE:
       return hash160_to_p2shAddrStr(scrAddr[1:])
+   elif prefix==SCRADDR_P2WPKH_BYTE or prefix==SCRADDR_P2WSH_BYTE:
+      return Cpp.BtcUtils_scriptToBech32(scrAddr[1:], BECH32_PREFIX)
    else:
       LOGERROR('Unsupported scrAddr type: "%s"' % binary_to_hex(scrAddr))
       raise BadAddressError('Can only convert P2PKH and P2SH scripts')

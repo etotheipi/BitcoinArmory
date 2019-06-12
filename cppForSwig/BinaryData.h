@@ -578,6 +578,12 @@ public:
    // For deallocating all the memory that is currently used by this BD
    void clear(void) { data_.clear(); }
 
+   /////////////////////////////////////////////////////////////////////////////
+   const vector<uint8_t>& getVector(void) const
+   {
+      return data_;
+   }
+
 public:
    static BinaryData EmptyBinData_;
 

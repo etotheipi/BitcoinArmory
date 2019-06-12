@@ -613,7 +613,7 @@ class TreeStructure_CoinControl():
          scrAddr = hash160_to_addrStr(h160, binAddr[0])
             
          assetId = self.wallet.cppWallet.getAssetIndexForAddr(h160)
-         addrType = self.wallet.cppWallet.getAddrTypeForIndex(assetId) 
+         addrType = self.wallet.cppWallet.getAddrTypeForIndex_WithScript(assetId, h160)
                  
          addrDict = None
          if addrType == AddressType_P2PKH:

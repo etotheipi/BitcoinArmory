@@ -1876,7 +1876,10 @@ class PyBtcWallet(object):
       # If we haven't extracted relevant addresses for this tx, yet -- do it
       if not self.txAddrMap.has_key(txHash):
          self.txAddrMap[txHash] = []
-         tx = TheBDM.bdv().getTxByHash(txHash)
+         try:
+            tx = TheBDM.bdv().getTxByHash(txHash)
+         except:
+            return ''
          if tx.isInitialized():
             for i in range(tx.getNumTxOut()):
                txout = tx.getTxOutCopy(i)

@@ -63,6 +63,7 @@ struct BlockDataManagerConfig
    string rpcPort_;
 
    bool customFcgiPort_ = false;
+   bool customBtcPort_ = false;
 
 
    unsigned ramUsage_ = 50;
@@ -82,6 +83,7 @@ struct BlockDataManagerConfig
    /////////////
    static uint8_t pubkeyHashPrefix_;
    static uint8_t scriptHashPrefix_;
+   static string bech32Prefix_;
 
    /////////////
    static uint8_t getPubkeyHashPrefix(void) { return pubkeyHashPrefix_; }

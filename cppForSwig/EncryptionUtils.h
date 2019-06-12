@@ -292,14 +292,14 @@ public:
                                SecureBinaryData   iv);
 
    /////////////////////////////////////////////////////////////////////////////
-   SecureBinaryData EncryptCBC(SecureBinaryData & data, 
-                               SecureBinaryData & key,
-                               SecureBinaryData & iv);
+   SecureBinaryData EncryptCBC(const SecureBinaryData & data, 
+                               const SecureBinaryData & key,
+                               SecureBinaryData & iv) const;
 
    /////////////////////////////////////////////////////////////////////////////
-   SecureBinaryData DecryptCBC(SecureBinaryData & data, 
-                               SecureBinaryData & key,
-                               SecureBinaryData   iv);
+   SecureBinaryData DecryptCBC(const SecureBinaryData & data, 
+                               const SecureBinaryData & key,
+                               const SecureBinaryData & iv) const;
 };
 
 

@@ -1135,7 +1135,7 @@ class UnsignedTxInput(AsciiSerializable):
       self.value       = txout.getValue()
       self.contribID   = '' if contribID is None else contribID
       self.contribLabel= '' if contribLabel is None else contribLabel
-      self.p2shMap     = p2shMap
+      self.p2shMap     = p2shMap if p2shMap is not None else dict()
       self.sequence    = sequence
 
       # Each of these will be a single value for single-signature UTXOs
@@ -1827,7 +1827,11 @@ class UnsignedTxInput(AsciiSerializable):
       signStatus.wltIsRelevant = False
       signStatus.wltCanSign    = False
       
-      if self.signerType in [SIGNER_CPP, SIGNER_BCH]:
+      signertype = self.signerType
+      if pytx is not None:
+         signertype = pytx.signerType_
+
+      if signertype in [SIGNER_CPP, SIGNER_BCH]:
          if pytx == None:
             raise Exception("need pytx cppsigner state to evaluate signing status")
          
@@ -1997,6 +2001,8 @@ class DecoratedTxOut(AsciiSerializable):
          self.multiInfo['Addr160s'] = a160s
          self.multiInfo['PubKeys'] = pubs
 
+      if self.scriptType in [CPP_TXOUT_P2WPKH, CPP_TXOUT_P2WSH]:
+         self.version = version | 0xFF000000
 
    #############################################################################
    def setAuthData(self, authType, authObj):
@@ -2115,6 +2121,9 @@ class DecoratedTxOut(AsciiSerializable):
 
       bp = BinaryPacker()
       bp.put(UINT32,       self.version)
+      if (self.version & 0xFF000000) == 0xFF000000:
+         bp.put(UINT32, 0xDEADBEEF)
+
       bp.put(BINARY_CHUNK, MAGIC_BYTES)
       bp.put(VAR_STR,      self.binScript)
       bp.put(UINT64,       self.value)
@@ -2133,6 +2142,9 @@ class DecoratedTxOut(AsciiSerializable):
    def unserialize(self, rawData, skipMagicCheck=False):
       bu = BinaryUnpacker(rawData)
       version    = bu.get(UINT32)
+      if (version & 0xFF000000) == 0xFF000000:
+         bu.get(UINT32)
+
       magic      = bu.get(BINARY_CHUNK, 4)
       script     = bu.get(VAR_STR)
       value      = bu.get(UINT64)
@@ -2150,7 +2162,7 @@ class DecoratedTxOut(AsciiSerializable):
          raise NetworkIDError('Network magic bytes mismatch')
 
 
-      if not version==UNSIGNED_TX_VERSION:
+      if not (version & 0x00FFFFFF) == UNSIGNED_TX_VERSION:
          LOGWARN('Unserialing UnsignedTxInput of different version')
          LOGWARN('   USTX    Version: %d' % version)
          LOGWARN('   Armory  Version: %d' % UNSIGNED_TX_VERSION)
@@ -2159,7 +2171,7 @@ class DecoratedTxOut(AsciiSerializable):
       authDataObj = NullAuthData().unserialize(authData)
 
       self.__init__(script, value, p2shScr, wltLoc, 
-                             authMeth, authDataObj, contribID, contribLBL)
+                             authMeth, authDataObj, contribID, contribLBL, version)
       return self
 
 

@@ -1,3 +1,41 @@
+v0.96.5, released December 23rd 2018
+== Added ==
+   - You can now set the database path from the Settings menu.
+   - You can now spend to bech32 addresses.
+   - Added support for satoshi-port CLI argument in ArmoryDB.
+   - Break backwards compatibility for unsigned transactions carrying bech32 outputs. 
+     Older versions cannot make sense of bech32 addresses, therefor they shouldn't 
+     be able to sign the tx at all.
+
+== Fixes ==
+   - Improved bitcoind path detection.
+   - Properly carry thread-count and ram-usage command line arguments from client to automated db process.
+   - Custom paths set in the GUI will now properly overrule custom paths from armoryqt.conf.
+   - Fixed spending from lockboxes.
+   - Fixed deleting lockboxes.
+   - Fixed Simulfund promisory note creation and signing.
+   - Fixed preview dialog for unconfirmed transactions.
+   - Fixed previewing unsigned transactions in offline mode.
+   - Properly detect output script type when filtering UTXOs.
+   - Use relevant config files with testnet/regtest modes.
+   - Properly display bech32 address strings in transaction system tray notification.
+   - Fix signing transactions with OP_RETURN outputs.
+   - Fix passing satoshi-port argument through ArmoryQt to auto-managed ArmoryDB.
+
+   - Fixed SecurePrint decryption on Windows.
+   - Recent updates to the MSVC compiler resulted in invalid decryption of AES-CBC packets. This issue only
+     affects the decryption of SecurePrint encrypted backups. Encryption still operates as expected, no 
+     SecurePrint backups created with the incriminated builds are faulty. Wallets are not concerned, as they
+     use AES-CFB.
+     
+     The solution was to turn off all optimizations in MSVC when buidling CryptoPP. This may impact DB boostrapping
+     performance.
+
+     This issue affects all Windows builds of 0.96.4.
+
+== Misc ==
+   - Use blockstream.info instead of blockchain.info as the external block explorer link.
+
 v0.96.4, released March 30th 2018
 == Added ==
    - Updated fee estimate query from node to improve estimateSmartFee call introduced in Bitcoin Core 0.15.

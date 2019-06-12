@@ -198,11 +198,11 @@ BinaryData BtcUtils::getTxOutScrAddr(BinaryDataRef script,
          bw.put_BinaryData(script.getSliceCopy(3, 20));
          return bw.getData();
       case(TXOUT_SCRIPT_P2WPKH) :
-         bw.put_uint8_t(h160Prefix);
+         bw.put_uint8_t(SCRIPT_PREFIX_P2WPKH);
          bw.put_BinaryData(script.getSliceCopy(2, 20));
          return bw.getData();
       case(TXOUT_SCRIPT_P2WSH) :
-         bw.put_uint8_t(scriptPrefix);
+         bw.put_uint8_t(SCRIPT_PREFIX_P2WSH);
          bw.put_BinaryData(script.getSliceCopy(2, 32));
          return bw.getData();
       case(TXOUT_SCRIPT_STDPUBKEY65) :
@@ -268,14 +268,14 @@ TxOutScriptRef BtcUtils::getTxOutScrAddrNoCopy(BinaryDataRef script)
 
    case(TXOUT_SCRIPT_P2WPKH) :
    {
-      outputRef.type_ = p2pkh_prefix;
+      outputRef.type_ = SCRIPT_PREFIX_P2WPKH;
       outputRef.scriptRef_ = move(script.getSliceRef(2, 20));
       break;
    }
 
    case(TXOUT_SCRIPT_P2WSH) :
    {
-      outputRef.type_ = p2sh_prefix;
+      outputRef.type_ = SCRIPT_PREFIX_P2WSH;
       outputRef.scriptRef_ = move(script.getSliceRef(2, 32));
       break;
    }
