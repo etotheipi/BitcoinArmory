@@ -2,7 +2,7 @@
 //                                                                            //
 //  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
-//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//  See LICENSE-ATI or http://www.gnu.org/licenses/agpl.html                  //
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -34,8 +34,7 @@ void UniversalTimer::timer::start(void)
    if (isRunning_)
       return;
    isRunning_ = true;
-   start_clock_ = clock();
-   start_time_ = time(0);
+   start_clock_ = chrono::system_clock::now();
 }
 
 // RESTART TIMER
@@ -43,8 +42,7 @@ void UniversalTimer::timer::restart(void)
 {
    isRunning_ = true;
    accum_time_ = 0;
-   start_clock_ = clock();
-   start_time_ = time(0);
+   start_clock_ = chrono::system_clock::now();
 }
 
 // STOP TIMER
@@ -52,12 +50,9 @@ void UniversalTimer::timer::stop(void)
 {
    if (isRunning_)
    {
-      time_t acc_sec = time(0) - start_time_;
-      if (acc_sec < 3600)
-         prev_elapsed_ = (clock() - start_clock_) / (1.0 * CLOCKS_PER_SEC);
-      else
-         prev_elapsed_ = (1.0 * acc_sec);
-      accum_time_ += prev_elapsed_;
+      chrono::duration<double> acc_sec = 
+         chrono::system_clock::now() - start_clock_;
+      accum_time_ += acc_sec.count();
    }
    isRunning_ = false;
 }
@@ -163,11 +158,7 @@ void UniversalTimer::reset(string key, string grpstr)
 {
    lock();
    most_recent_key_ = grpstr + key;
-   if( call_timers_.find(most_recent_key_) == call_timers_.end() )
-   {
-      cout << "***WARNING: attempting to reset a timer not prev used" << endl;
-      cout << " KEY: " << most_recent_key_ << endl;
-   }
+
    init(key,grpstr);
    call_timers_[most_recent_key_].reset();
    unlock();

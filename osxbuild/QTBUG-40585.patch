@@ -1,5 +1,6 @@
---- ./src/gui/kernel/qeventdispatcher_mac.mm	2015-01-04 23:35:52.000000000 -0500
-+++ ./src/gui/kernel/qeventdispatcher_mac.mm	2015-01-04 23:48:08.000000000 -0500
+diff -urN qt-everywhere-opensource-src-4.8.7/src/gui/kernel/qeventdispatcher_mac.mm qt-everywhere-opensource-src-4.8.7.new/src/gui/kernel/qeventdispatcher_mac.mm
+--- a/src/gui/kernel/qeventdispatcher_mac.mm	2015-01-04 23:35:53.000000000 -0500
++++ b/src/gui/kernel/qeventdispatcher_mac.mm	2015-01-04 23:48:08.000000000 -0500
 @@ -558,7 +558,6 @@
  
      // In case we end up recursing while we now process events, make sure

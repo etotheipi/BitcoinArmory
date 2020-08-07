@@ -19,9 +19,9 @@
 # also has extra flags to enable C++11 support, as SIP doesn't have a
 # macx-clang-libc++ option like Qt. (macx-g++ is all it can muster for now.)
 # NB: The "version" values must be updated alongside build-app.py!!!
-QTVER = 4.8.6
-SIPVER = 4.16.5
-PYVER = 2.7.9
+QTVER = 4.8.7
+SIPVER = 4.19.12
+PYVER = 2.7.15
 QT_UNPACK_BASE = ../workspace/unpackandbuild/qt-everywhere-opensource-src-$${QTVER}
 SIP_UNPACK_BASE = ../workspace/unpackandbuild/sip-$${SIPVER}
 PYTHON_UNPACK_BASE = ../workspace/unpackandbuild/Python-$${PYVER}
@@ -51,15 +51,13 @@ QMAKE_LFLAGS += "-undefined dynamic_lookup"
 # Handle the Objective-C++ files. This will include executing moc on the
 # ArmoryMac.h file, creating a resultant CPP file, and compiling the CPP file.
 # (Such a step is critical for getting the shared library to work properly.)
-# Because we support 10.7+, it's safe to assume we can use SSSE3 instructions.
+# Because we support 10.8+, it's safe to assume we can use SSSE3 instructions.
 # NB: -std=c++11 -stdlib=libc++ will be required for Qt 4.8.7+.
 # Source: http://stackoverflow.com/questions/2355056/how-to-mix-qt-c-and-obj-c-cocoa
 # Source: http://el-tramo.be/blog/mixing-cocoa-and-qt
 # Source: http://stackoverflow.com/questions/18768219/sdl-framework-include-on-macos-qt
-QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.7
-# 4.8.7 upgrade
-#QMAKE_OBJECTIVE_CFLAGS += -std=c++11 -stdlib=libc++
-QMAKE_OBJECTIVE_CFLAGS += -Xarch_x86_64 -mmacosx-version-min=$${QMAKE_MACOSX_DEPLOYMENT_TARGET} -O2 -arch x86_64 -mssse3 -Wall -W -fPIC
+QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.8
+QMAKE_OBJECTIVE_CFLAGS += -std=c++11 -Xarch_x86_64 -mmacosx-version-min=$${QMAKE_MACOSX_DEPLOYMENT_TARGET} -O2 -arch x86_64 -mssse3 -Wall -W -fPIC
 OBJECTIVE_SOURCES += macdockiconhandler.mm macnotificationhandler.mm macutils.mm
 HEADERS += ./ArmoryMac.h
 LIBS += -framework Foundation
@@ -72,7 +70,7 @@ LIBS += -framework Foundation
 # Source: src/gui/Makefile.release for Qt
 # Source: QtCore/QtCore.pro for PyQt
 ARMORYNAME = ArmoryMac
-DESTDIR = ../workspace/Armory.app/Contents/MacOS/py/usr/lib/armory
+DESTDIR = ../workspace/Armory.app/Contents/MacOS/py/usr/local/lib/armory
 SOURCES = ./sip$${ARMORYNAME}DockIconClickEventHandler.cpp ./sip$${ARMORYNAME}MacDockIconHandler.cpp ./sip$${ARMORYNAME}MacNotificationHandler.cpp ./sip$${ARMORYNAME}MacUtils.cpp ./sip$${ARMORYNAME}cmodule.cpp
 LIBS += -L$$QT_UNPACK_BASE/lib -framework QtCore -framework QtGui -L$$QT_UNPACK_BASE/lib -framework Carbon -lz -framework AppKit -framework Python
 QMAKE_CXXFLAGS += $$QMAKE_OBJECTIVE_CFLAGS

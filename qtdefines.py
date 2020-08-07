@@ -1,10 +1,14 @@
-################################################################################
-#                                                                              #
-# Copyright (C) 2011-2015, Armory Technologies, Inc.                           #
-# Distributed under the GNU Affero General Public License (AGPL v3)            #
-# See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
-#                                                                              #
-################################################################################
+##############################################################################
+#                                                                            #
+# Copyright (C) 2011-2015, Armory Technologies, Inc.                         #
+# Distributed under the GNU Affero General Public License (AGPL v3)          #
+# See LICENSE or http://www.gnu.org/licenses/agpl.html                       #
+#                                                                            #
+# Copyright (C) 2016-17, goatpig                                             #
+#  Distributed under the MIT license                                         #
+#  See LICENSE-MIT or https://opensource.org/licenses/MIT                    #                                   
+#                                                                            #
+##############################################################################
 import struct
 from tempfile import mkstemp
 
@@ -16,6 +20,7 @@ from armorycolors import Colors, htmlColor
 from armoryengine.ArmoryUtils import *
 from armoryengine.BinaryUnpacker import *
 from armoryengine.MultiSigUtils import *
+from ui.QrCodeMatrix import CreateQRMatrix
 
 import gettext
 
@@ -28,7 +33,7 @@ WLTFIELDS       = enum('Name', 'Descr', 'WltID', 'NumAddr', 'Secure', \
                        'BelongsTo', 'Crypto', 'Time', 'Mem', 'Version')
 MSGBOX          = enum('Good','Info', 'Question', 'Warning', 'Critical', 'Error')
 MSGBOX          = enum('Good','Info', 'Question', 'Warning', 'Critical', 'Error')
-DASHBTNS        = enum('Close', 'Browse', 'Install', 'Instruct', 'Settings')
+DASHBTNS        = enum('Close', 'Browse', 'Settings')
 
 STYLE_SUNKEN = QFrame.Box | QFrame.Sunken
 STYLE_RAISED = QFrame.Box | QFrame.Raised
@@ -38,16 +43,6 @@ STYLE_NONE   = QFrame.NoFrame
 VERTICAL = 'vertical'
 HORIZONTAL = 'horizontal'
 CHANGE_ADDR_DESCR_STRING = '[[ Change received ]]'
-HTTP_VERSION_FILE = 'https://bitcoinarmory.com/versions.txt'
-BUG_REPORT_URL = 'https://bitcoinarmory.com/scripts/receive_debug.php'
-PRIVACY_URL = 'https://bitcoinarmory.com/privacy-policy'
-# For announcements handling
-ANNOUNCE_FETCH_INTERVAL = 1 * HOUR
-if CLI_OPTIONS.testAnnounceCode:
-   HTTP_ANNOUNCE_FILE = \
-      'https://s3.amazonaws.com/bitcoinarmory-testing/testannounce.txt'
-else:
-   HTTP_ANNOUNCE_FILE = 'https://bitcoinarmory.com/atiannounce.txt'
 
 # Keep track of dialogs and wizard that are executing
 runningDialogsList = []
@@ -59,63 +54,6 @@ def AddToRunningDialogsList(func):
       runningDialogsList.remove(args[0])
       return result
    return wrapper
-
-################################################################################
-def tr(txt, y=None, z=None):
-   """
-   This is a common convention for implementing translations, where all 
-   translatable strings are put int the _(...) function, and that method 
-   does some fancy stuff to present the translation if needed. 
-
-   This is being implemented here, to not only do translations in the 
-   future, but also to clean up the typical text fields I use.  I've 
-   ended up with a program full of stuff like this:
-
-      myLabel = QRichLabel( \
-         'This text is split across mulitple lines '
-         'with a space after each one, and single '
-         'quotes on either side.')
-   
-   Instead it should really look like: 
-      
-      myLabel = QRichLabel( tr('''
-         This text is split across mulitple lines 
-         and it will acquire a space after each line 
-         as well as include newlines because it's HTML
-         and uses <br>. ''' ))
-
-   Added easy plural handling:
-
-      Just add an extra argument to specify a variable on which plurality
-      should be chosen, and then decorate your text with 
-
-         @{singular|plural}@
-   
-   For instance:
-
-      tr('The @{cat|cats}@ danced.  @{It was|They were}@ happy.', nCat)
-      tr('The @{cat|%d cats}@ danced.  @{It was|They were}@ happy.'%nCat, nCat)
-      tr('The @{cat|cats}@ attacked the @{dog|dogs}@', nCat, nDog)
-
-   This should work well for 
-   """
-
-   txt = toUnicode(txt)
-   lines = [l.strip() for l in txt.split('\n')]
-   txt = (' '.join(lines)).strip()
-
-   # Eventually we do something cool with this transalate function.
-   # It will be defined elsewhere, but for now stubbed with identity fn
-   TRANSLATE = lambda x: x
-
-   txt = TRANSLATE(txt)
-
-   if z == None:
-      return txt
-   elif z == 1:
-      return txt
-   else:
-      return y
 
 ################################################################################
 def HLINE(style=QFrame.Plain):
@@ -180,13 +118,13 @@ def UnicodeErrorBox(parent):
 
 
 #######
-def UserModeStr(mode):
+def UserModeStr(parent, mode):
    if mode==USERMODE.Standard:
-      return tr('Standard User')
+      return parent.tr('Standard User')
    elif mode==USERMODE.Advanced:
-      return tr('Advanced User')
+      return parent.tr('Advanced User')
    elif mode==USERMODE.Expert:
-      return tr('Expert User')
+      return parent.tr('Expert User')
 
 
 #######
@@ -201,7 +139,7 @@ def tightSizeNChar(obj, nChar):
    try:
       fm = QFontMetricsF(QFont(obj.font()))
    except AttributeError:
-      fm = QFontMetricsF(QFont(obj))
+      fm = QFontMetricsF(QFont())
    szWidth,szHeight = fm.boundingRect('abcfgijklm').width(), fm.height()
    szWidth = int(szWidth * nChar/10.0 + 0.5)
    return szWidth, szHeight
@@ -212,7 +150,7 @@ def tightSizeStr(obj, theStr):
    try:
       fm = QFontMetricsF(QFont(obj.font()))
    except AttributeError:
-      fm = QFontMetricsF(QFont(obj))
+      fm = QFontMetricsF(QFont())
    szWidth,szHeight = fm.boundingRect(theStr).width(), fm.height()
    return szWidth, szHeight
    
@@ -224,7 +162,7 @@ def relaxedSizeStr(obj, theStr):
    try:
       fm = QFontMetricsF(QFont(obj.font()))
    except AttributeError:
-      fm = QFontMetricsF(QFont(obj))
+      fm = QFontMetricsF(QFont())
    szWidth,szHeight = fm.boundingRect(theStr).width(), fm.height()
    return (10 + szWidth*1.05), 1.5*szHeight
 
@@ -236,7 +174,7 @@ def relaxedSizeNChar(obj, nChar):
    try:
       fm = QFontMetricsF(QFont(obj.font()))
    except AttributeError:
-      fm = QFontMetricsF(QFont(obj))
+      fm = QFontMetricsF(QFont())
    szWidth,szHeight = fm.boundingRect('abcfg ijklm').width(), fm.height()
    szWidth = int(szWidth * nChar/10.0 + 0.5)
    return (10 + szWidth*1.05), 1.5*szHeight
@@ -245,13 +183,13 @@ def relaxedSizeNChar(obj, nChar):
 def determineWalletType(wlt, wndw):
    if wlt.watchingOnly:
       if wndw.getWltSetting(wlt.uniqueIDB58, 'IsMine'):
-         return [WLTTYPES.Offline, tr('Offline')]
+         return [WLTTYPES.Offline, wndw.tr('Offline')]
       else:
-         return [WLTTYPES.WatchOnly, tr('Watching-Only')]
+         return [WLTTYPES.WatchOnly, wndw.tr('Watching-Only')]
    elif wlt.useEncryption:
-      return [WLTTYPES.Crypt, tr('Encrypted')]
+      return [WLTTYPES.Crypt, wndw.tr('Encrypted')]
    else:
-      return [WLTTYPES.Plain, tr('No Encryption')]
+      return [WLTTYPES.Plain, wndw.tr('No Encryption')]
 
 
 
@@ -269,7 +207,8 @@ def initialColResize(tblViewObj, sizeList):
    totalWidth = tblViewObj.width()
    fixedCols, pctCols = [],[]
 
-   nCols = tblViewObj.model().columnCount()
+   if tblViewObj.model() is None:
+      return
    
    for col,colVal in enumerate(sizeList):
       if colVal > 1:
@@ -327,13 +266,35 @@ class QRichLabel(QLabel):
    def setItalic(self):
       self.setText('<i>' + self.text() + '</i>')
 
+class QRichLabel_AutoToolTip(QRichLabel):
+   def __init__(self, txt, doWrap=True, \
+                           hAlign=Qt.AlignLeft, \
+                           vAlign=Qt.AlignVCenter, \
+                           **kwargs):
+      super(QRichLabel_AutoToolTip, self).__init__(txt, \
+            doWrap, hAlign, vAlign, **kwargs)
+      
+      self.toolTipMethod = None
+   
+   def setToolTipLambda(self, toolTipMethod):
+      self.toolTipMethod = toolTipMethod
+      self.setToolTip(self.toolTipMethod())
+     
+   def event(self, event):
+      if event.type() == QEvent.ToolTip:
+         if self.toolTipMethod != None:
+            txt = self.toolTipMethod()
+            self.setToolTip(txt)
 
+      return QLabel.event(self,event)
 
+      
 class QMoneyLabel(QRichLabel):
    def __init__(self, nSatoshi, ndec=8, maxZeros=2, wColor=True, 
                               wBold=False, txtSize=10):
       QLabel.__init__(self, coin2str(nSatoshi))
 
+      self.nSatoshi = nSatoshi
       self.setValueText(nSatoshi, ndec, maxZeros, wColor, wBold, txtSize)
 
 
@@ -484,8 +445,8 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None,
          buttonbox = QDialogButtonBox()
 
          if dtype==MSGBOX.Question:
-            if not yesStr: yesStr = tr('&Yes')
-            if not noStr:  noStr = tr('&No')
+            if not yesStr: yesStr = self.tr('&Yes')
+            if not noStr:  noStr = self.tr('&No')
             btnYes = QPushButton(yesStr)
             btnNo  = QPushButton(noStr)
             self.connect(btnYes, SIGNAL('clicked()'), self.accept)
@@ -493,8 +454,8 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None,
             buttonbox.addButton(btnYes,QDialogButtonBox.AcceptRole)
             buttonbox.addButton(btnNo, QDialogButtonBox.RejectRole)
          else:
-            cancelStr = tr('&Cancel') if (noStr is not None or withCancel) else ''
-            yesStr    = tr('&OK') if (yesStr is None) else yesStr
+            cancelStr = self.tr('&Cancel') if (noStr is not None or withCancel) else ''
+            yesStr    = self.tr('&OK') if (yesStr is None) else yesStr
             btnOk     = QPushButton(yesStr)
             btnCancel = QPushButton(cancelStr)
             self.connect(btnOk,     SIGNAL('clicked()'), self.accept)
@@ -543,13 +504,13 @@ def MsgBoxWithDNAA(parent, main, wtype, title, msg, dnaaMsg, wCancel=False, \
          fpix = ''
          if dtype==MSGBOX.Info:
             fpix = ':/MsgBox_info48.png'
-            if not dmsg:  dmsg = tr('Do not show this message again')
+            if not dmsg:  dmsg = self.tr('Do not show this message again')
          if dtype==MSGBOX.Question:
             fpix = ':/MsgBox_question64.png'
-            if not dmsg:  dmsg = tr('Do not ask again')
+            if not dmsg:  dmsg = self.tr('Do not ask again')
          if dtype==MSGBOX.Warning:
             fpix = ':/MsgBox_warning48.png'
-            if not dmsg:  dmsg = tr('Do not show this warning again')
+            if not dmsg:  dmsg = self.tr('Do not show this warning again')
          if dtype==MSGBOX.Critical:
             fpix = ':/MsgBox_critical64.png'
             if not dmsg:  dmsg = None  # should always show crits
@@ -701,6 +662,9 @@ def restoreTableView(qtbl, hexBytes):
 
 
 def saveTableView(qtbl):
+   if qtbl.model() is None:
+      return
+   
    nCol = qtbl.model().columnCount()
    sz = [None]*nCol
    for i in range(nCol):
@@ -748,6 +712,8 @@ class ArmoryDialog(QDialog):
       self.closeSignal = str(random.random())       
       self.parent = parent
       self.main   = main
+      if self.main != None:
+         self.signalExecution = self.main.signalExecution
       
       #connect this dialog to the parent's close signal
       if self.parent is not None and hasattr(self.parent, 'closeSignal'):
@@ -757,10 +723,13 @@ class ArmoryDialog(QDialog):
       self.setWindowFlags(Qt.Window)
 
       if USE_TESTNET:
-         self.setWindowTitle(tr('Armory - Bitcoin Wallet Management [TESTNET] ' + self.__class__.__name__))
+         self.setWindowTitle(self.tr('Armory - Bitcoin Wallet Management [TESTNET] ' + self.__class__.__name__))
+         self.setWindowIcon(QIcon(':/armory_icon_green_32x32.png'))
+      elif USE_REGTEST:
+         self.setWindowTitle(self.tr('Armory - Bitcoin Wallet Management [REGTEST] ' + self.__class__.__name__))
          self.setWindowIcon(QIcon(':/armory_icon_green_32x32.png'))
       else:
-         self.setWindowTitle(tr('Armory - Bitcoin Wallet Management'))
+         self.setWindowTitle(self.tr('Armory - Bitcoin Wallet Management'))
          self.setWindowIcon(QIcon(':/armory_icon_32x32.png'))
    
    @AddToRunningDialogsList
@@ -770,6 +739,12 @@ class ArmoryDialog(QDialog):
    def reject(self):
       self.emit(SIGNAL(self.closeSignal))
       super(ArmoryDialog, self).reject()
+      
+   def executeMethod(self, _callable, *args):
+      self.signalExecution.executeMethod(_callable, *args)
+      
+   def callLater(self, delay, _callable, *args):
+      self.signalExecution.callLater(delay, _callable, *args)
       
 
 ################################################################################
@@ -873,7 +848,7 @@ class DlgInflatedQR(ArmoryDialog):
       qrDisp.mouseDoubleClickEvent = closeDlg
       self.mouseDoubleClickEvent = closeDlg
 
-      lbl = QRichLabel(tr('<b>Double-click or press ESC to close</b>'))
+      lbl = QRichLabel(self.tr('<b>Double-click or press ESC to close</b>'))
       lbl.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
 
       frmQR = makeHorizFrame(['Stretch', qrDisp, 'Stretch'])

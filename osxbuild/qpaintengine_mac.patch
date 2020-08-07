@@ -1,5 +1,6 @@
---- ./src/gui/painting/qpaintengine_mac.cpp	2015-05-07 09:14:43.000000000 -0500
-+++ ./src/gui/painting/qpaintengine_mac.cpp	2015-10-31 00:06:21.000000000 -0500
+diff -urN qt-everywhere-opensource-src-4.8.7/gui/painting/qpaintengine_mac.cpp qt-everywhere-opensource-src-4.8.7.new/gui/painting/qpaintengine_mac.cpp
+--- a/src/gui/painting/qpaintengine_mac.cpp	2015-05-07 09:14:43.000000000 -0500
++++ b/src/gui/painting/qpaintengine_mac.cpp	2015-10-31 00:06:21.000000000 -0500
 @@ -340,13 +340,7 @@
      }
  

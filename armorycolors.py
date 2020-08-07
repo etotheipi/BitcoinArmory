@@ -108,6 +108,7 @@ Colors.TextWarn         = tweakColor(Colors.Foreground, '+', [+100,  -40,  -40])
 Colors.TextRed          = tweakColor(Colors.Foreground, '+', [+100,  -40,  -40])
 Colors.TextGreen        = tweakColor(Colors.Foreground, '+', [ -40, +100,  -40])
 Colors.TextBlue         = tweakColor(Colors.Foreground, '+', [ -40,  -40, +100])
+Colors.TextYellow       = tweakColor(Colors.Foreground, '*', [0.75, 0.75,    0])
 Colors.SlightRed        = tweakColor(Colors.Background, '*', [1.05, 0.95, 0.95])
 Colors.SlightGreen      = tweakColor(Colors.Background, '*', [0.95, 1.05, 0.95])
 Colors.SlightBlue       = tweakColor(Colors.Background, '*', [0.95, 0.95, 1.05])
@@ -125,6 +126,10 @@ Colors.TblWltOther      = tweakColor(Colors.Background, '*', [1.00, 1.00, 1.00])
 Colors.TblWltMine       = tweakColor(Colors.Background, '*', [0.95, 0.95, 1.3 ])
 Colors.TblWltOffline    = tweakColor(Colors.Background, '*', [0.85, 0.85, 1.35])
 
+Colors.optInRBF         = tweakColor(Colors.Background, '*', [1.00, 0.10, 0.10])
+Colors.myRBF            = tweakColor(Colors.Background, '*', [0.15, 0.65, 0.65])
+Colors.chainedZC        = tweakColor(Colors.Background, '*', [1.00, 0.50, 0.10])
+
 if(Colors.isDarkBkgd):
    Colors.LBtnNormalBG  = Colors.Background
    Colors.LBtnHoverBG   = tweakColor(Colors.Background, '+', [ +25,  +25,    0])
@@ -138,7 +143,8 @@ else:
 
 Colors.ToolTipQ         = Colors.LBtnNormalFG
 
-
+Colors.TextPurple = QColor()
+Colors.TextPurple.setRgb(102, 0, 204, 255)
 
 ################################################################################
 def htmlColor(name):

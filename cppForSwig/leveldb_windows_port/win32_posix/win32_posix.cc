@@ -399,7 +399,10 @@ FILE* fopen_win32(const char *path, const char *mode)
 {
 	wchar_t *mode_win32 = (wchar_t*)malloc(10);
 	MultiByteToWideChar(CP_UTF8, 0, mode, -1, mode_win32, 10);
-	wcscat(mode_win32, L"b");
+   
+   unsigned modesize = strlen(mode);
+   if(mode[modesize-1] != 'b')
+   	wcscat(mode_win32, L"b");
 	
 	wchar_t *path_win32 = posix_path_to_win32(path);
 

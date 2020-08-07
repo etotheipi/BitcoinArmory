@@ -65,15 +65,6 @@ class MacNotificationHandler : public QObject
     Q_OBJECT
 
 public:
-    // SIP seems to require enums to be part of a class.
-	enum notifType
-    {
-        None = 0,
-        Growl12,
-        Growl13,
-        BuiltIn
-    };
-
     /** shows a 10.8+ UserNotification in the UserNotificationCenter
      */
     void showNotification(const QString &title, const QString &text);
@@ -83,8 +74,6 @@ public:
 
     /** check if OS can handle UserNotifications */
     bool hasUserNotificationCenterSupport(void);
-    notifType hasGrowl(void);
-    void notifyGrowl(const QString &title, const QString &text, const QIcon &icon);
     static MacNotificationHandler *instance();
 };
 

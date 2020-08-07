@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <Windows.h>
+#include <Winsock2.h>
 #include <dirent_win32.h>
 #include <direct.h>
 #include <sys/stat.h>

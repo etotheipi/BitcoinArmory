@@ -2,7 +2,7 @@
 //                                                                            //
 //  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
-//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//  See LICENSE-ATI or http://www.gnu.org/licenses/agpl.html                  //
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 #include "EncryptionUtils.h"
@@ -163,8 +163,8 @@ void KdfRomix::computeKdfParams(double targetComputeSec, uint32_t maxMemReqts)
       TIMER_RESTART("KDF_Time_Search");
       for(uint32_t i=0; i<numTest; i++)
       {
-         SecureBinaryData testKey("This is an example key to test KDF iteration speed");
-         testKey = DeriveKey_OneIter(testKey);
+         SecureBinaryData _testKey("This is an example key to test KDF iteration speed");
+         _testKey = DeriveKey_OneIter(_testKey);
       }
       TIMER_STOP("KDF_Time_Search");
       allItersSec = TIMER_READ_SEC("KDF_Time_Search");
@@ -365,9 +365,9 @@ SecureBinaryData CryptoAES::DecryptCFB(SecureBinaryData & data,
 
 /////////////////////////////////////////////////////////////////////////////
 // Same as above, but only changing the AES mode of operation (CBC, not CFB)
-SecureBinaryData CryptoAES::EncryptCBC(SecureBinaryData & data, 
-                                       SecureBinaryData & key,
-                                       SecureBinaryData & iv)
+SecureBinaryData CryptoAES::EncryptCBC(const SecureBinaryData & data, 
+                                       const SecureBinaryData & key,
+                                       SecureBinaryData & iv) const
 {
    if(CRYPTO_DEBUG)
    {
@@ -401,9 +401,9 @@ SecureBinaryData CryptoAES::EncryptCBC(SecureBinaryData & data,
 
 /////////////////////////////////////////////////////////////////////////////
 // Same as above, but only changing the AES mode of operation (CBC, not CFB)
-SecureBinaryData CryptoAES::DecryptCBC(SecureBinaryData & data, 
-                                       SecureBinaryData & key,
-                                       SecureBinaryData   iv  )
+SecureBinaryData CryptoAES::DecryptCBC(const SecureBinaryData & data, 
+                                       const SecureBinaryData & key,
+                                       const SecureBinaryData & iv  ) const
 {
    if(CRYPTO_DEBUG)
    {
@@ -680,6 +680,36 @@ bool CryptoECDSA::VerifyData(SecureBinaryData const & binMessage,
 
    BTC_PUBKEY cppPubKey = ParsePublicKey(pubkey65B);
    return VerifyData(binMessage, binSignature, cppPubKey);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+bool CryptoECDSA::VerifyData(BinaryData const & binMessage,
+   const BinaryData& sig,
+   BTC_PUBKEY const & cppPubKey) const
+{
+   /***
+   This is the faster sig verification, with less sanity checks and copies.
+   Meant for chain verifiation, use the SecureBinaryData versions for regular
+   verifications.
+   ***/
+
+   CryptoPP::SHA256  sha256;
+   BTC_PRNG prng;
+
+   //pub keys are already validated by the script parser
+
+   // We execute the first SHA256 op, here.  Next one is done by Verifier
+   BinaryData hashVal(32);
+   sha256.CalculateDigest(hashVal.getPtr(),
+      binMessage.getPtr(),
+      binMessage.getSize());
+
+   // Verifying message 
+   BTC_VERIFIER verifier(cppPubKey);
+   return verifier.VerifyMessage((const byte*)hashVal.getPtr(),
+      hashVal.getSize(),
+      (const byte*)sig.getPtr(),
+      sig.getSize());
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1027,11 +1057,28 @@ SecureBinaryData CryptoECDSA::UncompressPoint(SecureBinaryData const & pubKey33)
 
 }
 
+////////////////////////////////////////////////////////////////////////////////
+BinaryData CryptoECDSA::computeLowS(BinaryDataRef s)
+{
+   static SecureBinaryData SECP256K1_ORDER_BE = SecureBinaryData().CreateFromHex(
+      "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
 
+   CryptoPP::Integer ecOrder, sInteger;
+   ecOrder.Decode(SECP256K1_ORDER_BE.getPtr(), SECP256K1_ORDER_BE.getSize(), UNSIGNED);
 
+   //divide by 2
+   auto&& halfOrder = ecOrder >> 1;
 
+   sInteger.Decode(s.getPtr(), s.getSize(), UNSIGNED);
+   if (sInteger > halfOrder)
+      sInteger = ecOrder - sInteger;
 
+   auto len = sInteger.ByteCount();
+   BinaryData lowS(len);
+   sInteger.Encode(lowS.getPtr(), len, UNSIGNED);
 
+   return lowS;
+}
 
 
 

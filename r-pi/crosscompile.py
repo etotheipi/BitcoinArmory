@@ -1,3 +1,7 @@
+# Armory -- Bitcoin Wallet Software
+# Copyright (c) 2016, goatpig <moothecowlord@gmail.com>
+# Originally written by Alan Reiner  (etotheipi@gmail.com)
+
 import os
 import shutil
 import subprocess
@@ -9,18 +13,16 @@ TOOLS_PATH  = os.path.join(CROSSCOMPILEPATH, 'tools')
 PYROOT_PATH = os.path.join(CROSSCOMPILEPATH, 'pyroot')
 RPI_REPO    = 'git://github.com/raspberrypi/tools.git'
 
-# The following two files were valid as of 04 Jan, 2015.  You might need to
+# The following two files were valid as of Aug. 30, 2016.  You might need to
 # update the links below by going to the base FTP dir and looking for the
 # latest version numbers to update the links below.  You can view the
 # directory listing in your browser:
 #
-#    http://archive.raspbian.org/raspbian/pool/main/p/python2.7/
+#    https://archive.raspbian.org/raspbian/pool/main/p/python2.7/
 #
-PY_ARMHF1   = 'http://archive.raspbian.org/raspbian/pool/main/p/python2.7/libpython2.7-dev_2.7.8-11_armhf.deb'
-PY_ARMHF2   = 'http://archive.raspbian.org/raspbian/pool/main/p/python2.7/libpython2.7-minimal_2.7.8-11_armhf.deb'
+PY_ARMHF1   = 'https://archive.raspbian.org/raspbian/pool/main/p/python2.7/libpython2.7-dev_2.7.12-2_armhf.deb'
+PY_ARMHF2   = 'https://archive.raspbian.org/raspbian/pool/main/p/python2.7/libpython2.7-minimal_2.7.12-2_armhf.deb'
 
-
-   
 if len(argv)==1 and not os.path.exists(TOOLS_PATH):
    print """ERROR: Must supply "setupcrosscompiler" or path to where it is setup.
    Use one of the following:  
@@ -31,17 +33,14 @@ if len(argv)==1 and not os.path.exists(TOOLS_PATH):
    If not specified, setuppath is: %s""" % (argv[0], argv[0], TOOLS_PATH)
    exit(1)
 
-
 SetupPath = TOOLS_PATH
 if len(argv)==1:
    DoSetup = False
 else:
    DoSetup = argv[1]=='setupcrosscompiler'
-   
 
 if (DoSetup and len(argv)>2) or (not DoSetup and len(argv)>1):
    SetupPath = argv[-1]
-   
 
 
 def popen(cmdList, cwd=None):
@@ -95,7 +94,6 @@ if os.path.exists(instDir):
    shutil.rmtree(instDir)
 os.makedirs(instDir)
 
-
 ccbin = 'arm-bcm2708/gcc-linaro-arm-linux-gnueabihf-raspbian-x64/bin/'
 cxx  = os.path.abspath(os.path.join(TOOLS_PATH,  ccbin, 'arm-linux-gnueabihf-g++'))
 cc   = os.path.abspath(os.path.join(TOOLS_PATH,  ccbin, 'arm-linux-gnueabihf-gcc'))
@@ -121,5 +119,3 @@ popen(['make', 'CXX='+cxx,
 
 popen(['make', 'install', 'DESTDIR=%s'%instDir])
 popen(['tar','-zcf', targz, 'usr'], cwd=instDir)
-
-
