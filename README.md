@@ -12,7 +12,7 @@ Multi-signature transactions are accommodated under-the-hood about 80%, and will
 
 ## Development
 
-Unlike most open source projects, development takes place in the dev branch and only tagged releases are merge back into master.
+Unlike most open source projects, development takes place in the dev branch and only tagged releases are merged back into master.
 
 ## Donations
 
