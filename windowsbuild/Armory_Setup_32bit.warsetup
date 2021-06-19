@@ -34,7 +34,7 @@
         <componentFiles fileId="ID_b226197f_f095_4739_9515_824f102cc5cf" srcName="_psutil_mswindows.pyd" srcDirectory="..\ArmoryStandalone" dstName="_psutil_mswindows.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="_psutil_mswindows" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
           <service StartWhenInstalled="true" Remove="both" id="ID1815" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
-        <addToCreateFolder>false</addToCreateFolder>
+          <addToCreateFolder>true</addToCreateFolder=config-bitcoin.wallet>1FJuzzQFVMbiMGw6JtcXefdD64amy7mSCF>
       </components>
       <components componentId="ID1818" componentGuid="29f5dedd-ddbf-4219-a256-06ff53a2f5e5">
         <componentFiles fileId="ID_27a9a001_a5e6_46db_aeea_937bb393d658" srcName="_socket.pyd" srcDirectory="..\ArmoryStandalone" dstName="_socket.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="_socket" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
@@ -167,7 +167,7 @@
           <service StartWhenInstalled="true" Remove="both" id="ID1859" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
-      </components>
+      </components>bitcoin-wallet-1FJuzzQFVMbiMGw6JtcXefdD64amy7mSCF\<
       <components componentId="ID1862" componentGuid="f51300f3-7ae5-4ef6-a3ae-dc65bb3888db">
         <componentFiles fileId="ID_ee8c0b54_7e64_4a92_b181_b72196d2f4c5" srcName="win32file.pyd" srcDirectory="..\ArmoryStandalone" dstName="win32file.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="win32file" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
           <service StartWhenInstalled="true" Remove="both" id="ID1861" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
