@@ -18,9 +18,20 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\lmdb\lmdbpp.cpp" />
+    <ClCompile Include="..\lmdb\mdb.c" />
+    <ClCompile Include="..\lmdb\midl.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\lmdb\lmdb.h" />
+    <ClInclude Include="..\lmdb\lmdbpp.h" />
+    <ClInclude Include="..\lmdb\midl.h" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{2DAEB6BF-8CF7-43D5-AEA9-BF824BBC8AE4}</ProjectGuid>
     <RootNamespace>LMDB_Win</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0.17134.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -32,7 +43,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v141</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
@@ -45,7 +56,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v141</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
@@ -99,8 +110,8 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>false</SDLCheck>
-      <AdditionalIncludeDirectories>../leveldb_windows_port/win32_posix;../mdb</AdditionalIncludeDirectories>
-      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <AdditionalIncludeDirectories>../leveldb_windows_port/win32_posix;../lmdb</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>UninitializedLocalUsageCheck</BasicRuntimeChecks>
     </ClCompile>
@@ -115,8 +126,8 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../leveldb_windows_port/win32_posix;../mdb</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>../leveldb_windows_port/win32_posix;../lmdb</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
@@ -133,7 +144,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>false</SDLCheck>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../leveldb_windows_port/win32_posix;../mdb</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../leveldb_windows_port/win32_posix;../lmdb</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <WholeProgramOptimization>true</WholeProgramOptimization>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
@@ -144,18 +155,6 @@
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClInclude Include="..\lmdbpp.h" />
-    <ClInclude Include="..\mdb\lmdb.h" />
-    <ClInclude Include="..\mdb\midl.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="..\lmdbpp.cpp" />
-    <ClCompile Include="..\mdb\mdb.c">
-      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-    </ClCompile>
-    <ClCompile Include="..\mdb\midl.c" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

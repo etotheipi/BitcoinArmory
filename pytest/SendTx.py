@@ -5,8 +5,6 @@ from pytest.Tiab import TiabTest
 
 from armoryengine.ALL import *
 
-from twisted.internet import reactor
-
 TIAB_DIR = '.\\tiab'
 TEST_TIAB_DIR = '.\\test\\tiab'
 NEED_TIAB_MSG = "This Test must be run with J:/Development_Stuff/bitcoin-testnet-boxV2.7z (Armory jungle disk). Copy to the test directory."

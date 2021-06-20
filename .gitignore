@@ -2,7 +2,44 @@
 *.pyc
 *~
 *.o
+*.lo
+*.Plo
+*.la
+*.qm
+*.in
 
+*libtool.m4
+*ltoptions.m4
+*ltsugar.m4
+*ltversion.m4
+*lt~obsolete.m4
+*aclocal.m4
+
+*config.guess
+*config.log
+*config.status
+*config.sub
+*configure
+
+*compile
+*depcomp
+*install-sh
+*libtool
+*ar-lib
+*ltmain.sh
+*missing
+
+*.deps
+*.libs
+*autom4te.cache
+
+config.h
+stamp-h1
+.dirstamp
+1
+
+Makefile
+ArmoryDB
 /armoryengine/ArmoryBuild.py
 
 CppBlockUtils.py
@@ -10,6 +47,7 @@ _CppBlockUtils.*
 /cppForSwig/CppBlockUtils_wrap.cxx
 /cppForSwig/libcryptopp.a
 /cppForSwig/libleveldb.a
+/cppForSwig/cryptopp/*.a
 /cppForSwig/cryptopp/a.out
 /cppForSwig/cryptopp/Template
 /cppForSwig/cryptopp/TestData
@@ -20,9 +58,18 @@ _CppBlockUtils.*
 /cppForSwig/cryptopp/dlltest___Win32_Debug
 /cppForSwig/cryptopp/Release
 
+/cppForSwig/gtest/ContainerTests
+/cppForSwig/gtest/CppBlockUtilsTests
+/cppForSwig/gtest/*.txt
+/cppForSwig/gtest/*.a
+/cppForSwig/gtest/*.out.*
+/cppForSwig/gtest/blkfiletest/*
+/cppForSwig/gtest/ldbtestdir/*
+/cppForSwig/gtest/*.dSYM
+/cppForSwig/gtest/*.lmdb*
+/cppForSwig/gtest/DB1kIterTest
+
 *.DS_Store
-osxbuild/Armory.app
-osxbuild/env
 
 /ArmoryStandalone/*
 /cppForSwig/CppBlockUtils_wrap.h
@@ -31,6 +78,7 @@ osxbuild/env
 /cppForSwig/Release/*
 /cppForSwig/swigwin/*
 /cppForSwig/pypaths.txt
+/cppForSwig/output.txt
 
 /pytest/*.bin
 /pytest/mytxfile
@@ -50,6 +98,8 @@ osxbuild/env
 /*.txt
 /sandbox.py
 
+/lang/*.qm
+
 /webshop/orders/m*
 /webshop/orders/n*
 /webshop/orders/2*
@@ -63,9 +113,31 @@ osxbuild/env
 
 /osxbuild/armory_*.tar.gz
 /osxbuild/build-app.log.txt
-/osxbuild/objc_armory/*
+/osxbuild/objc_armory/*.o
+/osxbuild/objc_armory/Makefile*
+/osxbuild/objc_armory/moc*
+/osxbuild/objc_armory/sip*
 /osxbuild/workspace/*
 
 /armory_*_raspbian-armhf*
 
 /dpkgfiles/control
+
+/r-pi/RPI_CROSSCOMPILE/*
+
+/cppForSwig/BitcoinArmory.sdf
+/cppForSwig/BitcoinArmory.v12.suo
+/cppForSwig/BitcoinArmory.opensdf
+*.vcxproj.user
+
+/cppForSwig/BDM_Client/build*
+/cppForSwig/BDM_Client/x64*
+/cppForSwig/BitcoinArmory_CppTests/x64*
+/cppForSwig/BlockDataManager/x64*
+/cppForSwig/ContainerTests/Release*
+/cppForSwig/ContainerTests/x64*
+/cppForSwig/cryptopp/x64*
+/cppForSwig/guardian/x64*
+/cppForSwig/x64*
+/cppForSwig/LMDB_Win/x64*
+/cppForSwig/x64/*.*

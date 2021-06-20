@@ -71,6 +71,8 @@ class PyBtcWalletRecovery(object):
       self.UID = ''
       self.labelName = ''
       self.WalletPath = ''
+
+      self.pybtcaddrSize = len(PyBtcAddress().serialize())
       
       """
       Modes:
@@ -1720,7 +1722,7 @@ def FixWallet(wltPath, wlt, mode=RECOVERMODE.Full, DoNotMove=False,
          if not os.path.exists(corruptFolder):
             os.makedirs(corruptFolder)
 
-         logsToCopy = ['armorylog.txt', 'armorycpplog.txt', 'multipliers.txt']
+         logsToCopy = ['armorylog.txt', 'armorycpplog.txt', 'multipliers.txt', 'dbLog.txt']
          wltCopyName = 'armory_%s_ORIGINAL_%s.wallet' % (wltID, '_WatchOnly')
          wltLogName  = 'armory_%s_LOGFILE_%s.log' % \
                                  (wltID, '_WatchOnly' if fixer.WO else '')

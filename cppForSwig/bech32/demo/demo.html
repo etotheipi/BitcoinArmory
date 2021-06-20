@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <!-- Required meta tags -->
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <title>BIP173 Segwit address decoder demo</title>
+        <!-- Bootstrap CSS -->
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">
+        <link rel="stylesheet" href="style.css">
+        <style>
+            .monospace {
+                font-family: Consolas,Monaco,Lucida Console,Liberation Mono,DejaVu Sans Mono,Bitstream Vera Sans Mono,Courier New, monospace;
+            }
+            a.demo_link {
+                text-decoration-style: dashed;
+                text-underline-position: under;
+            }
+        </style>
+    </head>
+    <body>
+        <script>
+
+function toHexString(byteArray) {
+  return byteArray.map(function(byte) {
+    return ('0' + (byte & 0xFF).toString(16)).slice(-2);
+  }).join('')
+}
+
+function update_status() {
+    var address = document.getElementById("address").value;
+    var res = segwit_addr_ecc.check(address, ["bc", "tb"]);
+    var cp = "";
+    if (res.error === null) {
+        document.getElementById("result").innerHTML = "<a style=\"color:green\">Ok, witness version " + res.version + ", program " + toHexString(res.program) + "</a>";
+        cp = "<br/>";
+    } else {
+        document.getElementById("result").innerHTML = res.error;
+        if (res.pos !== null) {
+            for (var p = 0; p < address.length; ++p) {
+                if (res.pos.indexOf(p) != -1) {
+                    cp += "<a style=\"color:red\">" + address.charAt(p) + "</a>";
+                } else {
+                    cp += address.charAt(p);
+                }
+            }
+        }
+    }
+    if(!address.length) document.getElementById("result").innerHTML = "";
+    document.getElementById("copy").innerHTML = cp;
+}
+
+function load_addr(addr) {
+    document.getElementById("address").value = addr;
+    update_status();
+}
+</script>
+    <div class="container" style="margin-top:50px">
+            <div class="card mb-3 text-left">
+                <h3 class="card-header">SegWit address format</h3>
+                <div class="card-block">
+                    <p><a href="https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki">BIP 173</a> is a proposal for a new SegWit address format to replace <a href="https://github.com/bitcoin/bips/blob/master/bip-0142.mediawiki">BIP 142</a>.
+                    This format is not required for using segwit, but is more
+                    efficient, flexible, and nicer to use.</p>
+
+                    <p>The format is base 32 and uses a simple checksum algorithm with strong
+                    error detection properties. Reference code in several languages as
+                    well as a website demonstrating it are included.</p>
+
+                    <p>Furthermore, it is possible to locate the characters which are likely
+                    wrong as shown by the demo below.</p>
+
+                    <ul>
+                    <li><a href="https://lists.linuxfoundation.org/pipermail/bitcoin-dev/2017-March/013749.html">Mailinglist announcement</a></li>
+                    <li>SF Bitcoin devs talk: <a href="https://www.youtube.com/watch?v=NqiN9VFE4CU">Video</a>, <a href="https://prezi.com/gwnjkqjqjjbz/bech32-a-base32-address-format/">Presentation</a>, <a href="https://diyhpl.us/wiki/transcripts/sf-bitcoin-meetup/2017-03-29-new-address-type-for-segwit-addresses/">Transcript by Bryan Bishop</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card text-left">
+                <h3 class="card-header">Decoder demo</h3>
+                <div class="card-block">
+                    <div class="form-group row">
+                        <label for="address" class="col-sm-2 col-form-label col-form-label-lg">Address</label>
+                        <div class="col-sm-10">
+                            <input type="text" class="form-control form-control-lg monospace" id="address" placeholder="SegWit address" size="74" oninput="update_status();" />
+                        </div>
+                    </div>
+                    <p><span id="result"><br/></span></p>
+                    <p><span id="copy" class="monospace"><br/></span></p>
+                    Fill field with:
+                    <ul>
+                    <li> <a class="demo_link" href='javascript:load_addr("bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4");'>P2WPKH example</a>
+                    <li> <a class="demo_link" href='javascript:load_addr("BC1QW508D6QEJXTDG4Y5R3ZARVAYR0C5XW7KV8F3T4");'>P2WPKH example with errors</a>
+                    <li> <a class="demo_link" href='javascript:load_addr("bc1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qccfmv3");'>P2WSH example</a>
+                    </ul>
+                </div>
+            </div>
+    </div>
+
+    <footer class="footer">
+        <div class="container text-center">
+            <img height="80" src="SegWit.png" width="288" alt="SegWit">
+        </div>
+    </footer>
+    <script src="demo.js"></script>
+    </body>
+</html>
+

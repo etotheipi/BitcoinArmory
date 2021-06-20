@@ -2,7 +2,7 @@
 //                                                                            //
 //  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
-//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//  See LICENSE-ATI or http://www.gnu.org/licenses/agpl.html                  //
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 #include "HistoryPager.h"
@@ -41,7 +41,7 @@ map<BinaryData, LedgerEntry>& HistoryPager::getPageLedgerMap(
 
    page.pageLedgers_.clear();
 
-   //load page's block range from SSH and build ledgers
+   //load page's block range from ssh and build ledgers
    if (txioMap != nullptr)
    {
       getTxio(page.blockStart_, page.blockEnd_, *txioMap);
@@ -70,7 +70,7 @@ void HistoryPager::getPageLedgerMap(
 
    const Page& page = pages_[pageId];
 
-   //load page's block range from SSH and build ledgers
+   //load page's block range from ssh and build ledgers
    map<BinaryData, TxIOPair> txio;
    getTxio(page.blockStart_, page.blockEnd_, txio);
    buildLedgers(leMap, txio, page.blockStart_, page.blockEnd_);
@@ -95,23 +95,33 @@ map<BinaryData, LedgerEntry>& HistoryPager::getPageLedgerMap(uint32_t pageId)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void HistoryPager::mapHistory(
-   function< map<uint32_t, uint32_t>(bool) > getSSHsummary,
-   bool forcePaging)
+bool HistoryPager::mapHistory(
+   function< map<uint32_t, uint32_t>(void)> getSSHsummary)
 {
-   //grab the SSH summary for the pager. This is a map, referencing the amount
+   //grab the ssh summary for the pager. This is a map, referencing the amount
    //of txio per block for the given address.
    
+   map<uint32_t, uint32_t> newSummary;
+   
+   try
+   {
+      newSummary = move(getSSHsummary());
+   }
+   catch (AlreadyPagedException&)
+   {
+      return false;
+   }
+
    reset();
    SSHsummary_.clear();
    
-   SSHsummary_ = getSSHsummary(forcePaging);
+   SSHsummary_ = move(newSummary);
    
    if (SSHsummary_.size() == 0)
    {
       addPage(0, 0, UINT32_MAX);
       isInitialized_ = true;
-      return;
+      return true;
    }
 
    auto histIter = SSHsummary_.crbegin();
@@ -139,6 +149,7 @@ void HistoryPager::mapHistory(
    sortPages();
 
    isInitialized_ = true;
+   return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -1,5 +1,6 @@
---- ./src/gui/kernel/qeventdispatcher_mac.mm	2014-12-18 06:48:36.000000000 -0500
-+++ ./src/gui/kernel/qeventdispatcher_mac.mm	2015-01-04 23:35:52.000000000 -0500
+diff -urN qt-everywhere-opensource-src-4.8.7/src/gui/kernel/qeventdispatcher_mac.mm qt-everywhere-opensource-src-4.8.7.new/src/gui/kernel/qeventdispatcher_mac.mm
+--- a/src/gui/kernel/qeventdispatcher_mac.mm	2014-12-18 06:48:36.000000000 -0500
++++ b/src/gui/kernel/qeventdispatcher_mac.mm	2015-01-04 23:35:52.000000000 -0500
 @@ -608,6 +608,11 @@
                      // dispatcher (e.g to stop a native dialog). But that call wrongly stopped
                      // 'session' as well. As a result, we need to restart all internal sessions:

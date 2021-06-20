@@ -2,7 +2,12 @@
 //                                                                            //
 //  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
-//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//  See LICENSE-ATI or http://www.gnu.org/licenses/agpl.html                  //
+//                                                                            //
+//                                                                            //
+//  Copyright (C) 2016, goatpig                                               //            
+//  Distributed under the MIT license                                         //
+//  See LICENSE-MIT or https://opensource.org/licenses/MIT                    //                                   
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 #include "txio.h"
@@ -82,7 +87,8 @@ HashString TxIOPair::getTxHashOfOutput(const LMDBBlockDatabase *db) const
       return txHashOfOutput_;
    else if (txRefOfOutput_.isInitialized() && db != nullptr)
    {
-      txHashOfOutput_ = txRefOfOutput_.attached(db).getThisHash();
+      DBTxRef dbTxRef(txRefOfOutput_, db);
+      txHashOfOutput_ = dbTxRef.getThisHash();
       return txHashOfOutput_;
    }
 
@@ -98,7 +104,8 @@ HashString TxIOPair::getTxHashOfInput(const LMDBBlockDatabase *db) const
       return txHashOfInput_;
    else if (txRefOfInput_.isInitialized() && db != nullptr)
    {
-      txHashOfInput_ = txRefOfInput_.attached(db).getThisHash();
+      DBTxRef dbTxRef(txRefOfInput_, db);
+      txHashOfInput_ = dbTxRef.getThisHash();
       return txHashOfInput_;
    }
 
@@ -111,7 +118,10 @@ TxOut TxIOPair::getTxOutCopy(LMDBBlockDatabase *db) const
    // we should't ever be trying to access it without checking it 
    // first in the calling code (hasTxOut/hasTxOutZC)
    if (hasTxOut())
-      return txRefOfOutput_.attached(db).getTxOutCopy(indexOfOutput_);
+   {
+      DBTxRef dbTxRef(txRefOfOutput_, db);
+      return dbTxRef.getTxOutCopy(indexOfOutput_);
+   }
 
    throw runtime_error("Has not TxOutCopy");
 }
@@ -123,9 +133,11 @@ TxIn TxIOPair::getTxInCopy(LMDBBlockDatabase *db) const
    // we should't ever be trying to access it without checking it 
    // first in the calling code (hasTxIn/hasTxInZC)
    if (hasTxIn())
-      return txRefOfInput_.attached(db).getTxInCopy(indexOfInput_);
-   /*else
-   return getTxInZC();*/
+   {
+      DBTxRef dbTxRef(txRefOfInput_, db);
+      return dbTxRef.getTxInCopy(indexOfInput_);
+   }
+
    throw runtime_error("Has not TxInCopy");
 }
 
@@ -146,7 +158,7 @@ bool TxIOPair::setTxIn(const BinaryData& dbKey8B)
    {
       BinaryRefReader brr(dbKey8B);
       BinaryDataRef txKey6B = brr.get_BinaryDataRef(6);
-      uint16_t      txInIdx = brr.get_uint16_t(BIGENDIAN);
+      uint16_t      txInIdx = brr.get_uint16_t(BE);
       return setTxIn(TxRef(txKey6B), (uint32_t)txInIdx);
    }
    else
@@ -164,7 +176,7 @@ bool TxIOPair::setTxOut(const BinaryData& dbKey8B)
    {
       BinaryRefReader brr(dbKey8B);
       BinaryDataRef txKey6B = brr.get_BinaryDataRef(6);
-      uint16_t      txOutIdx = brr.get_uint16_t(BIGENDIAN);
+      uint16_t      txOutIdx = brr.get_uint16_t(BE);
       return setTxOut(TxRef(txKey6B), (uint32_t)txOutIdx);
    }
    else
@@ -212,10 +224,9 @@ bool TxIOPair::isUnspent(LMDBBlockDatabase *db) const
 }
 
 //////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::isSpendable(LMDBBlockDatabase *db, uint32_t currBlk, bool ignoreAllZeroConf) const
+bool TxIOPair::isSpendable(LMDBBlockDatabase *db, uint32_t currBlk) const
 {
-   // Spendable TxOuts are ones with at least 1 confirmation, or zero-conf
-   // TxOuts that were sent-to-self.  Obviously, they should be unspent, too
+   // Spendable TxOuts are ones with at least 1 confirmation
    if (hasTxInZC() || hasTxInInMain(db))
       return false;
 
@@ -228,24 +239,22 @@ bool TxIOPair::isSpendable(LMDBBlockDatabase *db, uint32_t currBlk, bool ignoreA
          return true;
    }
 
-   if (hasTxOutZC() && isTxOutFromSelf())
-      return !ignoreAllZeroConf;
+   if (hasTxOutZC()/* && isTxOutFromSelf()*/)
+      return false;
 
    return false;
 }
 
 //////////////////////////////////////////////////////////////////////////////
 bool TxIOPair::isMineButUnconfirmed(
-   LMDBBlockDatabase *db,
-   uint32_t currBlk, bool inclAllZC
-   ) const
+   LMDBBlockDatabase *db, uint32_t currBlk) const
 {
-   // All TxOuts that were from our own transactions are always confirmed
-   if (isTxOutFromSelf())
+   DBTxRef dbTxRef(txRefOfInput_, db);
+   if (hasTxInZC() || (hasTxIn() && dbTxRef.isMainBranch()))
       return false;
 
-   if (hasTxInZC() || (hasTxIn() && txRefOfInput_.attached(db).isMainBranch()))
-      return false;
+   if (hasTxOutZC())
+      return true;
 
    if (hasTxOutInMain(db))
    {
@@ -255,35 +264,37 @@ bool TxIOPair::isMineButUnconfirmed(
       else
          return (nConf<MIN_CONFIRMATIONS);
    }
-   else if (hasTxOutZC() && (!isTxOutFromSelf() || inclAllZC))
-      return true;
-
 
    return false;
 }
 
+//////////////////////////////////////////////////////////////////////////////
 bool TxIOPair::hasTxOutInMain(LMDBBlockDatabase *db) const
 {
-   return (!hasTxOutZC() &&
-      hasTxOut() && txRefOfOutput_.attached(db).isMainBranch());
+   DBTxRef dbTxRef(txRefOfOutput_, db);
+   return (!hasTxOutZC() && hasTxOut() && dbTxRef.isMainBranch());
 }
 
+//////////////////////////////////////////////////////////////////////////////
 bool TxIOPair::hasTxInInMain(LMDBBlockDatabase *db) const
 {
-   return (!hasTxInZC() &&
-      hasTxIn() && txRefOfInput_.attached(db).isMainBranch());
+   DBTxRef dbTxRef(txRefOfInput_, db);
+   return (!hasTxInZC() && hasTxIn() && dbTxRef.isMainBranch());
 }
 
+//////////////////////////////////////////////////////////////////////////////
 bool TxIOPair::hasTxOutZC(void) const
 {
    return txRefOfOutput_.getDBKey().startsWith(READHEX("ffff"));
 }
 
+//////////////////////////////////////////////////////////////////////////////
 bool TxIOPair::hasTxInZC(void) const
 {
    return txRefOfInput_.getDBKey().startsWith(READHEX("ffff"));
 }
 
+//////////////////////////////////////////////////////////////////////////////
 void TxIOPair::pprintOneLine(LMDBBlockDatabase *db) const
 {
    printf("   Val:(%0.3f)\t  (STS, O,I, Omb,Imb, Oz,Iz)  %d  %d%d %d%d %d%d\n",
@@ -298,6 +309,7 @@ void TxIOPair::pprintOneLine(LMDBBlockDatabase *db) const
 
 }
 
+//////////////////////////////////////////////////////////////////////////////
 bool TxIOPair::operator>=(const BinaryData &dbKey) const
 {
    if (txRefOfOutput_ >= dbKey)
@@ -309,6 +321,7 @@ bool TxIOPair::operator>=(const BinaryData &dbKey) const
    return false;
 }
 
+//////////////////////////////////////////////////////////////////////////////
 TxIOPair& TxIOPair::operator=(const TxIOPair &rhs)
 {
    this->amount_ = rhs.amount_;
@@ -328,10 +341,13 @@ TxIOPair& TxIOPair::operator=(const TxIOPair &rhs)
    this->txtime_ = rhs.txtime_;
 
    this->isUTXO_ = rhs.isUTXO_;
+   this->isRBF_ = rhs.isRBF_;
+   this->isZCChained_ = rhs.isZCChained_;
 
    return *this;
 }
 
+//////////////////////////////////////////////////////////////////////////////
 TxIOPair& TxIOPair::operator=(TxIOPair&& toMove)
 {
    this->amount_ = toMove.amount_;
@@ -351,6 +367,8 @@ TxIOPair& TxIOPair::operator=(TxIOPair&& toMove)
    this->txtime_ = toMove.txtime_;
 
    this->isUTXO_ = toMove.isUTXO_;
+   this->isRBF_ = toMove.isRBF_;
+   this->isZCChained_ = toMove.isZCChained_;
 
    return *this;
 }
