@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: MIT
+
+pragma solidity ^0.8.17;
+
+contract ArraysExercise {
+    uint[] numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    uint[] timestamps;
+    address[] senders;
+
+    uint256 constant Y2K = 946702800; 
+
+    function getNumbers() external view returns (uint[] memory) {
+        uint[] memory results = new uint[](numbers.length);
+
+        for(uint i=0; i<numbers.length; i++) {
+            results[i] = numbers[i];
+        }
