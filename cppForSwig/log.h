@@ -2,7 +2,7 @@
 //                                                                            //
 //  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
-//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//  See LICENSE-ATI or http://www.gnu.org/licenses/agpl.html                  //
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -61,7 +61,11 @@
 #include <fstream>
 #include <iostream>
 #include <stdio.h>
+#include <thread>
+#include <mutex>
+#include <memory>
 #include "OS_TranslatePath.h"
+#include "make_unique.h"
 
 #define FILEANDLINE "(" << __FILE__ << ":" << __LINE__ << ") "
 #define LOGERR    (LoggerObj(LogLvlError ).getLogStream() << FILEANDLINE )
@@ -87,7 +91,6 @@
 using namespace std;
 
 inline string NowTime();
-inline unsigned long long int NowTimeInt();
 
 typedef enum 
 {
@@ -123,7 +126,8 @@ public:
 class DualStream : public LogStream
 {
 public:
-   DualStream(void) : noStdout_(false) {}
+   DualStream(void) : noStdout_(false) 
+   {}
 
    void enableStdOut(bool newbool) { noStdout_ = !newbool; }
 
@@ -132,7 +136,7 @@ public:
       fname_ = logfile;
       truncateFile(fname_, maxSz);
       fout_.open(OS_TranslatePath(fname_.c_str()), ios::app); 
-      fout_ << "\n\nLog file opened at " << NowTimeInt() << ": " << fname_.c_str() << endl;
+      fout_ << "\n\nLog file opened at " << NowTime() << ": " << fname_.c_str() << endl;
    }
 
    
@@ -157,7 +161,6 @@ public:
       else
       {
          // Otherwise, seek to <maxSize> before end of log file
-         ifstream is(OS_TranslatePath(logfile.c_str()), ios::in|ios::binary);
          is.seekg(fsize - maxSizeInBytes);
 
          // Allocate buffer to hold the rest of the file (about maxSizeInBytes)
@@ -297,8 +300,8 @@ public:
 protected:
     DualStream ds_;
     NullStream ns_;
-    int logLevel_;
-    bool isInitialized_;
+    int logLevel_ = LogLvlInfo;
+    bool isInitialized_ = false;
     bool disableStdout_;
 private:
     Log(const Log&);
@@ -313,14 +316,21 @@ private:
 // instead I create this little wrapper that does it for me.
 class LoggerObj
 {
+private:
+   static mutex mu_;
+   unique_ptr<unique_lock<mutex>> lockPtr_ = nullptr;
+
 public:
-   LoggerObj(LogLevel lvl) : logLevel_(lvl) {}
+   LoggerObj(LogLevel lvl) : logLevel_(lvl) 
+   {
+      lockPtr_ = move(make_unique<unique_lock<mutex>>(mu_));
+   }
 
    LogStream & getLogStream(void) 
    { 
       LogStream & lg = Log::GetInstance().Get(logLevel_);
       lg << "-" << Log::ToString(logLevel_);
-      lg << "- " << NowTimeInt() << ": ";
+      lg << "- " << NowTime() << ": ";
       return lg;
    }
 
@@ -328,6 +338,7 @@ public:
    { 
       Log::GetInstance().Get(logLevel_) << "\n";
       Log::GetInstance().FlushStreams();
+      lockPtr_.reset();
    }
 
 private:
@@ -373,13 +384,6 @@ inline string NowTime()
     return result;
 }
 
-inline unsigned long long int NowTimeInt(void)
-{
-   time_t t;
-   time(&t);
-   return (unsigned long long int)t;
-}
-
 #else
 
 #include <sys/time.h>
@@ -396,13 +400,6 @@ inline string NowTime()
     char result[100] = {0};
     sprintf(result, "%s", buffer);
     return result;
-}
-
-inline unsigned long long int NowTimeInt(void)
-{
-   time_t t;
-   time(&t);
-   return (unsigned long long int)t;
 }
 
 #endif //WIN32

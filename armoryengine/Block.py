@@ -167,7 +167,7 @@ class PyBlockData(object):
       assert( not self.numTx == UNINITIALIZED )
       if len(self.merkleTree)==0 and not self.numTx==0:
          #Create the merkle tree
-         self.merkleTree = [hash256(tx.serialize()) for tx in self.txList]
+         self.merkleTree = [hash256(tx.serializeWithoutWitness()) for tx in self.txList]
          sz = len(self.merkleTree)
          while sz > 1:
             hashes = self.merkleTree[-sz:]

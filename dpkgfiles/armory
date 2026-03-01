@@ -1,2 +1,5 @@
-#!/bin/sh
-exec python /usr/lib/armory/ArmoryQt.py "$@"
+#!/bin/bash
+
+unset CDPATH
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+exec python2 "$DIR"/../lib/armory/ArmoryQt.py "$@"

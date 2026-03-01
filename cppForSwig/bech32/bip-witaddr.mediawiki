@@ -1,0 +1,1 @@
+Moved to [https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki BIP 0173].

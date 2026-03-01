@@ -128,5 +128,70 @@
       <file alias="visible2.png">img/visible2.png</file>
       <file alias="view-refresh-4.png">img/view-refresh-4.png</file>
       <file alias="wallet_16x12.png">img/wallet_16x12.png</file>
+      
+      <file alias="2c.png">img/2c.png</file>
+      <file alias="2d.png">img/2d.png</file>
+      <file alias="2h.png">img/2h.png</file>
+      <file alias="2s.png">img/2s.png</file>
+
+      <file alias="3c.png">img/3c.png</file>
+      <file alias="3d.png">img/3d.png</file>
+      <file alias="3h.png">img/3h.png</file>
+      <file alias="3s.png">img/3s.png</file>
+
+      <file alias="4c.png">img/4c.png</file>
+      <file alias="4d.png">img/4d.png</file>
+      <file alias="4h.png">img/4h.png</file>
+      <file alias="4s.png">img/4s.png</file>
+
+      <file alias="5c.png">img/5c.png</file>
+      <file alias="5d.png">img/5d.png</file>
+      <file alias="5h.png">img/5h.png</file>
+      <file alias="5s.png">img/5s.png</file>
+
+      <file alias="6c.png">img/6c.png</file>
+      <file alias="6d.png">img/6d.png</file>
+      <file alias="6h.png">img/6h.png</file>
+      <file alias="6s.png">img/6s.png</file>
+
+      <file alias="7c.png">img/7c.png</file>
+      <file alias="7d.png">img/7d.png</file>
+      <file alias="7h.png">img/7h.png</file>
+      <file alias="7s.png">img/7s.png</file>
+
+      <file alias="8c.png">img/8c.png</file>
+      <file alias="8d.png">img/8d.png</file>
+      <file alias="8h.png">img/8h.png</file>
+      <file alias="8s.png">img/8s.png</file>      
+
+      <file alias="9c.png">img/9c.png</file>
+      <file alias="9d.png">img/9d.png</file>
+      <file alias="9h.png">img/9h.png</file>
+      <file alias="9s.png">img/9s.png</file>   
+
+      <file alias="Tc.png">img/Tc.png</file>
+      <file alias="Td.png">img/Td.png</file>
+      <file alias="Th.png">img/Th.png</file>
+      <file alias="Ts.png">img/Ts.png</file>    
+
+      <file alias="Jc.png">img/Jc.png</file>
+      <file alias="Jd.png">img/Jd.png</file>
+      <file alias="Jh.png">img/Jh.png</file>
+      <file alias="Js.png">img/Js.png</file>      
+
+      <file alias="Qc.png">img/Qc.png</file>
+      <file alias="Qd.png">img/Qd.png</file>
+      <file alias="Qh.png">img/Qh.png</file>
+      <file alias="Qs.png">img/Qs.png</file>      
+
+      <file alias="Kc.png">img/Kc.png</file>
+      <file alias="Kd.png">img/Kd.png</file>
+      <file alias="Kh.png">img/Kh.png</file>
+      <file alias="Ks.png">img/Ks.png</file>      
+
+      <file alias="Ac.png">img/Ac.png</file>
+      <file alias="Ad.png">img/Ad.png</file>
+      <file alias="Ah.png">img/Ah.png</file>
+      <file alias="As.png">img/As.png</file>      
    </qresource>
 </RCC>

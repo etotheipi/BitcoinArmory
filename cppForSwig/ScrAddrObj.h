@@ -2,7 +2,7 @@
 //                                                                            //
 //  Copyright (C) 2011-2015, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
-//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//  See LICENSE-ATI or http://www.gnu.org/licenses/agpl.html                  //
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 #ifndef SCRADDROBJ_H
@@ -38,6 +38,13 @@
 //
 //
 ////////////////////////////////////////////////////////////////////////////////
+struct ScanAddressStruct
+{
+   set<BinaryData> invalidatedZCKeys_;
+   map<BinaryData, shared_ptr<map<BinaryData, TxIOPair>>> zcMap_;
+   map<BinaryData, LedgerEntry> zcLedgers_;
+};
+
 class ScrAddrObj
 {
    friend class BtcWallet;
@@ -57,9 +64,9 @@ private:
       ***/
       uint32_t count_ = 0;
       
-      ScrAddrObj *scrAddrObj_;
+      const ScrAddrObj *scrAddrObj_;
 
-      pagedUTXOs(ScrAddrObj* scrAddrObj) : 
+      pagedUTXOs(const ScrAddrObj* scrAddrObj) : 
          scrAddrObj_(scrAddrObj)
       {}
 
@@ -69,7 +76,7 @@ private:
       bool fetchMoreUTXO(function<bool(const BinaryData&)> spentByZC)
       {
          //return true if more UTXO were found, false otherwise
-         if (topBlock_ < scrAddrObj_->bc_->top().getBlockHeight())
+         if (topBlock_ < scrAddrObj_->bc_->top()->getBlockHeight())
          {
             uint32_t rangeTop;
             uint32_t count = 0;
@@ -104,7 +111,7 @@ private:
             {
                if (txioPair.second.isUTXO())
                {
-                  //isMultisig is only signifies this scrAddr was used in the
+                  //isMultisig only signifies this scrAddr was used in the
                   //composition of a funded multisig transaction. This is purely
                   //meta-data and shouldn't be returned as a spendable txout
                   if (txioPair.second.isMultisig())
@@ -156,8 +163,8 @@ private:
             if (txio.second.hasTxIn())
                continue;
 
-            if (!isFromWallet(txio.second.getDBKeyOfOutput().getSliceCopy(0, 6)))
-               continue;
+            /*if (!isFromWallet(txio.second.getDBKeyOfOutput().getSliceCopy(0, 6)))
+               continue;*/
 
             utxoList_.insert(txio);
          }
@@ -207,14 +214,9 @@ public:
    // the Utxos in the list.  If you don't care (i.e. you only want to 
    // know what TxOuts are available to spend, you can pass in 0 for currBlk
    uint64_t getFullBalance() const;
-   uint64_t getSpendableBalance(
-      uint32_t currBlk=0, 
-      bool ignoreAllZeroConf=false
-   ) const;
-   uint64_t getUnconfirmedBalance(
-      uint32_t currBlk, 
-      bool includeAllZeroConf=false
-   ) const;
+   uint64_t getSpendableBalance(uint32_t currBlk) const;
+   uint64_t getUnconfirmedBalance(uint32_t currBlk) const;
+
    vector<UnspentTxOut> getFullTxOutList(uint32_t currBlk=UINT32_MAX, bool ignoreZC=true) const;
    vector<UnspentTxOut> getSpendableTxOutList(bool ignoreZC=true) const;
 
@@ -246,9 +248,9 @@ public:
 
    void updateTxIOMap(map<BinaryData, TxIOPair>& txio_map);
 
-   void scanZC(const map<HashString, TxIOPair>& zcTxIOMap,
-      function<bool(const BinaryData&)>);
-   void purgeZC(const vector<BinaryData>& invalidatedTxOutKeys);
+   void scanZC(const ScanAddressStruct&, function<bool(const BinaryDataRef)>,
+      int32_t);
+   bool purgeZC(const set<BinaryData>& invalidatedTxOutKeys);
 
    void updateAfterReorg(uint32_t lastValidBlockHeight);
 
@@ -272,7 +274,8 @@ public:
    { return hist_.getSSHsummary(); }
 
    void fetchDBScrAddrData(uint32_t startBlock, 
-                           uint32_t endBlock);
+                           uint32_t endBlock,
+                           int32_t updateID);
 
    void getHistoryForScrAddr(
       uint32_t startBlock, uint32_t endBlock,
@@ -290,7 +293,11 @@ public:
    const map<BinaryData, TxIOPair>& getPreparedTxOutList(void) const
    { return utxos_.getUTXOs(); }
    
+   bool getMoreUTXOs(pagedUTXOs&, 
+      function<bool(const BinaryData&)> hasTxOutInZC) const;
    bool getMoreUTXOs(function<bool(const BinaryData&)> hasTxOutInZC);
+   vector<UnspentTxOut> getAllUTXOs(
+      function<bool(const BinaryData&)> hasTxOutInZC) const;
 
    uint64_t getLoadedTxOutsValue(void) const { return utxos_.getValue(); }
    uint32_t getLoadedTxOutsCount(void) const { return utxos_.getCount(); }
@@ -305,6 +312,18 @@ public:
 
    uint32_t getBlockInVicinity(uint32_t blk) const;
    uint32_t getPageIdForBlockHeight(uint32_t blk) const;
+
+   uint32_t getTxioCountForLedgers(void)
+   {
+      //return UINT32_MAX unless count has changed since last call
+      //(or it's the first call)
+      auto count = getTxioCountFromSSH();
+      if (count == txioCountForLedgers_)
+         return UINT32_MAX;
+
+      txioCountForLedgers_ = count;
+      return count;
+   }
 
 private:
    LMDBBlockDatabase *db_;
@@ -326,11 +345,17 @@ private:
    mutable uint64_t totalTxioCount_=0;
    mutable uint32_t lastSeenBlock_=0;
 
-   //prebuild history indexes for quick fetch from SSH
+   uint32_t txioCountForLedgers_ = UINT32_MAX;
+
+   //prebuild history indexes for quick fetch from ssh
    HistoryPager hist_;
 
    //fetches and maintains utxos
    pagedUTXOs   utxos_;
+
+   map<BinaryData, set<BinaryData> > validZCKeys_;
+
+   int32_t updateID_ = 0;
 };
 
 #endif

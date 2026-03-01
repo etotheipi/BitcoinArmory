@@ -5,8 +5,8 @@ Name "Bitcoin Armory"
 
 # General Symbol Definitions
 !define REGKEY "SOFTWARE\$(^Name)"
-!define COMPANY "Armory Technologies Inc."
-!define URL http://bitcoinarmory.com/
+!define COMPANY "Community maintained"
+!define URL http://btcarmory.com/
 
 # MultiUser Symbol Definitions
 !define MULTIUSER_EXECUTIONLEVEL Highest
@@ -34,7 +34,8 @@ Name "Bitcoin Armory"
 !include x64.nsh
 
 # Reserved Files
-ReserveFile "${NSISDIR}\Plugins\x86-ansi\StartMenu.dll"
+#ReserveFile "${NSISDIR}\Plugins\StartMenu.dll"
+ReserveFile "${NSISDIR}\Plugins\x86-unicode\StartMenu.dll"
 
 # Variables
 Var StartMenuGroup
@@ -105,7 +106,7 @@ ShowUninstDetails show
 !macroend
 
 Section -Main SEC0000
-   
+
     ${If} ${RunningX64}
         # 64 bit code
         SetOutPath $INSTDIR
@@ -123,7 +124,7 @@ Section -Main SEC0000
     ${Else}
         # 32 bit code
         MessageBox MB_OK "You cannot install this version on a 32-bit system"
-    ${EndIf} 
+    ${EndIf}
 SectionEnd
 
 Section -post SEC0001
@@ -237,4 +238,3 @@ no_smgroup:
     Pop $R2
     Pop $R1
 FunctionEnd
-

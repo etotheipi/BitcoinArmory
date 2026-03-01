@@ -158,6 +158,7 @@ class PyBtcAddress(object):
 
    #############################################################################
    def getAddrStr(self, netbyte=ADDRBYTE):
+      raise Exception("Deprecated, get address from mirror wallet instead")
       chksum = hash256(netbyte + self.addrStr20)[:4]
       return binary_to_base58(netbyte + self.addrStr20 + chksum)
 
@@ -1221,6 +1222,7 @@ class PyBtcAddress(object):
 
 
    def pprint(self, withPrivKey=True, indent=''):
+      raise NotImplementedError("deprecated")
       def pp(x, nchar=1000):
          if x.getSize()==0:
             return '--'*32

@@ -1,0 +1,10 @@
+[main]
+host = https://www.transifex.com
+
+[bitcoin-armory-software.armory]
+file_filter = lang/armory_<lang>.ts
+minimum_perc = 5
+source_file = lang/armory_en.ts
+source_lang = en
+type = TS
+
